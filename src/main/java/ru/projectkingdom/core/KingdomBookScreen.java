@@ -2,6 +2,7 @@ package ru.projectkingdom.core;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
@@ -197,6 +198,11 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         @Override
         public void onPress() {
             selected = section;
+        }
+
+        @Override
+        protected void updateWidgetNarration(NarrationElementOutput narration) {
+            defaultButtonNarrationText(narration);
         }
 
         @Override
