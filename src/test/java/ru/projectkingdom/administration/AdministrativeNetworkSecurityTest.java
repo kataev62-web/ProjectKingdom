@@ -19,7 +19,7 @@ final class AdministrativeNetworkSecurityTest {
         String source=Files.readString(Path.of("src/main/java/ru/projectkingdom/administration/AdministrativeActionPacket.java"));
         assertTrue(source.contains("sender.containerMenu instanceof AdministrativeCoreMenu"));
         assertTrue(source.contains("packet.townId.equals(menu.townId())"));
-        assertTrue(source.contains("packet.kind==menu.kind()"));
+        assertTrue(source.contains("packet.kind!=menu.kind()"));
         assertTrue(source.contains("menu.stillValid(sender)"));
         assertTrue(source.contains("menu.manager()"));
     }
