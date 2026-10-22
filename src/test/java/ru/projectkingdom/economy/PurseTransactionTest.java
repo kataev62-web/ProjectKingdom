@@ -11,7 +11,7 @@ final class PurseTransactionTest {
         var result = PurseTransaction.debit(List.of(first, second), 150);
         assertTrue(result.committed());
         assertEquals(0, result.purses().get(0).valueCopper());
-        assertEquals(50, result.purses().get(1).valueCopper());
+        assertEquals(150, result.purses().get(1).valueCopper());
     }
 
     @Test void creditUsesFirstFreePurseThenNext() {

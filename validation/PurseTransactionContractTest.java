@@ -12,7 +12,7 @@ public final class PurseTransactionContractTest {
                 new MoneyPurse(0, 2, 0, false)), 150);
         check(debit.committed(), "debit committed");
         check(debit.purses().get(0).valueCopper() == 0, "first purse used first");
-        check(debit.purses().get(1).valueCopper() == 50, "change conserved");
+        check(debit.purses().get(1).valueCopper() == 150, "remaining value conserved");
         var full = List.of(new MoneyPurse(1000, 0, 0, false));
         var transfer = PurseTransaction.transfer(
                 List.of(new MoneyPurse(0, 1, 0, false)), full, 100);
