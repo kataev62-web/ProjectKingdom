@@ -28,6 +28,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import ru.projectkingdom.core.KingdomBookGuardian;
 import ru.projectkingdom.core.KingdomBookRegistry;
 import ru.projectkingdom.economy.KingdomEconomyRegistry;
+import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -44,6 +45,7 @@ public final class KingdomNpcMod {
         KingdomDemandBoardBlock.register();
         KingdomBookRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomEconomyRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
+        KingdomEnterpriseRegistry.register();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
         MinecraftForge.EVENT_BUS.register(this);
     }
