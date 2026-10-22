@@ -8,5 +8,13 @@
   "item.kingdomnpc.gold_coin": "Золотая монета",
   "item.kingdomnpc.wallet": "Денежный мешок",
   "screen.kingdomnpc.money_purse": "Денежный мешок",
-  "message.kingdomnpc.purse_no_slot": "[Project Kingdom] Освободите один слот, чтобы отделить мешок от стопки."
+  "message.kingdomnpc.purse_no_slot": "[Project Kingdom] Освободите один слот, чтобы отделить мешок от стопки.",
+  "block.kingdomnpc.farm_core": "Ядро фермы",
+  "block.kingdomnpc.mine_core": "Ядро шахты",
+  "block.kingdomnpc.lumber_core": "Ядро лесного предприятия",
+  "block.kingdomnpc.smithy_core": "Ядро кузницы",
+  "block.kingdomnpc.bakery_core": "Ядро пекарни",
+  "block.kingdomnpc.pottery_core": "Ядро гончарной мастерской",
+  "block.kingdomnpc.construction_core": "Ядро строительной конторы",
+  "block.kingdomnpc.courier_core": "Ядро курьерской службы"
 }

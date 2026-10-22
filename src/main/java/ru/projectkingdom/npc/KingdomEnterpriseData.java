@@ -291,7 +291,9 @@ public final class KingdomEnterpriseData extends SavedData {
      */
     public Offer publishWorkshop(MinecraftServer server,UUID worker,UUID firmId,long unitPrice){
         Enterprise firm=firms.get(firmId);
-        if(firm==null||worker==null||unitPrice<1||unitPrice>100000)return null;
+        EnterpriseCoreBinding core=cores.get(firmId);
+        if(firm==null||kind(firmId)!=EnterpriseKind.SMITHY||core==null||!core.active()
+                ||worker==null||unitPrice<1||unitPrice>100000)return null;
         var plan=KingdomNpcWorkshopData.get(server).plan(worker);
         if(plan==null||!firmId.equals(plan.enterprise())||unresolved(firmId))return null;
         var employment=KingdomEnterprisePayrollData.get(server).contract(firmId,worker);

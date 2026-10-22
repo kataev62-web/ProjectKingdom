@@ -127,7 +127,7 @@ public final class KingdomMainMenu extends ChestMenu {
             case ENTERPRISE -> {
                 var data=KingdomEnterpriseData.get(viewer.getServer());var firm=data.owned(viewer.getUUID());
                 int count=data.ownedAll(viewer.getUUID()).size();
-                icon(10,Items.OAK_SIGN,"Создать предприятие (всего "+count+" / 16)");
+                icon(10,Items.OAK_SIGN,"Новые предприятия создаются установкой одного из 8 блоков-ядер (всего "+count+" / 16)");
                 icon(11,Items.PAPER,firm==null?"Нет предприятия":"Активно: "+firm.name()+" (нажми, чтобы переключить)");
                 icon(12,Items.HOPPER,"Внести 100 медных в активную кассу");
                 icon(13,Items.CHEST,"Снять 100 медных из активной кассы");
@@ -273,6 +273,16 @@ public final class KingdomMainMenu extends ChestMenu {
             .sorted(java.util.Comparator.comparing(p->p.getUUID().toString()))
             .toList();
     }
+    private boolean openNearbyEnterprise(){
+        var origin=viewer.blockPosition();double best=Double.MAX_VALUE;ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity selected=null;
+        for(int dx=-6;dx<=6;dx++)for(int dy=-4;dy<=4;dy++)for(int dz=-6;dz<=6;dz++){
+            var pos=origin.offset(dx,dy,dz);if(!viewer.serverLevel().hasChunkAt(pos))continue;
+            if(viewer.serverLevel().getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core&&core.bound()){
+                double distance=pos.distSqr(origin);if(distance<best){best=distance;selected=core;}
+            }
+        }
+        if(selected==null)return false;ru.projectkingdom.enterprise.EnterpriseCoreMenu.open(viewer,selected);return true;
+    }
     private void withdrawTownToWallet(long amount) {
         if(KingdomCurrency.wallet(viewer).isEmpty()){say("Нужен денежный мешок со свободным местом");return;}
         var db=KingdomCivicsData.get(viewer.getServer());
@@ -305,7 +315,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 case 14,16 -> show(viewer,Page.PEOPLE);
                 case 15 -> show(viewer,Page.CIVICS);
                 case 22 -> show(viewer,Page.WALLET);
-                case 23 -> show(viewer,Page.ENTERPRISE);
+                case 23 -> {if(!openNearbyEnterprise()){say("Подойди к установленному блоку-ядру предприятия.");show(viewer,Page.ENTERPRISE);}}
             }}
             case WALLET -> {
                 var wallet=KingdomCurrency.wallet(viewer);
@@ -345,8 +355,7 @@ public final class KingdomMainMenu extends ChestMenu {
             }
             case ENTERPRISE -> {
                 var db=KingdomEnterpriseData.get(viewer.getServer());var firm=db.owned(viewer.getUUID());
-                if(slot==10){var e=db.create(viewer.getUUID(),"Мастерская_"+viewer.getScoreboardName()+"_"+(db.ownedAll(viewer.getUUID()).size()+1));
-                    say(e==null?"Достигнут лимит предприятий или неверное имя":"Создано: "+e.name());draw();}
+                if(slot==10){say("Создай нужный блок-ядро по рецепту и установи его на своей территории.");draw();}
                 else if(slot==11){say(db.selectNext(viewer.getUUID())?"Переключено предприятие":"Других предприятий пока нет");draw();}
                 else if(slot==12){say(db.deposit(viewer,100)?"В кассу внесено 100":"Встань у своей кассы, проверь кошелёк");draw();}
                 else if(slot==13){say(db.withdraw(viewer,100)?"Из кассы получено 100":"Встань у кассы, проверь остаток");draw();}

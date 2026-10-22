@@ -18,6 +18,7 @@ import net.minecraft.world.item.crafting.CraftingRecipe;
 import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import ru.projectkingdom.enterprise.EnterpriseKind;
 
 /** Stage 1 physical NPC workshop: explicit 3x3 recipe, real source and destination,
  * bounded work time, minimum/maximum stock, real employee and optional local purchasing.
@@ -35,8 +36,11 @@ public final class KingdomNpcWorkshop {
     public static String configure(ServerPlayer owner, KingdomNpcData.Worker w){
         if(w==null||w.employer==null||!w.employer.equals(owner.getUUID())
                 ||!w.hasSource||!w.hasDestination||!w.hasWorkstation)return "Назначь предприятие, оба склада и рабочий стол.";
-        var e=KingdomEnterpriseData.get(owner.getServer()).owned(owner.getUUID());
+        var enterprises=KingdomEnterpriseData.get(owner.getServer());
+        var e=enterprises.owned(owner.getUUID());
         if(e==null)return "Предприятие не выбрано.";
+        var core=enterprises.core(e.id());
+        if(enterprises.kind(e.id())!=EnterpriseKind.SMITHY||core==null||!core.active())return "Кузнечное производство требует установленного активного ядра кузницы.";
         ServerLevel level=owner.serverLevel();
         if(!w.dimension.equals(level.dimension().location().toString()))return "Работник в другом измерении.";
         var desk=new BlockPos(w.workX,w.workY,w.workZ);
@@ -202,7 +206,9 @@ public final class KingdomNpcWorkshop {
         if(p==null)return false;
         var firm=KingdomEnterpriseData.get(level.getServer()).find(p.enterprise());
         var contract=KingdomEnterprisePayrollData.get(level.getServer()).contract(p.enterprise(),w.entityId);
-        if(firm==null||!firm.owner().equals(w.employer) || contract==null || !contract.active()
+        var enterprises=KingdomEnterpriseData.get(level.getServer());var core=enterprises.core(p.enterprise());
+        if(firm==null||enterprises.kind(p.enterprise())!=EnterpriseKind.SMITHY||core==null||!core.active()
+                ||!firm.owner().equals(w.employer) || contract==null || !contract.active()
                 ||w.contractPaused||!"work".equals(w.order)||!"smith".equals(w.job)
                 ||!NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)
                 ||!w.dimension.equals(level.dimension().location().toString())||!w.hasWorkstation
