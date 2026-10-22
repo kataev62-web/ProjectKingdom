@@ -8,6 +8,9 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.saveddata.SavedData;
 import java.util.*;
+import ru.projectkingdom.administration.AdministrativeKind;
+import ru.projectkingdom.administration.AdministrativePermissionService;
+import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Towny-inspired server-owned towns/nations/plots; no Bukkit dependency. */
 public final class KingdomCivicsData extends SavedData {
@@ -16,6 +19,7 @@ public final class KingdomCivicsData extends SavedData {
     public enum Action { BUILD, BREAK, INTERACT, USE }
     public enum Relation { RESIDENT, NATION, ALLY, OUTSIDER }
     private final Map<UUID,Set<UUID>> alliances = new LinkedHashMap<>();
+    private transient MinecraftServer runtimeServer;
     public record Town(UUID id, String name, UUID mayor, UUID nation, long treasury) {}
     public record Nation(UUID id, String name, UUID ruler, long treasury) {}
     public record Plot(String dimension, int x, int z, UUID town, UUID tenant, Zone zone, boolean publicUse) {}
@@ -228,7 +232,8 @@ public final class KingdomCivicsData extends SavedData {
     private static String key(String dim,int x,int z) { return dim+"|"+x+"|"+z; }
     private static String dim(ServerLevel level) { return level.dimension().location().toString(); }
     public static KingdomCivicsData get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(KingdomCivicsData::load, KingdomCivicsData::new, KEY);
+        KingdomCivicsData data=server.overworld().getDataStorage().computeIfAbsent(KingdomCivicsData::load, KingdomCivicsData::new, KEY);
+        data.runtimeServer=server;return data;
     }
     public Collection<Town> towns() { return Collections.unmodifiableCollection(towns.values()); }
     /** Read-only source of truth for map integrations. Never mutate claims from a map renderer. */
@@ -294,13 +299,20 @@ public final class KingdomCivicsData extends SavedData {
     /** Atomic town treasury transaction: caller must debit a real inventory or other backing asset first. */
     public boolean depositTown(UUID actor,long amount) {
         Town t=townOf(actor);
-        if(t==null||amount<=0||amount>1_000_000||t.treasury()>Long.MAX_VALUE-amount)return false;
+        return t!=null&&depositTownTo(t.id(),actor,amount);
+    }
+    public boolean depositTownTo(UUID townId,UUID actor,long amount) {
+        Town t=towns.get(townId);
+        if(t==null||!isMember(townId,actor)||amount<=0||amount>1_000_000||t.treasury()>Long.MAX_VALUE-amount||runtimeServer==null)return false;
+        KingdomAdministrationData administration=KingdomAdministrationData.get(runtimeServer);
+        if(!administration.depositTreasuryReserve(townId,amount))return false;
         towns.put(t.id(),new Town(t.id(),t.name(),t.mayor(),t.nation(),t.treasury()+amount));setDirty();return true;
     }
     /** Server-side payroll debit for a verified member of the exact city. */
     public boolean payTownMember(UUID townId, UUID member, long amount) {
         Town t=towns.get(townId);
-        if(t==null||!townId.equals(memberships.get(member))||amount<=0||amount>10000||t.treasury()<amount)return false;
+        if(t==null||!townId.equals(memberships.get(member))||amount<=0||amount>10000||t.treasury()<amount||runtimeServer==null)return false;
+        if(!KingdomAdministrationData.get(runtimeServer).withdrawTreasuryReserve(townId,amount))return false;
         towns.put(t.id(),new Town(t.id(),t.name(),t.mayor(),t.nation(),t.treasury()-amount));setDirty();return true;
     }
     /** Payment of previously verified payroll liabilities, including to former residents.
@@ -308,13 +320,15 @@ public final class KingdomCivicsData extends SavedData {
      */
     public boolean payTownObligation(UUID townId,long amount) {
         Town t=towns.get(townId);
-        if(t==null || amount<=0 || amount>10000 || t.treasury()<amount)return false;
+        if(t==null || amount<=0 || amount>10000 || t.treasury()<amount||runtimeServer==null)return false;
+        if(!KingdomAdministrationData.get(runtimeServer).withdrawTreasuryReserve(townId,amount))return false;
         towns.put(t.id(),new Town(t.id(),t.name(),t.mayor(),t.nation(),t.treasury()-amount));setDirty();return true;
     }
     /** Deposit of a previously verified historical tax debt to its ORIGINAL city. */
     public boolean depositVerifiedTax(UUID townId,long amount) {
         Town t=towns.get(townId);
-        if(t==null || amount<=0 || amount>1000000 || t.treasury()>Long.MAX_VALUE-amount)return false;
+        if(t==null || amount<=0 || amount>1000000 || t.treasury()>Long.MAX_VALUE-amount||runtimeServer==null)return false;
+        if(!KingdomAdministrationData.get(runtimeServer).depositTreasuryReserve(townId,amount))return false;
         towns.put(t.id(),new Town(t.id(),t.name(),t.mayor(),t.nation(),t.treasury()+amount));setDirty();return true;
     }
     /** All citizens, for periodic tax accrual independent of UI opening. */
@@ -322,14 +336,22 @@ public final class KingdomCivicsData extends SavedData {
     /** Compensation for a failed wallet credit; called only after successful treasury debit. */
     public boolean refundTown(UUID townId,long amount) {
         Town t=towns.get(townId);
-        if(t==null||amount<=0||amount>10000||t.treasury()>Long.MAX_VALUE-amount)return false;
+        if(t==null||amount<=0||amount>10000||t.treasury()>Long.MAX_VALUE-amount||runtimeServer==null)return false;
+        if(!KingdomAdministrationData.get(runtimeServer).depositTreasuryReserve(townId,amount))return false;
         towns.put(t.id(),new Town(t.id(),t.name(),t.mayor(),t.nation(),t.treasury()+amount));setDirty();return true;
     }
     /** Transfers existing funds only; never mints currency. */
     /** Mayor-authorized payout; a real receiving wallet must be credited by the caller. */
     public boolean withdrawTown(UUID mayor,long amount) {
         Town t=townOf(mayor);
-        if(t==null||!t.mayor().equals(mayor)||amount<=0||amount>1_000_000||t.treasury()<amount)return false;
+        return t!=null&&withdrawTownAuthorized(t.id(),mayor,amount);
+    }
+    public boolean withdrawTownAuthorized(UUID townId,UUID actor,long amount) {
+        Town t=towns.get(townId);
+        if(t==null||amount<=0||amount>1_000_000||t.treasury()<amount||runtimeServer==null)return false;
+        KingdomAdministrationData administration=KingdomAdministrationData.get(runtimeServer);
+        if(!AdministrativePermissionService.mayManage(actor,administration.founder(townId),t.mayor(),administration.roles(townId,actor),AdministrativeKind.TREASURY)
+                ||!administration.withdrawTreasuryReserve(townId,amount))return false;
         towns.put(t.id(),new Town(t.id(),t.name(),t.mayor(),t.nation(),t.treasury()-amount));setDirty();return true;
     }
     /** Transfers funds to the town treasury from a member; wallet debit is performed by the caller. */

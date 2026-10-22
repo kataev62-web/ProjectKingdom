@@ -12,6 +12,9 @@ import net.minecraft.world.level.saveddata.SavedData;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
+import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
+import ru.projectkingdom.administration.AdministrativeKind;
+import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Deposits are backed by real copper-value coins taken from a physical wallet.
  * Accounts are storage receipts, never a payment method. */
@@ -41,15 +44,24 @@ public final class KingdomBankData extends SavedData {
     public boolean deposit(ServerPlayer player, long amount) {
         if(!atBranch(player)||amount<=0||amount>1_000_000)return false;
         long previous=balance(player.getUUID());
-        if(KingdomCurrency.balance(player)<amount||previous>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
+        UUID town=bankTown(player);
+        if(KingdomCurrency.balance(player)<amount||previous>Long.MAX_VALUE-amount||(town==null&&vault>Long.MAX_VALUE-amount))return false;
         if(!KingdomCurrency.debit(player,amount))return false;
-        accounts.put(player.getUUID(),previous+amount);vault+=amount;
+        if(town!=null&&!KingdomAdministrationData.get(player.getServer()).depositBankReserve(town,amount)){
+            if(!KingdomCurrency.credit(player,amount))throw new IllegalStateException("Bank deposit rollback failed");return false;
+        }
+        accounts.put(player.getUUID(),previous+amount);if(town==null)vault+=amount;
         player.getInventory().setChanged();setDirty();return true;
     }
     public boolean withdraw(ServerPlayer player,long amount) {
-        if(!atBranch(player)||amount<=0||amount>1_000_000||balance(player.getUUID())<amount||vault<amount)return false;
-        if(!KingdomCurrency.credit(player,amount))return false;
-        accounts.put(player.getUUID(),balance(player.getUUID())-amount);vault-=amount;
+        if(!atBranch(player)||amount<=0||amount>1_000_000||balance(player.getUUID())<amount)return false;
+        UUID town=bankTown(player);KingdomAdministrationData administration=KingdomAdministrationData.get(player.getServer());
+        if(town==null?vault<amount:administration.bankReserve(town)<amount)return false;
+        if(town!=null&&!administration.withdrawBankReserve(town,amount))return false;
+        if(!KingdomCurrency.credit(player,amount)){
+            if(town!=null&&!administration.depositBankReserve(town,amount))throw new IllegalStateException("Bank reserve rollback failed");return false;
+        }
+        accounts.put(player.getUUID(),balance(player.getUUID())-amount);if(town==null)vault-=amount;
         player.getInventory().setChanged();setDirty();return true;
     }
     /** Cash paid over a physical bank counter for a named lease. No bank-balance transfers.
@@ -124,12 +136,23 @@ public final class KingdomBankData extends SavedData {
     }
     /** A bank branch must actually exist within interaction distance. */
     public boolean atBranch(ServerPlayer player) {
+        if(bankTown(player)!=null)return true;
         ServerLevel level=player.serverLevel();
         BlockPos pos=player.blockPosition();
         for(int dx=-5;dx<=5;dx++)for(int dy=-4;dy<=4;dy++)for(int dz=-5;dz<=5;dz++){
             if(branch(level,pos.offset(dx,dy,dz)))return true;
         }
         return false;
+    }
+    public UUID bankTown(ServerPlayer player){
+        ServerLevel level=player.serverLevel();BlockPos from=player.blockPosition();KingdomAdministrationData data=KingdomAdministrationData.get(player.getServer());
+        for(var town:KingdomCivicsData.get(player.getServer()).towns()){
+            var binding=data.core(town.id(),AdministrativeKind.BANK);if(binding==null||!binding.dimension().equals(level.dimension().location().toString()))continue;
+            BlockPos pos=BlockPos.of(binding.packedPos());
+            if(pos.distSqr(from)>64||!level.hasChunkAt(pos))continue;
+            if(level.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core&&core.bound()&&town.id().equals(core.townId())&&core.kind()==AdministrativeKind.BANK)return town.id();
+        }
+        return null;
     }
     private static KingdomBankData load(CompoundTag root) {
         KingdomBankData data=new KingdomBankData();
@@ -138,8 +161,8 @@ public final class KingdomBankData extends SavedData {
             CompoundTag row=list.getCompound(i);
             if(row.hasUUID("Owner"))data.accounts.put(row.getUUID("Owner"),Math.max(0,row.getLong("Amount")));
         }
-        // Reconstruct the conserved reserve from stored deposit receipts.
-        for(long amount:data.accounts.values())data.vault=Math.addExact(data.vault,amount);
+        if(root.contains("LegacyVault",Tag.TAG_LONG))data.vault=Math.max(0,root.getLong("LegacyVault"));
+        else for(long amount:data.accounts.values())data.vault=Math.addExact(data.vault,amount);
         ListTag locations=root.getList("Branches",Tag.TAG_COMPOUND);
         for(int i=0;i<locations.size();i++) {
             CompoundTag row=locations.getCompound(i);
@@ -157,6 +180,6 @@ public final class KingdomBankData extends SavedData {
         for(var entry:branches.entrySet()) {
             CompoundTag row=new CompoundTag();row.putString("Location",entry.getKey());row.putUUID("Owner",entry.getValue());locations.add(row);
         }
-        root.put("Branches",locations);return root;
+        root.put("Branches",locations);root.putLong("LegacyVault",vault);return root;
     }
 }

@@ -32,14 +32,19 @@ public final class KingdomAdministrationData extends SavedData {
     private final Map<UUID,EnumMap<AdministrativeKind,AdministrativeCoreBinding>> cores=new LinkedHashMap<>();
     private final Map<UUID,ArrayDeque<LogEntry>> logs=new LinkedHashMap<>();
     private final Map<UUID,EnumMap<AdministrativeBindingRole,LinkedHashSet<BoundContainer>>> containers=new LinkedHashMap<>();
+    private final Map<UUID,Long> bankReserves=new LinkedHashMap<>();
+    private final Map<UUID,Long> treasuryReserves=new LinkedHashMap<>();
+    private final Map<UUID,Long> historicalTreasuries=new LinkedHashMap<>();
     private int dataVersion=DATA_VERSION;
 
     public static KingdomAdministrationData get(MinecraftServer server){
         KingdomAdministrationData data=server.overworld().getDataStorage()
                 .computeIfAbsent(KingdomAdministrationData::fromTag,KingdomAdministrationData::new,KEY);
         boolean changed=false;
-        for(KingdomCivicsData.Town town:KingdomCivicsData.get(server).towns())
+        for(KingdomCivicsData.Town town:KingdomCivicsData.get(server).towns()){
             changed|=data.migrateFounder(town.id(),town.mayor())==1;
+            changed|=data.ensureHistoricalTreasury(town.id(),town.treasury());
+        }
         if(changed)data.setDirty();
         return data;
     }
@@ -127,6 +132,27 @@ public final class KingdomAdministrationData extends SavedData {
         Set<BoundContainer> values=townBindings==null?null:townBindings.get(role);
         return values==null?List.of():List.copyOf(values);
     }
+    public long bankReserve(UUID townId){return bankReserves.getOrDefault(townId,0L);}
+    public long treasuryReserve(UUID townId){return treasuryReserves.getOrDefault(townId,0L);}
+    public long historicalTreasuryLiability(UUID townId){return historicalTreasuries.getOrDefault(townId,0L);}
+    public boolean ensureHistoricalTreasury(UUID townId,long amount){
+        if(townId==null||amount<0||historicalTreasuries.containsKey(townId))return false;
+        historicalTreasuries.put(townId,amount);setDirty();return true;
+    }
+    public boolean depositBankReserve(UUID townId,long amount){return addReserve(bankReserves,townId,amount);}
+    public boolean withdrawBankReserve(UUID townId,long amount){return subtractReserve(bankReserves,townId,amount);}
+    public boolean depositTreasuryReserve(UUID townId,long amount){return addReserve(treasuryReserves,townId,amount);}
+    public boolean withdrawTreasuryReserve(UUID townId,long amount){return subtractReserve(treasuryReserves,townId,amount);}
+    private boolean addReserve(Map<UUID,Long> reserves,UUID townId,long amount){
+        long prior=townId==null?0:reserves.getOrDefault(townId,0L);
+        if(townId==null||amount<=0||prior>Long.MAX_VALUE-amount)return false;
+        reserves.put(townId,prior+amount);setDirty();return true;
+    }
+    private boolean subtractReserve(Map<UUID,Long> reserves,UUID townId,long amount){
+        long prior=townId==null?0:reserves.getOrDefault(townId,0L);
+        if(townId==null||amount<=0||prior<amount)return false;
+        reserves.put(townId,prior-amount);setDirty();return true;
+    }
 
     public static KingdomAdministrationData fromTag(CompoundTag root){
         KingdomAdministrationData data=new KingdomAdministrationData();
@@ -170,6 +196,13 @@ public final class KingdomAdministrationData extends SavedData {
                     .computeIfAbsent(role,unused->new LinkedHashSet<>());
             if((role.multiple()||values.isEmpty())&&values.size()<64)values.add(new BoundContainer(role,dimension,row.getLong("Pos")));
         }
+        ListTag financeList=root.getList("Finance",Tag.TAG_COMPOUND);
+        for(int i=0;i<financeList.size();i++){
+            CompoundTag row=financeList.getCompound(i);if(!row.hasUUID("Town"))continue;UUID town=row.getUUID("Town");
+            data.bankReserves.put(town,Math.max(0,row.getLong("BankReserve")));
+            data.treasuryReserves.put(town,Math.max(0,row.getLong("TreasuryReserve")));
+            data.historicalTreasuries.put(town,Math.max(0,row.getLong("HistoricalTreasury")));
+        }
         data.dataVersion=DATA_VERSION;return data;
     }
     @Override public CompoundTag save(CompoundTag root){
@@ -191,6 +224,11 @@ public final class KingdomAdministrationData extends SavedData {
         ListTag containerList=new ListTag();for(var town:containers.entrySet())for(var role:town.getValue().entrySet())for(BoundContainer binding:role.getValue()){
             CompoundTag row=new CompoundTag();row.putUUID("Town",town.getKey());row.putString("Role",binding.role().name());
             row.putString("Dimension",binding.dimension());row.putLong("Pos",binding.packedPos());containerList.add(row);
-        }root.put("Containers",containerList);return root;
+        }root.put("Containers",containerList);
+        java.util.LinkedHashSet<UUID> financialTowns=new java.util.LinkedHashSet<>();financialTowns.addAll(bankReserves.keySet());financialTowns.addAll(treasuryReserves.keySet());financialTowns.addAll(historicalTreasuries.keySet());
+        ListTag financeList=new ListTag();for(UUID town:financialTowns){
+            CompoundTag row=new CompoundTag();row.putUUID("Town",town);row.putLong("BankReserve",bankReserve(town));
+            row.putLong("TreasuryReserve",treasuryReserve(town));row.putLong("HistoricalTreasury",historicalTreasuryLiability(town));financeList.add(row);
+        }root.put("Finance",financeList);return root;
     }
 }
