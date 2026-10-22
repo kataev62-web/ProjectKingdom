@@ -1,0 +1,10 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": ["SWS", "WCW", "SWS"],
+  "key": {
+    "S": {"item": "minecraft:stone_bricks"},
+    "W": {"item": "minecraft:oak_planks"},
+    "C": {"item": "minecraft:iron_bars"}
+  },
+  "result": {"item": "kingdomnpc:prison_core"}
+}

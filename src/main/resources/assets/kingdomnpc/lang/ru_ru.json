@@ -16,5 +16,14 @@
   "block.kingdomnpc.bakery_core": "Ядро пекарни",
   "block.kingdomnpc.pottery_core": "Ядро гончарной мастерской",
   "block.kingdomnpc.construction_core": "Ядро строительной конторы",
-  "block.kingdomnpc.courier_core": "Ядро курьерской службы"
+  "block.kingdomnpc.courier_core": "Ядро курьерской службы",
+  "block.kingdomnpc.town_hall_core": "Ратуша",
+  "block.kingdomnpc.treasury_core": "Казначейство",
+  "block.kingdomnpc.bank_core": "Банк",
+  "block.kingdomnpc.central_warehouse_core": "Центральный склад",
+  "block.kingdomnpc.city_market_core": "Городской рынок",
+  "block.kingdomnpc.land_office_core": "Земельное управление",
+  "block.kingdomnpc.court_core": "Суд",
+  "block.kingdomnpc.prison_core": "Тюрьма",
+  "block.kingdomnpc.guard_administration_core": "Управление стражи"
 }
