@@ -1,0 +1,138 @@
+package ru.projectkingdom.npc;
+
+import java.util.*;
+import net.minecraft.nbt.*;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.saveddata.SavedData;
+
+/** Taxes are assessed as debt; NEVER debit any wallet automatically. */
+public final class KingdomTaxData extends SavedData {
+    private static final String KEY="kingdom_taxes_v1";
+    public record Debt(UUID town,UUID person,long amount,long lastDay) {}
+    public record Rate(long effectiveDay,long copper) {}
+    private final Map<String,Debt> debts=new LinkedHashMap<>();
+    private final Map<UUID,List<Rate>> rates=new LinkedHashMap<>();
+    private final Map<UUID,Set<UUID>> exemptions=new LinkedHashMap<>();
+    private static String key(UUID town,UUID player){return town+"|"+player;}
+    public static KingdomTaxData get(MinecraftServer server){return server.overworld().getDataStorage().computeIfAbsent(KingdomTaxData::load,KingdomTaxData::new,KEY);}
+    public long rate(UUID town,long day){
+        long value=10;
+        for(Rate r:rates.getOrDefault(town,List.of()))if(r.effectiveDay()<=day)value=r.copper();
+        return value;
+    }
+    /** New tax rate takes effect next game day: past days never retroactively change. */
+    public boolean setRate(MinecraftServer server,UUID mayor,long copper){
+        var town=KingdomCivicsData.get(server).townOf(mayor);
+        if(town==null || !town.mayor().equals(mayor) || copper<0 || copper>1000)return false;
+        long effective=server.overworld().getDayTime()/24000L+1;
+        List<Rate> history=rates.computeIfAbsent(town.id(),k->new ArrayList<>());
+        history.removeIf(r->r.effectiveDay()==effective);
+        history.add(new Rate(effective,copper));history.sort(Comparator.comparingLong(Rate::effectiveDay));setDirty();return true;
+    }
+    public boolean isExempt(UUID town,UUID resident) {
+        return exemptions.getOrDefault(town,Set.of()).contains(resident);
+    }
+    /** Only current residents may be exempted; old debt remains payable. */
+    public boolean exempt(MinecraftServer server,UUID mayor,UUID resident,boolean enable){
+        var civics=KingdomCivicsData.get(server);var town=civics.townOf(mayor);
+        if(town==null || !town.mayor().equals(mayor) || resident==null)return false;
+        var target=civics.townOf(resident);
+        if(target==null || !target.id().equals(town.id()))return false;
+        // Settle all obligations earned so far before toggling the future exemption.
+        owed(server,resident);
+        Set<UUID> people=exemptions.computeIfAbsent(town.id(),k->new LinkedHashSet<>());
+        if(enable)people.add(resident);else people.remove(resident);
+        setDirty();return true;
+    }
+    public long owed(MinecraftServer server,UUID player){
+        var town=KingdomCivicsData.get(server).townOf(player);
+        if(town!=null)assess(server,player,town.id());
+        long total=0;
+        for(Debt d:debts.values())if(d.person().equals(player))
+            total=total>Long.MAX_VALUE-d.amount()?Long.MAX_VALUE:total+d.amount();
+        return total;
+    }
+    public Collection<Debt> unpaid(UUID player){
+        List<Debt> result=new ArrayList<>();
+        for(Debt d:debts.values())if(d.person().equals(player)&&d.amount()>0)result.add(d);
+        return Collections.unmodifiableList(result);
+    }
+    /** Called at login / once per in-game day by scheduler for existing residents. */
+    public void assess(MinecraftServer server,UUID player,UUID townId){
+        long day=Math.max(0,server.overworld().getDayTime()/24000L);
+        String id=key(townId,player);
+        Debt prev=debts.get(id);
+        if(prev==null){debts.put(id,new Debt(townId,player,0,day));setDirty();return;}
+        if(day<=prev.lastDay())return;
+        long add=0;
+        if(!exemptions.getOrDefault(townId,Set.of()).contains(player)){
+            // Split by change points, not 1 loop per day (years of offline players).
+            long start=prev.lastDay();
+            for(Rate event:rates.getOrDefault(townId,List.of())){
+                if(event.effectiveDay()<=start || event.effectiveDay()>=day)continue;
+                add=saturatingAdd(add,saturatingMultiply(event.effectiveDay()-start,rate(townId,start)));
+                start=event.effectiveDay();
+            }
+            add=saturatingAdd(add,saturatingMultiply(day-start,rate(townId,start)));
+        }
+        debts.put(id,new Debt(townId,player,saturatingAdd(prev.amount(),add),day));setDirty();
+    }
+    private static long saturatingMultiply(long a,long b){return a>0&&b>Long.MAX_VALUE/a?Long.MAX_VALUE:a*b;}
+    private static long saturatingAdd(long a,long b){return a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b;}
+    /** Pay an old city's debt into THAT city's treasury, at a physical bank point. */
+    public boolean pay(MinecraftServer server,ServerPlayer player,long requested){
+        if(requested<=0 || requested>1_000_000 || !KingdomBankData.get(server).atBranch(player))return false;
+        if(owed(server,player.getUUID())<=0)return false;
+        ItemStack wallet=KingdomCurrency.wallet(player);
+        if(wallet.isEmpty())return false;
+        var civics=KingdomCivicsData.get(server);
+        for(Debt d:unpaid(player.getUUID())){
+            long amount=Math.min(requested,d.amount());
+            if(amount<1 || KingdomCurrency.balance(wallet)<amount)continue;
+            var town=civics.townById(d.town());
+            if(town==null || town.treasury()>Long.MAX_VALUE-amount)continue;
+            if(!KingdomCurrency.debit(wallet,amount))continue;
+            if(!civics.depositVerifiedTax(d.town(),amount)){
+                if(!KingdomCurrency.credit(wallet,amount))throw new IllegalStateException("Tax refund failed");
+                continue;
+            }
+            debts.put(key(d.town(),d.person()),new Debt(d.town(),d.person(),d.amount()-amount,d.lastDay()));
+            player.getInventory().setChanged();setDirty();return true;
+        }
+        return false;
+    }
+    private static KingdomTaxData load(CompoundTag root){
+        KingdomTaxData data=new KingdomTaxData();
+        for(Tag tag:root.getList("Debts",Tag.TAG_COMPOUND)){
+            CompoundTag t=(CompoundTag)tag;
+            if(!t.hasUUID("Town") || !t.hasUUID("Person"))continue;
+            Debt d=new Debt(t.getUUID("Town"),t.getUUID("Person"),Math.max(0,t.getLong("Amount")),Math.max(0,t.getLong("LastDay")));
+            data.debts.put(key(d.town(),d.person()),d);
+        }
+        for(Tag tag:root.getList("Rates",Tag.TAG_COMPOUND)){
+            CompoundTag t=(CompoundTag)tag;
+            if(t.hasUUID("Town") && t.getLong("Value")>=0 && t.getLong("Value")<=1000)
+                data.rates.computeIfAbsent(t.getUUID("Town"),k->new ArrayList<>()).add(new Rate(Math.max(0,t.getLong("Day")),t.getLong("Value")));
+        }
+        for(List<Rate> list:data.rates.values())list.sort(Comparator.comparingLong(Rate::effectiveDay));
+        for(Tag tag:root.getList("Exemptions",Tag.TAG_COMPOUND)){
+            CompoundTag t=(CompoundTag)tag;
+            if(t.hasUUID("Town") && t.hasUUID("Person"))data.exemptions.computeIfAbsent(t.getUUID("Town"),k->new LinkedHashSet<>()).add(t.getUUID("Person"));
+        }
+        return data;
+    }
+    @Override public CompoundTag save(CompoundTag root){
+        ListTag a=new ListTag();for(Debt d:debts.values()){
+            CompoundTag t=new CompoundTag();t.putUUID("Town",d.town());t.putUUID("Person",d.person());
+            t.putLong("Amount",d.amount());t.putLong("LastDay",d.lastDay());a.add(t);
+        }root.put("Debts",a);
+        a=new ListTag();for(var e:rates.entrySet())for(Rate r:e.getValue()){
+            CompoundTag t=new CompoundTag();t.putUUID("Town",e.getKey());t.putLong("Day",r.effectiveDay());t.putLong("Value",r.copper());a.add(t);
+        }root.put("Rates",a);
+        a=new ListTag();for(var e:exemptions.entrySet())for(UUID p:e.getValue()){
+            CompoundTag t=new CompoundTag();t.putUUID("Town",e.getKey());t.putUUID("Person",p);a.add(t);
+        }root.put("Exemptions",a);return root;
+    }
+}

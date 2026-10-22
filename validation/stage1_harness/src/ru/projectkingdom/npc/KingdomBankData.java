@@ -1,0 +1,1 @@
+package ru.projectkingdom.npc;import net.minecraft.server.*;import net.minecraft.server.level.*;public class KingdomBankData {public static KingdomBankData get(MinecraftServer s){return new KingdomBankData();}public boolean atBranch(ServerPlayer p){return true;}}

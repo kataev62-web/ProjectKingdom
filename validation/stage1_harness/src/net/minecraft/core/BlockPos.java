@@ -1,0 +1,1 @@
+package net.minecraft.core;public record BlockPos(int x,int y,int z){public int getX(){return x;}public int getY(){return y;}public int getZ(){return z;}public BlockPos immutable(){return this;}public double distSqr(BlockPos o){return Math.pow(x-o.x,2)+Math.pow(y-o.y,2)+Math.pow(z-o.z,2);}public long asLong(){return x*1000000000000L+y*1000000L+z;}}

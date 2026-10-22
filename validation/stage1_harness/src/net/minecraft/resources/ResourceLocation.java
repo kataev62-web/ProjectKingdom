@@ -1,0 +1,1 @@
+package net.minecraft.resources;public record ResourceLocation(String value){public static ResourceLocation tryParse(String v){return v==null||!v.contains(":")?null:new ResourceLocation(v);}public String toString(){return value;}}

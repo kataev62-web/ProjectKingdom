@@ -1,0 +1,1 @@
+package net.minecraft.world.inventory;import net.minecraft.world.entity.player.Player;import net.minecraft.world.item.ItemStack;public abstract class AbstractContainerMenu{public AbstractContainerMenu(Object t,int i){}public abstract ItemStack quickMoveStack(Player p,int i);public abstract boolean stillValid(Player p);}

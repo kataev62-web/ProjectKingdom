@@ -1,0 +1,10 @@
+{
+  "item.kingdomnpc.player_book": "Книга игрока",
+  "screen.kingdomnpc.player_book": "Книга Project Kingdom",
+  "message.kingdomnpc.book_restored": "[Project Kingdom] Книга игрока восстановлена.",
+  "message.kingdomnpc.book_bound": "[Project Kingdom] Книга привязана к персонажу и не может быть выброшена.",
+  "item.kingdomnpc.copper_coin": "Медная монета",
+  "item.kingdomnpc.silver_coin": "Серебряная монета",
+  "item.kingdomnpc.gold_coin": "Золотая монета",
+  "item.kingdomnpc.wallet": "Кошелёк"
+}

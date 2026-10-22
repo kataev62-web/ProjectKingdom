@@ -1,0 +1,1 @@
+package net.minecraft.world.item.crafting;import java.util.*;import net.minecraft.world.inventory.*;import net.minecraft.server.level.*;public class RecipeManager {public Optional<CraftingRecipe> getRecipeFor(RecipeType t,CraftingContainer c,ServerLevel l){return !c.getItem(0).isEmpty() && !c.getItem(1).isEmpty()?Optional.of(new CraftingRecipe()):Optional.empty();}}

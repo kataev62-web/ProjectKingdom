@@ -1,0 +1,1 @@
+package net.minecraft.world.inventory;import net.minecraft.world.item.ItemStack;public class CraftingContainer {final ItemStack[] slots=new ItemStack[9];public CraftingContainer(AbstractContainerMenu a,int w,int h){java.util.Arrays.fill(slots,ItemStack.EMPTY);}public void setItem(int i,ItemStack s){slots[i]=s;}public ItemStack getItem(int i){return slots[i];}}

@@ -1,0 +1,1 @@
+package net.minecraft.nbt;public class Tag {public static final int TAG_COMPOUND=10,TAG_STRING=8,TAG_INT=3,TAG_LONG=4;}
