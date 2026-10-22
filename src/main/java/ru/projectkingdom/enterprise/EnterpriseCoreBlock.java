@@ -80,8 +80,8 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
     }
 
     @Override public InteractionResult use(BlockState state,Level level,BlockPos pos,Player player,InteractionHand hand,BlockHitResult hit){
-        if(!level.isClientSide&&level.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core&&core.bound())
-            player.sendSystemMessage(Component.literal("[Project Kingdom] "+kind.title()+": меню предприятия подключается."));
+        if(!level.isClientSide&&player instanceof ServerPlayer server&&level.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core&&core.bound())
+            EnterpriseCoreMenu.open(server,core);
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
     private record UUIDHolder(java.util.UUID enterprise,java.util.UUID owner){}

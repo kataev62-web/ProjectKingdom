@@ -30,6 +30,7 @@ import ru.projectkingdom.core.KingdomBookRegistry;
 import ru.projectkingdom.economy.KingdomEconomyRegistry;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.enterprise.EnterpriseAccessService;
+import ru.projectkingdom.network.KingdomNetwork;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -47,6 +48,7 @@ public final class KingdomNpcMod {
         KingdomBookRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomEconomyRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomEnterpriseRegistry.register();
+        KingdomNetwork.register();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
         MinecraftForge.EVENT_BUS.register(this);
     }

@@ -10,12 +10,15 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
+import net.minecraft.world.inventory.MenuType;
+import net.minecraftforge.common.extensions.IForgeMenuType;
 import ru.projectkingdom.npc.KingdomNpcMod;
 
 public final class KingdomEnterpriseRegistry {
     public static final DeferredRegister<Block> BLOCKS=DeferredRegister.create(ForgeRegistries.BLOCKS,KingdomNpcMod.MOD_ID);
     public static final DeferredRegister<Item> ITEMS=DeferredRegister.create(ForgeRegistries.ITEMS,KingdomNpcMod.MOD_ID);
     public static final DeferredRegister<BlockEntityType<?>> ENTITIES=DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES,KingdomNpcMod.MOD_ID);
+    public static final DeferredRegister<MenuType<?>> MENUS=DeferredRegister.create(ForgeRegistries.MENU_TYPES,KingdomNpcMod.MOD_ID);
     private static final Map<EnterpriseKind,RegistryObject<Block>> BLOCK_BY_KIND=new EnumMap<>(EnterpriseKind.class);
 
     public static final RegistryObject<Block> FARM=block("farm_core",EnterpriseKind.FARM);
@@ -39,11 +42,12 @@ public final class KingdomEnterpriseRegistry {
     public static final RegistryObject<BlockEntityType<EnterpriseCoreBlockEntity>> CORE_ENTITY=ENTITIES.register("enterprise_core",()->
             BlockEntityType.Builder.of(EnterpriseCoreBlockEntity::new,FARM.get(),MINE.get(),LUMBER.get(),SMITHY.get(),
                     BAKERY.get(),POTTERY.get(),CONSTRUCTION.get(),COURIER.get()).build(null));
+    public static final RegistryObject<MenuType<EnterpriseCoreMenu>> CORE_MENU=MENUS.register("enterprise_core",()->IForgeMenuType.create(EnterpriseCoreMenu::new));
     private KingdomEnterpriseRegistry(){}
     private static RegistryObject<Block> block(String id,EnterpriseKind kind){
         RegistryObject<Block> value=BLOCKS.register(id,()->new EnterpriseCoreBlock(kind));BLOCK_BY_KIND.put(kind,value);return value;
     }
     private static RegistryObject<Item> item(String id,RegistryObject<Block> block){return ITEMS.register(id,()->new BlockItem(block.get(),new Item.Properties()));}
     public static RegistryObject<Block> block(EnterpriseKind kind){return BLOCK_BY_KIND.get(kind);}
-    public static void register(){var bus=FMLJavaModLoadingContext.get().getModEventBus();BLOCKS.register(bus);ITEMS.register(bus);ENTITIES.register(bus);}
+    public static void register(){var bus=FMLJavaModLoadingContext.get().getModEventBus();BLOCKS.register(bus);ITEMS.register(bus);ENTITIES.register(bus);MENUS.register(bus);}
 }
