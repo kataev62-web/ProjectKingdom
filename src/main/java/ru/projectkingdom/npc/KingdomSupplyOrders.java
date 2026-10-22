@@ -79,28 +79,28 @@ public final class KingdomSupplyOrders extends SavedData {
     /** Release prepaid cash to a seller who physically visits their selling chest.
      * This is an escrow handover, NOT a remote bank transfer. The same cash cannot be claimed twice.
      */
-    public boolean collectGoodsCash(UUID id, UUID seller, net.minecraft.world.item.ItemStack wallet) {
+    public boolean collectGoodsCash(UUID id, net.minecraft.server.level.ServerPlayer seller) {
         Order o=orders.get(id);
-        if(o==null || !o.seller.equals(seller) || o.state==State.CANCELLED || o.state==State.DELIVERED
+        if(o==null || !o.seller.equals(seller.getUUID()) || o.state==State.CANCELLED || o.state==State.DELIVERED
                 || o.goodsPaid || o.goodsEscrow<=0 || o.pickedUp!=0 || o.courier!=null)return false;
-        if(!KingdomCurrency.credit(wallet,o.goodsEscrow))return false;
+        if(!KingdomCurrency.credit(seller,o.goodsEscrow))return false;
         o.goodsEscrow=0;o.goodsPaid=true;setDirty();return true;
     }
     /** Refund only an untouched order, atomically with the receiving physical wallet. */
-    public boolean refund(UUID id, UUID buyer, net.minecraft.world.item.ItemStack wallet) {
+    public boolean refund(UUID id, net.minecraft.server.level.ServerPlayer buyer) {
         Order o=orders.get(id);
-        if(o==null || !o.buyer.equals(buyer) || o.state!=State.OPEN || o.courier!=null
+        if(o==null || !o.buyer.equals(buyer.getUUID()) || o.state!=State.OPEN || o.courier!=null
                 || o.pickedUp!=0 || o.goodsPaid || o.goodsEscrow<0 || o.deliveryEscrow<0)return false;
         long sum=o.goodsEscrow+o.deliveryEscrow;
-        if(sum<=0 || sum>1_000_000 || !KingdomCurrency.credit(wallet,sum))return false;
+        if(sum<=0 || sum>1_000_000 || !KingdomCurrency.credit(buyer,sum))return false;
         o.goodsEscrow=0;o.deliveryEscrow=0;o.deliveryPaid=false;
         o.state=State.CANCELLED;setDirty();return true;
     }
     /** Transport payment is released only after the full order has been delivered. */
-    public boolean collectDeliveryCash(UUID id, UUID carrier, net.minecraft.world.item.ItemStack wallet) {
+    public boolean collectDeliveryCash(UUID id, net.minecraft.server.level.ServerPlayer carrier) {
         Order o=orders.get(id);
-        if(o==null || !Objects.equals(o.courier,carrier) || o.state!=State.DELIVERED || o.deliveryEscrow<=0)return false;
-        if(!KingdomCurrency.credit(wallet,o.deliveryEscrow))return false;
+        if(o==null || !Objects.equals(o.courier,carrier.getUUID()) || o.state!=State.DELIVERED || o.deliveryEscrow<=0)return false;
+        if(!KingdomCurrency.credit(carrier,o.deliveryEscrow))return false;
         o.deliveryEscrow=0;setDirty();return true;
     }
     /** Transfer prepaid physical value to the seller's real cashbox at pickup.

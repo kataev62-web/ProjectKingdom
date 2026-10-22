@@ -268,8 +268,7 @@ public final class KingdomNpcMenu extends ChestMenu {
                 } else info("Для кормления нужен хлеб в инвентаре.");
             }
             case 26 -> {
-                var wallet=KingdomCurrency.wallet(viewer);
-                if (db.balance(viewer.getUUID())<Long.MAX_VALUE && !wallet.isEmpty() && KingdomCurrency.debit(wallet,1)) {
+                if (db.balance(viewer.getUUID())<Long.MAX_VALUE && KingdomCurrency.debit(viewer,1)) {
                     db.deposit(viewer.getUUID(),1);
                     viewer.getInventory().setChanged();
                     info("В резерв зарплат внесена 1 медная монета из кошелька.");

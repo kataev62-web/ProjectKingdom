@@ -85,17 +85,16 @@ public final class KingdomTaxData extends SavedData {
     public boolean pay(MinecraftServer server,ServerPlayer player,long requested){
         if(requested<=0 || requested>1_000_000 || !KingdomBankData.get(server).atBranch(player))return false;
         if(owed(server,player.getUUID())<=0)return false;
-        ItemStack wallet=KingdomCurrency.wallet(player);
-        if(wallet.isEmpty())return false;
+        if(KingdomCurrency.wallet(player).isEmpty())return false;
         var civics=KingdomCivicsData.get(server);
         for(Debt d:unpaid(player.getUUID())){
             long amount=Math.min(requested,d.amount());
-            if(amount<1 || KingdomCurrency.balance(wallet)<amount)continue;
+            if(amount<1 || KingdomCurrency.balance(player)<amount)continue;
             var town=civics.townById(d.town());
             if(town==null || town.treasury()>Long.MAX_VALUE-amount)continue;
-            if(!KingdomCurrency.debit(wallet,amount))continue;
+            if(!KingdomCurrency.debit(player,amount))continue;
             if(!civics.depositVerifiedTax(d.town(),amount)){
-                if(!KingdomCurrency.credit(wallet,amount))throw new IllegalStateException("Tax refund failed");
+                if(!KingdomCurrency.credit(player,amount))throw new IllegalStateException("Tax refund failed");
                 continue;
             }
             debts.put(key(d.town(),d.person()),new Debt(d.town(),d.person(),d.amount()-amount,d.lastDay()));

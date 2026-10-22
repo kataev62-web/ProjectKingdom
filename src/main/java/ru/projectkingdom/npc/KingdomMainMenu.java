@@ -69,7 +69,7 @@ public final class KingdomMainMenu extends ChestMenu {
             }
             case WALLET -> {
                 var wallet=KingdomCurrency.wallet(viewer);
-                icon(10,KingdomCurrency.WALLET.get(),wallet.isEmpty()?"Кошелёк отсутствует":"В кошельке: "+KingdomCurrency.balance(wallet)+" медных");
+                icon(10,KingdomCurrency.WALLET.get(),wallet.isEmpty()?"Денежный мешок отсутствует":"Во всех мешках: "+KingdomCurrency.balance(viewer)+" медных");
                 icon(11,Items.HOPPER,"Собрать все монеты из инвентаря в кошелёк");
                 icon(13,KingdomCurrency.COPPER.get(),"Получить 1 медную монету");
                 icon(14,KingdomCurrency.SILVER.get(),"Получить 1 серебряную (100 медных)");
@@ -274,11 +274,10 @@ public final class KingdomMainMenu extends ChestMenu {
             .toList();
     }
     private void withdrawTownToWallet(long amount) {
-        var wallet=KingdomCurrency.wallet(viewer);
-        if(wallet.isEmpty()||KingdomCurrency.balance(wallet)>Long.MAX_VALUE-amount){say("Нужен кошелёк со свободным балансом");return;}
+        if(KingdomCurrency.wallet(viewer).isEmpty()){say("Нужен денежный мешок со свободным местом");return;}
         var db=KingdomCivicsData.get(viewer.getServer());
         if(!db.withdrawTown(viewer.getUUID(),amount)){say("Недостаточно средств или нет прав мэра");return;}
-        if(!KingdomCurrency.credit(wallet,amount)) {
+        if(!KingdomCurrency.credit(viewer,amount)) {
             // Unreachable under server-thread preconditions, but never silently destroy funds.
             db.depositTown(viewer.getUUID(),amount);
             say("Ошибка перевода; средства возвращены в казну");return;
@@ -286,12 +285,11 @@ public final class KingdomMainMenu extends ChestMenu {
         viewer.getInventory().setChanged();say("Из казны получено "+amount+" медных");
     }
     private void depositWallet(long amount) {
-        var wallet=KingdomCurrency.wallet(viewer);
         var db=KingdomCivicsData.get(viewer.getServer());
-        if(wallet.isEmpty()||KingdomCurrency.balance(wallet)<amount){say("Недостаточно монет в кошельке");return;}
+        if(KingdomCurrency.balance(viewer)<amount){say("Недостаточно монет в денежных мешках");return;}
         if(db.townOf(viewer.getUUID())==null){say("Ты не состоишь в городе");return;}
         if(db.depositTown(viewer.getUUID(),amount)) {
-            if(!KingdomCurrency.debit(wallet,amount))throw new IllegalStateException("Wallet debit after treasury credit failed");
+            if(!KingdomCurrency.debit(viewer,amount))throw new IllegalStateException("Purse debit after treasury credit failed");
             say("В казну внесено "+amount+" медных монет");
         } else say("Казна не принимает перевод");
     }

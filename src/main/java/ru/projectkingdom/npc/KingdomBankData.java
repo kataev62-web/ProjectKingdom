@@ -7,7 +7,6 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.saveddata.SavedData;
 import java.util.LinkedHashMap;
@@ -41,18 +40,15 @@ public final class KingdomBankData extends SavedData {
     public long vault() {return vault;}
     public boolean deposit(ServerPlayer player, long amount) {
         if(!atBranch(player)||amount<=0||amount>1_000_000)return false;
-        ItemStack wallet=KingdomCurrency.wallet(player);
         long previous=balance(player.getUUID());
-        if(wallet.isEmpty()||KingdomCurrency.balance(wallet)<amount||previous>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.debit(wallet,amount))return false;
+        if(KingdomCurrency.balance(player)<amount||previous>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
+        if(!KingdomCurrency.debit(player,amount))return false;
         accounts.put(player.getUUID(),previous+amount);vault+=amount;
         player.getInventory().setChanged();setDirty();return true;
     }
     public boolean withdraw(ServerPlayer player,long amount) {
         if(!atBranch(player)||amount<=0||amount>1_000_000||balance(player.getUUID())<amount||vault<amount)return false;
-        ItemStack wallet=KingdomCurrency.wallet(player);
-        if(wallet.isEmpty()||KingdomCurrency.balance(wallet)>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.credit(wallet,amount))return false;
+        if(!KingdomCurrency.credit(player,amount))return false;
         accounts.put(player.getUUID(),balance(player.getUUID())-amount);vault-=amount;
         player.getInventory().setChanged();setDirty();return true;
     }
@@ -71,15 +67,14 @@ public final class KingdomBankData extends SavedData {
         UUID recipient=renewal?contract.landlord():offer.landlord();
         long amount=renewal?contract.paidCopper():offer.priceCopper();
         long prior=balance(recipient);
-        ItemStack wallet=KingdomCurrency.wallet(payer);
-        if(amount<=0||amount>1_000_000||wallet.isEmpty()
-                ||KingdomCurrency.balance(wallet)<amount
+        if(amount<=0||amount>1_000_000
+                ||KingdomCurrency.balance(payer)<amount
                 ||prior>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.debit(wallet,amount))return false;
+        if(!KingdomCurrency.debit(payer,amount))return false;
         boolean recorded=renewal
                 ? civics.renewLease(payer.getUUID(),dimension,x,z,now,amount,7L*24*60*60*1000)
                 : civics.acceptLease(payer.getUUID(),dimension,x,z,now);
-        if(!recorded){KingdomCurrency.credit(wallet,amount);return false;}
+        if(!recorded){KingdomCurrency.credit(payer,amount);return false;}
         accounts.put(recipient,prior+amount);vault+=amount;
         payer.getInventory().setChanged();setDirty();return true;
     }
@@ -95,12 +90,11 @@ public final class KingdomBankData extends SavedData {
         var debt=civics.leaseDebt(dimension,x,z);
         UUID landlord=debt.landlord();
         long previous=balance(landlord);
-        ItemStack wallet=KingdomCurrency.wallet(payer);
-        if(wallet.isEmpty()||KingdomCurrency.balance(wallet)<amount
+        if(KingdomCurrency.balance(payer)<amount
                 ||previous>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.debit(wallet,amount))return false;
+        if(!KingdomCurrency.debit(payer,amount))return false;
         if(!civics.recordLeaseDebtPayment(payer.getUUID(),dimension,x,z,amount)) {
-            if(!KingdomCurrency.credit(wallet,amount))
+            if(!KingdomCurrency.credit(payer,amount))
                 payer.sendSystemMessage(net.minecraft.network.chat.Component.literal("[Kingdom] ОШИБКА: возврат денег не выполнен"));
             return false;
         }
@@ -115,14 +109,13 @@ public final class KingdomBankData extends SavedData {
         if(!civics.canBuySale(buyer.getUUID(),dimension,x,z))return false;
         var offer=civics.saleOffer(dimension,x,z);
         UUID seller=offer.seller();long amount=offer.priceCopper();
-        ItemStack wallet=KingdomCurrency.wallet(buyer);
         long previous=balance(seller);
-        if(wallet.isEmpty()||amount<=0||amount>1_000_000
-                ||KingdomCurrency.balance(wallet)<amount
+        if(amount<=0||amount>1_000_000
+                ||KingdomCurrency.balance(buyer)<amount
                 ||previous>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.debit(wallet,amount))return false;
+        if(!KingdomCurrency.debit(buyer,amount))return false;
         if(!civics.completeSale(buyer.getUUID(),dimension,x,z)) {
-            if(!KingdomCurrency.credit(wallet,amount))
+            if(!KingdomCurrency.credit(buyer,amount))
                 buyer.sendSystemMessage(net.minecraft.network.chat.Component.literal("[Kingdom] КРИТИЧЕСКАЯ ОШИБКА: возврат денег за землю не удался"));
             return false;
         }

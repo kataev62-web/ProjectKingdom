@@ -87,15 +87,14 @@ public final class KingdomPayrollData extends SavedData {
     public boolean claim(MinecraftServer server,ServerPlayer worker){
         UUID id=worker.getUUID();accrue(server,id);
         if(!KingdomBankData.get(server).atBranch(worker))return false;
-        ItemStack wallet=KingdomCurrency.wallet(worker);
-        if(wallet.isEmpty())return false;
+        if(KingdomCurrency.wallet(worker).isEmpty())return false;
         List<Contract> queue=new ArrayList<>(unpaid(id));
         for(Contract c:queue){
             long amount=Math.min(10000L,c.owedCopper());
-            if(amount<1 || KingdomCurrency.balance(wallet)>Long.MAX_VALUE-amount)continue;
+            if(amount<1)continue;
             KingdomCivicsData civics=KingdomCivicsData.get(server);
             if(!civics.payTownObligation(c.town(),amount))continue;
-            if(!KingdomCurrency.credit(wallet,amount)){
+            if(!KingdomCurrency.credit(worker,amount)){
                 if(!civics.refundTown(c.town(),amount))throw new IllegalStateException("City wage rollback failed");
                 continue;
             }

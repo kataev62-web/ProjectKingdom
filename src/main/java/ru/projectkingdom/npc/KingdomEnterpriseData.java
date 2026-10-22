@@ -160,16 +160,14 @@ public final class KingdomEnterpriseData extends SavedData {
     public boolean deposit(ServerPlayer actor,long amount) {
         Enterprise firm=owned(actor.getUUID());
         if(firm==null || !atCounter(actor,firm.id()) || amount<=0 || amount>1000000 || firm.cash()>Long.MAX_VALUE-amount)return false;
-        ItemStack wallet=KingdomCurrency.wallet(actor);
-        if(wallet.isEmpty() || KingdomCurrency.balance(wallet)<amount || !KingdomCurrency.debit(wallet,amount))return false;
+        if(KingdomCurrency.balance(actor)<amount || !KingdomCurrency.debit(actor,amount))return false;
         firms.put(firm.id(),new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));
         actor.getInventory().setChanged();setDirty();return true;
     }
     public boolean withdraw(ServerPlayer actor,long amount) {
         Enterprise firm=owned(actor.getUUID());
         if(firm==null || !atCounter(actor,firm.id()) || amount<=0 || amount>1000000 || firm.cash()<amount)return false;
-        ItemStack wallet=KingdomCurrency.wallet(actor);
-        if(wallet.isEmpty() || KingdomCurrency.balance(wallet)>Long.MAX_VALUE-amount || !KingdomCurrency.credit(wallet,amount))return false;
+        if(!KingdomCurrency.credit(actor,amount))return false;
         firms.put(firm.id(),new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         actor.getInventory().setChanged();setDirty();return true;
     }
@@ -179,8 +177,7 @@ public final class KingdomEnterpriseData extends SavedData {
     boolean payVerifiedWage(ServerPlayer employee,UUID firmId,long amount) {
         Enterprise firm=firms.get(firmId);
         if(firm==null || !atCounter(employee,firmId) || amount<1 || amount>10000 || firm.cash()<amount)return false;
-        ItemStack wallet=KingdomCurrency.wallet(employee);
-        if(wallet.isEmpty() || KingdomCurrency.balance(wallet)>Long.MAX_VALUE-amount || !KingdomCurrency.credit(wallet,amount))return false;
+        if(!KingdomCurrency.credit(employee,amount))return false;
         firms.put(firmId,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         employee.getInventory().setChanged();setDirty();return true;
     }

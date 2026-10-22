@@ -27,6 +27,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import ru.projectkingdom.core.KingdomBookGuardian;
 import ru.projectkingdom.core.KingdomBookRegistry;
+import ru.projectkingdom.economy.KingdomEconomyRegistry;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -42,6 +43,7 @@ public final class KingdomNpcMod {
         KingdomManagedStorage.register();
         KingdomDemandBoardBlock.register();
         KingdomBookRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
+        KingdomEconomyRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
         MinecraftForge.EVENT_BUS.register(this);
     }
@@ -282,8 +284,7 @@ public final class KingdomNpcMod {
                 ServerPlayer p=player(ctx.getSource());
                 try {
                     var orders=KingdomSupplyOrders.get(p.getServer());
-                    var wallet=KingdomCurrency.wallet(p);
-                    boolean ok=orders.refund(java.util.UUID.fromString(StringArgumentType.getString(ctx,"id")),p.getUUID(),wallet);
+                    boolean ok=orders.refund(java.util.UUID.fromString(StringArgumentType.getString(ctx,"id")),p);
                     if(ok)p.getInventory().setChanged();
                     reply(ctx.getSource(),ok?"Наличные возвращены в кошелёк; заказ отменён.":"Возврат невозможен: заказ уже в работе, оплачен продавцу или кошелёк недоступен.");
                     return ok?1:0;
@@ -298,7 +299,7 @@ public final class KingdomNpcMod {
                             || p.distanceToSqr(o.source.getX()+0.5,o.source.getY()+0.5,o.source.getZ()+0.5)>64) {
                         reply(ctx.getSource(),"Продавец должен находиться рядом со своим торговым сундуком.");return 0;
                     }
-                    boolean ok=orders.collectGoodsCash(o.id,p.getUUID(),KingdomCurrency.wallet(p));
+                    boolean ok=orders.collectGoodsCash(o.id,p);
                     if(ok)p.getInventory().setChanged();
                     reply(ctx.getSource(),ok?"Оплата за товар выдана наличными. Товар теперь можно забирать.":"Получение оплаты недоступно или уже выполнено.");
                     return ok?1:0;
@@ -605,12 +606,11 @@ public final class KingdomNpcMod {
                 reply(src,"Для возврата подойди к банковской стойке.");return 0;
             }
             KingdomNpcData legacy=KingdomNpcData.get(src.getServer());
-            var wallet=KingdomCurrency.wallet(p);
             long balance=legacy.balance(p.getUUID());
-            if(wallet.isEmpty() || balance<amount || KingdomCurrency.balance(wallet)>Long.MAX_VALUE-amount){
-                reply(src,"Нет такого остатка старого фонда или кошелёк недоступен.");return 0;
+            if(balance<amount){
+                reply(src,"Нет такого остатка старого фонда.");return 0;
             }
-            if(!KingdomCurrency.credit(wallet,amount))return 0;
+            if(!KingdomCurrency.credit(p,amount))return 0;
             legacy.accounts.put(p.getUUID(),balance-amount);
             legacy.setDirty();p.getInventory().setChanged();
             reply(src,"Возвращено "+amount+" медных из старого фонда; остаток "+(balance-amount));return 1;

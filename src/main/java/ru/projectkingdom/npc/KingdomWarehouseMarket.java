@@ -121,17 +121,16 @@ public final class KingdomWarehouseMarket extends SavedData {
         long goods=quote.totalCopper();
         if(goods<1 || goods>1000000 || goods>Long.MAX_VALUE-deliveryFee)return null;
         long total=goods+deliveryFee;
-        ItemStack wallet=KingdomCurrency.wallet(buyer);
-        if(wallet.isEmpty()||KingdomCurrency.balance(wallet)<total)return null;
+        if(KingdomCurrency.balance(buyer)<total)return null;
         KingdomSupplyOrders orders=KingdomSupplyOrders.get(buyer.getServer());
         // Re-check stock and reservations on the server thread immediately before debit.
         if(search(level,itemId,amount).stream().noneMatch(q -> q.stall().equals(quote.stall()) && q.available()>=amount && q.totalCopper()==goods))return null;
-        if(!KingdomCurrency.debit(wallet,total))return null;
+        if(!KingdomCurrency.debit(buyer,total))return null;
         KingdomSupplyOrders.Order order=orders.create(buyer.getUUID(),quote.stall().owner(),
                 level.dimension().location().toString(),itemId,quote.stall().pos(),destination,
                 amount,goods,deliveryFee,KingdomSupplyOrders.Mode.COURIER);
         if(order==null || !orders.escrow(order.id,goods,deliveryFee)) {
-            if(!KingdomCurrency.credit(wallet,total))throw new IllegalStateException("Cash rollback failed");
+            if(!KingdomCurrency.credit(buyer,total))throw new IllegalStateException("Cash rollback failed");
             return null;
         }
         buyer.getInventory().setChanged();return order;

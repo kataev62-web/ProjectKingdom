@@ -124,12 +124,11 @@ public final class KingdomLandMapMenu extends ChestMenu {
         var old=KingdomTerritories.get(viewer.getServer());
         var oldOwner=old.owner(viewer.serverLevel(),at);
         if(oldOwner!=null&&!oldOwner.equals(viewer.getUUID())){message("Чужой участок в старом реестре");return;}
-        var wallet=KingdomCurrency.wallet(viewer);
-        if(wallet.isEmpty()||KingdomCurrency.balance(wallet)<100){message("Для покупки нужно 100 медных в кошельке");return;}
+        if(KingdomCurrency.balance(viewer)<100){message("Для покупки нужно 100 медных в денежных мешках");return;}
         // Debit first; compensate on any failed registration. A claimed plot cannot be bought twice.
-        if(!KingdomCurrency.debit(wallet,100)){message("Оплата не прошла");return;}
+        if(!KingdomCurrency.debit(viewer,100)){message("Оплата не прошла");return;}
         if(!old.claim(viewer.serverLevel(),at,viewer.getUUID()) || !db.claim(viewer.getUUID(),dimension(),selectedX,selectedZ)) {
-            KingdomCurrency.credit(wallet,100);
+            KingdomCurrency.credit(viewer,100);
             message("Не удалось оформить участок; деньги возвращены");return;
         }
         viewer.getInventory().setChanged();
