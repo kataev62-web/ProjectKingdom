@@ -31,7 +31,7 @@ public enum EnterpriseKind {
     public String blockId(){return id+"_core";}
     public String translationKey(){return "block.kingdomnpc."+blockId();}
 
-    public static List<EnterpriseKind> placeable(){
+    public static List<EnterpriseKind> placeableKinds(){
         return Arrays.stream(values()).filter(EnterpriseKind::placeable).toList();
     }
 

@@ -9,7 +9,7 @@ import ru.projectkingdom.npc.KingdomEnterpriseData;
 
 final class EnterpriseKindTest {
     @Test void catalogHasExactlyEightUniquePrivateTypes() {
-        var placeable = EnterpriseKind.placeable();
+        var placeable = EnterpriseKind.placeableKinds();
         assertEquals(8, placeable.size());
         Set<String> ids = placeable.stream().map(EnterpriseKind::id).collect(Collectors.toSet());
         assertEquals(8, ids.size());
