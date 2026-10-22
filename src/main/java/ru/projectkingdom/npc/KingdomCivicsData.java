@@ -396,8 +396,9 @@ public final class KingdomCivicsData extends SavedData {
     public boolean collectTax(UUID member,long amount) {return depositTown(member,amount);}
     public boolean townPaysNation(UUID mayor,long amount) {
         Town t=townOf(mayor);
-        if(t==null||!t.mayor().equals(mayor)||t.nation()==null||amount<=0||t.treasury()<amount)return false;
+        if(t==null||!t.mayor().equals(mayor)||t.nation()==null||amount<=0||t.treasury()<amount||runtimeServer==null)return false;
         Nation n=nations.get(t.nation());if(n==null||n.treasury()>Long.MAX_VALUE-amount)return false;
+        if(!KingdomAdministrationData.get(runtimeServer).withdrawTreasuryReserve(t.id(),amount))return false;
         towns.put(t.id(),new Town(t.id(),t.name(),t.mayor(),t.nation(),t.treasury()-amount));
         nations.put(n.id(),new Nation(n.id(),n.name(),n.ruler(),n.treasury()+amount));setDirty();return true;
     }

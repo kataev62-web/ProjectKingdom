@@ -143,6 +143,22 @@ public final class KingdomWarehouseMarket extends SavedData {
         if(!activeMunicipalCore(level,townId,AdministrativeKind.CITY_MARKET))return List.of();
         return search(level,itemId,amount);
     }
+    public UUID nearbyCityMarketTown(ServerLevel level,BlockPos from,int maxDistance){
+        UUID selected=null;double best=(double)maxDistance*maxDistance;KingdomAdministrationData administration=KingdomAdministrationData.get(level.getServer());
+        for(var town:KingdomCivicsData.get(level.getServer()).towns()){
+            AdministrativeCoreBinding binding=administration.core(town.id(),AdministrativeKind.CITY_MARKET);
+            if(binding==null||!binding.dimension().equals(level.dimension().location().toString()))continue;BlockPos pos=BlockPos.of(binding.packedPos());double distance=pos.distSqr(from);
+            if(distance<=best&&activeMunicipalCore(level,town.id(),AdministrativeKind.CITY_MARKET)){selected=town.id();best=distance;}
+        }return selected;
+    }
+    public BlockPos cityMarketDeliveryChest(ServerLevel level,BlockPos operator,UUID buyer){
+        UUID townId=nearbyCityMarketTown(level,operator,8);if(townId==null)return null;
+        AdministrativeCoreBinding binding=KingdomAdministrationData.get(level.getServer()).core(townId,AdministrativeKind.CITY_MARKET);BlockPos core=BlockPos.of(binding.packedPos());
+        for(net.minecraft.core.Direction direction:net.minecraft.core.Direction.values()){
+            BlockPos pos=core.relative(direction);if(!level.hasChunkAt(pos)||!(level.getBlockEntity(pos) instanceof Container))continue;
+            if(KingdomTerritories.get(level.getServer()).canUse(level,pos,buyer))return pos;
+        }return null;
+    }
     public boolean activeMunicipalCore(ServerLevel level,UUID townId,AdministrativeKind kind) {
         if(level==null||townId==null||kind==null)return false;
         AdministrativeCoreBinding binding=KingdomAdministrationData.get(level.getServer()).core(townId,kind);
@@ -159,10 +175,10 @@ public final class KingdomWarehouseMarket extends SavedData {
             String itemId,int amount,int quoteIndex,BlockPos destination,long deliveryFee) {
         if(amount<1||amount>2304||quoteIndex<0||deliveryFee<0||deliveryFee>1000000)return null;
         ServerLevel level=buyer.serverLevel();
-        if(!nearDesk(level,buyer.blockPosition()))return null;
+        UUID marketTown=nearbyCityMarketTown(level,buyer.blockPosition(),8);if(marketTown==null)return null;
         if(!level.hasChunkAt(destination) || !(level.getBlockEntity(destination) instanceof Container))return null;
         if(!KingdomTerritories.get(buyer.getServer()).canUse(level,destination,buyer.getUUID()))return null;
-        List<Quote> quotes=search(level,itemId,amount);
+        List<Quote> quotes=cityMarketSearch(level,marketTown,itemId,amount);
         if(quoteIndex>=quotes.size())return null;
         Quote quote=quotes.get(quoteIndex);
         if(quote.stall().pos().equals(destination))return null;
@@ -172,7 +188,7 @@ public final class KingdomWarehouseMarket extends SavedData {
         if(KingdomCurrency.balance(buyer)<total)return null;
         KingdomSupplyOrders orders=KingdomSupplyOrders.get(buyer.getServer());
         // Re-check stock and reservations on the server thread immediately before debit.
-        if(search(level,itemId,amount).stream().noneMatch(q -> q.stall().equals(quote.stall()) && q.available()>=amount && q.totalCopper()==goods))return null;
+        if(cityMarketSearch(level,marketTown,itemId,amount).stream().noneMatch(q -> q.stall().equals(quote.stall()) && q.available()>=amount && q.totalCopper()==goods))return null;
         if(!KingdomCurrency.debit(buyer,total))return null;
         KingdomSupplyOrders.Order order=orders.create(buyer.getUUID(),quote.stall().owner(),
                 level.dimension().location().toString(),itemId,quote.stall().pos(),destination,

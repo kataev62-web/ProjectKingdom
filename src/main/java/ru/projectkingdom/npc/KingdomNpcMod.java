@@ -244,16 +244,14 @@ public final class KingdomNpcMod {
         // Physical warehouse counter: orders cannot be purchased remotely.
         root.then(Commands.literal("warehouse")
             .then(Commands.literal("register").executes(ctx -> {
-                ServerPlayer p=player(ctx.getSource());
-                boolean ok=KingdomWarehouseMarket.get(p.getServer()).registerDesk(
-                    p.serverLevel(),p.blockPosition().below(),p.getUUID());
-                reply(ctx.getSource(),ok?"Логистическая стойка зарегистрирована.":"Встань на свой сундук или бочку на своей земле.");
-                return ok?1:0;
+                reply(ctx.getSource(),"Старые логистические стойки сохранены только для миграции. Установите блок городского рынка.");return 0;
             })));
         // Physical market: sellers register a chest, buyers inspect live stock and prices.
         root.then(Commands.literal("market")
             .then(Commands.literal("register").then(Commands.argument("price",IntegerArgumentType.integer(1,100000)).executes(ctx -> {
                 ServerPlayer p=player(ctx.getSource());
+                if(!KingdomMainMenu.isNearAdministrative(p,ru.projectkingdom.administration.AdministrativeKind.CITY_MARKET)){
+                    reply(ctx.getSource(),"Торговый склад можно выставить только у активного городского рынка.");return 0;}
                 BlockPos pos=p.blockPosition().below();
                 boolean ok=KingdomWarehouseMarket.get(p.getServer()).register(p.serverLevel(),pos,p.getUUID(),IntegerArgumentType.getInteger(ctx,"price"));
                 reply(ctx.getSource(),ok?"Торговый сундук зарегистрирован: "+pos.toShortString():"Встань на свой зарегистрированный сундук на своей территории.");
@@ -270,7 +268,9 @@ public final class KingdomNpcMod {
                         ServerPlayer p=player(ctx.getSource());
                         String item=StringArgumentType.getString(ctx,"item");
                         int count=IntegerArgumentType.getInteger(ctx,"count");
-                        var quotes=KingdomWarehouseMarket.get(p.getServer()).search(p.serverLevel(),item,count);
+                        var marketTown=KingdomMainMenu.nearbyAdministrativeTown(p,ru.projectkingdom.administration.AdministrativeKind.CITY_MARKET);
+                        if(marketTown==null){reply(ctx.getSource(),"Подойди к активному городскому рынку.");return 0;}
+                        var quotes=KingdomWarehouseMarket.get(p.getServer()).cityMarketSearch(p.serverLevel(),marketTown,item,count);
                         if(quotes.isEmpty()) {reply(ctx.getSource(),"Нет загруженных складов с таким количеством товара.");return 0;}
                         for(int i=0;i<Math.min(8,quotes.size());i++) {
                             var q=quotes.get(i);
@@ -290,6 +290,8 @@ public final class KingdomNpcMod {
                                 String item=StringArgumentType.getString(ctx,"item");
                                 int count=IntegerArgumentType.getInteger(ctx,"count");
                                 int index=IntegerArgumentType.getInteger(ctx,"quoteIndex");
+                                if(!KingdomMainMenu.isNearAdministrative(p,ru.projectkingdom.administration.AdministrativeKind.CITY_MARKET)){
+                                    reply(ctx.getSource(),"Подойди к активному городскому рынку.");return 0;}
                                 var order=KingdomWarehouseMarket.get(p.getServer()).checkout(
                                     p,item,count,index,p.blockPosition().below(),10);
                                 reply(ctx.getSource(),order==null
@@ -415,22 +417,7 @@ public final class KingdomNpcMod {
 
         // A bank counter is a real lodestone registered at its physical location.
         root.then(Commands.literal("bank").then(Commands.literal("register").executes(ctx -> {
-            ServerPlayer p=player(ctx.getSource());
-            var town=KingdomCivicsData.get(p.getServer()).townOf(p.getUUID());
-            if(!p.hasPermissions(2) && (town==null||!town.mayor().equals(p.getUUID()))) {
-                reply(ctx.getSource(),"Only a mayor or administrator may register a bank counter.");return 0;
-            }
-            BlockPos pos=p.blockPosition().below();
-            if(!p.serverLevel().getBlockState(pos).is(net.minecraft.world.level.block.Blocks.LODESTONE)) {
-                reply(ctx.getSource(),"Stand on a lodestone and run /knpc bank register.");return 0;
-            }
-            var plot=KingdomCivicsData.get(p.getServer()).plot(p.serverLevel(),pos);
-            if(!p.hasPermissions(2) && (plot==null||town==null||!plot.town().equals(town.id()))) {
-                reply(ctx.getSource(),"Bank counter must stand on land owned by your town.");return 0;
-            }
-            boolean ok=KingdomBankData.get(p.getServer()).register(p.serverLevel(),pos,p.getUUID());
-            reply(ctx.getSource(),ok?"Bank counter registered. Right-click the lodestone to deposit/withdraw cash.":"Counter already registered.");
-            return ok?1:0;
+            reply(ctx.getSource(),"Регистрация старых Lodestone-банков отключена. Установите блок банка; старые записи сохраняются для миграции.");return 0;
         })));
         root.then(Commands.literal("spawn").requires(s -> s.hasPermission(2))
             .then(Commands.argument("job", StringArgumentType.word()).suggests((c,b) -> {

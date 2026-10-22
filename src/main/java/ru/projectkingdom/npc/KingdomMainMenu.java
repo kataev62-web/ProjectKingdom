@@ -13,6 +13,10 @@ import net.minecraft.world.inventory.MenuType;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
+import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
+import ru.projectkingdom.administration.AdministrativeCoreMenu;
+import ru.projectkingdom.administration.AdministrativeKind;
+import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Menu-driven management; all changes are verified on the server. */
 public final class KingdomMainMenu extends ChestMenu {
@@ -35,11 +39,40 @@ public final class KingdomMainMenu extends ChestMenu {
     }
     public static void open(ServerPlayer player) { show(player,Page.HOME); }
     public static void openWallet(ServerPlayer player) { show(player,Page.WALLET); }
-    public static void openBank(ServerPlayer player) { show(player,Page.BANK); }
-    public static void openWarehouse(ServerPlayer player) { show(player,Page.WAREHOUSE); }
+    public static void openBank(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.BANK); }
+    public static void openWarehouse(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.CITY_MARKET); }
+    public static void openTownHall(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.TOWN_HALL); }
+    public static void openTreasury(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.TREASURY); }
+    public static void openLandOffice(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.LAND_OFFICE); }
     public static void openOrders(ServerPlayer player) { show(player,Page.ORDERS); }
     public static void openArchitect(ServerPlayer player) { show(player,Page.BUILD); }
     public static void openSite(ServerPlayer player,java.util.UUID id) { show(player,Page.SITE,id); }
+    private static void openAdministrativeOrExplain(ServerPlayer player,AdministrativeKind kind){
+        if(openNearbyAdministrative(player,kind))return;
+        player.sendSystemMessage(Component.literal("[Project Kingdom] Старая точка доступа оставлена только для миграции. Подойдите к активному блоку: "+kind.russianName()+"."));
+    }
+    public static boolean isNearAdministrative(ServerPlayer player,AdministrativeKind kind){
+        return nearbyAdministrativeTown(player,kind)!=null;
+    }
+    public static java.util.UUID nearbyAdministrativeTown(ServerPlayer player,AdministrativeKind kind){
+        if(player==null||kind==null)return null;String dimension=player.level().dimension().location().toString();BlockPos origin=player.blockPosition();
+        KingdomAdministrationData data=KingdomAdministrationData.get(player.getServer());java.util.UUID selected=null;double best=Double.MAX_VALUE;
+        for(var town:KingdomCivicsData.get(player.getServer()).towns()){
+            var binding=data.core(town.id(),kind);if(binding==null||!dimension.equals(binding.dimension()))continue;BlockPos pos=BlockPos.of(binding.packedPos());
+            double distance=pos.distSqr(origin);if(distance>64||distance>=best||!player.serverLevel().hasChunkAt(pos))continue;
+            if(player.serverLevel().getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core&&core.bound()&&town.id().equals(core.townId())&&kind==core.kind()){selected=town.id();best=distance;}
+        }return selected;
+    }
+    public static boolean openNearbyAdministrative(ServerPlayer player,AdministrativeKind kind){
+        if(!isNearAdministrative(player,kind))return false;String dimension=player.level().dimension().location().toString();BlockPos origin=player.blockPosition();
+        KingdomAdministrationData data=KingdomAdministrationData.get(player.getServer());AdministrativeCoreBlockEntity selected=null;double best=Double.MAX_VALUE;
+        for(var town:KingdomCivicsData.get(player.getServer()).towns()){
+            var binding=data.core(town.id(),kind);if(binding==null||!dimension.equals(binding.dimension()))continue;BlockPos pos=BlockPos.of(binding.packedPos());double distance=pos.distSqr(origin);
+            if(distance>64||distance>=best||!player.serverLevel().hasChunkAt(pos))continue;
+            if(player.serverLevel().getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core&&core.bound()&&town.id().equals(core.townId())&&kind==core.kind()){selected=core;best=distance;}
+        }
+        if(selected==null)return false;AdministrativeCoreMenu.open(player,selected);return true;
+    }
     private static void show(ServerPlayer player,Page page) {show(player,page,null);}
     private static void show(ServerPlayer player,Page page,java.util.UUID siteId) {
         player.openMenu(new SimpleMenuProvider((id,inv,p)->make(id,inv,player,page,siteId),
@@ -60,10 +93,10 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(10,Items.BRICKS,"Строительство и архитектор");
                 icon(11,Items.PAPER,"Мои проекты");
                 icon(12,Items.IRON_SWORD,"Армия и приказы");
-                icon(13,Items.GRASS_BLOCK,"Территории");
+                icon(13,Items.GRASS_BLOCK,"Земельное управление");
                 icon(14,Items.VILLAGER_SPAWN_EGG,"Жители и профессии");
-                icon(15,Items.EMERALD,"Города, нации и участки");
-                icon(16,Items.CHEST,"Склады: назначаются через меню NPC");
+                icon(15,Items.EMERALD,"Ратуша города");
+                icon(16,Items.CHEST,"Городской рынок");
                 icon(22,KingdomCurrency.WALLET.get(),"Монеты и кошелёк");
                 icon(23,Items.EMERALD,"Моё предприятие и касса");
             }
@@ -94,7 +127,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     icon(18+i,i==marketQuote?Items.LIME_DYE:Items.GRAY_DYE,
                         "#"+i+" | "+q.totalCopper()+" мед. | запас "+q.available()+" | "+q.stall().pos().toShortString());
                 }
-                var chest=market.deliveryChest(viewer.serverLevel(),viewer.blockPosition(),viewer.getUUID());
+                var chest=market.cityMarketDeliveryChest(viewer.serverLevel(),viewer.blockPosition(),viewer.getUUID());
                 icon(22,Items.EMERALD,"Оплатить заказ + доставку (10 мед.)");
                 icon(23,Items.CHEST,chest==null?"Нет сундука приёмки рядом со стойкой":"Сундук приёмки: "+chest.toShortString());
                 icon(24,Items.PAPER,"Выбрано предложение #"+marketQuote+". Деньги списываются из кошелька.");
@@ -311,9 +344,10 @@ public final class KingdomMainMenu extends ChestMenu {
                 case 10 -> show(viewer,Page.BUILD);
                 case 11 -> show(viewer,Page.PROJECTS);
                 case 12 -> show(viewer,Page.ARMY);
-                case 13 -> show(viewer,Page.TERRITORY);
-                case 14,16 -> show(viewer,Page.PEOPLE);
-                case 15 -> show(viewer,Page.CIVICS);
+                case 13 -> openLandOffice(viewer);
+                case 14 -> show(viewer,Page.PEOPLE);
+                case 15 -> openTownHall(viewer);
+                case 16 -> openWarehouse(viewer);
                 case 22 -> show(viewer,Page.WALLET);
                 case 23 -> {if(!openNearbyEnterprise()){say("Подойди к установленному блоку-ядру предприятия.");show(viewer,Page.ENTERPRISE);}}
             }}
@@ -323,11 +357,11 @@ public final class KingdomMainMenu extends ChestMenu {
                 if(slot==11){long collected=KingdomCurrency.collect(viewer);say("В кошелёк добавлено: "+collected+" медных");draw();}
                 if(slot==13||slot==14||slot==15){long amount=slot==13?1:slot==14?100:10000;
                     say(KingdomCurrency.withdraw(viewer,amount)?"Монета получена":"Недостаточно денег или нет места");draw();}
-                if(slot==16){depositWallet(100);draw();}
+                if(slot==16){openTreasury(viewer);}
                 if(slot==19){show(viewer,Page.PAYMENTS);}
-                if(slot==20){withdrawTownToWallet(100);draw();}
+                if(slot==20){openTreasury(viewer);}
                 if(slot==21){say(KingdomTaxData.get(viewer.getServer()).pay(viewer.getServer(),viewer,100)?"Налоговый долг оплачен":"Нет долга или недостаточно денег");draw();}
-                if(slot==22){show(viewer,Page.PAYROLL);}
+                if(slot==22){openTreasury(viewer);}
             }
             case ORDERS -> { if(slot==26)show(viewer,Page.WAREHOUSE); }
             case WAREHOUSE -> {
@@ -340,7 +374,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 if(slot>=18&&slot<=21){marketQuote=slot-18;draw();break;}
                 if(slot==22){
                     var market=KingdomWarehouseMarket.get(viewer.getServer());
-                    var destination=market.deliveryChest(viewer.serverLevel(),viewer.blockPosition(),viewer.getUUID());
+                    var destination=market.cityMarketDeliveryChest(viewer.serverLevel(),viewer.blockPosition(),viewer.getUUID());
                     if(destination==null){say("Нужен твой сундук приёмки вплотную к зарегистрированной стойке.");break;}
                     var order=market.checkout(viewer,marketItem,marketCount,marketQuote,destination,10);
                     say(order==null?"Заказ не оформлен: проверь запас, цену и кошелёк.":
