@@ -132,6 +132,9 @@ public final class KingdomAdministrationData extends SavedData {
         Set<BoundContainer> values=townBindings==null?null:townBindings.get(role);
         return values==null?List.of():List.copyOf(values);
     }
+    public List<BoundContainer> boundContainers(UUID townId,AdministrativeBindingRole role){
+        return containerBindings(townId,role);
+    }
     public long bankReserve(UUID townId){return bankReserves.getOrDefault(townId,0L);}
     public long treasuryReserve(UUID townId){return treasuryReserves.getOrDefault(townId,0L);}
     public long historicalTreasuryLiability(UUID townId){return historicalTreasuries.getOrDefault(townId,0L);}

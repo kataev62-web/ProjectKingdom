@@ -11,12 +11,20 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.saveddata.SavedData;
+import ru.projectkingdom.administration.AdministrativeBindingRole;
+import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
+import ru.projectkingdom.administration.AdministrativeCoreBinding;
+import ru.projectkingdom.administration.AdministrativeKind;
+import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Registered seller inventories; quotations always read actual loaded containers. */
 public final class KingdomWarehouseMarket extends SavedData {
     private static final String KEY = "kingdom_warehouse_market_v1";
     public record Stall(UUID owner, String dimension, BlockPos pos, long copperPerItem) {}
     public record Quote(Stall stall, int available, String itemId, long totalCopper) {}
+    public record InventorySnapshot(String dimension, BlockPos pos, Map<String,Integer> items) {
+        public InventorySnapshot { items=Map.copyOf(items); }
+    }
     private final Map<String, Stall> stalls = new LinkedHashMap<>();
     private final Map<String, UUID> desks = new LinkedHashMap<>();
     private static String key(String dim, BlockPos pos) { return dim + ":" + pos.asLong(); }
@@ -104,6 +112,46 @@ public final class KingdomWarehouseMarket extends SavedData {
             && level.hasChunkAt(pos) && level.getBlockEntity(pos) instanceof Container;
     }
     public Collection<Stall> all() {return Collections.unmodifiableCollection(stalls.values());}
+    /** Reads municipal stock only from containers that are loaded and still inside the owning town. */
+    public List<InventorySnapshot> municipalInventory(ServerLevel level,UUID townId,AdministrativeBindingRole role) {
+        if(level==null||townId==null||role==null
+                ||(role!=AdministrativeBindingRole.WAREHOUSE_STORAGE&&role!=AdministrativeBindingRole.MARKET_STORAGE)
+                ||!activeMunicipalCore(level,townId,role.kind()))return List.of();
+        String dimension=level.dimension().location().toString();
+        KingdomAdministrationData administration=KingdomAdministrationData.get(level.getServer());
+        KingdomCivicsData civics=KingdomCivicsData.get(level.getServer());
+        List<InventorySnapshot> snapshots=new ArrayList<>();
+        for(KingdomAdministrationData.BoundContainer binding:administration.boundContainers(townId,role)) {
+            if(!dimension.equals(binding.dimension()))continue;
+            BlockPos pos=BlockPos.of(binding.packedPos());
+            if(!level.hasChunkAt(pos))continue;
+            var currentTown=civics.townAt(level,pos);
+            if(currentTown==null||!townId.equals(currentTown.id()))continue;
+            BlockEntity blockEntity=level.getBlockEntity(pos);
+            if(!(blockEntity instanceof Container container))continue;
+            Map<String,Integer> items=new LinkedHashMap<>();
+            for(int slot=0;slot<container.getContainerSize();slot++) {
+                ItemStack stack=container.getItem(slot);if(stack.isEmpty())continue;
+                String itemId=BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                items.merge(itemId,stack.getCount(),Integer::sum);
+            }
+            snapshots.add(new InventorySnapshot(dimension,pos.immutable(),items));
+        }
+        return List.copyOf(snapshots);
+    }
+    public List<Quote> cityMarketSearch(ServerLevel level,UUID townId,String itemId,int amount) {
+        if(!activeMunicipalCore(level,townId,AdministrativeKind.CITY_MARKET))return List.of();
+        return search(level,itemId,amount);
+    }
+    public boolean activeMunicipalCore(ServerLevel level,UUID townId,AdministrativeKind kind) {
+        if(level==null||townId==null||kind==null)return false;
+        AdministrativeCoreBinding binding=KingdomAdministrationData.get(level.getServer()).core(townId,kind);
+        if(binding==null||!binding.dimension().equals(level.dimension().location().toString()))return false;
+        BlockPos pos=BlockPos.of(binding.packedPos());
+        if(!level.hasChunkAt(pos))return false;
+        if(!(level.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core))return false;
+        return core.bound()&&townId.equals(core.townId())&&kind==core.kind();
+    }
     /** Secure checkout: physical wallet is debited once; goods remain in seller chest.
      * Seller settlement and courier assignment are separate required operations.
      */
