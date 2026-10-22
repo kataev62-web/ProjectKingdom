@@ -238,6 +238,12 @@ public final class KingdomCivicsData extends SavedData {
         return Collections.unmodifiableList(result);
     }
     public Town townById(UUID id) { return towns.get(id); }
+    public Town townAt(ServerLevel level,BlockPos pos) {
+        Plot claimed=plot(level,pos);return claimed==null?null:towns.get(claimed.town());
+    }
+    public boolean isMember(UUID townId,UUID playerId) {
+        return townId!=null&&playerId!=null&&townId.equals(memberships.get(playerId));
+    }
 
     public Collection<Nation> nations() { return Collections.unmodifiableCollection(nations.values()); }
     public Town townOf(UUID player) { return towns.get(memberships.get(player)); }
