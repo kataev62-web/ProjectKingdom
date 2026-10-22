@@ -11,6 +11,7 @@ import java.util.*;
 import ru.projectkingdom.administration.AdministrativeKind;
 import ru.projectkingdom.administration.AdministrativePermissionService;
 import ru.projectkingdom.administration.KingdomAdministrationData;
+import ru.projectkingdom.administration.MunicipalRole;
 
 /** Towny-inspired server-owned towns/nations/plots; no Bukkit dependency. */
 public final class KingdomCivicsData extends SavedData {
@@ -248,6 +249,43 @@ public final class KingdomCivicsData extends SavedData {
     }
     public boolean isMember(UUID townId,UUID playerId) {
         return townId!=null&&playerId!=null&&townId.equals(memberships.get(playerId));
+    }
+    public List<UUID> townMembers(UUID townId,int page,int pageSize) {
+        if(townId==null||page<0||pageSize<1)return List.of();
+        int bounded=Math.min(pageSize,32);List<UUID> result=new ArrayList<>();
+        for(var entry:memberships.entrySet())if(townId.equals(entry.getValue()))result.add(entry.getKey());
+        result.sort(Comparator.comparing(UUID::toString));int from=(int)Math.min(result.size(),(long)page*bounded);
+        return List.copyOf(result.subList(from,Math.min(result.size(),from+bounded)));
+    }
+    public List<Plot> townPlots(UUID townId,int page,int pageSize) {
+        if(townId==null||page<0||pageSize<1)return List.of();
+        int bounded=Math.min(pageSize,32);List<Plot> result=new ArrayList<>();
+        for(Plot plot:plots.values())if(townId.equals(plot.town()))result.add(plot);
+        result.sort(Comparator.comparing(Plot::dimension).thenComparingInt(Plot::x).thenComparingInt(Plot::z));
+        int from=(int)Math.min(result.size(),(long)page*bounded);return List.copyOf(result.subList(from,Math.min(result.size(),from+bounded)));
+    }
+    public boolean replaceMayorAuthorized(UUID townId,UUID actor,UUID replacement) {
+        Town town=towns.get(townId);if(town==null||runtimeServer==null||replacement==null||!isMember(townId,replacement))return false;
+        KingdomAdministrationData administration=KingdomAdministrationData.get(runtimeServer);
+        if(!AdministrativePermissionService.mayPerformFounderOnly(actor,administration.founder(townId)))return false;
+        if(replacement.equals(town.mayor()))return false;
+        towns.put(town.id(),new Town(town.id(),town.name(),replacement,town.nation(),town.treasury()));
+        administration.appoint(townId,actor,town.mayor(),replacement,MunicipalRole.MAYOR);setDirty();return true;
+    }
+    public boolean landOfficeSetZone(UUID townId,UUID actor,String dimension,int x,int z,Zone zone) {
+        Plot plot=plots.get(key(dimension,x,z));
+        if(plot==null||!townId.equals(plot.town())||zone==null||!mayManageLand(townId,actor))return false;
+        plots.put(key(dimension,x,z),new Plot(plot.dimension(),plot.x(),plot.z(),plot.town(),plot.tenant(),zone,plot.publicUse()));setDirty();return true;
+    }
+    public boolean landOfficeSetPublicUse(UUID townId,UUID actor,String dimension,int x,int z,boolean allow) {
+        Plot plot=plots.get(key(dimension,x,z));
+        if(plot==null||!townId.equals(plot.town())||!mayManageLand(townId,actor))return false;
+        plots.put(key(dimension,x,z),new Plot(plot.dimension(),plot.x(),plot.z(),plot.town(),plot.tenant(),plot.zone(),allow));setDirty();return true;
+    }
+    private boolean mayManageLand(UUID townId,UUID actor) {
+        Town town=towns.get(townId);if(town==null||runtimeServer==null)return false;
+        KingdomAdministrationData administration=KingdomAdministrationData.get(runtimeServer);
+        return AdministrativePermissionService.mayManage(actor,administration.founder(townId),town.mayor(),administration.roles(townId,actor),AdministrativeKind.LAND_OFFICE);
     }
 
     public Collection<Nation> nations() { return Collections.unmodifiableCollection(nations.values()); }

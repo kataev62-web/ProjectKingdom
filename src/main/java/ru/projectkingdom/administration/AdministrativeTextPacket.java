@@ -4,6 +4,7 @@ import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
+import ru.projectkingdom.npc.KingdomCivicsData;
 
 public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,String field,String value) {
     public static String validatedText(String input){
@@ -14,6 +15,10 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
     private static String validatedField(String input){
         if(input==null||input.isBlank()||input.length()>24||!input.matches("[a-z_]+"))return null;return input;
     }
+    private static String validatedCommandValue(String input){
+        if(input==null||input.isBlank()||input.length()>64||input.indexOf('§')>=0||input.chars().anyMatch(Character::isISOControl))return null;
+        return input.trim();
+    }
     public static void encode(AdministrativeTextPacket packet,FriendlyByteBuf buffer){
         buffer.writeUUID(packet.townId);buffer.writeUtf(packet.kind==null?"":packet.kind.id(),32);
         buffer.writeUtf(packet.field==null?"":packet.field,32);buffer.writeUtf(packet.value==null?"":packet.value,96);
@@ -23,12 +28,33 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
     }
     public static void handle(AdministrativeTextPacket packet,Supplier<NetworkEvent.Context> supplier){
         NetworkEvent.Context context=supplier.get();context.enqueueWork(()->{
-            var sender=context.getSender();String text=validatedText(packet.value),field=validatedField(packet.field);
-            if(sender==null||packet.kind==null||text==null||field==null
+            var sender=context.getSender();String field=validatedField(packet.field);
+            if(sender==null||packet.kind==null||field==null
                     ||!(sender.containerMenu instanceof AdministrativeCoreMenu menu)||!packet.townId.equals(menu.townId())
                     ||packet.kind!=menu.kind()||!menu.manager()||!menu.stillValid(sender))return;
-            KingdomAdministrationData.get(sender.getServer()).record(packet.townId,sender.getUUID(),null,
-                    "text."+field+"="+text,sender.level().getGameTime());
+            if(field.equals("appoint_role")||field.equals("revoke_role")||field.equals("appoint_mayor")){
+                if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
+                String command=validatedCommandValue(packet.value);if(command==null)return;
+                KingdomCivicsData civics=KingdomCivicsData.get(sender.getServer());var town=civics.townById(packet.townId);if(town==null)return;
+                boolean changed=false;
+                if(field.equals("appoint_mayor")){
+                    try{changed=civics.replaceMayorAuthorized(packet.townId,sender.getUUID(),UUID.fromString(command));}catch(IllegalArgumentException ignored){}
+                }else{
+                    int separator=command.indexOf('|');if(separator<1)return;
+                    try{
+                        UUID target=UUID.fromString(command.substring(0,separator));MunicipalRole role=MunicipalRole.valueOf(command.substring(separator+1));
+                        if(role==MunicipalRole.MAYOR)return;
+                        KingdomAdministrationData data=KingdomAdministrationData.get(sender.getServer());
+                        if(field.equals("appoint_role")&&civics.isMember(packet.townId,target))changed=data.appoint(packet.townId,sender.getUUID(),town.mayor(),target,role);
+                        else if(field.equals("revoke_role"))changed=data.revoke(packet.townId,sender.getUUID(),town.mayor(),target,role);
+                    }catch(IllegalArgumentException ignored){}
+                }
+                if(changed)KingdomAdministrationData.get(sender.getServer()).record(packet.townId,sender.getUUID(),null,
+                        field,sender.level().getGameTime());
+                return;
+            }
+            String text=validatedText(packet.value);if(text==null)return;
+            KingdomAdministrationData.get(sender.getServer()).record(packet.townId,sender.getUUID(),null,"text."+field+"="+text,sender.level().getGameTime());
         });context.setPacketHandled(true);
     }
 }
