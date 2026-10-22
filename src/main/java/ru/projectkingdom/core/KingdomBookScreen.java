@@ -106,7 +106,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
                 centerText(graphics, playerName(), center, y + 16, INK);
                 divider(graphics, page, y + 31);
                 label(graphics, "СТАТУС КНИГИ", x, y + 43);
-                graphics.drawString(font, "Выдана", x, y + 58, SUCCESS, false);
+                graphics.drawString(font, KingdomFonts.readable("Выдана"), x, y + 58, SUCCESS, false);
                 label(graphics, "СЛЕДУЮЩИЕ ГЛАВЫ", x, y + 82);
                 wrapped(graphics, "Профессия, титул и репутация будут подключены позже.", page, y + 96);
             }
@@ -161,15 +161,15 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
     }
 
     private void label(GuiGraphics graphics, String text, int x, int y) {
-        graphics.drawString(font, text, x, y, INK_MUTED, false);
+        graphics.drawString(font, KingdomFonts.readable(text), x, y, INK_MUTED, false);
     }
 
     private void centerText(GuiGraphics graphics, String text, int centerX, int y, int color) {
-        graphics.drawCenteredString(font, text, centerX, y, color);
+        graphics.drawCenteredString(font, KingdomFonts.readable(text), centerX, y, color);
     }
 
     private void wrapped(GuiGraphics graphics, String text, KingdomBookLayout.Rect page, int y) {
-        graphics.drawWordWrap(font, Component.literal(text), page.x() + 10, y, page.width() - 20, INK_MUTED);
+        graphics.drawWordWrap(font, KingdomFonts.readable(text), page.x() + 10, y, page.width() - 20, INK_MUTED);
     }
 
     private String rightHeading() {

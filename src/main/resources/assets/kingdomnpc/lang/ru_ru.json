@@ -6,5 +6,7 @@
   "item.kingdomnpc.copper_coin": "Медная монета",
   "item.kingdomnpc.silver_coin": "Серебряная монета",
   "item.kingdomnpc.gold_coin": "Золотая монета",
-  "item.kingdomnpc.wallet": "Кошелёк"
+  "item.kingdomnpc.wallet": "Денежный мешок",
+  "screen.kingdomnpc.money_purse": "Денежный мешок",
+  "message.kingdomnpc.purse_no_slot": "[Project Kingdom] Освободите один слот, чтобы отделить мешок от стопки."
 }
