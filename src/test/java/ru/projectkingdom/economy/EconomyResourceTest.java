@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Test;
 
@@ -27,7 +29,8 @@ final class EconomyResourceTest {
         assertTrue(font.contains("kingdomnpc:font/dejavu_sans.ttf"));
         assertNotNull(getClass().getResourceAsStream("/assets/kingdomnpc/font/dejavu_sans.ttf"));
         assertNotNull(getClass().getResourceAsStream("/licenses/DejaVu-Fonts-LICENSE.txt"));
-        assertNull(getClass().getResourceAsStream("/assets/minecraft/font/default.json"));
+        assertTrue(Files.notExists(Path.of("src/main/resources/assets/minecraft/font/default.json")),
+                "the mod must not replace Minecraft's global default font");
     }
 
     private String resource(String path) throws Exception {
