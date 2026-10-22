@@ -32,6 +32,7 @@ import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.enterprise.EnterpriseAccessService;
 import ru.projectkingdom.network.KingdomNetwork;
 import ru.projectkingdom.administration.KingdomAdministrationRegistry;
+import ru.projectkingdom.administration.AdministrativeAccessService;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -160,7 +161,13 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID()); }
+    @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
+        if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
+        var status=AdministrativeAccessService.complete(player,player.serverLevel(),event.getPos());
+        player.sendSystemMessage(Component.literal("[Project Kingdom] Привязка городской службы: "+status));
+        event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
+    }
     @SubscribeEvent public void bindEnterpriseContainer(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!EnterpriseAccessService.hasSession(player.getUUID()))return;
         var status=EnterpriseAccessService.complete(player,player.serverLevel(),event.getPos());

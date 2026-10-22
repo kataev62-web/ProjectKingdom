@@ -7,6 +7,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -24,11 +25,13 @@ public final class KingdomAdministrationData extends SavedData {
     public static final int MAX_LOG_ENTRIES=500;
 
     public record LogEntry(UUID actor, MunicipalRole role, String action, long gameTime) {}
+    public record BoundContainer(AdministrativeBindingRole role,String dimension,long packedPos) {}
 
     private final Map<UUID,UUID> founders=new LinkedHashMap<>();
     private final Map<UUID,Map<UUID,EnumSet<MunicipalRole>>> roles=new LinkedHashMap<>();
     private final Map<UUID,EnumMap<AdministrativeKind,AdministrativeCoreBinding>> cores=new LinkedHashMap<>();
     private final Map<UUID,ArrayDeque<LogEntry>> logs=new LinkedHashMap<>();
+    private final Map<UUID,EnumMap<AdministrativeBindingRole,LinkedHashSet<BoundContainer>>> containers=new LinkedHashMap<>();
     private int dataVersion=DATA_VERSION;
 
     public static KingdomAdministrationData get(MinecraftServer server){
@@ -111,6 +114,19 @@ public final class KingdomAdministrationData extends SavedData {
         int start=Math.max(0,all.size()-Math.min(limit,MAX_LOG_ENTRIES));
         return List.copyOf(all.subList(start,all.size()));
     }
+    public boolean bindContainer(UUID townId,AdministrativeBindingRole role,String dimension,long packedPos){
+        if(townId==null||role==null||dimension==null||dimension.isBlank())return false;
+        EnumMap<AdministrativeBindingRole,LinkedHashSet<BoundContainer>> townBindings=containers.computeIfAbsent(townId,unused->new EnumMap<>(AdministrativeBindingRole.class));
+        LinkedHashSet<BoundContainer> values=townBindings.computeIfAbsent(role,unused->new LinkedHashSet<>());
+        BoundContainer binding=new BoundContainer(role,dimension,packedPos);
+        if(values.contains(binding)||(!role.multiple()&&!values.isEmpty())||values.size()>=64)return false;
+        values.add(binding);setDirty();return true;
+    }
+    public List<BoundContainer> containerBindings(UUID townId,AdministrativeBindingRole role){
+        Map<AdministrativeBindingRole,LinkedHashSet<BoundContainer>> townBindings=containers.get(townId);
+        Set<BoundContainer> values=townBindings==null?null:townBindings.get(role);
+        return values==null?List.of():List.copyOf(values);
+    }
 
     public static KingdomAdministrationData fromTag(CompoundTag root){
         KingdomAdministrationData data=new KingdomAdministrationData();
@@ -144,6 +160,16 @@ public final class KingdomAdministrationData extends SavedData {
             data.logs.computeIfAbsent(row.getUUID("Town"),unused->new ArrayDeque<>())
                     .addLast(new LogEntry(row.getUUID("Actor"),role,action,Math.max(0,row.getLong("GameTime"))));
         }
+        ListTag containerList=root.getList("Containers",Tag.TAG_COMPOUND);
+        for(int i=0;i<containerList.size();i++){
+            CompoundTag row=containerList.getCompound(i);if(!row.hasUUID("Town"))continue;
+            AdministrativeBindingRole role;try{role=AdministrativeBindingRole.valueOf(row.getString("Role"));}catch(IllegalArgumentException ex){continue;}
+            String dimension=row.getString("Dimension");if(dimension.isBlank())continue;
+            UUID town=row.getUUID("Town");LinkedHashSet<BoundContainer> values=data.containers
+                    .computeIfAbsent(town,unused->new EnumMap<>(AdministrativeBindingRole.class))
+                    .computeIfAbsent(role,unused->new LinkedHashSet<>());
+            if((role.multiple()||values.isEmpty())&&values.size()<64)values.add(new BoundContainer(role,dimension,row.getLong("Pos")));
+        }
         data.dataVersion=DATA_VERSION;return data;
     }
     @Override public CompoundTag save(CompoundTag root){
@@ -161,6 +187,10 @@ public final class KingdomAdministrationData extends SavedData {
         ListTag logList=new ListTag();for(var town:logs.entrySet())for(LogEntry entry:town.getValue()){
             CompoundTag row=new CompoundTag();row.putUUID("Town",town.getKey());row.putUUID("Actor",entry.actor());
             if(entry.role()!=null)row.putString("Role",entry.role().name());row.putString("Action",entry.action());row.putLong("GameTime",entry.gameTime());logList.add(row);
-        }root.put("Logs",logList);return root;
+        }root.put("Logs",logList);
+        ListTag containerList=new ListTag();for(var town:containers.entrySet())for(var role:town.getValue().entrySet())for(BoundContainer binding:role.getValue()){
+            CompoundTag row=new CompoundTag();row.putUUID("Town",town.getKey());row.putString("Role",binding.role().name());
+            row.putString("Dimension",binding.dimension());row.putLong("Pos",binding.packedPos());containerList.add(row);
+        }root.put("Containers",containerList);return root;
     }
 }

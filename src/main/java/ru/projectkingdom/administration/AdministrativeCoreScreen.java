@@ -8,11 +8,13 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import ru.projectkingdom.core.KingdomFonts;
+import ru.projectkingdom.network.KingdomNetwork;
 
 public final class AdministrativeCoreScreen extends AbstractContainerScreen<AdministrativeCoreMenu> {
     private static final int INK=0xFF312116,MUTED=0xFF72563A,PARCHMENT=0xFFF1D69C,EDGE=0xFF9E713B,ACCENT=0xFF6E2830;
     private AdministrativeMenuLayout.Tab selected=AdministrativeMenuLayout.Tab.INFO;
     private final List<Button> tabButtons=new ArrayList<>();
+    private final List<ActionButton> actionButtons=new ArrayList<>();
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
     }
@@ -20,10 +22,25 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         super.init();var tabs=AdministrativeMenuLayout.tabs(menu.kind());var rects=AdministrativeMenuLayout.tabRects(menu.kind());
         for(int i=0;i<tabs.size();i++){
             var tab=tabs.get(i);var rect=rects.get(i);
-            tabButtons.add(addRenderableWidget(Button.builder(KingdomFonts.readable(shortLabel(tab)),button->selected=tab)
+            tabButtons.add(addRenderableWidget(Button.builder(KingdomFonts.readable(shortLabel(tab)),button->{selected=tab;updateVisibility();})
                     .bounds(leftPos+rect.x(),topPos+rect.y(),rect.width(),rect.height()).build()));
         }
+        switch(menu.kind()){
+            case TREASURY->addAction("Привязать хранилище",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.BIND_TREASURY);
+            case BANK->addAction("Привязать резерв",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.BIND_BANK);
+            case CENTRAL_WAREHOUSE->addAction("Добавить контейнер",AdministrativeMenuLayout.Tab.STORAGE,AdministrativeActionPacket.BIND_WAREHOUSE);
+            case CITY_MARKET->addAction("Добавить склад рынка",AdministrativeMenuLayout.Tab.TRADE,AdministrativeActionPacket.BIND_MARKET);
+            case PRISON->addAction("Добавить камеру",AdministrativeMenuLayout.Tab.CELLS,AdministrativeActionPacket.BIND_PRISON_CELL);
+            default->{}
+        }
+        updateVisibility();
     }
+    private void addAction(String label,AdministrativeMenuLayout.Tab tab,int action){
+        Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(label),ignored->KingdomNetwork.CHANNEL.sendToServer(
+                new AdministrativeActionPacket(menu.townId(),menu.kind(),action))).bounds(leftPos+78,topPos+146,190,20).build());
+        actionButtons.add(new ActionButton(tab,button));
+    }
+    private void updateVisibility(){for(ActionButton entry:actionButtons)entry.button.visible=menu.manager()&&entry.tab==selected;}
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){
         g.fill(leftPos+36,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);
         g.fill(leftPos+41,topPos+9,leftPos+imageWidth-9,topPos+imageHeight-9,PARCHMENT);
@@ -56,5 +73,6 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private static String title(AdministrativeMenuLayout.Tab tab){return switch(tab){
         case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case FINANCE->"Финансы";case STORAGE->"Склад";
         case TRADE->"Рынок";case LAND->"Земля";case CASES->"Дела";case CELLS->"Камеры";case GUARDS->"Стража";case LOG->"Журнал";case SETTINGS->"Настройки";};}
+    private record ActionButton(AdministrativeMenuLayout.Tab tab,Button button){}
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float partial){renderBackground(g);super.render(g,mouseX,mouseY,partial);renderTooltip(g,mouseX,mouseY);}
 }
