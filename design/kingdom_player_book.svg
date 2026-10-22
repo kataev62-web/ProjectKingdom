@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="352" height="220" viewBox="0 0 352 220">
+  <defs>
+    <linearGradient id="leather" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#66362d"/>
+      <stop offset="0.48" stop-color="#4a251f"/>
+      <stop offset="1" stop-color="#2b1513"/>
+    </linearGradient>
+    <linearGradient id="leftPaper" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#d5bb7d"/>
+      <stop offset="0.12" stop-color="#eedca9"/>
+      <stop offset="0.78" stop-color="#f2e5bb"/>
+      <stop offset="1" stop-color="#b99a62"/>
+    </linearGradient>
+    <linearGradient id="rightPaper" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b8995f"/>
+      <stop offset="0.16" stop-color="#f2e5bb"/>
+      <stop offset="0.86" stop-color="#ead6a0"/>
+      <stop offset="1" stop-color="#c5a667"/>
+    </linearGradient>
+    <linearGradient id="spine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7e6137" stop-opacity="0.15"/>
+      <stop offset="0.45" stop-color="#382316" stop-opacity="0.78"/>
+      <stop offset="0.72" stop-color="#f5e9bd" stop-opacity="0.35"/>
+      <stop offset="1" stop-color="#7e6137" stop-opacity="0.12"/>
+    </linearGradient>
+    <filter id="shadow" x="-15%" y="-15%" width="130%" height="140%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <path d="M25 20 Q27 8 43 7 L166 11 Q178 12 181 22 Q185 12 198 11 L329 7 Q345 9 347 23 L347 202 Q344 215 330 215 L197 211 Q186 210 181 201 Q175 210 164 211 L42 215 Q26 214 24 201 Z"
+        fill="#090605" opacity="0.58" filter="url(#shadow)" transform="translate(2 2)"/>
+  <path d="M24 17 Q27 6 43 5 L164 9 Q176 10 181 21 Q187 10 199 9 L330 5 Q345 7 348 21 L348 200 Q345 213 329 214 L198 209 Q187 209 181 198 Q175 209 163 209 L42 214 Q26 212 23 199 Z"
+        fill="url(#leather)" stroke="#1b0d0c" stroke-width="3"/>
+  <path d="M30 22 Q33 12 46 11 L161 15 Q173 16 179 27 L179 194 Q171 202 160 202 L45 207 Q32 206 29 196 Z"
+        fill="#8f5b39" stroke="#b68b50" stroke-width="1.5" opacity="0.7"/>
+  <path d="M184 27 Q190 16 201 15 L326 11 Q339 12 342 23 L342 196 Q339 206 327 207 L201 202 Q190 202 184 194 Z"
+        fill="#8f5b39" stroke="#b68b50" stroke-width="1.5" opacity="0.7"/>
+
+  <path d="M35 24 Q42 16 56 17 L163 20 Q173 21 179 31 L178 193 Q170 198 162 197 L51 202 L45 199 L39 201 L34 195 L36 187 L32 179 L35 169 L32 159 L35 149 L33 137 L36 126 L33 115 L36 104 L33 92 L36 82 L34 70 L37 59 L34 47 L37 37 Z"
+        fill="url(#leftPaper)" stroke="#866839" stroke-width="1.4"/>
+  <path d="M184 31 Q191 21 202 20 L321 17 Q334 17 340 24 L337 36 L340 47 L337 58 L340 70 L337 82 L340 94 L337 105 L340 116 L337 128 L340 139 L337 150 L340 161 L337 172 L340 183 L336 195 L330 201 L323 199 L317 202 L201 197 Q191 198 184 193 Z"
+        fill="url(#rightPaper)" stroke="#866839" stroke-width="1.4"/>
+
+  <path d="M178 29 Q181 21 184 29 L185 193 Q182 202 178 193 Z" fill="url(#spine)"/>
+  <path d="M174 27 Q178 34 178 192" fill="none" stroke="#896c43" stroke-opacity="0.55"/>
+  <path d="M187 27 Q183 35 184 192" fill="none" stroke="#fff1c2" stroke-opacity="0.45"/>
+
+  <g fill="none" stroke="#9b7742" stroke-width="1" opacity="0.62">
+    <path d="M48 34 H74 M48 34 V57 M48 39 Q53 39 53 34"/>
+    <path d="M163 34 H140 M163 34 V57 M158 39 Q158 34 163 34"/>
+    <path d="M48 185 H74 M48 185 V163 M48 180 Q53 180 53 185"/>
+    <path d="M163 185 H140 M163 185 V163 M158 180 Q158 185 163 185"/>
+    <path d="M201 34 H225 M201 34 V57 M201 39 Q206 39 206 34"/>
+    <path d="M325 34 H301 M325 34 V57 M320 39 Q320 34 325 34"/>
+    <path d="M201 185 H225 M201 185 V163 M201 180 Q206 180 206 185"/>
+    <path d="M325 185 H301 M325 185 V163 M320 180 Q320 185 325 185"/>
+  </g>
+
+  <g fill="#815f32" opacity="0.12">
+    <ellipse cx="70" cy="72" rx="19" ry="8"/>
+    <ellipse cx="146" cy="162" rx="13" ry="20"/>
+    <ellipse cx="302" cy="65" rx="22" ry="10"/>
+    <ellipse cx="225" cy="170" rx="17" ry="7"/>
+  </g>
+  <g fill="none" stroke="#b7975c" stroke-width="1" opacity="0.3">
+    <path d="M52 191 Q105 187 159 191"/>
+    <path d="M202 191 Q262 187 323 192"/>
+    <path d="M44 28 Q105 23 166 27"/>
+    <path d="M197 27 Q262 22 330 28"/>
+  </g>
+</svg>

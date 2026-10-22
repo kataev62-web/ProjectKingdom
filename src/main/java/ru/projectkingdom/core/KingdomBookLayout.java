@@ -5,15 +5,16 @@ import java.util.stream.IntStream;
 
 /** Pixel-perfect layout shared by the Kingdom book screen and its tests. */
 public final class KingdomBookLayout {
-    public static final int WIDTH = 340;
+    public static final int WIDTH = 352;
     public static final int HEIGHT = 220;
 
-    private static final int TAB_X = 14;
+    private static final int TAB_X = 3;
     private static final int TAB_Y = 42;
-    private static final int TAB_WIDTH = 106;
-    private static final int TAB_HEIGHT = 23;
+    private static final int TAB_WIDTH = 25;
+    private static final int TAB_HEIGHT = 24;
     private static final int TAB_STEP = 28;
-    private static final Rect CONTENT_PANEL = new Rect(128, 42, 198, 163);
+    private static final Rect LEFT_PAGE = new Rect(36, 24, 132, 172);
+    private static final Rect RIGHT_PAGE = new Rect(185, 24, 137, 172);
 
     private KingdomBookLayout() {}
 
@@ -23,8 +24,12 @@ public final class KingdomBookLayout {
                 .toList();
     }
 
-    public static Rect contentPanel() {
-        return CONTENT_PANEL;
+    public static Rect leftPage() {
+        return LEFT_PAGE;
+    }
+
+    public static Rect rightPage() {
+        return RIGHT_PAGE;
     }
 
     public record Rect(int x, int y, int width, int height) {

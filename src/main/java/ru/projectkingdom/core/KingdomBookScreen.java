@@ -2,29 +2,27 @@ package ru.projectkingdom.core;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractButton;
+import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBookMenu> {
-    private static final int OUTLINE = 0xFF1A100A;
-    private static final int WOOD_DARK = 0xFF3A2417;
-    private static final int WOOD = 0xFF654126;
-    private static final int WOOD_LIGHT = 0xFF8C6137;
-    private static final int GOLD_DARK = 0xFF8D6D32;
-    private static final int GOLD = 0xFFD2B064;
-    private static final int PARCHMENT_DARK = 0xFFC8AE76;
-    private static final int PARCHMENT = 0xFFE8D9AD;
-    private static final int PARCHMENT_LIGHT = 0xFFF2E6C4;
-    private static final int INK = 0xFF2D1B0E;
-    private static final int INK_MUTED = 0xFF6A5436;
-    private static final int BURGUNDY_DARK = 0xFF4B1719;
-    private static final int BURGUNDY = 0xFF7D2529;
-    private static final int SUCCESS = 0xFF416B35;
+    private static final ResourceLocation BOOK_TEXTURE =
+            new ResourceLocation("kingdomnpc", "textures/gui/player_book.png");
+    private static final int INK = 0xFF352315;
+    private static final int INK_MUTED = 0xFF735B37;
+    private static final int LINE = 0xFFAA8A52;
+    private static final int GOLD_DARK = 0xFF8C682E;
+    private static final int GOLD = 0xFFD5B464;
+    private static final int BURGUNDY_DARK = 0xFF43161A;
+    private static final int BURGUNDY = 0xFF76262C;
+    private static final int BURGUNDY_LIGHT = 0xFF984047;
+    private static final int SUCCESS = 0xFF476A35;
 
     private BookModel.Section selected = BookModel.Section.PLAYER;
 
@@ -42,97 +40,153 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         for (int index = 0; index < sections.length; index++) {
             var section = sections[index];
             var rect = bounds.get(index);
-            addRenderableWidget(new SectionTab(
-                    leftPos + rect.x(), topPos + rect.y(), rect.width(), rect.height(), section));
+            var tab = new SectionTab(
+                    leftPos + rect.x(), topPos + rect.y(), rect.width(), rect.height(), section);
+            tab.setTooltip(Tooltip.create(Component.literal(section.title())));
+            addRenderableWidget(tab);
         }
     }
 
     @Override
     protected void renderBg(GuiGraphics graphics, float partialTick, int mouseX, int mouseY) {
-        int x = leftPos;
-        int y = topPos;
-
-        graphics.fill(x + 4, y + 5, x + imageWidth + 4, y + imageHeight + 5, 0x88000000);
-        borderedPanel(graphics, x, y, imageWidth, imageHeight, OUTLINE, GOLD_DARK, WOOD);
-        graphics.fill(x + 5, y + 5, x + imageWidth - 5, y + 35, WOOD_DARK);
-        graphics.fill(x + 7, y + 7, x + imageWidth - 7, y + 9, WOOD_LIGHT);
-        graphics.fill(x + 5, y + 34, x + imageWidth - 5, y + 36, GOLD_DARK);
-
-        graphics.renderItem(new ItemStack(Items.WRITABLE_BOOK), x + 13, y + 12);
-        graphics.drawString(font, "PROJECT KINGDOM", x + 36, y + 11, GOLD, false);
-        graphics.drawString(font, "КНИГА ПЕРСОНАЖА", x + 36, y + 22, 0xFFE1C98F, false);
-
-        borderedPanel(graphics, x + 9, y + 38, 115, 171, OUTLINE, GOLD_DARK, WOOD_DARK);
-        drawWoodGrain(graphics, x + 11, y + 40, 111, 167);
-
-        var content = KingdomBookLayout.contentPanel();
-        borderedPanel(graphics, x + content.x(), y + content.y(), content.width(), content.height(),
-                OUTLINE, PARCHMENT_DARK, PARCHMENT);
-        graphics.fill(x + content.x() + 4, y + content.y() + 4,
-                x + content.right() - 3, y + content.bottom() - 3, PARCHMENT_LIGHT);
-        drawParchmentMarks(graphics, x + content.x() + 5, y + content.y() + 5,
-                content.width() - 10, content.height() - 10);
-
-        drawRivet(graphics, x + 4, y + 4);
-        drawRivet(graphics, x + imageWidth - 8, y + 4);
-        drawRivet(graphics, x + 4, y + imageHeight - 8);
-        drawRivet(graphics, x + imageWidth - 8, y + imageHeight - 8);
+        graphics.blit(BOOK_TEXTURE, leftPos, topPos, 0, 0,
+                imageWidth, imageHeight, imageWidth, imageHeight);
     }
 
     @Override
     protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
-        var panel = KingdomBookLayout.contentPanel();
-        int x = panel.x() + 13;
-        int y = panel.y() + 11;
+        var left = KingdomBookLayout.leftPage();
+        var right = KingdomBookLayout.rightPage();
+        drawPageHeading(graphics, left, selected.title());
+        drawPageHeading(graphics, right, rightHeading());
+        renderLeftPage(graphics, left);
+        renderRightPage(graphics, right);
+        drawPageNumber(graphics, left, "I");
+        drawPageNumber(graphics, right, "II");
+    }
 
-        graphics.renderItem(iconFor(selected), x, y - 4);
-        graphics.drawString(font, selected.title().toUpperCase(), x + 22, y, BURGUNDY_DARK, false);
-        graphics.fill(panel.x() + 10, y + 16, panel.right() - 9, y + 18, PARCHMENT_DARK);
-        graphics.fill(panel.x() + 10, y + 16, panel.x() + 54, y + 17, BURGUNDY);
+    private void renderLeftPage(GuiGraphics graphics, KingdomBookLayout.Rect page) {
+        int center = page.x() + page.width() / 2;
+        int y = page.y() + 31;
+        graphics.renderItem(iconFor(selected), center - 8, y);
 
         switch (selected) {
-            case PLAYER -> renderPlayerPage(graphics, x, y + 28);
-            case BANK -> renderBalancePage(graphics, x, y + 28, "ЛИЧНЫЙ БАНКОВСКИЙ СЧЁТ", menu.bankBalance(), Items.GOLD_INGOT);
-            case CAPITAL -> renderBalancePage(graphics, x, y + 28, "ОБЩИЙ КАПИТАЛ", menu.totalCapital(), Items.CHEST);
-            case STATE -> renderPlaceholderPage(graphics, x, y + 28, "Государственное управление");
-            case DYNASTY -> renderPlaceholderPage(graphics, x, y + 28, "История рода и наследники");
-            case WORLD -> renderPlaceholderPage(graphics, x, y + 28, "Сведения о мире Avalon");
+            case PLAYER -> {
+                centerText(graphics, playerName(), center, y + 23, INK);
+                centerText(graphics, "● ПЕРСОНАЖ АКТИВЕН", center, y + 37, SUCCESS);
+                divider(graphics, page, y + 54);
+                wrapped(graphics, "Эта книга навсегда связана с вашим персонажем.", page, y + 64);
+            }
+            case BANK -> {
+                centerText(graphics, "ЛИЧНЫЙ СЧЁТ", center, y + 24, INK);
+                centerText(graphics, "БАНК КОРОЛЕВСТВА", center, y + 38, INK_MUTED);
+                divider(graphics, page, y + 54);
+                wrapped(graphics, "Средства игрока, которые хранятся в банке.", page, y + 64);
+            }
+            case CAPITAL -> {
+                centerText(graphics, "СВОДНЫЙ КАПИТАЛ", center, y + 24, INK);
+                centerText(graphics, "ИМУЩЕСТВО И СРЕДСТВА", center, y + 38, INK_MUTED);
+                divider(graphics, page, y + 54);
+                wrapped(graphics, "Общая стоимость накоплений и владений.", page, y + 64);
+            }
+            case STATE -> placeholderLeft(graphics, page, center, y, "УПРАВЛЕНИЕ ДЕРЖАВОЙ");
+            case DYNASTY -> placeholderLeft(graphics, page, center, y, "РОД И НАСЛЕДНИКИ");
+            case WORLD -> placeholderLeft(graphics, page, center, y, "ЛЕТОПИСЬ AVALON");
         }
     }
 
-    private void renderPlayerPage(GuiGraphics graphics, int x, int y) {
-        drawInfoCard(graphics, x, y, 172, 42);
-        graphics.renderItem(new ItemStack(Items.PLAYER_HEAD), x + 7, y + 12);
-        graphics.drawString(font, "ПРОФИЛЬ ПЕРСОНАЖА", x + 29, y + 8, INK, false);
-        graphics.drawString(font, "● АКТИВЕН", x + 29, y + 23, SUCCESS, false);
+    private void renderRightPage(GuiGraphics graphics, KingdomBookLayout.Rect page) {
+        int x = page.x() + 10;
+        int center = page.x() + page.width() / 2;
+        int y = page.y() + 34;
 
-        graphics.drawString(font, "Книга навсегда связана", x + 1, y + 55, INK_MUTED, false);
-        graphics.drawString(font, "с вашим персонажем.", x + 1, y + 67, INK_MUTED, false);
-        graphics.drawString(font, "Здесь появятся профессия,", x + 1, y + 87, INK_MUTED, false);
-        graphics.drawString(font, "титул и репутация.", x + 1, y + 99, INK_MUTED, false);
+        switch (selected) {
+            case PLAYER -> {
+                label(graphics, "ВЛАДЕЛЕЦ", x, y);
+                centerText(graphics, playerName(), center, y + 16, INK);
+                divider(graphics, page, y + 31);
+                label(graphics, "СТАТУС КНИГИ", x, y + 43);
+                graphics.drawString(font, "Выдана", x, y + 58, SUCCESS, false);
+                label(graphics, "СЛЕДУЮЩИЕ ГЛАВЫ", x, y + 82);
+                wrapped(graphics, "Профессия, титул и репутация будут подключены позже.", page, y + 96);
+            }
+            case BANK -> renderAmount(graphics, page, y, "БАЛАНС", menu.bankBalance(),
+                    "Пополнение через лаунчер будет подключено после выбора провайдера.");
+            case CAPITAL -> renderAmount(graphics, page, y, "ВСЕГО", menu.totalCapital(),
+                    "Банк, кошелёк и имущество персонажа.");
+            case STATE -> placeholderRight(graphics, page, center, y, "Государственное управление");
+            case DYNASTY -> placeholderRight(graphics, page, center, y, "История рода и наследники");
+            case WORLD -> placeholderRight(graphics, page, center, y, "Сведения о мире Avalon");
+        }
     }
 
-    private void renderBalancePage(GuiGraphics graphics, int x, int y, String heading, long amount, Item icon) {
-        graphics.drawString(font, heading, x + 1, y + 2, INK_MUTED, false);
-        drawInfoCard(graphics, x, y + 17, 172, 47);
-        graphics.renderItem(new ItemStack(icon), x + 8, y + 32);
-        graphics.drawString(font, formatAmount(amount), x + 32, y + 29, INK, false);
-        graphics.drawString(font, "монет", x + 32, y + 43, INK_MUTED, false);
-
-        String explanation = selected == BookModel.Section.BANK
-                ? "Средства, хранящиеся в банке."
-                : "Банк, кошелёк и имущество.";
-        graphics.drawWordWrap(font, Component.literal(explanation), x + 1, y + 76, 172, INK_MUTED);
+    private void renderAmount(GuiGraphics graphics, KingdomBookLayout.Rect page, int y,
+                              String caption, long amount, String description) {
+        int center = page.x() + page.width() / 2;
+        label(graphics, caption, page.x() + 10, y);
+        centerText(graphics, formatAmount(amount), center, y + 21, BURGUNDY_DARK);
+        centerText(graphics, "МОНЕТ", center, y + 36, INK_MUTED);
+        divider(graphics, page, y + 54);
+        wrapped(graphics, description, page, y + 65);
     }
 
-    private void renderPlaceholderPage(GuiGraphics graphics, int x, int y, String description) {
-        drawInfoCard(graphics, x, y, 172, 43);
-        graphics.renderItem(new ItemStack(Items.IRON_BARS), x + 8, y + 13);
-        graphics.drawString(font, "РАЗДЕЛ ГОТОВИТСЯ", x + 31, y + 9, INK, false);
-        graphics.drawString(font, "СКОРО", x + 31, y + 24, BURGUNDY, false);
-        graphics.drawWordWrap(font, Component.literal(description), x + 1, y + 56, 172, INK_MUTED);
-        graphics.drawWordWrap(font, Component.literal("Функция будет подключена на соответствующем этапе разработки."),
-                x + 1, y + 82, 172, INK_MUTED);
+    private void placeholderLeft(GuiGraphics graphics, KingdomBookLayout.Rect page,
+                                 int center, int y, String caption) {
+        centerText(graphics, caption, center, y + 25, INK);
+        divider(graphics, page, y + 45);
+        centerText(graphics, "ГЛАВА ЗАПЕЧАТАНА", center, y + 59, BURGUNDY);
+    }
+
+    private void placeholderRight(GuiGraphics graphics, KingdomBookLayout.Rect page,
+                                  int center, int y, String description) {
+        centerText(graphics, "СКОРО", center, y + 12, BURGUNDY_DARK);
+        divider(graphics, page, y + 30);
+        wrapped(graphics, description, page, y + 43);
+        wrapped(graphics, "Функция будет открыта на соответствующем этапе разработки.", page, y + 78);
+    }
+
+    private void drawPageHeading(GuiGraphics graphics, KingdomBookLayout.Rect page, String text) {
+        int center = page.x() + page.width() / 2;
+        centerText(graphics, text.toUpperCase(java.util.Locale.ROOT), center, page.y() + 5, BURGUNDY_DARK);
+        graphics.fill(page.x() + 9, page.y() + 18, page.right() - 8, page.y() + 19, LINE);
+        graphics.fill(center - 14, page.y() + 17, center + 14, page.y() + 19, BURGUNDY);
+    }
+
+    private void drawPageNumber(GuiGraphics graphics, KingdomBookLayout.Rect page, String number) {
+        centerText(graphics, number, page.x() + page.width() / 2, page.bottom() - 11, INK_MUTED);
+    }
+
+    private void divider(GuiGraphics graphics, KingdomBookLayout.Rect page, int y) {
+        graphics.fill(page.x() + 12, y, page.right() - 11, y + 1, LINE);
+    }
+
+    private void label(GuiGraphics graphics, String text, int x, int y) {
+        graphics.drawString(font, text, x, y, INK_MUTED, false);
+    }
+
+    private void centerText(GuiGraphics graphics, String text, int centerX, int y, int color) {
+        graphics.drawCenteredString(font, text, centerX, y, color);
+    }
+
+    private void wrapped(GuiGraphics graphics, String text, KingdomBookLayout.Rect page, int y) {
+        graphics.drawWordWrap(font, Component.literal(text), page.x() + 10, y, page.width() - 20, INK_MUTED);
+    }
+
+    private String rightHeading() {
+        return switch (selected) {
+            case PLAYER -> "Сведения";
+            case BANK -> "Состояние счёта";
+            case CAPITAL -> "Итог владений";
+            case STATE -> "Государство";
+            case DYNASTY -> "Династия";
+            case WORLD -> "Мир";
+        };
+    }
+
+    private String playerName() {
+        return minecraft != null && minecraft.player != null
+                ? minecraft.player.getName().getString()
+                : "Игрок";
     }
 
     private static ItemStack iconFor(BookModel.Section section) {
@@ -148,36 +202,6 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
 
     private static String formatAmount(long amount) {
         return String.format(java.util.Locale.ROOT, "%,d", amount).replace(',', ' ');
-    }
-
-    private static void borderedPanel(GuiGraphics graphics, int x, int y, int width, int height,
-                                      int outer, int trim, int fill) {
-        graphics.fill(x, y, x + width, y + height, outer);
-        graphics.fill(x + 2, y + 2, x + width - 2, y + height - 2, trim);
-        graphics.fill(x + 4, y + 4, x + width - 4, y + height - 4, fill);
-    }
-
-    private static void drawInfoCard(GuiGraphics graphics, int x, int y, int width, int height) {
-        graphics.fill(x, y, x + width, y + height, PARCHMENT_DARK);
-        graphics.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0xFFD9C696);
-        graphics.fill(x + 3, y + 3, x + width - 3, y + height - 3, 0xFFEDE0BB);
-    }
-
-    private static void drawRivet(GuiGraphics graphics, int x, int y) {
-        graphics.fill(x, y, x + 4, y + 4, OUTLINE);
-        graphics.fill(x + 1, y + 1, x + 3, y + 3, GOLD);
-    }
-
-    private static void drawWoodGrain(GuiGraphics graphics, int x, int y, int width, int height) {
-        for (int offset = 9; offset < height; offset += 18) {
-            graphics.fill(x + 3, y + offset, x + width - 4, y + offset + 1, 0x5530180D);
-        }
-    }
-
-    private static void drawParchmentMarks(GuiGraphics graphics, int x, int y, int width, int height) {
-        graphics.fill(x + width - 15, y + 2, x + width - 3, y + 3, 0x22735631);
-        graphics.fill(x + 4, y + height - 5, x + 23, y + height - 4, 0x22735631);
-        graphics.fill(x + width - 5, y + height / 2, x + width - 4, y + height / 2 + 16, 0x22735631);
     }
 
     @Override
@@ -208,16 +232,17 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         @Override
         protected void renderWidget(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
             boolean current = selected == section;
-            int outer = current ? GOLD : OUTLINE;
-            int fill = current ? BURGUNDY : (isHoveredOrFocused() ? WOOD_LIGHT : WOOD);
-            graphics.fill(getX(), getY(), getX() + width, getY() + height, outer);
-            graphics.fill(getX() + 2, getY() + 2, getX() + width - 2, getY() + height - 2, fill);
-            if (current) {
-                graphics.fill(getX() + width - 4, getY() + 2, getX() + width, getY() + height - 2, GOLD);
-            }
-            graphics.renderItem(iconFor(section), getX() + 5, getY() + 3);
-            int color = current ? 0xFFFFE4A3 : 0xFFF0DFC1;
-            graphics.drawString(font, getMessage(), getX() + 26, getY() + 8, color, false);
+            int border = current ? GOLD : GOLD_DARK;
+            int fill = current ? BURGUNDY_LIGHT : (isHoveredOrFocused() ? BURGUNDY : BURGUNDY_DARK);
+            int x = getX();
+            int y = getY();
+            graphics.fill(x + 4, y, x + width - 3, y + height, border);
+            graphics.fill(x + 1, y + 4, x + width, y + height - 4, border);
+            graphics.fill(x + 5, y + 2, x + width - 4, y + height - 2, fill);
+            graphics.fill(x + 3, y + 5, x + width - 2, y + height - 5, fill);
+            graphics.fill(x + width - 2, y + 8, x + width + 5, y + height - 8,
+                    current ? GOLD : BURGUNDY_DARK);
+            graphics.renderItem(iconFor(section), x + 5, y + 4);
         }
     }
 }
