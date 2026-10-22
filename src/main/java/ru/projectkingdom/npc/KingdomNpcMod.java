@@ -31,6 +31,7 @@ import ru.projectkingdom.economy.KingdomEconomyRegistry;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.enterprise.EnterpriseAccessService;
 import ru.projectkingdom.network.KingdomNetwork;
+import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -48,6 +49,7 @@ public final class KingdomNpcMod {
         KingdomBookRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomEconomyRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomEnterpriseRegistry.register();
+        KingdomAdministrationRegistry.register();
         KingdomNetwork.register();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
         MinecraftForge.EVENT_BUS.register(this);
@@ -756,119 +758,3 @@ public final class KingdomNpcMod {
                 for(ServerLevel level:server.getAllLevels()) {
                     if(!w.dimension.equals(level.dimension().location().toString()))continue;
                     var entity=level.getEntity(w.entityId);
-                    if(entity instanceof Villager npc && npc.isAlive())
-                        moved |= KingdomNpcSupply.tick(level,npc,w);
-                }
-            }
-            if(moved)current.setDirty();
-        }
-        // Bounded physical work; each resident checks the nearby loaded area once per 40 ticks.
-        if(server.getTickCount() % 40 == 0) {
-            KingdomNpcData jobs=KingdomNpcData.get(server);
-            boolean executed=false;
-            for(var w:jobs.all()) for(ServerLevel level:server.getAllLevels()) {
-                if(!w.dimension.equals(level.dimension().location().toString()))continue;
-                var entity=level.getEntity(w.entityId);
-                if(entity instanceof Villager resident && resident.isAlive())
-                    executed |= NpcFieldWork.tick(level,resident,w)
-                            | KingdomNpcWorkshop.tick(level,resident,w);
-            }
-            if(executed)jobs.setDirty();
-        }
-        if (server.getTickCount() % 200 != 0) return;
-        KingdomNpcData db = KingdomNpcData.get(server);
-        long day = server.overworld().getDayTime() / TICKS_PER_DAY;
-        boolean changed = false;
-        // Economy v2: preserve existing wages as debts, never pay from legacy virtual accounts.
-        // Contract sync consumes no cash and reuses the NPC registry as the identity source.
-        KingdomEnterprisePayrollData.get(server).syncNpc(server,db);
-        // Also assess known residents: tax accrual must not depend only on opening a menu.
-        var towns=KingdomCivicsData.get(server);
-        var taxes=KingdomTaxData.get(server);
-        for(UUID resident:towns.residents()){
-            var citizenTown=towns.townOf(resident);
-            if(citizenTown!=null)taxes.assess(server,resident,citizenTown.id());
-        }
-        for (var w : db.all()) {
-            boolean authorized=false;
-            if(w.employer != null && w.hasWorkstation) {
-                for(ServerLevel workLevel : server.getAllLevels()) {
-                    if(workLevel.dimension().location().toString().equals(w.dimension)) {
-                        authorized=KingdomTerritories.get(server).canUse(workLevel,
-                            new BlockPos(w.workX,w.workY,w.workZ), w.employer);
-                        break;
-                    }
-                }
-            }
-            var plan=NpcAutonomyPlanner.plan(new NpcAutonomyPlanner.Snapshot(
-                w.employer != null,w.contractPaused,w.hunger,w.energy,w.safety,
-                w.hasHome,w.hasWorkstation,w.hasSource,w.hasDestination,authorized,
-                KingdomNpcWorkshopData.get(server).plan(w.entityId)!=null));
-            if(!w.autonomousIntent.equals(plan.name())) {w.autonomousIntent=plan.name();changed=true;}
-            if (NpcIdentity.advance(w,day)) changed=true;
-            long lifeDays = NpcSimulation.elapsed(day,w.lastLifeDay);
-            if(lifeDays>0){
-                w.hunger=NpcLife.stepHunger(w.hunger,lifeDays);
-                boolean working="work".equals(w.order)&&w.employer!=null&&!w.contractPaused;
-                w.energy=NpcLife.stepEnergy(w.energy,lifeDays,working,w.hasHome);
-                w.morale=NpcLife.stepMorale(w.morale,w.hunger,w.energy,w.safety,!w.contractPaused,lifeDays);
-                w.lastLifeDay=day;changed=true;
-            }
-            long days = NpcSimulation.elapsed(day, w.lastWorkedDay);
-            if (days > 0) {
-                // Background work only with paid contract; explicitly virtual stock in alpha.
-                if ("work".equals(w.order) && w.employer!=null && NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)) {
-                    // Real production only: no fake goods, XP or material yield without a valid station recipe.
-                    // The TFC/Create production adapters must explicitly confirm completion before crediting output.
-                }
-                w.lastWorkedDay=day; changed=true;
-            }
-        }
-        if(changed)db.setDirty();
-    }
-    /** Server-authoritative movement controller; never modifies non-Kingdom villagers. */
-    private static void controlLoadedResidents(net.minecraft.server.MinecraftServer server) {
-        KingdomNpcData db = KingdomNpcData.get(server);
-        boolean pathUpdate = server.getTickCount() % 10 == 0;
-        for (var w : db.all()) {
-            for (ServerLevel level : server.getAllLevels()) {
-                if (!level.dimension().location().toString().equals(w.dimension)) continue;
-                var entity = level.getEntity(w.entityId);
-                if (!(entity instanceof Villager npc) || !npc.isAlive()) continue;
-                boolean talking = false;
-                for (ServerPlayer other : level.players()) {
-                    if (other.containerMenu instanceof KingdomNpcMenu menu
-                        && menu.isForNpc(w.id) && other.distanceToSqr(npc) <= 64) {
-                        talking = true;
-                        break;
-                    }
-                }
-                boolean stay = "stay".equals(w.order);
-                if (stay || talking) {
-                    if (!npc.isNoAi()) npc.setNoAi(true);
-                    npc.getNavigation().stop();
-                    var velocity = npc.getDeltaMovement();
-                    npc.setDeltaMovement(0, velocity.y, 0);
-                    npc.hurtMarked = true;
-                } else {
-                    // Restore vanilla goals, trading, wandering etc. after dialogue/STOP.
-                    if (npc.isNoAi()) npc.setNoAi(false);
-                    if (!pathUpdate) continue;
-                    if ("haul".equals(w.order)) {
-                        // Hauling path is managed by NpcLogistics (every second).
-                    } else if ("home".equals(w.order) && w.hasHome) {
-                        if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
-                            npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
-                        else npc.getNavigation().stop();
-                    } else if ("follow".equals(w.order) && w.employer != null) {
-                        ServerPlayer owner = server.getPlayerList().getPlayer(w.employer);
-                        if (owner != null && owner.level() == level && npc.distanceToSqr(owner) > 9)
-                            npc.getNavigation().moveTo(owner, 0.9);
-                        else npc.getNavigation().stop();
-                    }
-                }
-            }
-        }
-    }
-
-}
