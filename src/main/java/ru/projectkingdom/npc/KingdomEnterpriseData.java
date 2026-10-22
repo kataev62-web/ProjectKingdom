@@ -16,6 +16,9 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.saveddata.SavedData;
+import ru.projectkingdom.enterprise.EnterpriseActivation;
+import ru.projectkingdom.enterprise.EnterpriseCoreBinding;
+import ru.projectkingdom.enterprise.EnterpriseKind;
 
 /** Server-thread-owned enterprise accounts, physical counters and trade orders.
  * Legacy cash balances remain backed by coins deposited into wallets; this ledger
@@ -41,6 +44,8 @@ public final class KingdomEnterpriseData extends SavedData {
     private final Map<UUID, Set<UUID>> cashiers = new LinkedHashMap<>();
     private final Map<UUID, Offer> offers = new LinkedHashMap<>();
     private final Map<UUID, Trade> trades = new LinkedHashMap<>();
+    private final Map<UUID, EnterpriseKind> kinds = new LinkedHashMap<>();
+    private final Map<UUID, EnterpriseCoreBinding> cores = new LinkedHashMap<>();
     // A durable intent is authoritative even when SavedData has not yet been flushed.
     private TradeWriteAheadJournal journal;
     private boolean journalUnavailable = true;
@@ -118,9 +123,49 @@ public final class KingdomEnterpriseData extends SavedData {
     }
     /** Only trusted server code may call this with an NPC UUID. Never accept owner from a client packet. */
     public Enterprise create(UUID owner, String name) {
+        return create(owner,name,EnterpriseKind.LEGACY);
+    }
+    public Enterprise create(UUID owner, String name, EnterpriseKind kind) {
         if(owner==null || name==null || name.isBlank() || name.length()>48 || ownedAll(owner).size()>=MAX_BUSINESSES)return null;
+        if(kind==null)return null;
         Enterprise firm=new Enterprise(UUID.randomUUID(),owner,name,0);
-        firms.put(firm.id(),firm);selections.put(owner,firm.id());setDirty();return firm;
+        firms.put(firm.id(),firm);kinds.put(firm.id(),kind);selections.put(owner,firm.id());setDirty();return firm;
+    }
+    public EnterpriseKind kind(UUID enterprise){return kinds.getOrDefault(enterprise,EnterpriseKind.LEGACY);}
+    public EnterpriseCoreBinding core(UUID enterprise){return cores.get(enterprise);}
+    public boolean mayManage(UUID actor,UUID enterprise){
+        Enterprise firm=firms.get(enterprise);return actor!=null&&firm!=null&&firm.owner().equals(actor);
+    }
+    public EnterpriseActivation activateCore(UUID actor,UUID enterprise,EnterpriseKind kind,String dimension,long packedPos){
+        Enterprise firm=firms.get(enterprise);
+        if(firm==null)return EnterpriseActivation.NOT_FOUND;
+        if(actor==null||!firm.owner().equals(actor))return EnterpriseActivation.FOREIGN_OWNER;
+        if(kind==null||kind==EnterpriseKind.LEGACY||kind(enterprise)!=kind)return EnterpriseActivation.TYPE_MISMATCH;
+        if(dimension==null||dimension.isBlank())return EnterpriseActivation.INVALID_LOCATION;
+        EnterpriseCoreBinding existing=cores.get(enterprise);
+        if(existing!=null&&existing.active())return EnterpriseActivation.ALREADY_ACTIVE;
+        for(EnterpriseCoreBinding other:cores.values())if(other.active()&&other.dimension().equals(dimension)
+                &&other.packedPos()==packedPos&&!other.enterpriseId().equals(enterprise))return EnterpriseActivation.INVALID_LOCATION;
+        cores.put(enterprise,new EnterpriseCoreBinding(enterprise,firm.owner(),kind,dimension,packedPos,true));
+        setDirty();return EnterpriseActivation.ACTIVATED;
+    }
+    public boolean suspendCore(UUID actor,UUID enterprise,String dimension,long packedPos){
+        EnterpriseCoreBinding existing=cores.get(enterprise);
+        if(!mayManage(actor,enterprise)||existing==null||!existing.active()
+                ||!existing.dimension().equals(dimension)||existing.packedPos()!=packedPos)return false;
+        cores.put(enterprise,existing.suspended());setDirty();return true;
+    }
+    public boolean adoptLegacy(UUID actor,UUID enterprise,EnterpriseKind target){
+        if(!mayManage(actor,enterprise)||target==null||!target.placeable()||kind(enterprise)!=EnterpriseKind.LEGACY)return false;
+        EnterpriseCoreBinding existing=cores.get(enterprise);
+        if(existing!=null&&existing.active())return false;
+        kinds.put(enterprise,target);setDirty();return true;
+    }
+    public boolean rename(UUID actor,UUID enterprise,String name){
+        Enterprise firm=firms.get(enterprise);String clean=name==null?"":name.trim();
+        if(!mayManage(actor,enterprise)||clean.isEmpty()||clean.length()>48||clean.indexOf('\u00a7')>=0
+                ||clean.chars().anyMatch(Character::isISOControl))return false;
+        firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),clean,firm.cash()));setDirty();return true;
     }
     public Counter counter(UUID id) { return counters.get(id); }
     /** The owner stands at a real loaded container on land they can legally use. */
@@ -548,6 +593,7 @@ public final class KingdomEnterpriseData extends SavedData {
             if(t.hasUUID("Id") && t.hasUUID("Owner")) {
                 Enterprise e=new Enterprise(t.getUUID("Id"),t.getUUID("Owner"),t.getString("Name"),Math.max(0,t.getLong("Cash")));
                 d.firms.put(e.id(),e);
+                d.kinds.put(e.id(),t.contains("Kind")?EnterpriseKind.byId(t.getString("Kind")):EnterpriseKind.LEGACY);
             }
         }
         for(Tag row:root.getList("Invoices",Tag.TAG_COMPOUND)) {
@@ -576,16 +622,25 @@ public final class KingdomEnterpriseData extends SavedData {
                 d.trades.put(v.id(),v);
             }catch(IllegalArgumentException ignored){}
         }
+        for(Tag row:root.getList("EnterpriseCores",Tag.TAG_COMPOUND)) {CompoundTag t=(CompoundTag)row;
+            if(!t.hasUUID("Firm")||!t.hasUUID("Owner"))continue;
+            try{
+                UUID id=t.getUUID("Firm");EnterpriseKind kind=EnterpriseKind.byId(t.getString("Kind"));
+                if(d.firms.containsKey(id)&&kind!=EnterpriseKind.LEGACY)d.cores.put(id,new EnterpriseCoreBinding(
+                        id,t.getUUID("Owner"),kind,t.getString("Dim"),t.getLong("Pos"),t.getBoolean("Active")));
+            }catch(IllegalArgumentException ignored){}
+        }
         return d;
     }
     @Override public CompoundTag save(CompoundTag root) {
-        ListTag a=new ListTag();for(Enterprise e:firms.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",e.id());t.putUUID("Owner",e.owner());t.putString("Name",e.name());t.putLong("Cash",e.cash());a.add(t);}root.put("Firms",a);
+        ListTag a=new ListTag();for(Enterprise e:firms.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",e.id());t.putUUID("Owner",e.owner());t.putString("Name",e.name());t.putLong("Cash",e.cash());t.putString("Kind",kind(e.id()).id());a.add(t);}root.put("Firms",a);
         ListTag b=new ListTag();for(Invoice v:legacyInvoices.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",v.id());t.putUUID("Buyer",v.buyer());t.putUUID("Seller",v.seller());t.putLong("Price",v.price());t.putBoolean("Paid",v.paid());b.add(t);}root.put("Invoices",b);
         a=new ListTag();for(var e:selections.entrySet()){CompoundTag t=new CompoundTag();t.putUUID("Owner",e.getKey());t.putUUID("Firm",e.getValue());a.add(t);}root.put("Selections",a);
         a=new ListTag();for(Counter c:counters.values()){CompoundTag t=new CompoundTag();t.putUUID("Firm",c.enterprise());t.putString("Dim",c.dimension());t.putInt("X",c.pos().getX());t.putInt("Y",c.pos().getY());t.putInt("Z",c.pos().getZ());a.add(t);}root.put("Counters",a);
         a=new ListTag();for(var e:cashiers.entrySet())for(UUID p:e.getValue()){CompoundTag t=new CompoundTag();t.putUUID("Firm",e.getKey());t.putUUID("Person",p);a.add(t);}root.put("Cashiers",a);
         a=new ListTag();for(Offer o:offers.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",o.id());t.putUUID("Seller",o.seller());t.putString("Item",o.itemId());t.putLong("Price",o.unitPrice());if(o.stockWorker()!=null)t.putUUID("Worker",o.stockWorker());a.add(t);}root.put("Offers",a);
         a=new ListTag();for(Trade v:trades.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",v.id());t.putUUID("Offer",v.offer());t.putUUID("Buyer",v.buyer());t.putUUID("Seller",v.seller());t.putInt("Count",v.count());t.putLong("Price",v.copper());t.putString("State",v.state().name());a.add(t);}root.put("Trades",a);
+        a=new ListTag();for(EnterpriseCoreBinding c:cores.values()){CompoundTag t=new CompoundTag();t.putUUID("Firm",c.enterpriseId());t.putUUID("Owner",c.owner());t.putString("Kind",c.kind().id());t.putString("Dim",c.dimension());t.putLong("Pos",c.packedPos());t.putBoolean("Active",c.active());a.add(t);}root.put("EnterpriseCores",a);
         return root;
     }
 }
