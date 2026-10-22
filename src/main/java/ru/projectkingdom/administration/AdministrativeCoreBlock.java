@@ -99,7 +99,7 @@ public final class AdministrativeCoreBlock extends Block implements EntityBlock 
     }
     @Override public InteractionResult use(BlockState state,Level level,BlockPos pos,Player player,InteractionHand hand,BlockHitResult hit){
         if(!level.isClientSide&&player instanceof ServerPlayer server&&level.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core&&core.bound())
-            server.sendSystemMessage(Component.literal("[Project Kingdom] "+kind.russianName()+": меню подключается."));
+            AdministrativeCoreMenu.open(server,core);
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }
