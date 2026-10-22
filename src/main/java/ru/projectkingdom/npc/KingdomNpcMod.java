@@ -29,6 +29,7 @@ import ru.projectkingdom.core.KingdomBookGuardian;
 import ru.projectkingdom.core.KingdomBookRegistry;
 import ru.projectkingdom.economy.KingdomEconomyRegistry;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
+import ru.projectkingdom.enterprise.EnterpriseAccessService;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -155,7 +156,13 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID()); }
+    @SubscribeEvent public void bindEnterpriseContainer(PlayerInteractEvent.RightClickBlock event){
+        if(!(event.getEntity() instanceof ServerPlayer player)||!EnterpriseAccessService.hasSession(player.getUUID()))return;
+        var status=EnterpriseAccessService.complete(player,player.serverLevel(),event.getPos());
+        player.sendSystemMessage(Component.literal("[Project Kingdom] Привязка предприятия: "+status));
+        event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
+    }
     @SubscribeEvent public void bindChest(PlayerInteractEvent.RightClickBlock event) {
         if (!(event.getEntity() instanceof ServerPlayer p)) return;
         BindRequest request=BINDING.get(p.getUUID());

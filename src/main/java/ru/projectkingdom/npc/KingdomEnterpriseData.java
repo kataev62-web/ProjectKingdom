@@ -19,6 +19,8 @@ import net.minecraft.world.level.saveddata.SavedData;
 import ru.projectkingdom.enterprise.EnterpriseActivation;
 import ru.projectkingdom.enterprise.EnterpriseCoreBinding;
 import ru.projectkingdom.enterprise.EnterpriseKind;
+import ru.projectkingdom.enterprise.EnterpriseBindingRole;
+import ru.projectkingdom.enterprise.EnterpriseAccessService;
 
 /** Server-thread-owned enterprise accounts, physical counters and trade orders.
  * Legacy cash balances remain backed by coins deposited into wallets; this ledger
@@ -31,6 +33,7 @@ public final class KingdomEnterpriseData extends SavedData {
     /** Legacy invoices are read for migration/administration but not payable. */
     public record Invoice(UUID id, UUID seller, UUID buyer, long price, boolean paid) {}
     public record Counter(UUID enterprise, String dimension, BlockPos pos) {}
+    public record StorageBinding(UUID enterprise, EnterpriseBindingRole role, String dimension, BlockPos pos) {}
     public record Offer(UUID id, UUID seller, String itemId, long unitPrice, UUID stockWorker) {
         public Offer(UUID id, UUID seller, String itemId, long unitPrice){this(id,seller,itemId,unitPrice,null);}
     }
@@ -46,6 +49,7 @@ public final class KingdomEnterpriseData extends SavedData {
     private final Map<UUID, Trade> trades = new LinkedHashMap<>();
     private final Map<UUID, EnterpriseKind> kinds = new LinkedHashMap<>();
     private final Map<UUID, EnterpriseCoreBinding> cores = new LinkedHashMap<>();
+    private final Map<UUID, EnumMap<EnterpriseBindingRole,StorageBinding>> storageBindings = new LinkedHashMap<>();
     // A durable intent is authoritative even when SavedData has not yet been flushed.
     private TradeWriteAheadJournal journal;
     private boolean journalUnavailable = true;
@@ -166,6 +170,34 @@ public final class KingdomEnterpriseData extends SavedData {
         if(!mayManage(actor,enterprise)||clean.isEmpty()||clean.length()>48||clean.indexOf('\u00a7')>=0
                 ||clean.chars().anyMatch(Character::isISOControl))return false;
         firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),clean,firm.cash()));setDirty();return true;
+    }
+    public StorageBinding storageBinding(UUID enterprise,EnterpriseBindingRole role){
+        return storageBindings.getOrDefault(enterprise,new EnumMap<>(EnterpriseBindingRole.class)).get(role);
+    }
+    public boolean bindStorage(UUID actor,UUID enterprise,EnterpriseBindingRole role,String dimension,BlockPos pos){
+        if(!mayManage(actor,enterprise)||role==null||dimension==null||dimension.isBlank()||pos==null)return false;
+        for(var byRole:storageBindings.values())for(StorageBinding other:byRole.values())
+            if(other.dimension().equals(dimension)&&other.pos().equals(pos)
+                    &&(!other.enterprise().equals(enterprise)||other.role()!=role))return false;
+        storageBindings.computeIfAbsent(enterprise,key->new EnumMap<>(EnterpriseBindingRole.class))
+                .put(role,new StorageBinding(enterprise,role,dimension,pos.immutable()));setDirty();return true;
+    }
+    public boolean depositAtCore(ServerPlayer actor,UUID enterprise,long amount){
+        Enterprise firm=firms.get(enterprise);EnterpriseCoreBinding core=cores.get(enterprise);
+        if(firm==null||core==null||!core.active()||!mayManage(actor.getUUID(),enterprise)||amount<=0||amount>1_000_000
+                ||firm.cash()>Long.MAX_VALUE-amount)return false;
+        if(EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX).status()
+                !=EnterpriseAccessService.Status.BOUND_AVAILABLE)return false;
+        if(!KingdomCurrency.debit(actor,amount))return false;
+        firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));setDirty();return true;
+    }
+    public boolean withdrawAtCore(ServerPlayer actor,UUID enterprise,long amount){
+        Enterprise firm=firms.get(enterprise);EnterpriseCoreBinding core=cores.get(enterprise);
+        if(firm==null||core==null||!core.active()||!mayManage(actor.getUUID(),enterprise)||amount<=0||amount>1_000_000
+                ||firm.cash()<amount)return false;
+        if(EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX).status()
+                !=EnterpriseAccessService.Status.BOUND_AVAILABLE||!KingdomCurrency.credit(actor,amount))return false;
+        firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));setDirty();return true;
     }
     public Counter counter(UUID id) { return counters.get(id); }
     /** The owner stands at a real loaded container on land they can legally use. */
@@ -630,6 +662,13 @@ public final class KingdomEnterpriseData extends SavedData {
                         id,t.getUUID("Owner"),kind,t.getString("Dim"),t.getLong("Pos"),t.getBoolean("Active")));
             }catch(IllegalArgumentException ignored){}
         }
+        for(Tag row:root.getList("EnterpriseStorage",Tag.TAG_COMPOUND)){CompoundTag t=(CompoundTag)row;
+            if(!t.hasUUID("Firm"))continue;
+            try{UUID id=t.getUUID("Firm");EnterpriseBindingRole role=EnterpriseBindingRole.valueOf(t.getString("Role"));
+                d.storageBindings.computeIfAbsent(id,key->new EnumMap<>(EnterpriseBindingRole.class)).put(role,
+                        new StorageBinding(id,role,t.getString("Dim"),BlockPos.of(t.getLong("Pos"))));
+            }catch(IllegalArgumentException ignored){}
+        }
         return d;
     }
     @Override public CompoundTag save(CompoundTag root) {
@@ -641,6 +680,7 @@ public final class KingdomEnterpriseData extends SavedData {
         a=new ListTag();for(Offer o:offers.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",o.id());t.putUUID("Seller",o.seller());t.putString("Item",o.itemId());t.putLong("Price",o.unitPrice());if(o.stockWorker()!=null)t.putUUID("Worker",o.stockWorker());a.add(t);}root.put("Offers",a);
         a=new ListTag();for(Trade v:trades.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",v.id());t.putUUID("Offer",v.offer());t.putUUID("Buyer",v.buyer());t.putUUID("Seller",v.seller());t.putInt("Count",v.count());t.putLong("Price",v.copper());t.putString("State",v.state().name());a.add(t);}root.put("Trades",a);
         a=new ListTag();for(EnterpriseCoreBinding c:cores.values()){CompoundTag t=new CompoundTag();t.putUUID("Firm",c.enterpriseId());t.putUUID("Owner",c.owner());t.putString("Kind",c.kind().id());t.putString("Dim",c.dimension());t.putLong("Pos",c.packedPos());t.putBoolean("Active",c.active());a.add(t);}root.put("EnterpriseCores",a);
+        a=new ListTag();for(var byRole:storageBindings.values())for(StorageBinding s:byRole.values()){CompoundTag t=new CompoundTag();t.putUUID("Firm",s.enterprise());t.putString("Role",s.role().name());t.putString("Dim",s.dimension());t.putLong("Pos",s.pos().asLong());a.add(t);}root.put("EnterpriseStorage",a);
         return root;
     }
 }
