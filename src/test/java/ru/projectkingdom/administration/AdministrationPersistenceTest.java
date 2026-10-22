@@ -45,6 +45,6 @@ final class AdministrationPersistenceTest {
         var loaded=KingdomAdministrationData.fromTag(data.save(new CompoundTag()));
         assertEquals(mayor,loaded.founder(town));
         assertEquals(500,loaded.entries(town,1000).size());
-        assertEquals(2,loaded.dataVersion());
+        assertEquals(KingdomAdministrationData.DATA_VERSION,loaded.dataVersion());
     }
 }
