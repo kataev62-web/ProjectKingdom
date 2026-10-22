@@ -21,11 +21,12 @@ import ru.projectkingdom.npc.KingdomCivicsData;
 
 public final class KingdomAdministrationData extends SavedData {
     private static final String KEY="kingdom_administration_v1";
-    public static final int DATA_VERSION=2;
+    public static final int DATA_VERSION=3;
     public static final int MAX_LOG_ENTRIES=500;
 
     public record LogEntry(UUID actor, MunicipalRole role, String action, long gameTime) {}
     public record BoundContainer(AdministrativeBindingRole role,String dimension,long packedPos) {}
+    public record WarrantEntry(UUID target,UUID caseId,String reason,long issuedAt) {}
 
     private final Map<UUID,UUID> founders=new LinkedHashMap<>();
     private final Map<UUID,Map<UUID,EnumSet<MunicipalRole>>> roles=new LinkedHashMap<>();
@@ -35,6 +36,10 @@ public final class KingdomAdministrationData extends SavedData {
     private final Map<UUID,Long> bankReserves=new LinkedHashMap<>();
     private final Map<UUID,Long> treasuryReserves=new LinkedHashMap<>();
     private final Map<UUID,Long> historicalTreasuries=new LinkedHashMap<>();
+    private final Map<UUID,LinkedHashMap<UUID,JusticeCase>> justiceCases=new LinkedHashMap<>();
+    private final Map<UUID,LinkedHashMap<UUID,PrisonRecord>> prisonRecords=new LinkedHashMap<>();
+    private final Map<UUID,LinkedHashMap<UUID,GuardRecord>> guardRecords=new LinkedHashMap<>();
+    private final Map<UUID,LinkedHashMap<UUID,WarrantEntry>> warrants=new LinkedHashMap<>();
     private int dataVersion=DATA_VERSION;
 
     public static KingdomAdministrationData get(MinecraftServer server){
@@ -156,6 +161,58 @@ public final class KingdomAdministrationData extends SavedData {
         if(townId==null||amount<=0||prior<amount)return false;
         reserves.put(townId,prior-amount);setDirty();return true;
     }
+    public JusticeCase createCase(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,
+                                  UUID complainant,UUID defendant,String summary,long gameTime){
+        if(!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.COURT))return null;
+        JusticeCase value;try{value=new JusticeCase(UUID.randomUUID(),townId,complainant,defendant,null,JusticeCase.Status.OPEN,summary,"",0,gameTime);}catch(IllegalArgumentException ex){return null;}
+        justiceCases.computeIfAbsent(townId,unused->new LinkedHashMap<>()).put(value.id(),value);setDirty();return value;
+    }
+    public boolean decideCase(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,UUID caseId,String decision,long fineCopper){
+        if(!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.COURT))return false;
+        LinkedHashMap<UUID,JusticeCase> values=justiceCases.get(townId);JusticeCase prior=values==null?null:values.get(caseId);if(prior==null)return false;
+        try{JusticeCase assigned=prior.judge()==null?prior.assignJudge(actor):prior;if(!actor.equals(assigned.judge()))return false;values.put(caseId,assigned.decide(decision,fineCopper));setDirty();return true;}
+        catch(IllegalArgumentException ex){return false;}
+    }
+    public List<JusticeCase> justiceCases(UUID townId,int page,int pageSize){return page(justiceCases.get(townId),page,pageSize);}
+    public boolean sentence(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,UUID prisoner,UUID caseId,
+                            String dimension,long cellPos,long start,long end,String reason){
+        if(!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.PRISON)
+                ||containerBindings(townId,AdministrativeBindingRole.PRISON_CELL).stream().noneMatch(c->c.dimension().equals(dimension)&&c.packedPos()==cellPos))return false;
+        PrisonRecord value;try{value=new PrisonRecord(UUID.randomUUID(),townId,prisoner,caseId,dimension,cellPos,start,end,reason,true);}catch(IllegalArgumentException ex){return false;}
+        prisonRecords.computeIfAbsent(townId,unused->new LinkedHashMap<>()).put(value.id(),value);setDirty();return true;
+    }
+    public boolean releasePrisoner(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,UUID recordId){
+        if(!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.PRISON))return false;
+        LinkedHashMap<UUID,PrisonRecord> values=prisonRecords.get(townId);PrisonRecord prior=values==null?null:values.get(recordId);if(prior==null||!prior.active())return false;
+        values.put(recordId,prior.release());setDirty();return true;
+    }
+    public List<PrisonRecord> prisonRecords(UUID townId,int page,int pageSize){return page(prisonRecords.get(townId),page,pageSize);}
+    public boolean registerGuard(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,GuardRecord value){
+        if(value==null||!townId.equals(value.townId())||!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.GUARD_ADMINISTRATION))return false;
+        LinkedHashMap<UUID,GuardRecord> values=guardRecords.computeIfAbsent(townId,unused->new LinkedHashMap<>());if(values.containsKey(value.id()))return false;
+        values.put(value.id(),value);setDirty();return true;
+    }
+    public boolean deactivateGuard(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,UUID recordId){
+        if(!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.GUARD_ADMINISTRATION))return false;
+        LinkedHashMap<UUID,GuardRecord> values=guardRecords.get(townId);GuardRecord prior=values==null?null:values.get(recordId);if(prior==null||!prior.active())return false;
+        values.put(recordId,prior.deactivate());setDirty();return true;
+    }
+    public List<GuardRecord> guards(UUID townId,int page,int pageSize){return page(guardRecords.get(townId),page,pageSize);}
+    public boolean issueWarrant(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,UUID target,UUID caseId,String reason,long gameTime){
+        if(target==null||caseId==null||gameTime<0||!JusticeCase.valid(reason,96)
+                ||!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.GUARD_ADMINISTRATION))return false;
+        LinkedHashMap<UUID,WarrantEntry> values=warrants.computeIfAbsent(townId,unused->new LinkedHashMap<>());if(values.containsKey(target))return false;
+        values.put(target,new WarrantEntry(target,caseId,reason,gameTime));setDirty();return true;
+    }
+    public boolean clearWarrant(UUID townId,UUID actor,UUID mayor,Set<MunicipalRole> actorRoles,UUID target){
+        if(!AdministrativePermissionService.mayManage(actor,founder(townId),mayor,actorRoles,AdministrativeKind.GUARD_ADMINISTRATION))return false;
+        Map<UUID,WarrantEntry> values=warrants.get(townId);if(values==null||values.remove(target)==null)return false;setDirty();return true;
+    }
+    public List<WarrantEntry> wantedEntries(UUID townId,int page,int pageSize){return page(warrants.get(townId),page,pageSize);}
+    private static <T> List<T> page(Map<UUID,T> values,int page,int pageSize){
+        if(values==null||page<0||pageSize<1)return List.of();int bounded=Math.min(pageSize,32);List<T> all=new ArrayList<>(values.values());
+        int from=(int)Math.min(all.size(),(long)page*bounded);return List.copyOf(all.subList(from,Math.min(all.size(),from+bounded)));
+    }
 
     public static KingdomAdministrationData fromTag(CompoundTag root){
         KingdomAdministrationData data=new KingdomAdministrationData();
@@ -206,6 +263,29 @@ public final class KingdomAdministrationData extends SavedData {
             data.treasuryReserves.put(town,Math.max(0,row.getLong("TreasuryReserve")));
             data.historicalTreasuries.put(town,Math.max(0,row.getLong("HistoricalTreasury")));
         }
+        ListTag cases=root.getList("JusticeCases",Tag.TAG_COMPOUND);for(int i=0;i<cases.size();i++){
+            CompoundTag row=cases.getCompound(i);if(!row.hasUUID("Id")||!row.hasUUID("Town")||!row.hasUUID("Complainant")||!row.hasUUID("Defendant"))continue;
+            try{JusticeCase value=new JusticeCase(row.getUUID("Id"),row.getUUID("Town"),row.getUUID("Complainant"),row.getUUID("Defendant"),row.hasUUID("Judge")?row.getUUID("Judge"):null,
+                    JusticeCase.Status.valueOf(row.getString("Status")),row.getString("Summary"),row.getString("Decision"),row.getLong("Fine"),row.getLong("Created"));
+                data.justiceCases.computeIfAbsent(value.townId(),unused->new LinkedHashMap<>()).putIfAbsent(value.id(),value);}catch(IllegalArgumentException ignored){}
+        }
+        ListTag prisoners=root.getList("PrisonRecords",Tag.TAG_COMPOUND);for(int i=0;i<prisoners.size();i++){
+            CompoundTag row=prisoners.getCompound(i);if(!row.hasUUID("Id")||!row.hasUUID("Town")||!row.hasUUID("Prisoner"))continue;
+            try{PrisonRecord value=new PrisonRecord(row.getUUID("Id"),row.getUUID("Town"),row.getUUID("Prisoner"),row.hasUUID("Case")?row.getUUID("Case"):null,
+                    row.getString("Dimension"),row.getLong("Cell"),row.getLong("Start"),row.getLong("End"),row.getString("Reason"),row.getBoolean("Active"));
+                data.prisonRecords.computeIfAbsent(value.townId(),unused->new LinkedHashMap<>()).putIfAbsent(value.id(),value);}catch(IllegalArgumentException ignored){}
+        }
+        ListTag guards=root.getList("GuardRecords",Tag.TAG_COMPOUND);for(int i=0;i<guards.size();i++){
+            CompoundTag row=guards.getCompound(i);if(!row.hasUUID("Id")||!row.hasUUID("Town")||!row.hasUUID("Guard"))continue;
+            try{GuardRecord value=new GuardRecord(row.getUUID("Id"),row.getUUID("Town"),row.getUUID("Guard"),row.getString("Name"),row.getString("Dimension"),
+                    row.getInt("MinX"),row.getInt("MinZ"),row.getInt("MaxX"),row.getInt("MaxZ"),row.getBoolean("Active"));
+                data.guardRecords.computeIfAbsent(value.townId(),unused->new LinkedHashMap<>()).putIfAbsent(value.id(),value);}catch(IllegalArgumentException ignored){}
+        }
+        ListTag warrantList=root.getList("Warrants",Tag.TAG_COMPOUND);for(int i=0;i<warrantList.size();i++){
+            CompoundTag row=warrantList.getCompound(i);if(!row.hasUUID("Town")||!row.hasUUID("Target")||!row.hasUUID("Case")||!JusticeCase.valid(row.getString("Reason"),96))continue;
+            UUID town=row.getUUID("Town"),target=row.getUUID("Target");data.warrants.computeIfAbsent(town,unused->new LinkedHashMap<>())
+                    .putIfAbsent(target,new WarrantEntry(target,row.getUUID("Case"),row.getString("Reason"),Math.max(0,row.getLong("Issued"))));
+        }
         data.dataVersion=DATA_VERSION;return data;
     }
     @Override public CompoundTag save(CompoundTag root){
@@ -232,6 +312,24 @@ public final class KingdomAdministrationData extends SavedData {
         ListTag financeList=new ListTag();for(UUID town:financialTowns){
             CompoundTag row=new CompoundTag();row.putUUID("Town",town);row.putLong("BankReserve",bankReserve(town));
             row.putLong("TreasuryReserve",treasuryReserve(town));row.putLong("HistoricalTreasury",historicalTreasuryLiability(town));financeList.add(row);
-        }root.put("Finance",financeList);return root;
+        }root.put("Finance",financeList);
+        ListTag cases=new ListTag();for(var town:justiceCases.entrySet())for(JusticeCase value:town.getValue().values()){
+            CompoundTag row=new CompoundTag();row.putUUID("Id",value.id());row.putUUID("Town",value.townId());row.putUUID("Complainant",value.complainant());row.putUUID("Defendant",value.defendant());
+            if(value.judge()!=null)row.putUUID("Judge",value.judge());row.putString("Status",value.status().name());row.putString("Summary",value.summary());row.putString("Decision",value.decision());
+            row.putLong("Fine",value.fineCopper());row.putLong("Created",value.createdAt());cases.add(row);
+        }root.put("JusticeCases",cases);
+        ListTag prisoners=new ListTag();for(var town:prisonRecords.entrySet())for(PrisonRecord value:town.getValue().values()){
+            CompoundTag row=new CompoundTag();row.putUUID("Id",value.id());row.putUUID("Town",value.townId());row.putUUID("Prisoner",value.prisoner());if(value.caseId()!=null)row.putUUID("Case",value.caseId());
+            row.putString("Dimension",value.cellDimension());row.putLong("Cell",value.cellPos());row.putLong("Start",value.sentenceStart());row.putLong("End",value.sentenceEnd());
+            row.putString("Reason",value.reason());row.putBoolean("Active",value.active());prisoners.add(row);
+        }root.put("PrisonRecords",prisoners);
+        ListTag guards=new ListTag();for(var town:guardRecords.entrySet())for(GuardRecord value:town.getValue().values()){
+            CompoundTag row=new CompoundTag();row.putUUID("Id",value.id());row.putUUID("Town",value.townId());row.putUUID("Guard",value.guardId());row.putString("Name",value.name());
+            row.putString("Dimension",value.patrolDimension());row.putInt("MinX",value.minChunkX());row.putInt("MinZ",value.minChunkZ());row.putInt("MaxX",value.maxChunkX());row.putInt("MaxZ",value.maxChunkZ());
+            row.putBoolean("Active",value.active());guards.add(row);
+        }root.put("GuardRecords",guards);
+        ListTag warrantList=new ListTag();for(var town:warrants.entrySet())for(WarrantEntry value:town.getValue().values()){
+            CompoundTag row=new CompoundTag();row.putUUID("Town",town.getKey());row.putUUID("Target",value.target());row.putUUID("Case",value.caseId());row.putString("Reason",value.reason());row.putLong("Issued",value.issuedAt());warrantList.add(row);
+        }root.put("Warrants",warrantList);return root;
     }
 }

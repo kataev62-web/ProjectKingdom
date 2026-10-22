@@ -59,6 +59,12 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
         if(core.kind()==AdministrativeKind.TOWN_HALL)for(UUID member:civics.townMembers(town.id(),0,6))rows.add(member.toString());
         if(core.kind()==AdministrativeKind.LAND_OFFICE)for(KingdomCivicsData.Plot plot:civics.townPlots(town.id(),0,6))
             rows.add(plot.dimension()+" "+plot.x()+", "+plot.z()+" "+plot.zone().name());
+        if(core.kind()==AdministrativeKind.COURT)for(JusticeCase item:data.justiceCases(town.id(),0,6))rows.add(item.id().toString().substring(0,8)+" "+item.status().name()+" "+item.summary());
+        if(core.kind()==AdministrativeKind.PRISON)for(PrisonRecord item:data.prisonRecords(town.id(),0,6))rows.add(item.prisoner().toString().substring(0,8)+" "+(item.active()?"заключён":"освобождён"));
+        if(core.kind()==AdministrativeKind.GUARD_ADMINISTRATION){
+            for(GuardRecord item:data.guards(town.id(),0,3))rows.add("Страж: "+item.name());
+            for(KingdomAdministrationData.WarrantEntry item:data.wantedEntries(town.id(),0,3))rows.add("Розыск: "+item.target().toString().substring(0,8));
+        }
         NetworkHooks.openScreen(player,new MenuProvider(){
             @Override public Component getDisplayName(){return Component.literal(core.kind().russianName());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){

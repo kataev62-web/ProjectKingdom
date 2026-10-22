@@ -98,9 +98,9 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             case STORAGE->placeholder(g,"Привязанные реальные контейнеры",90);
             case TRADE->placeholder(g,"Торговые места и заказы",90);
             case LAND->renderRows(g,"Участки, продажа и аренда",menu.pageRows());
-            case CASES->placeholder(g,menu.kind()==AdministrativeKind.GUARD_ADMINISTRATION?"Ордера и розыск":"Судебные дела",90);
-            case CELLS->placeholder(g,"Камеры и записи о заключённых",90);
-            case GUARDS->placeholder(g,"Стражники и районы патруля",90);
+            case CASES->renderRows(g,menu.kind()==AdministrativeKind.GUARD_ADMINISTRATION?"Ордера и розыск (автоматика выкл.)":"Судебные дела",menu.pageRows());
+            case CELLS->renderRows(g,"Записи камер (содержание выкл.)",menu.pageRows());
+            case GUARDS->renderRows(g,"Стража (патрули выкл.)",menu.pageRows());
             case LOG->placeholder(g,"Журнал административных действий",90);
             case SETTINGS->placeholder(g,menu.manager()?"Настройки службы":"Нет прав управления",90);
         }
