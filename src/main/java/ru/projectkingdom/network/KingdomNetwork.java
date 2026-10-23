@@ -25,5 +25,7 @@ public final class KingdomNetwork {
                 OpenLandMapFromBookPacket::decode,OpenLandMapFromBookPacket::handle);
         CHANNEL.registerMessage(4,OpenCityExpansionMapPacket.class,OpenCityExpansionMapPacket::encode,
                 OpenCityExpansionMapPacket::decode,OpenCityExpansionMapPacket::handle);
+        CHANNEL.registerMessage(5,OpenWorldAtlasPacket.class,OpenWorldAtlasPacket::encode,
+                OpenWorldAtlasPacket::decode,OpenWorldAtlasPacket::handle);
     }
 }
