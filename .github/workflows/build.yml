@@ -2,7 +2,7 @@ name: Build Project Kingdom
 
 on:
   push:
-    branches: [main]
+    branches: [main, feature/social-rank-privileges]
   pull_request:
     branches: [main]
   workflow_dispatch:
