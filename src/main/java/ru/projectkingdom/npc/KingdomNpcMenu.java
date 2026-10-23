@@ -32,18 +32,7 @@ public final class KingdomNpcMenu extends ChestMenu {
     }
 
     private static String profession(String job) {
-        return switch (job) {
-            case "farmer" -> "Фермер";
-            case "smith" -> "Кузнец";
-            case "miner" -> "Шахтёр";
-            case "lumberjack" -> "Лесоруб";
-            case "merchant" -> "Купец";
-            case "guard" -> "Стражник";
-            case "builder" -> "Строитель";
-            case "courier" -> "Курьер";
-            case "warehouse" -> "Кладовщик";
-            default -> "Без профессии";
-        };
+        return KingdomProfessionRegistry.title(job);
     }
 
     private static String order(String command) {
@@ -224,9 +213,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             }
             case 1 -> {
                 if (!owner) { info("Сменить профессию может работодатель."); break; }
-                String[] jobs = {"free", "farmer", "smith", "miner", "lumberjack", "merchant", "guard", "builder", "warehouse", "courier"};
-                int idx = java.util.Arrays.asList(jobs).indexOf(w.job);
-                w.job = jobs[(idx + 1 + jobs.length) % jobs.length];
+                w.job = KingdomProfessionRegistry.next(w.job);
                 info("Новая профессия: " + profession(w.job));
                 changed = true;
             }
