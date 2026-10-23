@@ -63,6 +63,8 @@ public final class KingdomTfcGrillWork {
                     || !fluid.isEmpty()) return ItemStack.EMPTY;
             ItemStack out = recipe.getResultItem(level.registryAccess());
             if (out == null || out.isEmpty() || out.getCount() != 1) return ItemStack.EMPTY;
+            // A cook must not smelt metal or fire ceramics by using the food grill.
+            if (!input.getItem().isEdible() || !out.getItem().isEdible()) return ItemStack.EMPTY;
             if (id(out).equals(id(input)) || KingdomCurrency.value(out) > 0
                     || out.is(KingdomCurrency.WALLET.get())) return ItemStack.EMPTY;
             return out;
