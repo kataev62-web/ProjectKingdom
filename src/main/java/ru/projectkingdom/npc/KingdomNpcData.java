@@ -96,6 +96,9 @@ public final class KingdomNpcData extends SavedData {
         public int skillXp = 0;
         // Life simulation values 0..100 (persistent, server authoritative).
         public int hunger = 80;
+        /** Five TFC-style nutrition groups. Defaults preserve older saves. */
+        public int dietGrain=50,dietFruit=50,dietVegetables=50,dietProtein=50,dietDairy=50;
+        public long lastMealDay=-1;
         public int energy = 80;
         public int morale = 70;
         public int safety = 70;
@@ -167,6 +170,12 @@ public final class KingdomNpcData extends SavedData {
             w.lastWorkedDay = t.contains("LastWorked", Tag.TAG_LONG) ? t.getLong("LastWorked") : w.lastPaidDay;
             w.skillXp = Math.max(0, t.getInt("SkillXp"));
             w.hunger = t.contains("Hunger", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Hunger")) : 80;
+            w.dietGrain=t.contains("DietGrain",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietGrain")):50;
+            w.dietFruit=t.contains("DietFruit",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietFruit")):50;
+            w.dietVegetables=t.contains("DietVegetables",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietVegetables")):50;
+            w.dietProtein=t.contains("DietProtein",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietProtein")):50;
+            w.dietDairy=t.contains("DietDairy",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietDairy")):50;
+            w.lastMealDay=t.contains("LastMealDay",Tag.TAG_LONG)?t.getLong("LastMealDay"):-1;
             w.energy = t.contains("Energy", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Energy")) : 80;
             w.morale = t.contains("Morale", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Morale")) : 70;
             w.safety = t.contains("Safety", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Safety")) : 70;
@@ -236,6 +245,9 @@ public final class KingdomNpcData extends SavedData {
             t.putLong("Produced", produced); t.putLong("LastWorked", lastWorkedDay);
             t.putInt("SkillXp", skillXp); t.putBoolean("HasHome", hasHome);
             t.putInt("Hunger",hunger);t.putInt("Energy",energy);t.putInt("Morale",morale);t.putInt("Safety",safety);
+            t.putInt("DietGrain",dietGrain);t.putInt("DietFruit",dietFruit);
+            t.putInt("DietVegetables",dietVegetables);t.putInt("DietProtein",dietProtein);
+            t.putInt("DietDairy",dietDairy);t.putLong("LastMealDay",lastMealDay);
             t.putString("Settlement",settlement);t.putString("FamilyName",familyName);
             t.putLong("LastLifeDay",lastLifeDay);t.putInt("PersonalStock",personalStock);
             t.putString("Gender", gender); t.putInt("AgeYears", ageYears);
