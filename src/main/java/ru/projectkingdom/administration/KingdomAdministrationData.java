@@ -370,10 +370,13 @@ public final class KingdomAdministrationData extends SavedData {
             CompoundTag row=new CompoundTag();row.putUUID("Town",town.getKey());row.putString("Role",binding.role().name());
             row.putString("Dimension",binding.dimension());row.putLong("Pos",binding.packedPos());containerList.add(row);
         }root.put("Containers",containerList);
-        java.util.LinkedHashSet<UUID> financialTowns=new java.util.LinkedHashSet<>();financialTowns.addAll(bankReserves.keySet());financialTowns.addAll(treasuryReserves.keySet());financialTowns.addAll(historicalTreasuries.keySet());
+        java.util.LinkedHashSet<UUID> financialTowns=new java.util.LinkedHashSet<>();financialTowns.addAll(bankReserves.keySet());financialTowns.addAll(treasuryReserves.keySet());financialTowns.addAll(historicalTreasuries.keySet());financialTowns.addAll(legacyBankLiabilities.keySet());financialTowns.addAll(legacyTreasuryLiabilities.keySet());
         ListTag financeList=new ListTag();for(UUID town:financialTowns){
             CompoundTag row=new CompoundTag();row.putUUID("Town",town);row.putLong("BankReserve",bankReserve(town));
-            row.putLong("TreasuryReserve",treasuryReserve(town));row.putLong("HistoricalTreasury",historicalTreasuryLiability(town));financeList.add(row);
+            row.putLong("TreasuryReserve",treasuryReserve(town));row.putLong("HistoricalTreasury",historicalTreasuryLiability(town));
+            row.putLong("LegacyBankLiability",legacyBankLiability(town));
+            row.putLong("LegacyTreasuryLiability",legacyTreasuryLiability(town));
+            financeList.add(row);
         }root.put("Finance",financeList);
         ListTag expansionList=new ListTag();
         for(ExpansionDebit value:expansionDebits.values()){
