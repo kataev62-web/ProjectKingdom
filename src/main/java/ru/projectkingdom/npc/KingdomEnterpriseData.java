@@ -41,6 +41,111 @@ public final class KingdomEnterpriseData extends SavedData {
     public record Trade(UUID id, UUID offer, UUID buyer, UUID seller, int count, long copper, TradeState state) {}
 
     private final Map<UUID, Enterprise> firms = new LinkedHashMap<>();
+    /** Durable audit trail. Closing never erases a business ID or historical trades. */
+    public record ClosedBusiness(UUID id,UUID owner,String name,long gameDay) {}
+    private final Map<UUID,ClosedBusiness> closedBusinesses=new LinkedHashMap<>();
+    public boolean wasClosed(UUID id){return closedBusinesses.containsKey(id);}
+    public Collection<ClosedBusiness> closedBusinesses(){return List.copyOf(closedBusinesses.values());}
+    public enum ClosureStatus {
+        CLOSED, NO_PERMISSION, NOT_FOUND, NO_CORE, NOT_AT_CORE,
+        CASH_REMAINING, TRADE_NOT_SETTLED, STAFF_DEBT, ACTIVE_BUILD,
+        STORAGE_UNLOADED, STORAGE_NOT_EMPTY, OLD_COUNTER_NOT_EMPTY
+    }
+    public static String closeMessage(ClosureStatus status){
+        return switch(status){
+            case CLOSED->"Предприятие закрыто. Работники освобождены, объявления сняты, лимит освободился. Блок возвращён без привязки и может создать новое предприятие.";
+            case NO_PERMISSION->"Закрыть предприятие может только его владелец.";
+            case NOT_FOUND->"Это предприятие уже закрыто или удалено.";
+            case NO_CORE->"Блок предприятия не активен; установите его заново.";
+            case NOT_AT_CORE->"Откройте свой блок предприятия и оставайтесь рядом.";
+            case CASH_REMAINING->"В кассе есть учтённые деньги. Сначала снимите их через вкладку «Касса».";
+            case TRADE_NOT_SETTLED->"Есть незавершённые торговые операции или недоступен журнал сделок. Закрытие запрещено до сверки.";
+            case STAFF_DEBT->"Есть начисленная задолженность работникам. Погасите зарплату перед закрытием.";
+            case ACTIVE_BUILD->"К строительной конторе привязана стройка. Сначала завершите её.";
+            case STORAGE_UNLOADED->"Не удалось проверить один из складов или старую кассу. Прогрузите чанки и откройте блок снова.";
+            case STORAGE_NOT_EMPTY->"В складах или кассе остались предметы. Заберите всё в свой инвентарь.";
+            case OLD_COUNTER_NOT_EMPTY->"В старой кассе-прилавке остались предметы. Заберите их.";
+        };
+    }
+    /**
+     * Explicit business deregistration. Does NOT destroy stock, employees' claims
+     * or coin Items. We require physical inventories empty and every accrued wage paid.
+     * Persistent history is retained for audit, while the placed block is returned
+     * as an UNBOUND item so it can create a fresh registered enterprise.
+     */
+    public ClosureStatus closeBusiness(ServerPlayer player,UUID business,BlockPos pos){
+        if(player==null||business==null||pos==null)return ClosureStatus.NOT_FOUND;
+        Enterprise firm=firms.get(business);
+        if(firm==null)return ClosureStatus.NOT_FOUND;
+        if(!firm.owner().equals(player.getUUID()))return ClosureStatus.NO_PERMISSION;
+        EnterpriseCoreBinding binding=cores.get(business);
+        if(binding==null||!binding.active())return ClosureStatus.NO_CORE;
+        ServerLevel level=player.serverLevel();
+        if(!binding.dimension().equals(level.dimension().location().toString())
+                ||binding.packedPos()!=pos.asLong()||pos.distSqr(player.blockPosition())>64
+                ||!level.hasChunkAt(pos)
+                ||!(level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core)
+                ||!core.bound()||!business.equals(core.enterpriseId()))return ClosureStatus.NOT_AT_CORE;
+        if(firm.cash()!=0)return ClosureStatus.CASH_REMAINING;
+        if(unresolved(business))return ClosureStatus.TRADE_NOT_SETTLED;
+        var payroll=KingdomEnterprisePayrollData.get(player.getServer());
+        var contracts=new ArrayList<KingdomEnterprisePayrollData.Employment>();
+        for(var current:payroll.all())if(business.equals(current.enterprise())){
+            payroll.accrue(player.getServer(),business,current.worker());
+            var updated=payroll.contract(business,current.worker());
+            if(updated!=null){
+                if(updated.owed()!=0)return ClosureStatus.STAFF_DEBT;
+                if(updated.active())contracts.add(updated);
+            }
+        }
+        if(KindIsConstructionAndHasSite(level,business,pos))return ClosureStatus.ACTIVE_BUILD;
+        for(EnterpriseBindingRole role:EnterpriseBindingRole.values()){
+            var bindingSlot=storageBinding(business,role);
+            if(bindingSlot==null)continue;
+            if(!bindingSlot.dimension().equals(level.dimension().location().toString())
+                    ||!level.hasChunkAt(bindingSlot.pos()))return ClosureStatus.STORAGE_UNLOADED;
+            var container=KingdomContainerAccess.resolve(level,bindingSlot.pos());
+            if(container==null)return ClosureStatus.STORAGE_UNLOADED;
+            if(!container.isEmpty())return ClosureStatus.STORAGE_NOT_EMPTY;
+        }
+        Counter legacy=counters.get(business);
+        if(legacy!=null){
+            if(!legacy.dimension().equals(level.dimension().location().toString())
+                    ||!level.hasChunkAt(legacy.pos()))return ClosureStatus.STORAGE_UNLOADED;
+            var counterInventory=KingdomContainerAccess.resolve(level,legacy.pos());
+            if(counterInventory!=null&&!counterInventory.isEmpty())
+                return ClosureStatus.OLD_COUNTER_NOT_EMPTY;
+        }
+        // All preconditions checked before mutating accounting records.
+        for(var contract:contracts)
+            if(!payroll.dismiss(player.getServer(),firm.owner(),business,contract.worker()))
+                return ClosureStatus.STAFF_DEBT;
+        closedBusinesses.put(business,new ClosedBusiness(business,firm.owner(),firm.name(),
+                Math.max(0,level.getDayTime()/24000L)));
+        offers.values().removeIf(offer->business.equals(offer.seller()));
+        selections.entrySet().removeIf(entry->business.equals(entry.getValue()));
+        cashiers.remove(business);
+        counters.remove(business);
+        storageBindings.remove(business);
+        cores.remove(business);
+        kinds.remove(business);
+        firms.remove(business);
+        setDirty();
+        // Remove old core without any bound identity, then return an unbound item.
+        var item=level.getBlockState(pos).getBlock().asItem();
+        level.removeBlock(pos,false);
+        var fresh=new ItemStack(item);
+        if(!player.getInventory().add(fresh)&&!fresh.isEmpty())
+            net.minecraft.world.level.block.Block.popResource(level,pos,fresh);
+        player.getInventory().setChanged();
+        return ClosureStatus.CLOSED;
+    }
+    private boolean KindIsConstructionAndHasSite(ServerLevel level,UUID firm,BlockPos pos){
+        return kind(firm)==EnterpriseKind.CONSTRUCTION &&
+            KingdomConstructionData.get(level.getServer()).atMarker(
+                level.dimension().location().toString(),pos.getX(),pos.getY(),pos.getZ())!=null;
+    }
+
     private final Map<UUID, Invoice> legacyInvoices = new LinkedHashMap<>();
     private final Map<UUID, UUID> selections = new LinkedHashMap<>();
     private final Map<UUID, Counter> counters = new LinkedHashMap<>();
@@ -805,6 +910,13 @@ public final class KingdomEnterpriseData extends SavedData {
                         new StorageBinding(id,role,t.getString("Dim"),BlockPos.of(t.getLong("Pos"))));
             }catch(IllegalArgumentException ignored){}
         }
+        for(Tag row:root.getList("ClosedBusinesses",Tag.TAG_COMPOUND)){
+            CompoundTag t=(CompoundTag)row;
+            if(t.hasUUID("Id")&&t.hasUUID("Owner")){
+                UUID id=t.getUUID("Id");
+                d.closedBusinesses.put(id,new ClosedBusiness(id,t.getUUID("Owner"),t.getString("Name"),Math.max(0,t.getLong("Day"))));
+            }
+        }
         return d;
     }
     @Override public CompoundTag save(CompoundTag root) {
@@ -817,6 +929,12 @@ public final class KingdomEnterpriseData extends SavedData {
         a=new ListTag();for(Trade v:trades.values()){CompoundTag t=new CompoundTag();t.putUUID("Id",v.id());t.putUUID("Offer",v.offer());t.putUUID("Buyer",v.buyer());t.putUUID("Seller",v.seller());t.putInt("Count",v.count());t.putLong("Price",v.copper());t.putString("State",v.state().name());a.add(t);}root.put("Trades",a);
         a=new ListTag();for(EnterpriseCoreBinding c:cores.values()){CompoundTag t=new CompoundTag();t.putUUID("Firm",c.enterpriseId());t.putUUID("Owner",c.owner());t.putString("Kind",c.kind().id());t.putString("Dim",c.dimension());t.putLong("Pos",c.packedPos());t.putBoolean("Active",c.active());a.add(t);}root.put("EnterpriseCores",a);
         a=new ListTag();for(var byRole:storageBindings.values())for(StorageBinding s:byRole.values()){CompoundTag t=new CompoundTag();t.putUUID("Firm",s.enterprise());t.putString("Role",s.role().name());t.putString("Dim",s.dimension());t.putLong("Pos",s.pos().asLong());a.add(t);}root.put("EnterpriseStorage",a);
+        ListTag archived=new ListTag();
+        for(var closed:closedBusinesses.values()){
+            CompoundTag tag=new CompoundTag();tag.putUUID("Id",closed.id());tag.putUUID("Owner",closed.owner());
+            tag.putString("Name",closed.name());tag.putLong("Day",closed.gameDay());archived.add(tag);
+        }
+        root.put("ClosedBusinesses",archived);
         return root;
     }
 }
