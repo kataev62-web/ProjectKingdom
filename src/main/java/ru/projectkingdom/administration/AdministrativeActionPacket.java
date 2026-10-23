@@ -12,7 +12,7 @@ import ru.projectkingdom.npc.KingdomPhysicalCash;
 import ru.projectkingdom.npc.KingdomLandReservations;
 
 public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int action) {
-    public static final int JOIN_TOWN=100,PAY_RESERVED_LAND=204,BIND_HALL_CASHBOX=115;
+    public static final int JOIN_TOWN=100,PAY_RESERVED_LAND=204,BIND_HALL_CASHBOX=115,CONSOLIDATE_BANK=205;
     public static final int BIND_TREASURY=110,BIND_BANK=111,BIND_WAREHOUSE=112,BIND_MARKET=113,BIND_PRISON_CELL=114;
     public static final int BANK_DEPOSIT_100=200,BANK_WITHDRAW_100=201,TREASURY_DEPOSIT_100=202,TREASURY_WITHDRAW_100=203;
     public static void encode(AdministrativeActionPacket packet,FriendlyByteBuf buffer){
@@ -80,6 +80,15 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 sender.sendSystemMessage(Component.literal(ok
                     ?"[Банк] Выдано 100 медных из реального банковского сейфа."
                     :"[Банк] "+bank.withdrawProblem(sender,100)));
+                return;
+            }
+            if(packet.action==CONSOLIDATE_BANK){
+                if(packet.kind!=AdministrativeKind.BANK||!menu.manager())return;
+                var bank=KingdomBankData.get(sender.getServer());
+                if(!packet.townId.equals(bank.bankTown(sender)))return;
+                var result=bank.consolidateOldTownVault(sender);
+                sender.sendSystemMessage(Component.literal("[Банк] "+KingdomBankData.legacyTransferMessage(result)));
+                if(result==KingdomBankData.LegacyTransferStatus.MOVED)sender.closeContainer();
                 return;
             }
             AdministrativeBindingRole role=switch(packet.action){
