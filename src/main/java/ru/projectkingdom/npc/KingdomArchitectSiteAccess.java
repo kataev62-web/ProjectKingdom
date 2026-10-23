@@ -4,7 +4,6 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
 import ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity;
 import ru.projectkingdom.enterprise.EnterpriseKind;
-import ru.projectkingdom.enterprise.KingdomEnterpriseData;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 
 /**
