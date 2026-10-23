@@ -1,6 +1,5 @@
 package ru.projectkingdom.npc;
 
-import java.util.Map;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
@@ -60,8 +59,8 @@ public final class KingdomBlockStateCodec {
 
     public static boolean buildable(BlockState state) {
         Block block = state.getBlock();
-        if (state.isAir() || !(block.asItem() instanceof BlockItem)
-                || !state.getFluidState().isEmpty()) return false;
+        if (state.isAir() || !(block.asItem() instanceof BlockItem item)
+                || item.getBlock() != block || !state.getFluidState().isEmpty()) return false;
         if (block instanceof SlabBlock
                 && state.hasProperty(SlabBlock.TYPE)
                 && state.getValue(SlabBlock.TYPE) == SlabType.DOUBLE) return false;
