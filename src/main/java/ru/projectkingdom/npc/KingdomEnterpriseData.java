@@ -263,14 +263,19 @@ public final class KingdomEnterpriseData extends SavedData {
     public boolean deposit(ServerPlayer actor,long amount) {
         Enterprise firm=owned(actor.getUUID());
         if(firm==null || !atCounter(actor,firm.id()) || amount<=0 || amount>1000000 || firm.cash()>Long.MAX_VALUE-amount)return false;
-        if(KingdomCurrency.balance(actor)<amount || !KingdomCurrency.debit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,firm.id(),EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||!KingdomPhysicalCash.deposit(actor,cash.container(),amount))return false;
         firms.put(firm.id(),new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));
         actor.getInventory().setChanged();setDirty();return true;
     }
     public boolean withdraw(ServerPlayer actor,long amount) {
         Enterprise firm=owned(actor.getUUID());
         if(firm==null || !atCounter(actor,firm.id()) || amount<=0 || amount>1000000 || firm.cash()<amount)return false;
-        if(!KingdomCurrency.credit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,firm.id(),EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.withdraw(actor,cash.container(),amount))return false;
         firms.put(firm.id(),new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         actor.getInventory().setChanged();setDirty();return true;
     }
@@ -280,7 +285,10 @@ public final class KingdomEnterpriseData extends SavedData {
     boolean payVerifiedWage(ServerPlayer employee,UUID firmId,long amount) {
         Enterprise firm=firms.get(firmId);
         if(firm==null || !atCounter(employee,firmId) || amount<1 || amount>10000 || firm.cash()<amount)return false;
-        if(!KingdomCurrency.credit(employee,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(employee.serverLevel(),this,firmId,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.withdraw(employee,cash.container(),amount))return false;
         firms.put(firmId,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         employee.getInventory().setChanged();setDirty();return true;
     }
@@ -296,6 +304,11 @@ public final class KingdomEnterpriseData extends SavedData {
         var entity=level.getEntity(npcId);
         if(!(entity instanceof net.minecraft.world.entity.npc.Villager npc) || !npc.isAlive()
                 || npc.distanceToSqr(desk.pos().getX()+0.5,desk.pos().getY()+0.5,desk.pos().getZ()+0.5)>9)return false;
+        var cash=EnterpriseAccessService.snapshot(level,this,business,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||cash.position().distSqr(desk.pos())>9
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.takeForNpc(cash.container(),amount))return false;
         firms.put(business,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         setDirty();return true;
     }
