@@ -11,6 +11,36 @@ public final class KingdomConstructionData extends SavedData {
     public record Project(UUID id, UUID owner, String dimension, String design, int x, int y, int z, Status status) {}
     private final LinkedHashMap<UUID,Project> projects=new LinkedHashMap<>();
     private final HashMap<UUID,Integer> progress=new HashMap<>();
+    /** Up to eight explicitly invited player builders per project. */
+    private final HashMap<UUID,LinkedHashSet<UUID>> assistants = new HashMap<>();
+    private static final int MAX_ASSISTANTS = 8;
+
+    public Set<UUID> assistants(UUID siteId) {
+        return Collections.unmodifiableSet(assistants.getOrDefault(siteId, new LinkedHashSet<>()));
+    }
+
+    /** Only the owner can delegate construction. Invitation never transfers ownership. */
+    public boolean mayAssist(UUID siteId, UUID player) {
+        Project site = projects.get(siteId);
+        return site != null && player != null && site.status() != Status.CANCELLED
+            && (site.owner().equals(player) || assistants(siteId).contains(player));
+    }
+
+    public boolean toggleAssistant(UUID siteId, UUID actor, UUID candidate) {
+        Project site = projects.get(siteId);
+        if (site == null || actor == null || candidate == null
+                || !site.owner().equals(actor) || actor.equals(candidate)
+                || site.status() == Status.CANCELLED) return false;
+        LinkedHashSet<UUID> invited = assistants.computeIfAbsent(siteId, ignored -> new LinkedHashSet<>());
+        if (!invited.remove(candidate)) {
+            if (invited.size() >= MAX_ASSISTANTS) return false;
+            invited.add(candidate);
+        }
+        if (invited.isEmpty()) assistants.remove(siteId);
+        setDirty();
+        return true;
+    }
+
     public static KingdomConstructionData get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(KingdomConstructionData::load,KingdomConstructionData::new,"kingdom_construction_v1");
     }
@@ -85,6 +115,15 @@ public final class KingdomConstructionData extends SavedData {
                 Project p=new Project(r.getUUID("Id"),r.getUUID("Owner"),r.getString("Dimension"),r.getString("Design"),r.getInt("X"),r.getInt("Y"),r.getInt("Z"),Status.valueOf(r.getString("Status")));
                 data.projects.put(p.id(),p);
                 data.progress.put(p.id(),Math.max(0,r.getInt("Progress")));
+                ListTag invited = r.getList("Assistants", Tag.TAG_INT_ARRAY);
+                LinkedHashSet<UUID> members = new LinkedHashSet<>();
+                for (int j = 0; j < invited.size() && members.size() < MAX_ASSISTANTS; j++) {
+                    try {
+                        UUID id = net.minecraft.nbt.NbtUtils.loadUUID(invited.get(j));
+                        if (!id.equals(p.owner())) members.add(id);
+                    } catch (IllegalArgumentException ignored) { }
+                }
+                if (!members.isEmpty()) data.assistants.put(p.id(), members);
             } catch(IllegalArgumentException ignored) { }
         }
         return data;
@@ -92,7 +131,12 @@ public final class KingdomConstructionData extends SavedData {
     @Override public CompoundTag save(CompoundTag out) {
         ListTag rows=new ListTag();
         for(Project p:projects.values()) {
-            CompoundTag r=new CompoundTag();r.putUUID("Id",p.id());r.putUUID("Owner",p.owner());r.putString("Dimension",p.dimension());r.putString("Design",p.design());r.putInt("X",p.x());r.putInt("Y",p.y());r.putInt("Z",p.z());r.putString("Status",p.status().name());r.putInt("Progress",progress(p.id()));rows.add(r);
+            CompoundTag r=new CompoundTag();r.putUUID("Id",p.id());r.putUUID("Owner",p.owner());r.putString("Dimension",p.dimension());r.putString("Design",p.design());r.putInt("X",p.x());r.putInt("Y",p.y());r.putInt("Z",p.z());r.putString("Status",p.status().name());r.putInt("Progress",progress(p.id()));
+            ListTag invited = new ListTag();
+            for (UUID assistant : assistants(p.id()))
+                invited.add(net.minecraft.nbt.NbtUtils.createUUID(assistant));
+            r.put("Assistants", invited);
+            rows.add(r);
         }
         out.put("Projects",rows);return out;
     }
