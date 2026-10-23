@@ -28,6 +28,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     private Button sellButton,applyButton,acceptButton;
     private final List<Button> storageButtons=new ArrayList<>(),cashButtons=new ArrayList<>(),constructionButtons=new ArrayList<>();
     private EditBox rename;private Button renameButton,closeButton;
+    private Button fieldsButton;
     private boolean closureArmed;
     public EnterpriseCoreScreen(EnterpriseCoreMenu menu,Inventory inventory,Component title){super(menu,inventory,KingdomFonts.readable(title));imageWidth=EnterpriseMenuLayout.WIDTH;imageHeight=EnterpriseMenuLayout.HEIGHT;}
     @Override protected void init(){
@@ -41,6 +42,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         acceptButton=addRenderableWidget(action("Принять первого заявителя (10 мед./сут.)",58,132,250,EnterpriseCoreMenu.ACCEPT_FIRST));
         cashButtons.add(addRenderableWidget(action("Внести 100",78,132,90,EnterpriseCoreMenu.DEPOSIT_100)));
         cashButtons.add(addRenderableWidget(action("Снять 100",178,132,90,EnterpriseCoreMenu.WITHDRAW_100)));
+        fieldsButton=addRenderableWidget(action("Поля и семена",72,132,205,EnterpriseCoreMenu.OPEN_FARM_FIELDS));
         constructionButtons.add(addRenderableWidget(action("Архитектор",62,132,110,EnterpriseCoreMenu.OPEN_ARCHITECT)));
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
@@ -81,6 +83,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         }
         if(acceptButton!=null)acceptButton.visible=selected==EnterpriseMenuLayout.Tab.WORKERS&&menu.applications()>0;
         for(Button b:storageButtons)b.visible=selected==EnterpriseMenuLayout.Tab.STORAGE&&menu.manager();for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();
+        if(fieldsButton!=null)fieldsButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.FARM;
         for(Button b:constructionButtons)b.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION
             &&menu.kind()==EnterpriseKind.CONSTRUCTION&&menu.manager();
         boolean settings=selected==EnterpriseMenuLayout.Tab.SETTINGS&&menu.manager();if(rename!=null)rename.setVisible(settings);if(renameButton!=null)renameButton.visible=settings;if(closeButton!=null)closeButton.visible=settings;}
@@ -99,7 +102,10 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 if(menu.applications()>0)line(g,"Первый заявитель: "+menu.firstApplicant(),54,124);
             }
             case PRODUCTION->{
-                if(menu.kind()==EnterpriseKind.CONSTRUCTION) {
+                if(menu.kind()==EnterpriseKind.FARM) {
+                    line(g,"Поля, виды семян и рекомендации TFC.",54,90);
+                    line(g,"Назначьте участки и проверьте влажность.",54,108);
+                } else if(menu.kind()==EnterpriseKind.CONSTRUCTION) {
                     line(g,"Заказы, проекты, NPC-строители и молот",54,90);
                     line(g,"открываются в едином меню Kingdom.",54,108);
                 } else {
