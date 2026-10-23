@@ -43,7 +43,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 if(packet.kind!=AdministrativeKind.TOWN_HALL)return;
                 var result=KingdomLandReservations.get(sender.getServer()).payAtHall(sender,packet.townId);
                 String info=switch(result) {
-                    case BOUGHT -> "Участок приобретён; монеты внесены в городскую кассу.";
+                    case BOUGHT -> "Участок приобретён; монеты поступили в городской банк.";
                     case NOT_RESERVED -> "У вас нет действующей брони в этой ратуше.";
                     case WRONG_TOWN -> "Обратитесь в ратушу города-владельца земли.";
                     case EXPIRED -> "Срок бронирования истёк, оформите новое через карту.";
