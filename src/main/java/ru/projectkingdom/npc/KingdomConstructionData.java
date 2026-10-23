@@ -21,6 +21,8 @@ public final class KingdomConstructionData extends SavedData {
     public record Project(UUID id, UUID owner, String dimension, String design, int x, int y, int z, Status status) {}
     private final LinkedHashMap<UUID,Project> projects=new LinkedHashMap<>();
     private final HashMap<UUID,Integer> progress=new HashMap<>();
+    /** Explicit drafting table anchors for remotely positioned architect plans. */
+    private final HashMap<UUID, net.minecraft.core.BlockPos> anchors = new HashMap<>();
     /** Up to eight explicitly invited player builders per project. */
     private final HashMap<UUID,LinkedHashSet<UUID>> assistants = new HashMap<>();
     private static final int MAX_ASSISTANTS = 8;
@@ -79,8 +81,13 @@ public final class KingdomConstructionData extends SavedData {
         Status status=next==total?Status.COMPLETED:Status.BUILDING;
         projects.put(id,new Project(p.id(),p.owner(),p.dimension(),p.design(),p.x(),p.y(),p.z(),status));setDirty();
     }
+    public net.minecraft.core.BlockPos marker(Project p) {
+        return anchors.getOrDefault(p.id(), new net.minecraft.core.BlockPos(p.x()-2,p.y(),p.z()-2));
+    }
     public Project atMarker(String dimension,int x,int y,int z) {
-        for(Project p:projects.values())if(p.dimension().equals(dimension)&&p.x()==x+2&&p.y()==y&&p.z()==z+2)return p;
+        var target = new net.minecraft.core.BlockPos(x,y,z);
+        for(Project p:projects.values())if(p.dimension().equals(dimension)
+                && marker(p).equals(target) && p.status()!=Status.CANCELLED)return p;
         return null;
     }
     /** Reject overlapping building footprints, including paused or completed projects. */
@@ -108,8 +115,15 @@ public final class KingdomConstructionData extends SavedData {
     }
 
     public Project add(UUID owner,String dimension,String design,int x,int y,int z) {
+        return add(owner,dimension,design,x,y,z,new net.minecraft.core.BlockPos(x-2,y,z-2));
+    }
+    public Project add(UUID owner,String dimension,String design,int x,int y,int z,
+                       net.minecraft.core.BlockPos marker) {
+        if (marker == null) throw new IllegalArgumentException("Missing drafting table");
         Project p=new Project(UUID.randomUUID(),owner,dimension,design,x,y,z,Status.PLANNED);
-        projects.put(p.id(),p);setDirty();return p;
+        projects.put(p.id(),p);
+        anchors.put(p.id(),marker.immutable());
+        setDirty();return p;
     }
     public boolean setStatus(UUID id,UUID actor,Status status) {
         Project p=projects.get(id);
@@ -125,6 +139,10 @@ public final class KingdomConstructionData extends SavedData {
                 Project p=new Project(r.getUUID("Id"),r.getUUID("Owner"),r.getString("Dimension"),r.getString("Design"),r.getInt("X"),r.getInt("Y"),r.getInt("Z"),Status.valueOf(r.getString("Status")));
                 data.projects.put(p.id(),p);
                 data.progress.put(p.id(),Math.max(0,r.getInt("Progress")));
+                if (r.contains("MarkerX",Tag.TAG_INT) && r.contains("MarkerY",Tag.TAG_INT)
+                        && r.contains("MarkerZ",Tag.TAG_INT))
+                    data.anchors.put(p.id(),new net.minecraft.core.BlockPos(
+                        r.getInt("MarkerX"),r.getInt("MarkerY"),r.getInt("MarkerZ")));
                 ListTag invited = r.getList("Assistants", Tag.TAG_INT_ARRAY);
                 LinkedHashSet<UUID> members = new LinkedHashSet<>();
                 for (int j = 0; j < invited.size() && members.size() < MAX_ASSISTANTS; j++) {
@@ -142,6 +160,7 @@ public final class KingdomConstructionData extends SavedData {
         ListTag rows=new ListTag();
         for(Project p:projects.values()) {
             CompoundTag r=new CompoundTag();r.putUUID("Id",p.id());r.putUUID("Owner",p.owner());r.putString("Dimension",p.dimension());r.putString("Design",p.design());r.putInt("X",p.x());r.putInt("Y",p.y());r.putInt("Z",p.z());r.putString("Status",p.status().name());r.putInt("Progress",progress(p.id()));
+            var marker=marker(p);r.putInt("MarkerX",marker.getX());r.putInt("MarkerY",marker.getY());r.putInt("MarkerZ",marker.getZ());
             ListTag invited = new ListTag();
             for (UUID assistant : assistants(p.id()))
                 invited.add(net.minecraft.nbt.NbtUtils.createUUID(assistant));
