@@ -1,9 +1,11 @@
 package ru.projectkingdom.map;
 
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.Items;
+import net.minecraft.world.item.Item;
+import java.util.function.BooleanSupplier;
 import ru.projectkingdom.network.GraphicAtlasRequestPacket;
 import ru.projectkingdom.network.OpenCityPlanFromAtlasPacket;
 import ru.projectkingdom.network.OpenLandMapFromAtlasPacket;
@@ -46,100 +48,84 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         layer = initialLayer == null ? KingdomGraphicAtlasData.Layer.LAND : initialLayer;
     }
 
-    /** MineColonies-inspired Kingdom layout: navigation left, world map, inspector right. */
+    /** Large, icon-driven MineColonies-like layout, with a compact fallback. */
     @Override protected void init() {
-        navWidth = width < 385 ? 82 : 100;
-        inspectorWidth = width < 385 ? 0 : width < 485 ? 116 : 152;
-        int available = Math.max(5,(width - navWidth - inspectorWidth - 36)
-                / KingdomGraphicAtlasData.COLUMNS);
-        cell = Math.max(5,Math.min(12,Math.min(available,
-                Math.max(5,(height - 65) / KingdomGraphicAtlasData.ROWS))));
-        gridWidth = cell * KingdomGraphicAtlasData.COLUMNS;
-        gridHeight = cell * KingdomGraphicAtlasData.ROWS;
-        panelWidth = navWidth + gridWidth + inspectorWidth + 22;
-        panelHeight = Math.min(height - 8, Math.max(208, gridHeight + 58));
-        left = Math.max(0,(width - panelWidth) / 2);
-        top = Math.max(0,(height - panelHeight) / 2);
-        gridX = left + navWidth + 8;
-        gridY = top + 26;
-        int navX = left + 6, navButtonWidth = navWidth - 11;
-        boolean compactControls = panelHeight < 218;
-        KingdomGraphicAtlasData.Layer[] layers = KingdomGraphicAtlasData.Layer.values();
-        int half = (navButtonWidth - 3) / 2;
-        if (compactControls) {
-            String[] labels = {"Мир", "Нации", "Фирмы", "Стройки"};
-            for (int i=0;i<layers.length;i++) {
-                var chosen=layers[i];
-                int col=i%2,row=i/2;
-                addRenderableWidget(Button.builder(Component.literal(labels[i]),
-                        button -> setLayer(chosen)).bounds(
-                        navX+col*(half+3),top+26+row*17,
-                        col==0?half:navButtonWidth-half-3,16).build());
-            }
-        } else {
-            String[] labels = {"Местность", "Государства", "Предприятия", "Стройки"};
-            for (int i=0;i<layers.length;i++) {
-                var chosen=layers[i];
-                addRenderableWidget(Button.builder(Component.literal(labels[i]),
-                        button -> setLayer(chosen))
-                        .bounds(navX,top+27+i*19,navButtonWidth,17).build());
-            }
+        navWidth=width<520?98:width<800?124:146;
+        inspectorWidth=width<520?0:width<800?142:178;
+        int available=(width-navWidth-inspectorWidth-38)/KingdomGraphicAtlasData.COLUMNS;
+        cell=Math.max(5,Math.min(15,Math.min(available,
+                Math.max(5,(height-64)/KingdomGraphicAtlasData.ROWS))));
+        gridWidth=cell*KingdomGraphicAtlasData.COLUMNS;
+        gridHeight=cell*KingdomGraphicAtlasData.ROWS;
+        panelWidth=navWidth+gridWidth+inspectorWidth+22;
+        panelHeight=Math.min(height-8,Math.max(
+                gridHeight+55,inspectorWidth>0?286:228));
+        left=Math.max(0,(width-panelWidth)/2);
+        top=Math.max(0,(height-panelHeight)/2);
+        gridX=left+navWidth+8;
+        gridY=top+26;
+        int navX=left+6, navButtonWidth=navWidth-12;
+        boolean compact=panelHeight<276||navWidth<112;
+        KingdomGraphicAtlasData.Layer[] layers=KingdomGraphicAtlasData.Layer.values();
+        String[] labels=compact
+                ? new String[]{"Мир","Нации","Фирмы","Здания"}
+                : new String[]{"Местность","Государства","Предприятия","Стройки"};
+        Item[] icons={Items.FILLED_MAP,Items.BLUE_BANNER,Items.EMERALD,Items.BRICKS};
+        int half=(navButtonWidth-4)/2;
+        for(int i=0;i<layers.length;i++){
+            var chosen=layers[i];
+            int col=compact?i%2:0,row=compact?i/2:i;
+            int bw=compact?(col==0?half:navButtonWidth-half-4):navButtonWidth;
+            int bx=navX+(compact?col*(half+4):0);
+            int by=top+(compact?29+row*24:30+row*24);
+            atlasButton(bx,by,bw,21,labels[i],icons[i],
+                    ()->setLayer(chosen),()->layer==chosen);
         }
-        int up=compactControls?66:108;
-        int leftRight=compactControls?82:126;
-        int down=compactControls?98:144;
-        int zoom=compactControls?114:162;
-        int centre=compactControls?130:180;
-        int routeY=compactControls?146:198;
-        addRenderableWidget(Button.builder(Component.literal("↑"),
-                button -> pan(0,-1)).bounds(navX,top + up,navButtonWidth,16).build());
-        addRenderableWidget(Button.builder(Component.literal("←"),
-                button -> pan(-1,0)).bounds(navX,top + leftRight,half,16).build());
-        addRenderableWidget(Button.builder(Component.literal("→"),
-                button -> pan(1,0)).bounds(navX + half + 3,top + leftRight,
-                    navButtonWidth - half - 3,16).build());
-        addRenderableWidget(Button.builder(Component.literal("↓"),
-                button -> pan(0,1)).bounds(navX,top + down,navButtonWidth,16).build());
-        addRenderableWidget(Button.builder(Component.literal("−"),
-                button -> zoom(-1)).bounds(navX,top + zoom,half,16).build());
-        addRenderableWidget(Button.builder(Component.literal("+"),
-                button -> zoom(1)).bounds(navX + half + 3,top + zoom,
-                    navButtonWidth - half - 3,16).build());
-        addRenderableWidget(Button.builder(Component.literal("Моё место"),
-                button -> resetCenter()).bounds(navX,top + centre,navButtonWidth,16).build());
-        addRenderableWidget(Button.builder(Component.literal("Маршрут"),
-                button -> planSelectedRoute()).bounds(navX,top + routeY,navButtonWidth,16).build());
+        int up=compact?82:145, cross=compact?104:167;
+        int down=compact?126:189, zoomY=compact?148:211;
+        int centerY=compact?170:233, pathY=compact?192:255;
+        atlasButton(navX,top+up,navButtonWidth,20,"Север",Items.COMPASS,
+                ()->pan(0,-1),null);
+        atlasButton(navX,top+cross,half,20,"←",null,
+                ()->pan(-1,0),null);
+        atlasButton(navX+half+4,top+cross,navButtonWidth-half-4,20,"→",null,
+                ()->pan(1,0),null);
+        atlasButton(navX,top+down,navButtonWidth,20,"Юг",Items.COMPASS,
+                ()->pan(0,1),null);
+        atlasButton(navX,top+zoomY,half,20,"−",null,()->zoom(-1),null);
+        atlasButton(navX+half+4,top+zoomY,navButtonWidth-half-4,20,"+",null,
+                ()->zoom(1),null);
+        atlasButton(navX,top+centerY,navButtonWidth,20,"Я здесь",Items.ENDER_EYE,
+                this::resetCenter,()->followPlayer);
+        atlasButton(navX,top+pathY,navButtonWidth,20,"Маршрут",Items.COMPASS,
+                this::planSelectedRoute,()->route!=null
+                        && route.status()==KingdomAtlasNavigator.Status.ROUTE);
 
-        // Selection remains informative. Only existing server menus may change
-        // property rights or debit the real municipal treasury.
-        if (inspectorWidth > 0) {
-            int x = gridX + gridWidth + 7;
-            int w = Math.max(44,inspectorWidth - 10);
-            int halfWidth = (w - 4) / 2;
-            addRenderableWidget(Button.builder(Component.literal("Границы"),
-                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()))
-                    .bounds(x,top + panelHeight - 43,w,17).build());
-            addRenderableWidget(Button.builder(Component.literal("Участки"),
-                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenLandMapFromAtlasPacket()))
-                    .bounds(x,top + panelHeight - 23,halfWidth,17).build());
-            addRenderableWidget(Button.builder(Component.literal("Меню"),
-                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsHubPacket()))
-                    .bounds(x + halfWidth + 4,top + panelHeight - 23,w - halfWidth - 4,17).build());
-        } else {
-            addRenderableWidget(Button.builder(Component.literal("Меню"),
-                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsHubPacket()))
-                    .bounds(navX,top + 6,navButtonWidth,17).build());
-            // Even on compact GUIs, municipal planning and individual parcels
-            // stay reachable from the same atlas without a second chest page.
-            addRenderableWidget(Button.builder(Component.literal("Город"),
-                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()))
-                    .bounds(gridX + gridWidth - 101,top + 5,49,17).build());
-            addRenderableWidget(Button.builder(Component.literal("Участки"),
-                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenLandMapFromAtlasPacket()))
-                    .bounds(gridX + gridWidth - 50,top + 5,50,17).build());
+        if(inspectorWidth>0){
+            int x=gridX+gridWidth+8,w=inspectorWidth-13;
+            int halfW=(w-4)/2;
+            atlasButton(x,top+panelHeight-50,w,20,"Границы города",Items.MAP,
+                    ()->KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()),null);
+            atlasButton(x,top+panelHeight-26,halfW,20,"Участки",Items.GRASS_BLOCK,
+                    ()->KingdomNetwork.CHANNEL.sendToServer(new OpenLandMapFromAtlasPacket()),null);
+            atlasButton(x+halfW+4,top+panelHeight-26,w-halfW-4,20,"Меню",Items.BOOK,
+                    ()->KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsHubPacket()),null);
+        }else{
+            atlasButton(navX,top+5,navButtonWidth,20,"Меню",Items.BOOK,
+                    ()->KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsHubPacket()),null);
+            atlasButton(gridX+gridWidth-106,top+4,52,20,"Город",Items.MAP,
+                    ()->KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()),null);
+            atlasButton(gridX+gridWidth-52,top+4,52,20,"Земли",Items.GRASS_BLOCK,
+                    ()->KingdomNetwork.CHANNEL.sendToServer(new OpenLandMapFromAtlasPacket()),null);
         }
-        if (requestId == 0) resetCenter();
+        if(requestId==0)resetCenter();
         else request();
+    }
+
+    private void atlasButton(int x,int y,int w,int h,String label,Item icon,
+                             Runnable action,BooleanSupplier chosen){
+        addRenderableWidget(new KingdomAtlasSkin.AtlasButton(
+                x,y,w,h,label,icon,action,chosen));
     }
 
     private void resetCenter() {
@@ -310,25 +296,20 @@ public final class KingdomGraphicAtlasScreen extends Screen {
 
     @Override public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
         renderBackground(gui);
-        gui.fill(left, top, left + panelWidth, top + panelHeight, 0xFF39291B);
-        gui.fill(left + 2, top + 2, left + panelWidth - 2, top + panelHeight - 2, 0xFFEAE0C8);
-        // Guild-style navigation column and parchment map frame.
-        gui.fill(left + 3,top + 3,left + navWidth + 3,top + panelHeight - 3,0xFF493A2A);
-        gui.fill(left + 5,top + 5,left + navWidth + 1,top + panelHeight - 5,0xFF6B553B);
-        gui.fill(gridX - 2, gridY - 2, gridX + gridWidth + 2, gridY + gridHeight + 2, INK);
-        gui.drawString(font, Component.literal(inspectorWidth > 0 ? "KINGDOM  |  КАРТЫ" : "KINGDOM"),
-                gridX, top + 8, INK, false);
-        // Make the currently selected category obvious at a glance.
-        int activeTop = panelHeight < 218 ? top + 26 + (layer.ordinal() / 2) * 17
-                : top + 27 + layer.ordinal() * 19;
-        gui.fill(left + 3,activeTop,left + 6,activeTop + 16,0xFFFFD784);
+        KingdomAtlasSkin.frame(gui,left,top,panelWidth,panelHeight,navWidth,
+                gridX+gridWidth+7,inspectorWidth>0?inspectorWidth-8:0);
+        KingdomAtlasSkin.mapBezel(gui,gridX,gridY,gridWidth,gridHeight);
+        gui.drawString(font,Component.literal(inspectorWidth>0
+                    ? "PROJECT KINGDOM | КАРТА АВАЛОНА" : "KINGDOM"),
+                gridX,top+8,INK,false);
         if (minecraft != null && minecraft.player != null) {
             gui.drawString(font, Component.literal("Вы: X " + minecraft.player.blockPosition().getX()
                     + "  Z " + minecraft.player.blockPosition().getZ()),
                     gridX, top + panelHeight - 17, INK, false);
         }
-        gui.drawString(font, Component.literal("Масштаб: " + KingdomGraphicAtlasData.SCALES[scaleIndex] + " ч/кл"),
-                gridX + Math.max(0,gridWidth - 100), top + panelHeight - 17, MUTED, false);
+        if(gridWidth>=235)
+            gui.drawString(font,Component.literal("1:" + KingdomGraphicAtlasData.SCALES[scaleIndex]),
+                    gridX+gridWidth-26,top+panelHeight-17,MUTED,false);
         if (snapshot != null) {
             renderTiles(gui);
             renderSurveyedRoads(gui);
