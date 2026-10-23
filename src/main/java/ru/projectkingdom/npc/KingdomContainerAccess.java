@@ -1,6 +1,10 @@
 package ru.projectkingdom.npc;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.CompoundContainer;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.player.Player;
@@ -22,7 +26,19 @@ public final class KingdomContainerAccess {
     public static Container resolve(ServerLevel level,BlockPos pos) {
         if(level==null||pos==null||!level.hasChunkAt(pos))return null;
         BlockEntity entity=level.getBlockEntity(pos);
-        if(entity instanceof Container container)return container;
+        if(entity instanceof Container container){
+            var block=level.getBlockState(pos);
+            if(block.getBlock() instanceof ChestBlock
+                    && block.getValue(ChestBlock.TYPE)!=ChestType.SINGLE){
+                for(Direction side:Direction.Plane.HORIZONTAL){
+                    BlockPos otherPos=pos.relative(side);
+                    if(!samePhysicalStorage(level,pos,otherPos))continue;
+                    BlockEntity opposite=level.getBlockEntity(otherPos);
+                    if(opposite instanceof Container other)return new CompoundContainer(container,other);
+                }
+            }
+            return container;
+        }
         if(entity==null)return null;
         var capability=entity.getCapability(ForgeCapabilities.ITEM_HANDLER);
         var option=capability.resolve();
@@ -31,6 +47,20 @@ public final class KingdomContainerAccess {
         return new ModdedContainer(entity,mutable);
     }
 
+    /** A double chest is one physical inventory, even when bindings point to opposite halves. */
+    public static boolean samePhysicalStorage(ServerLevel level,BlockPos first,BlockPos second){
+        if(first.equals(second))return true;
+        if(level==null||first==null||second==null
+                ||first.distManhattan(second)!=1
+                ||!level.hasChunkAt(first)||!level.hasChunkAt(second))return false;
+        var a=level.getBlockState(first);
+        var b=level.getBlockState(second);
+        return a.getBlock() instanceof ChestBlock && b.is(a.getBlock())
+                && a.getValue(ChestBlock.TYPE)!=ChestType.SINGLE
+                && b.getValue(ChestBlock.TYPE)!=ChestType.SINGLE
+                && a.getValue(ChestBlock.TYPE)!=b.getValue(ChestBlock.TYPE)
+                && a.getValue(ChestBlock.FACING)==b.getValue(ChestBlock.FACING);
+    }
     private static final class ModdedContainer implements Container {
         private final BlockEntity entity;
         private final IItemHandlerModifiable handler;
