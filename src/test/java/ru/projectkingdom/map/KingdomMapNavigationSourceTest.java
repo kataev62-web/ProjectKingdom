@@ -14,6 +14,7 @@ class KingdomMapNavigationSourceTest {
         String menu = Files.readString(Path.of(
                 "src/main/java/ru/projectkingdom/npc/KingdomMainMenu.java"));
         assertTrue(menu.contains("public static void openMaps(ServerPlayer player)"));
+        assertTrue(menu.contains("new ru.projectkingdom.network.OpenGraphicAtlasPacket("));
         assertTrue(menu.contains("case MAPS -> {"));
         assertTrue(menu.contains("KingdomGraphicAtlasData.Layer.LAND"));
         assertTrue(menu.contains("KingdomGraphicAtlasData.Layer.POLITICAL"));
@@ -33,6 +34,15 @@ class KingdomMapNavigationSourceTest {
         assertTrue(packet.contains("player.containerMenu instanceof KingdomBookMenu"));
     }
 
+    @Test void graphicAtlasOffersNavigationAndAdministrativeInspections() throws Exception {
+        String screen = Files.readString(Path.of(
+                "src/main/java/ru/projectkingdom/map/KingdomGraphicAtlasScreen.java"));
+        assertTrue(screen.contains("renderKingdomInspector(gui)"));
+        assertTrue(screen.contains("OpenLandMapFromAtlasPacket"));
+        assertTrue(screen.contains("OpenCityPlanFromAtlasPacket"));
+        assertTrue(screen.contains("KingdomAtlasNavigator.plan("));
+    }
+
     @Test void vanillaMapUseIsNotIntercepted() throws Exception {
         String mod = Files.readString(Path.of(
                 "src/main/java/ru/projectkingdom/npc/KingdomNpcMod.java"));
@@ -46,6 +56,6 @@ class KingdomMapNavigationSourceTest {
         String packet = Files.readString(Path.of(
                 "src/main/java/ru/projectkingdom/network/OpenKingdomMapsHubPacket.java"));
         assertTrue(screen.contains("OpenKingdomMapsHubPacket"));
-        assertTrue(packet.contains("KingdomMainMenu.openMaps(sender)"));
+        assertTrue(packet.contains("KingdomMainMenu.open(sender)"));
     }
 }
