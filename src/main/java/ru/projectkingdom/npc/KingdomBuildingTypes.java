@@ -24,7 +24,10 @@ public final class KingdomBuildingTypes {
             cells.add(new KingdomDesignEngine.Cell(2,1,2,"minecraft:barrel"));
             cells.add(new KingdomDesignEngine.Cell(type.width-3,1,2,"minecraft:barrel"));
         }
-        if(type==Type.SMITHY)cells.add(new KingdomDesignEngine.Cell(2,1,type.length/2,"minecraft:anvil"));
+        // Anvil is a FallingBlock and is deliberately not placeable by the safe
+        // one-item construction worker. Use a stable workstation in the shell;
+        // players may install their own anvil after construction completes.
+        if(type==Type.SMITHY)cells.add(new KingdomDesignEngine.Cell(2,1,type.length/2,"minecraft:stonecutter"));
         return new KingdomDesignEngine.Design(type.name(),type.width,type.length,base.height(),cells);
     }
     public static Type type(String name) {
