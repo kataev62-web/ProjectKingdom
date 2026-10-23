@@ -25,6 +25,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     private final SimpleContainer inventory;
     private final Set<Long> planned = new HashSet<>();
     private int centerX, centerZ;
+    private java.util.UUID cityId;
 
     private KingdomCityExpansionMapMenu(int id, Inventory playerInventory, ServerPlayer player, SimpleContainer grid) {
         super(MenuType.GENERIC_9x6, id, playerInventory, grid, 6);
@@ -32,6 +33,14 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         inventory = grid;
         centerX = player.chunkPosition().x;
         centerZ = player.chunkPosition().z;
+        var town = KingdomCivicsData.get(player.getServer()).townOf(player.getUUID());
+        cityId = town == null ? null : town.id();
+        if (cityId != null && founder()) {
+            for (var cell : KingdomExpansionPlans.get(player.getServer()).snapshot(cityId)) {
+                if (cell.dimension().equals(dimension())) planned.add(key(cell.x(), cell.z()));
+            }
+        }
+        pruneInvalid();
         refresh();
     }
 
@@ -78,6 +87,35 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         var stack = new ItemStack(item);
         stack.setHoverName(Component.literal(caption));
         inventory.setItem(slot, stack);
+    }
+    private void savePlan() {
+        if (cityId == null || !founder()) return;
+        var plans = KingdomExpansionPlans.get(viewer.getServer());
+        var merged = new java.util.LinkedHashSet<KingdomExpansionPlans.Cell>();
+        for (var old : plans.snapshot(cityId)) if (!old.dimension().equals(dimension())) merged.add(old);
+        for (long cell : planned) merged.add(new KingdomExpansionPlans.Cell(dimension(), x(cell), z(cell)));
+        plans.replace(cityId, merged);
+    }
+    private void pruneInvalid() {
+        if (cityId == null || !founder()) { planned.clear(); return; }
+        var db = KingdomCivicsData.get(viewer.getServer());
+        var pending = new HashSet<>(planned);
+        planned.clear();
+        boolean changed;
+        do {
+            changed = false;
+            for (long cell : Set.copyOf(pending)) {
+                boolean occupied = false;
+                for (var plot : db.mapPlots(dimension())) {
+                    if (plot.x() == x(cell) && plot.z() == z(cell)) { occupied = true; break; }
+                }
+                if (occupied) { pending.remove(cell); changed = true; continue; }
+                if (contiguous(db, x(cell), z(cell))) {
+                    planned.add(cell); pending.remove(cell); changed = true;
+                }
+            }
+        } while (changed);
+        savePlan();
     }
     private void refresh() {
         inventory.clearContent();
@@ -147,7 +185,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
                 for (var claim : data.mapPlots(dimension())) {
                     if (claim.x() == x && claim.z() == z) { owned = true; break; }
                 }
-                if (!owned && contiguous(data, x, z)) planned.add(key);
+                if (!owned && contiguous(data, x, z) && planned.size() < 256) planned.add(key);
                 else viewer.sendSystemMessage(Component.literal("[Kingdom] Можно выбирать только свободные соседние чанки."));
             }
         } else {
@@ -162,6 +200,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
                 default -> { return; }
             }
         }
+        pruneInvalid();
         refresh();
     }
     @Override public boolean stillValid(Player player) {
@@ -169,7 +208,6 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     }
     @Override public void removed(Player player) {
         super.removed(player);
-        planned.clear();
         inventory.clearContent();
     }
 }
