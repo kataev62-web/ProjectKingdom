@@ -48,7 +48,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                     case WRONG_TOWN -> "Обратитесь в ратушу города-владельца земли.";
                     case EXPIRED -> "Срок бронирования истёк, оформите новое через карту.";
                     case CHANGED_OFFER -> "Цена или владелец участка изменились; оплату отменено.";
-                    case NO_VAULT -> "Городская касса не привязана или не загружена.";
+                    case NO_VAULT -> "Банковский сейф города не привязан или не загружен.";
                     case NO_CASH_OR_ROOM -> "Недостаточно монет или касса переполнена.";
                     case NEEDS_REVIEW -> "Оплата требует сверки администрацией; повторять нельзя.";
                 };
