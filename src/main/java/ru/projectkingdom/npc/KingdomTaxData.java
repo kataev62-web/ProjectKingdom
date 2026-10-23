@@ -81,26 +81,74 @@ public final class KingdomTaxData extends SavedData {
     }
     private static long saturatingMultiply(long a,long b){return a>0&&b>Long.MAX_VALUE/a?Long.MAX_VALUE:a*b;}
     private static long saturatingAdd(long a,long b){return a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b;}
-    /** Pay an old city's debt into THAT city's treasury, at a physical bank point. */
-    public boolean pay(MinecraftServer server,ServerPlayer player,long requested){
-        if(requested<=0 || requested>1_000_000 || !KingdomBankData.get(server).atBranch(player))return false;
-        if(owed(server,player.getUUID())<=0)return false;
-        if(KingdomCurrency.wallet(player).isEmpty())return false;
+    /** Current local debt only; a former city's debt stays with its original creditor. */
+    public long owedToTown(MinecraftServer server,UUID player,UUID town){
+        if(server==null||player==null||town==null)return 0;
+        var current=KingdomCivicsData.get(server).townOf(player);
+        if(current!=null && current.id().equals(town))assess(server,player,town);
+        Debt entry=debts.get(key(town,player));
+        return entry==null?0:Math.max(0,entry.amount());
+    }
+
+    public enum PaymentResult {
+        SUCCESS, NO_DEBT, INVALID_AMOUNT, NOT_ENOUGH_COINS, BANK_NOT_CONNECTED,
+        LEGACY_RESERVE_MISMATCH, BANK_FULL, TREASURY_LIMIT, PAYMENT_REVIEW_REQUIRED
+    }
+    /** Treasury counter collects a specified tax amount; only the bank owns coins.
+     * In particular, a tax payment never credits a personal bank account.
+     * A municipal ledger receipt is booked only AFTER physical coin insertion.
+     */
+    public PaymentResult payAtTreasury(ServerPlayer player,UUID townId,long requested){
+        if(player==null||townId==null||requested<1||requested>1_000_000)
+            return PaymentResult.INVALID_AMOUNT;
+        MinecraftServer server=player.getServer();
+        long debt=owedToTown(server,player.getUUID(),townId);
+        if(debt<1)return PaymentResult.NO_DEBT;
+        if(requested>debt)return PaymentResult.INVALID_AMOUNT;
+        if(KingdomCurrency.balance(player)<requested)return PaymentResult.NOT_ENOUGH_COINS;
         var civics=KingdomCivicsData.get(server);
-        for(Debt d:unpaid(player.getUUID())){
-            long amount=Math.min(requested,d.amount());
-            if(amount<1 || KingdomCurrency.balance(player)<amount)continue;
-            var town=civics.townById(d.town());
-            if(town==null || town.treasury()>Long.MAX_VALUE-amount)continue;
-            if(!KingdomCurrency.debit(player,amount))continue;
-            if(!civics.depositVerifiedTax(d.town(),amount)){
-                if(!KingdomCurrency.credit(player,amount))throw new IllegalStateException("Tax refund failed");
-                continue;
-            }
-            debts.put(key(d.town(),d.person()),new Debt(d.town(),d.person(),d.amount()-amount,d.lastDay()));
-            player.getInventory().setChanged();setDirty();return true;
+        var town=civics.townById(townId);
+        if(town==null||town.treasury()>Long.MAX_VALUE-requested)return PaymentResult.TREASURY_LIMIT;
+        var admin=ru.projectkingdom.administration.KingdomAdministrationData.get(server);
+        var vault=KingdomPhysicalCash.townVault(player,townId,
+            ru.projectkingdom.administration.AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return PaymentResult.BANK_NOT_CONNECTED;
+        long backing=KingdomPhysicalCash.value(vault),bankClaims=admin.bankReserve(townId),
+            townClaims=admin.treasuryReserve(townId);
+        if(bankClaims>Long.MAX_VALUE-townClaims||backing<bankClaims+townClaims)
+            return PaymentResult.LEGACY_RESERVE_MISMATCH;
+        if(townClaims>Long.MAX_VALUE-requested)return PaymentResult.TREASURY_LIMIT;
+        if(!KingdomPhysicalCash.deposit(player,vault,requested))return PaymentResult.BANK_FULL;
+        if(!civics.depositVerifiedTax(townId,requested)){
+            // The bank owns actual cash at this point. No automatic repeat is allowed.
+            // With the prechecks above, a false return should be impossible on the server thread.
+            return PaymentResult.PAYMENT_REVIEW_REQUIRED;
         }
-        return false;
+        Debt previous=debts.get(key(townId,player.getUUID()));
+        if(previous==null||previous.amount()<requested)return PaymentResult.PAYMENT_REVIEW_REQUIRED;
+        debts.put(key(townId,player.getUUID()),new Debt(townId,player.getUUID(),
+                previous.amount()-requested,previous.lastDay()));
+        setDirty();
+        return PaymentResult.SUCCESS;
+    }
+    public static String paymentMessage(PaymentResult result){
+        return switch(result){
+            case SUCCESS->"Оплата прошла. Настоящие монеты зачислены в банковский сейф города.";
+            case NO_DEBT->"Перед этим городом у вас нет задолженности.";
+            case INVALID_AMOUNT->"Введите сумму от 1 медной монеты до размера своего долга.";
+            case NOT_ENOUGH_COINS->"Недостаточно монет в кошельке. Положите монеты в кошелёк Kingdom.";
+            case BANK_NOT_CONNECTED->"В городе не привязан банковский сейф или его чанк не загружен. Обратитесь в банк.";
+            case LEGACY_RESERVE_MISMATCH->"В банке недостаточно физических монет для уже записанных счетов и казны. Нужна сверка старого резерва.";
+            case BANK_FULL->"В банковском сейфе нет места для монет или хранилище не принимает их.";
+            case TREASURY_LIMIT->"Городской счёт сейчас не может принять эту сумму.";
+            case PAYMENT_REVIEW_REQUIRED->"Платёж нуждается в проверке администратора. Повторно не оплачивайте.";
+        };
+    }
+    /** Legacy entrypoint now also uses the physical bank vault; no virtual tax minting. */
+    public boolean pay(MinecraftServer server,ServerPlayer player,long requested){
+        if(player==null||!KingdomBankData.get(server).atBranch(player))return false;
+        var town=KingdomCivicsData.get(server).townOf(player.getUUID());
+        return town!=null&&payAtTreasury(player,town.id(),requested)==PaymentResult.SUCCESS;
     }
     private static KingdomTaxData load(CompoundTag root){
         KingdomTaxData data=new KingdomTaxData();
