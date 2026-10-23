@@ -42,8 +42,11 @@ public final class KingdomNpcBuilder {
             if(supplies==null)continue;
             Villager builder=null;
             for(var worker:workers.all()) {
-                if(!site.owner().equals(worker.employer)||!site.dimension().equals(worker.dimension)
-                    ||!"builder".equals(worker.job)||worker.contractPaused||!"work".equals(worker.order))continue;
+                if (!site.owner().equals(worker.employer)
+                        || !site.dimension().equals(worker.dimension)
+                        || !"builder".equals(worker.job)
+                        || !KingdomNpcDuty.mayExecute(worker.job, worker.order,
+                            worker.autonomousIntent, KingdomNpcWorkday.employed(server, worker))) continue;
                 var entity=level.getEntity(worker.entityId);
                 if(entity instanceof Villager villager && villager.isAlive()
                     && villager.blockPosition().distSqr(lectern)<=48*48) {builder=villager;break;}
