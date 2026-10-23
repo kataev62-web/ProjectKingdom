@@ -31,6 +31,10 @@ final class EnterpriseKindTest {
                 data.activateCore(owner, firm.id(), EnterpriseKind.SMITHY, "overworld", 11));
         assertFalse(data.suspendCore(owner, firm.id(), "overworld", 11));
         assertTrue(data.suspendCore(owner, firm.id(), "overworld", 10));
+        assertEquals(EnterpriseActivation.ACTIVATED,
+                data.activateCore(owner, firm.id(), EnterpriseKind.SMITHY, "overworld", 11));
+        assertEquals(11, data.core(firm.id()).packedPos());
+        assertTrue(data.core(firm.id()).active());
     }
 
     @Test void legacyAdoptionPreservesIdentityAndName() {
