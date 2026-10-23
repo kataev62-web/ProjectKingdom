@@ -17,7 +17,7 @@ public final class KingdomNpcDuty {
         return switch (job) {
             case "free" -> Kind.NONE;
             case "farmer", "miner", "lumberjack" -> Kind.FIELD;
-            case "smith" -> Kind.WORKSHOP;
+            case "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason" -> Kind.WORKSHOP;
             case "builder" -> Kind.CONSTRUCTION;
             case "courier" -> Kind.DELIVERY;
             default -> Kind.SERVICE;
@@ -36,10 +36,7 @@ public final class KingdomNpcDuty {
 
     /** Existing real-world executors. Unsupported trades must not mint goods. */
     public static boolean hasPhysicalExecutor(String job) {
-        return switch (kind(job)) {
-            case FIELD, WORKSHOP, CONSTRUCTION, DELIVERY -> true;
-            default -> false;
-        };
+        return KingdomProfessionWorkRules.executable(job);
     }
 
     /** Actual actions are never run at night or during a needs-related break. */
