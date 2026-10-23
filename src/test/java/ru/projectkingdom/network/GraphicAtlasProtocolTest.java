@@ -3,6 +3,7 @@ package ru.projectkingdom.network;
 import static org.junit.jupiter.api.Assertions.*;
 import io.netty.buffer.Unpooled;
 import java.util.ArrayList;
+import java.util.List;
 import net.minecraft.network.FriendlyByteBuf;
 import org.junit.jupiter.api.Test;
 import ru.projectkingdom.map.KingdomGraphicAtlasData;
@@ -18,7 +19,13 @@ class GraphicAtlasProtocolTest {
                 "Авалон", "Держава", "Кузница",
                 ru.projectkingdom.map.KingdomAtlasTerrain.Type.FOREST.ordinal(), 41));
         var original = new KingdomGraphicAtlasData.Snapshot(
-                42,-123,321,4,KingdomGraphicAtlasData.Layer.POLITICAL,tiles);
+                42,-123,321,4,KingdomGraphicAtlasData.Layer.INFRASTRUCTURE,tiles,
+                List.of(new ru.projectkingdom.map.KingdomAtlasInfrastructure.Marker(
+                        ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.TOWN_HALL, -1980, 5120,
+                        "Ратуша Авалона"),
+                        new ru.projectkingdom.map.KingdomAtlasInfrastructure.Marker(
+                        ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.BRIDGE, -1900, 5100,
+                        "Каменный мост")));
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try {
             GraphicAtlasResponsePacket.encode(new GraphicAtlasResponsePacket(original),buffer);
@@ -29,6 +36,10 @@ class GraphicAtlasProtocolTest {
             assertEquals(41,copy.tiles().get(position).elevation());
             assertEquals(ru.projectkingdom.map.KingdomAtlasTerrain.Type.FOREST.ordinal(),
                     copy.tiles().get(position).terrain());
+            assertEquals(2, copy.markers().size());
+            assertEquals("Ратуша Авалона", copy.markers().get(0).label());
+            assertEquals(ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.BRIDGE,
+                    copy.markers().get(1).kind());
         } finally { buffer.release(); }
     }
 
@@ -41,4 +52,16 @@ class GraphicAtlasProtocolTest {
             assertThrows(IllegalArgumentException.class, () -> GraphicAtlasResponsePacket.decode(buffer));
         } finally { buffer.release(); }
     }
+    @Test void rejectsExcessiveInfrastructurePayload() {
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            buffer.writeVarInt(1);buffer.writeInt(0);buffer.writeInt(0);
+            buffer.writeVarInt(1);buffer.writeByte(0);
+            buffer.writeVarInt(0); // no terrain / property tiles
+            buffer.writeVarInt(ru.projectkingdom.map.KingdomAtlasInfrastructure.MAX_MARKERS + 1);
+            assertThrows(IllegalArgumentException.class, () ->
+                    GraphicAtlasResponsePacket.decode(buffer));
+        } finally { buffer.release(); }
+    }
+
 }
