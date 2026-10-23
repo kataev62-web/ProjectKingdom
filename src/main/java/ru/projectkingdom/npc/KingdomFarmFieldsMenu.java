@@ -73,6 +73,7 @@ public final class KingdomFarmFieldsMenu extends ChestMenu {
         icon(TOGGLE,Items.LEVER,"ВКЛЮЧИТЬ / ОСТАНОВИТЬ посевы на выбранном поле");
         icon(DELETE,Items.BARRIER,"УДАЛИТЬ поле из плана (блоки мира не трогаются)");
         icon(DIAGNOSE,Items.COMPASS,"ПРОВЕРИТЬ климат TFC: температура, влажность, свет, питание почвы");
+        icon(23,Items.BEETROOT_SEEDS,"СЛЕДУЮЩАЯ КУЛЬТУРА: выбрать поддерживаемые семена TFC без предмета в руке");
         icon(26,Items.OAK_DOOR,"Закрыть настройки");
         broadcastChanges();
     }
@@ -105,6 +106,16 @@ public final class KingdomFarmFieldsMenu extends ChestMenu {
                 if(data.setSeed(viewer,farm,field.id(),seed))
                     say("Назначен посев "+seed+". Семена для работы NPC берутся из сырьевого склада.");
                 else say("Поддерживаются обычные одноблочные культуры TFC. Рис, длинные культуры и перец требуют отдельного адаптера.");
+            }
+            case 23 -> {
+                if(field==null){say("Сначала добавь поле.");break;}
+                var choices=BuiltInRegistries.ITEM.keySet().stream().map(ResourceLocation::toString)
+                    .filter(KingdomFarmFieldData::validSeed).sorted().toList();
+                if(choices.isEmpty()){say("Нет поддерживаемых семян TFC.");break;}
+                int next=(choices.indexOf(field.seedId())+1)%choices.size();
+                if(data.setSeed(viewer,farm,field.id(),choices.get(next)))
+                    say("Поле "+(selected+1)+": "+choices.get(next)
+                        +". Для посадки фермеру понадобятся реальные семена на складе.");
             }
             case TOGGLE -> {
                 if(field!=null)data.toggle(viewer,farm,field.id());
