@@ -35,6 +35,12 @@ public final class KingdomNetwork {
                 OpenGraphicAtlasPacket::decode,OpenGraphicAtlasPacket::handle);
         CHANNEL.registerMessage(9,OpenCityPlanFromAtlasPacket.class,OpenCityPlanFromAtlasPacket::encode,
                 OpenCityPlanFromAtlasPacket::decode,OpenCityPlanFromAtlasPacket::handle);
+        CHANNEL.registerMessage(10,ArchitectPreviewPacket.class,ArchitectPreviewPacket::encode,
+                ArchitectPreviewPacket::decode,ArchitectPreviewPacket::handle);
+        CHANNEL.registerMessage(11,ArchitectDecisionPacket.class,ArchitectDecisionPacket::encode,
+                ArchitectDecisionPacket::decode,ArchitectDecisionPacket::handle);
+        CHANNEL.registerMessage(12,ArchitectResultPacket.class,ArchitectResultPacket::encode,
+                ArchitectResultPacket::decode,ArchitectResultPacket::handle);
         CHANNEL.registerMessage(10,OpenKingdomMapsFromBookPacket.class,OpenKingdomMapsFromBookPacket::encode,
                 OpenKingdomMapsFromBookPacket::decode,OpenKingdomMapsFromBookPacket::handle);
         CHANNEL.registerMessage(11,OpenKingdomMapsHubPacket.class,OpenKingdomMapsHubPacket::encode,
