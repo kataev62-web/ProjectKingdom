@@ -4,8 +4,8 @@
   "location": "Avalon",
   "target_minecraft": "Java 1.20.1 Forge",
   "last_reviewed": "2026-10-23",
-  "source_binary_count_in_repository": 0,
-  "warning": "Candidates are NOT downloaded schematics; file compatibility and redistribution rights not yet verified.",
+  "source_binary_count_in_repository": 1,
+  "warning": "10+ candidate projects, and one genuine legacy dock review fixture. No third-party structure has passed in-game architectural approval.",
   "candidates": [
     {
       "id": "stubbs_medieval_bundle",
@@ -194,6 +194,33 @@
       "interiors": "unknown",
       "status": "candidate",
       "next": "Obtain file from authors' download page and verify NBT/size; castle may suit a satellite fortress, not Avalon citadel."
+    },
+    {
+      "id": "gdmc_dock_middle_legacy",
+      "type": [
+        "dock",
+        "port",
+        "modular_component"
+      ],
+      "title": "GDMC middle dock segment",
+      "author": "GDMC contributors (williamcwi/GDMC)",
+      "url": "https://github.com/williamcwi/GDMC/blob/master/schematics/dock/dock_middle.schematic",
+      "published_version": "legacy numeric block IDs",
+      "dimensions_xyz": [
+        20,
+        8,
+        9
+      ],
+      "non_air": 333,
+      "priority": 3,
+      "licensing": "Apache-2.0 upstream repository; license included with review fixture.",
+      "credit": "GDMC https://github.com/williamcwi/GDMC",
+      "compatibility": "fails_1_20_1_preflight_due_to_legacy_ids",
+      "interiors": "outdoor dock",
+      "status": "file_received",
+      "github_path": "design/avalon/build_library/schematics/review/gdmc_dock_middle_legacy.schematic",
+      "sha256": "ac570af9955a7ca8ebb5a056d8e8a7b74ce368e821a8b14477246787c83b68ca",
+      "next": "Convert legacy ID/data to modern blocks, inspect from first-person and shoreline, then accept/reject; DO NOT copy directly into Avalon."
     }
   ]
 }
