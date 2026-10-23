@@ -2,6 +2,8 @@ package ru.projectkingdom.npc;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -67,6 +69,8 @@ public final class KingdomWorldAtlasSnapshot {
             throw new IllegalArgumentException("Unsupported atlas scale");
         int startX = centerX - 3 * scale;
         int startZ = centerZ - scale;
+        Map<UUID, String> nationNames = new HashMap<>();
+        for (var nation : civics.nations()) nationNames.put(nation.id(), nation.name());
         TileState[] states = new TileState[COLUMNS * ROWS];
         for (int i = 0; i < states.length; i++) states[i] = new TileState();
         for (var plot : civics.mapPlots(dimension)) {
@@ -81,8 +85,7 @@ public final class KingdomWorldAtlasSnapshot {
             if (state.town.isEmpty()) state.town = town.name();
             else if (!state.town.equals(town.name())) state.town = "Несколько городов";
             if (town.nation() != null) {
-                String nation = civics.nations().stream().filter(n -> n.id().equals(town.nation()))
-                        .map(KingdomCivicsData.Nation::name).findFirst().orElse("");
+                String nation = nationNames.getOrDefault(town.nation(), "");
                 if (!nation.isEmpty()) {
                     if (state.nation.isEmpty()) state.nation = nation;
                     else if (!state.nation.equals(nation)) state.nation = "Несколько государств";
