@@ -9,6 +9,9 @@ import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.level.ExplosionEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
+import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
+import ru.projectkingdom.administration.AdministrativeKind;
+import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Server-side protection for city claims; wilderness is unaffected. */
 @Mod.EventBusSubscriber(modid=KingdomNpcMod.MOD_ID, bus=Mod.EventBusSubscriber.Bus.FORGE)
@@ -27,7 +30,24 @@ public final class KingdomClaimProtection {
     @SubscribeEvent public static void placeBlock(BlockEvent.EntityPlaceEvent event) {
         if(event.getEntity() instanceof Player player && denied(player,event.getPos(),KingdomCivicsData.Action.BUILD))event.setCanceled(true);
     }
+    /** Access to the exact active town hall is public, not a general claim permission. */
+    private static boolean publicTownHall(ServerPlayer player, BlockPos pos) {
+        ServerLevel level=player.serverLevel();
+        if(!level.hasChunkAt(pos))return false;
+        if(!(level.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core)
+                ||!core.bound()||core.kind()!=AdministrativeKind.TOWN_HALL)return false;
+        var civics=KingdomCivicsData.get(player.getServer());
+        var town=civics.townAt(level,pos);
+        if(town==null||!town.id().equals(core.townId()))return false;
+        var binding=KingdomAdministrationData.get(player.getServer())
+                .core(town.id(),AdministrativeKind.TOWN_HALL);
+        return binding!=null
+                && binding.dimension().equals(level.dimension().location().toString())
+                && binding.packedPos()==pos.asLong();
+    }
     @SubscribeEvent public static void interact(PlayerInteractEvent.RightClickBlock event) {
+        if(event.getEntity() instanceof ServerPlayer player && publicTownHall(player,event.getPos()))
+            return;
         if(denied(event.getEntity(),event.getPos(),KingdomCivicsData.Action.INTERACT))event.setCanceled(true);
     }
     @SubscribeEvent public static void explode(ExplosionEvent.Detonate event) {
