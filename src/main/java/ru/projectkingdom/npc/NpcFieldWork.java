@@ -40,10 +40,10 @@ public final class NpcFieldWork {
     private static int carried(KingdomNpcData.Worker w) {
         int total=0; for(ItemStack stack:w.fieldInventory)total+=stack.getCount(); return total;
     }
-    private static boolean canFit(KingdomNpcData.Worker w,List<ItemStack> drops) {
+    static boolean canFit(KingdomNpcData.Worker w,List<ItemStack> drops) {
         int n=carried(w);for(ItemStack stack:drops)n+=stack.getCount();return n<=MAX_CARRIED;
     }
-    private static void put(KingdomNpcData.Worker w, ItemStack item) {
+    static void put(KingdomNpcData.Worker w, ItemStack item) {
         if(item.isEmpty())return;
         ItemStack remaining=item.copy();
         for(ItemStack stack:w.fieldInventory)if(ItemStack.isSameItemSameTags(stack,remaining)){
@@ -101,7 +101,7 @@ public final class NpcFieldWork {
         return (w.fieldTool.is(ItemTags.PICKAXES) || w.fieldTool.getItem() instanceof PickaxeItem)
             && w.fieldTool.isCorrectToolForDrops(state);
     }
-    private static ItemStack takeSeedById(KingdomNpcData.Worker w, String seedId) {
+    static ItemStack takeSeedById(KingdomNpcData.Worker w, String seedId) {
         for (int i = 0; i < w.fieldInventory.size(); i++) {
             ItemStack item = w.fieldInventory.get(i);
             if (!item.isEmpty() && seedId.equals(BuiltInRegistries.ITEM.getKey(item.getItem()).toString())) {
@@ -131,15 +131,23 @@ public final class NpcFieldWork {
         return false;
     }
     /** Route harvested stock into a marked finished warehouse. Unemployed keep it in a persistent personal inventory. */
-    private static boolean deposit(ServerLevel level,Villager npc, KingdomNpcData.Worker w){
+    static boolean deposit(ServerLevel level,Villager npc, KingdomNpcData.Worker w){
         if(w.fieldInventory.isEmpty() || w.employer==null || !w.hasDestination)return false;
         BlockPos pos=new BlockPos(w.destX,w.destY,w.destZ);
         if(!level.hasChunkAt(pos)||!KingdomTerritories.get(level.getServer()).usable(level,pos,w.employer,"finished"))return false;
         if(npc.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>6.25){npc.getNavigation().moveTo(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5,0.8);return false;}
         BlockEntity be=level.getBlockEntity(pos);if(!(be instanceof Container c))return false;
         boolean moved=false;
+        java.util.Set<String> reservedSeeds=new java.util.HashSet<>();
+        if("farmer".equals(w.job))for(var contract:KingdomEnterprisePayrollData.get(level.getServer()).all())
+            if(contract.active() && contract.worker().equals(w.entityId))
+                for(var field:KingdomFarmFieldData.get(level.getServer()).of(contract.enterprise()))
+                    if(field.enabled() && !field.seedId().isBlank())reservedSeeds.add(field.seedId());
         for(int inv=0;inv<w.fieldInventory.size();){
             ItemStack s=w.fieldInventory.get(inv);
+            if(reservedSeeds.contains(BuiltInRegistries.ITEM.getKey(s.getItem()).toString())){
+                inv++;continue; // Keep genuine seeds in the NPC's persistent planting bag.
+            }
             for(int slot=0;slot<c.getContainerSize()&&!s.isEmpty();slot++){
                 if(!c.canPlaceItem(slot,s))continue;
                 ItemStack cur=c.getItem(slot);
@@ -160,6 +168,8 @@ public final class NpcFieldWork {
         if(!eligible(w)||!w.dimension.equals(level.dimension().location().toString())||"stay".equals(w.order)||"haul".equals(w.order)||"follow".equals(w.order))return false;
         if (w.employer != null && !KingdomNpcDuty.autonomousOrder(w.order)) return false;
         if(!"farmer".equals(w.job)&&!"lumberjack".equals(w.job)&&!"miner".equals(w.job))return false;
+        // Farm employees must respect the explicit fields and TFC climate plan.
+        if("farmer".equals(w.job)&&w.employer!=null)return KingdomFarmWorker.tick(level,npc,w);
         if(w.employer!=null && !w.fieldInventory.isEmpty()){
             boolean deposited=deposit(level,npc,w);
             if(deposited || carried(w)>=MAX_CARRIED/2)return deposited;
