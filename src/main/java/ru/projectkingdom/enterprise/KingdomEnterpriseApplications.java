@@ -52,6 +52,9 @@ public final class KingdomEnterpriseApplications extends SavedData {
         if(applications.isEmpty())byEnterprise.remove(enterprise);
         setDirty();return true;
     }
+    public void cancelForClosedEnterprise(UUID enterprise){
+        if(enterprise!=null&&byEnterprise.remove(enterprise)!=null)setDirty();
+    }
     private static KingdomEnterpriseApplications load(CompoundTag root) {
         var result=new KingdomEnterpriseApplications();
         ListTag data=root.getList("Applications",Tag.TAG_COMPOUND);
