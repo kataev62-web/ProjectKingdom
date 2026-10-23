@@ -19,6 +19,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
     private final ServerPlayer viewer;
     private final SimpleContainer grid;
     private int centerX, centerZ;
+    private long lastRefresh;
     private int selectedX, selectedZ;
     private static final long[] PRICE_CHOICES = {25, 50, 100, 250, 500, 1000, 2500, 5000, 10000};
     private int salePriceIndex = 4;
@@ -49,6 +50,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
         return KingdomCivicsData.get(viewer.getServer()).plot(viewer.serverLevel(),new BlockPos(x<<4,64,z<<4));
     }
     private void redraw() {
+        lastRefresh = viewer.serverLevel().getGameTime();
         grid.clearContent();
         var db=KingdomCivicsData.get(viewer.getServer());
         var own=db.townOf(viewer.getUUID());
@@ -97,7 +99,15 @@ public final class KingdomLandMapMenu extends ChestMenu {
         item(27,Items.IRON_PICKAXE,"Работник рядом: выдать/отозвать право строить и ломать");
         item(37,Items.OAK_DOOR,"Работник рядом: выдать/отозвать право взаимодействовать");
         item(53,Items.BARRIER,"Закрыть карту");
-        broadcastChanges();
+        super.broadcastChanges();
+    }
+    @Override public void broadcastChanges() {
+        if (viewer != null && !viewer.level().isClientSide
+                && viewer.serverLevel().getGameTime() - lastRefresh >= 40) {
+            redraw();
+            return;
+        }
+        super.broadcastChanges();
     }
     private void message(String s) {viewer.sendSystemMessage(Component.literal("[Kingdom Земля] "+s));}
     /** A land map is a catalogue, not a remote checkout. Transactions require a real town hall. */
