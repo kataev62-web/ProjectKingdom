@@ -23,5 +23,7 @@ public final class KingdomNetwork {
                 AdministrativeTextPacket::decode,AdministrativeTextPacket::handle);
         CHANNEL.registerMessage(3,OpenLandMapFromBookPacket.class,OpenLandMapFromBookPacket::encode,
                 OpenLandMapFromBookPacket::decode,OpenLandMapFromBookPacket::handle);
+        CHANNEL.registerMessage(4,OpenCityExpansionMapPacket.class,OpenCityExpansionMapPacket::encode,
+                OpenCityExpansionMapPacket::decode,OpenCityExpansionMapPacket::handle);
     }
 }
