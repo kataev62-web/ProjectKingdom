@@ -120,9 +120,10 @@ public final class KingdomTaxData extends SavedData {
         if(townClaims>Long.MAX_VALUE-requested)return PaymentResult.TREASURY_LIMIT;
         if(!KingdomPhysicalCash.deposit(player,vault,requested))return PaymentResult.BANK_FULL;
         if(!civics.depositVerifiedTax(townId,requested)){
-            // The bank owns actual cash at this point. No automatic repeat is allowed.
-            // With the prechecks above, a false return should be impossible on the server thread.
-            return PaymentResult.PAYMENT_REVIEW_REQUIRED;
+            // No debt mutation occurred. Refund the exact physical value.
+            // Fail closed for operator review only if the refund itself fails.
+            return KingdomPhysicalCash.withdraw(player,vault,requested)
+                ?PaymentResult.TREASURY_LIMIT:PaymentResult.PAYMENT_REVIEW_REQUIRED;
         }
         Debt previous=debts.get(key(townId,player.getUUID()));
         if(previous==null||previous.amount()<requested)return PaymentResult.PAYMENT_REVIEW_REQUIRED;
