@@ -15,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkHooks;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomBankData;
+import ru.projectkingdom.npc.KingdomLandReservations;
 
 public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     private final Inventory inventory;
@@ -59,8 +60,19 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
         long account=KingdomBankData.get(player.getServer()).balance(player.getUUID());long bankReserve=data.bankReserve(town.id());
         long treasuryReserve=data.treasuryReserve(town.id()),historical=data.historicalTreasuryLiability(town.id());
         List<String> rows=new ArrayList<>();
+        if(core.kind()==AdministrativeKind.TOWN_HALL && manager){
+            for(var booking:KingdomLandReservations.get(player.getServer())
+                    .reservedForTown(town.id(),System.currentTimeMillis())) {
+                if(rows.size()>=6)break;
+                rows.add("Бронь: "+booking.buyerName()+" "+booking.x()+","+booking.z()
+                        +" — "+booking.price()+" мед. ["+booking.state()+"]");
+            }
+        }
         if(core.kind()==AdministrativeKind.TOWN_HALL && (manager || member))
-            for(UUID resident:civics.townMembers(town.id(),0,6))rows.add(resident.toString());
+            for(UUID resident:civics.townMembers(town.id(),0,6)) {
+                if(rows.size()>=8)break;
+                rows.add("Житель: "+resident.toString().substring(0,8));
+            }
         if(core.kind()==AdministrativeKind.LAND_OFFICE)for(KingdomCivicsData.Plot plot:civics.townPlots(town.id(),0,6))
             rows.add(plot.dimension()+" "+plot.x()+", "+plot.z()+" "+plot.zone().name());
         if(core.kind()==AdministrativeKind.COURT)for(JusticeCase item:data.justiceCases(town.id(),0,6))rows.add(item.id().toString().substring(0,8)+" "+item.status().name()+" "+item.summary());
