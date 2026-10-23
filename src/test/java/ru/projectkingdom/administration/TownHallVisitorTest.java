@@ -13,7 +13,8 @@ final class TownHallVisitorTest {
     @Test void townHallIsPublicButOtherPrivateServicesStayRestricted() {
         assertTrue(AdministrativePermissionService.mayUsePublic(AdministrativeKind.TOWN_HALL));
         assertTrue(AdministrativePermissionService.mayUsePublic(AdministrativeKind.BANK));
-        assertFalse(AdministrativePermissionService.mayUsePublic(AdministrativeKind.TREASURY));
+        assertTrue(AdministrativePermissionService.mayUsePublic(AdministrativeKind.TREASURY));
+        assertFalse(AdministrativePermissionService.mayManage(UUID.randomUUID(),UUID.randomUUID(),UUID.randomUUID(),Set.of(),AdministrativeKind.TREASURY));
         assertFalse(AdministrativePermissionService.mayUsePublic(AdministrativeKind.LAND_OFFICE));
         assertFalse(AdministrativePermissionService.mayUsePublic(AdministrativeKind.PRISON));
         var outsider=UUID.randomUUID();
