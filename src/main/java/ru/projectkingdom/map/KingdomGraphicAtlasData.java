@@ -28,13 +28,22 @@ public final class KingdomGraphicAtlasData {
     public enum Layer { LAND, POLITICAL, ENTERPRISES }
     public record Tile(int claims, boolean own, boolean mixed, boolean planned,
                        int townColor, int nationColor, int enterprises,
-                       String town, String nation, String business) {
+                       String town, String nation, String business,
+                       int terrain, int elevation) {
+        /** Keep existing test fixtures and packet callers source compatible. */
+        public Tile(int claims, boolean own, boolean mixed, boolean planned,
+                    int townColor, int nationColor, int enterprises,
+                    String town, String nation, String business) {
+            this(claims, own, mixed, planned, townColor, nationColor, enterprises,
+                    town, nation, business, KingdomAtlasTerrain.Type.UNKNOWN.ordinal(), 0);
+        }
         public Tile {
             town = safe(town);
             nation = safe(nation);
             business = safe(business);
         }
-        public boolean empty() { return claims == 0 && enterprises == 0 && !planned; }
+        public boolean empty() { return claims == 0 && enterprises == 0 && !planned
+                && terrain == KingdomAtlasTerrain.Type.UNKNOWN.ordinal(); }
     }
     public record Snapshot(int requestId, int centerX, int centerZ, int scale,
                            Layer layer, List<Tile> tiles) {
@@ -48,7 +57,7 @@ public final class KingdomGraphicAtlasData {
     public record Business(String dimension, int x, int z, String name) {}
 
     private static final class MutableTile {
-        int claims, enterprises, townColor, nationColor;
+        int claims, enterprises, townColor, nationColor, terrain, elevation;
         boolean own, mixed, planned;
         String town="", nation="", business="";
     }
@@ -88,8 +97,10 @@ public final class KingdomGraphicAtlasData {
                 KingdomAdministrationData.get(player.getServer()).founder(ownTown.id()))) {
             planned = KingdomExpansionPlans.get(player.getServer()).snapshot(ownTown.id());
         }
+        var terrain = KingdomAtlasTerrain.sampleLoaded(player.serverLevel(),
+                centerX, centerZ, scale);
         return project(requestId, centerX, centerZ, scale, layer, dimension,
-                ownId, civic, businesses, planned);
+                ownId, civic, businesses, planned, terrain);
     }
 
     /** Pure projection for tests; does not load world chunks or expose ore. */
@@ -97,6 +108,16 @@ public final class KingdomGraphicAtlasData {
                                    Layer layer, String dimension, UUID ownTown,
                                    KingdomCivicsData civic, Collection<Business> businesses,
                                    Collection<KingdomExpansionPlans.Cell> plan) {
+        return project(requestId, centerX, centerZ, scale, layer, dimension,
+                ownTown, civic, businesses, plan, List.of());
+    }
+
+    /** Terrain cells are optional and always sampled from already-loaded chunks. */
+    public static Snapshot project(int requestId, int centerX, int centerZ, int scale,
+                                   Layer layer, String dimension, UUID ownTown,
+                                   KingdomCivicsData civic, Collection<Business> businesses,
+                                   Collection<KingdomExpansionPlans.Cell> plan,
+                                   Collection<KingdomAtlasTerrain.Cell> terrainCells) {
         if (!supportedScale(scale) || layer == null || dimension == null)
             throw new IllegalArgumentException("Unsupported atlas request");
         long startX = (long)centerX - (COLUMNS / 2L) * scale;
@@ -135,6 +156,12 @@ public final class KingdomGraphicAtlasData {
             if (cell.business.isEmpty()) cell.business = business.name();
             else if (!cell.business.equals(business.name())) cell.business = "Несколько предприятий";
         }
+        for (var terrain : terrainCells) {
+            int idx = index(terrain.chunkX(), terrain.chunkZ(), startX, startZ, scale);
+            if (idx < 0) continue;
+            cells[idx].terrain = terrain.type().ordinal();
+            cells[idx].elevation = Math.max(-512, Math.min(1024, terrain.elevation()));
+        }
         for (var plotted : plan) {
             if (!dimension.equals(plotted.dimension())) continue;
             int idx = index(plotted.x(), plotted.z(), startX, startZ, scale);
@@ -144,7 +171,7 @@ public final class KingdomGraphicAtlasData {
         for (MutableTile cell : cells) {
             result.add(new Tile(cell.claims, cell.own, cell.mixed, cell.planned,
                     cell.townColor, cell.nationColor, cell.enterprises,
-                    cell.town, cell.nation, cell.business));
+                    cell.town, cell.nation, cell.business, cell.terrain, cell.elevation));
         }
         return new Snapshot(requestId, centerX, centerZ, scale, layer, result);
     }
