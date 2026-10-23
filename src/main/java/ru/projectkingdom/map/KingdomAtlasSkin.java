@@ -133,7 +133,13 @@ public final class KingdomAtlasSkin {
             buttonSkin(gui,getX(),getY(),width,height,chosen,isHoveredOrFocused());
             var font=Minecraft.getInstance().font;
             int textX=getX()+5;
-            boolean showIcon=!icon.isEmpty() && width>=82 && height>=18;
+            if(!icon.isEmpty() && width<58 && height>=18) {
+                // A very narrow map tab shows a recognizable full-size item
+                // instead of truncating the Russian title to illegibility.
+                gui.renderItem(icon,getX()+(width-16)/2,getY()+(height-16)/2);
+                return;
+            }
+            boolean showIcon=!icon.isEmpty() && width>=92 && height>=18;
             if(showIcon){
                 gui.renderItem(icon,getX()+3,getY()+(height-16)/2);
                 textX=getX()+22;
