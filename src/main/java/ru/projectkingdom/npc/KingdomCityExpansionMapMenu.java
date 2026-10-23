@@ -150,7 +150,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(49, Items.MAP, "Город: " + town.name() + " | Чанков в плане: " + planned.size());
         put(44, Items.GOLD_NUGGET, "Оценка покупки: " + (100L * planned.size()) + " медных | 100 за чанк");
         put(43, Items.GOLD_BLOCK, confirmedPlan == null
-                ? "Выкупить план из казны: нажми для проверки"
+                ? "Купить свободные земли через карту (оплата из обеспеченной казны)"
                 : "ПОДТВЕРДИТЬ ВЫКУП: повторное нажатие");
         put(50, Items.WRITABLE_BOOK, "Проверить план и средства городской казны");
         put(51, Items.BARRIER, "Очистить план");
@@ -244,7 +244,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         String status = switch (result) {
             case PURCHASED -> "Территория присоединена, средства списаны из городской казны.";
             case NOT_FOUNDER -> "Покупка доступна только основателю города.";
-            case NOT_AT_TOWN_HALL -> "Приди в собственную построенную ратушу (не дальше 16 блоков).";
+            case NOT_AT_TOWN_HALL -> "Участок оформляется через карту города.";
             case INVALID_PLAN -> "План пуст, несмежен или больше не актуален.";
             case LAND_CONFLICT -> "Один из участков занят или находится за границей мира.";
             case INSUFFICIENT_FUNDS -> "В казне недостаточно обеспеченных монет.";
