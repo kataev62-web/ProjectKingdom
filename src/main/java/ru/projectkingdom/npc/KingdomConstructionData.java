@@ -8,6 +8,16 @@ import java.util.*;
 /** Persistent construction orders: no creative spawning, no automatic placement. */
 public final class KingdomConstructionData extends SavedData {
     public enum Status { PLANNED, WAITING_MATERIALS, BUILDING, COMPLETED, CANCELLED }
+    public static String statusRu(Status status) {
+        if (status==null) return "Неизвестно";
+        return switch(status) {
+            case PLANNED -> "Запланировано";
+            case WAITING_MATERIALS -> "Ожидание материалов";
+            case BUILDING -> "Строится";
+            case COMPLETED -> "Построено";
+            case CANCELLED -> "Отменено";
+        };
+    }
     public record Project(UUID id, UUID owner, String dimension, String design, int x, int y, int z, Status status) {}
     private final LinkedHashMap<UUID,Project> projects=new LinkedHashMap<>();
     private final HashMap<UUID,Integer> progress=new HashMap<>();
