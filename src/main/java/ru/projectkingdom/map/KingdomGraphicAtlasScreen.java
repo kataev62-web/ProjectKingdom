@@ -6,6 +6,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.item.Item;
 import java.util.function.BooleanSupplier;
+import org.lwjgl.glfw.GLFW;
 import ru.projectkingdom.network.GraphicAtlasRequestPacket;
 import ru.projectkingdom.network.OpenCityPlanFromAtlasPacket;
 import ru.projectkingdom.network.OpenLandMapFromAtlasPacket;
@@ -38,6 +39,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     private int lastRouteChunkX = Integer.MIN_VALUE, lastRouteChunkZ = Integer.MIN_VALUE;
     private int left, top, cell, gridX, gridY, gridWidth, gridHeight, panelWidth, panelHeight;
     private int navWidth, inspectorWidth;
+    private boolean mapDrag;
+    private double dragStartX, dragStartY, dragEndX, dragEndY;
 
     public KingdomGraphicAtlasScreen() {
         this(KingdomGraphicAtlasData.Layer.LAND);
@@ -320,8 +323,12 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         renderPlayerMarker(gui);
 
         renderKingdomInspector(gui);
-        gui.drawString(font, font.plainSubstrByWidth(routeHint(), gridWidth - 4),
-                gridX + 2, gridY + gridHeight + 8, INK, false);
+        String mapHint=mapDrag && (Math.abs(dragEndX-dragStartX)>3
+                || Math.abs(dragEndY-dragStartY)>3)
+                ? "Отпустите мышь для перемещения"
+                : routeHint();
+        gui.drawString(font,font.plainSubstrByWidth(mapHint,gridWidth - 4),
+                gridX + 2,gridY + gridHeight + 8,INK,false);
         super.render(gui, mouseX, mouseY, partialTick);
         if (snapshot != null && mouseX >= gridX && mouseX < gridX + gridWidth
                 && mouseY >= gridY && mouseY < gridY + gridHeight) {
@@ -653,20 +660,74 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 ? a.nationColor() != b.nationColor()
                 : a.townColor() != b.townColor();
     }
-    @Override public boolean mouseClicked(double mx, double my, int button) {
-        if (button == 0 && mx >= gridX && mx < gridX + gridWidth
-                && my >= gridY && my < gridY + gridHeight) {
-            selectedMarker = infrastructureAt(mx, my);
-            destinationChunkX = destinationChunkZ = null;
-            route = null;
-            selectedCol = ((int)mx - gridX) / cell;
-            selectedRow = ((int)my - gridY) / cell;
+    private boolean insideMap(double x,double y){
+        return x>=gridX && x<gridX+gridWidth && y>=gridY && y<gridY+gridHeight;
+    }
+
+    @Override public boolean mouseClicked(double mx,double my,int button){
+        if (insideMap(mx,my) && button==1) {
+            // Secondary click clears a destination without altering the land.
+            destinationChunkX=destinationChunkZ=null;
+            route=null;
+            return true;
+        }
+        if (insideMap(mx,my) && button==0) {
+            mapDrag=true;
+            dragStartX=dragEndX=mx;
+            dragStartY=dragEndY=my;
+            selectedMarker=infrastructureAt(mx,my);
+            destinationChunkX=destinationChunkZ=null;
+            route=null;
+            selectedCol=((int)mx-gridX)/cell;
+            selectedRow=((int)my-gridY)/cell;
             return true;
         }
         return super.mouseClicked(mx,my,button);
     }
-    @Override public boolean mouseScrolled(double mx, double my, double delta) {
-        zoom(delta > 0 ? -1 : 1);
+
+    @Override public boolean mouseDragged(double mx,double my,int button,double dx,double dy){
+        if(mapDrag && button==0){
+            dragEndX=mx;dragEndY=my;
+            return true;
+        }
+        return super.mouseDragged(mx,my,button,dx,dy);
+    }
+
+    @Override public boolean mouseReleased(double mx,double my,int button){
+        if(mapDrag && button==0){
+            mapDrag=false;
+            int dx=(int)Math.round((dragStartX-mx)/cell);
+            int dz=(int)Math.round((dragStartY-my)/cell);
+            if(Math.abs(mx-dragStartX)>=cell/2.0||Math.abs(my-dragStartY)>=cell/2.0){
+                int scale=KingdomGraphicAtlasData.SCALES[scaleIndex];
+                centerX=Math.max(-16384,Math.min(16384,centerX+dx*scale));
+                centerZ=Math.max(-16384,Math.min(16384,centerZ+dz*scale));
+                followPlayer=false;
+                request();
+            }
+            return true;
+        }
+        return super.mouseReleased(mx,my,button);
+    }
+
+    @Override public boolean mouseScrolled(double mx,double my,double delta){
+        if(delta!=0)zoom(delta>0?-1:1);
+        return true;
+    }
+
+    @Override public boolean keyPressed(int key,int scan,int modifiers){
+        if(super.keyPressed(key,scan,modifiers))return true;
+        switch(key){
+            case GLFW.GLFW_KEY_LEFT -> pan(-1,0);
+            case GLFW.GLFW_KEY_RIGHT -> pan(1,0);
+            case GLFW.GLFW_KEY_UP -> pan(0,-1);
+            case GLFW.GLFW_KEY_DOWN -> pan(0,1);
+            case GLFW.GLFW_KEY_EQUAL, GLFW.GLFW_KEY_KP_ADD -> zoom(-1);
+            case GLFW.GLFW_KEY_MINUS, GLFW.GLFW_KEY_KP_SUBTRACT -> zoom(1);
+            case GLFW.GLFW_KEY_HOME -> resetCenter();
+            case GLFW.GLFW_KEY_ENTER -> planSelectedRoute();
+            default -> {return false;}
+        }
         return true;
     }
     @Override public boolean isPauseScreen() { return false; }
