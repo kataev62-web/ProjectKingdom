@@ -98,8 +98,8 @@ public final class KingdomNpcMod {
         if (held.is(KingdomConstructionRegistry.BUILDERS_HAMMER.get())) {
             if (project == null) {
                 player.sendSystemMessage(Component.literal("[Строительство] Выбери здание на чертёжном столе и создай проект."));
-            } else if (!project.owner().equals(player.getUUID())) {
-                player.sendSystemMessage(Component.literal("[Строительство] Помогать молотом на этой стройке пока может только владелец проекта."));
+            } else if (!data.mayAssist(project.id(), player.getUUID())) {
+                player.sendSystemMessage(Component.literal("[Строительство] Нет разрешения: попроси владельца пригласить тебя в строительную бригаду."));
             } else {
                 var step = KingdomConstructionWork.placeNext(player.getServer(), level, project);
                 var progress = data.progress(project.id());
@@ -114,8 +114,8 @@ public final class KingdomNpcMod {
             }
         } else if (project != null
                 && held.is(KingdomConstructionRegistry.BUILDING_BLUEPRINT.get())) {
-            if (!project.owner().equals(player.getUUID())) {
-                player.sendSystemMessage(Component.literal("[Строительство] Этот чертёж принадлежит другому владельцу."));
+            if (!data.mayAssist(project.id(), player.getUUID())) {
+                player.sendSystemMessage(Component.literal("[Строительство] Чужой чертёж: приглашение строителя отсутствует."));
             } else {
                 var step = KingdomConstructionWork.next(player.getServer(), project);
                 int count = KingdomConstructionPreview.show(player, project);
@@ -125,7 +125,7 @@ public final class KingdomNpcMod {
                         : "Следующий: "+step.material()+", "+step.target().toShortString())));
             }
         } else if (project != null) {
-            if (project.owner().equals(player.getUUID()))
+            if (data.mayAssist(project.id(), player.getUUID()))
                 KingdomMainMenu.openSite(player, project.id());
             else
                 player.sendSystemMessage(Component.literal("[Строительство] Чужая строительная площадка."));
