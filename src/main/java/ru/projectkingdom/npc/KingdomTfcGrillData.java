@@ -22,6 +22,15 @@ public final class KingdomTfcGrillData extends SavedData {
             KingdomTfcGrillData::load, KingdomTfcGrillData::new, KEY);
     }
     public Job get(UUID worker) { return jobs.get(worker); }
+
+    /** Slot reservation prevents another worker stealing a first worker's batch. */
+    public boolean reservedByOther(UUID worker, String dimension, long position, int slot) {
+        for (Job job : jobs.values()) {
+            if (!job.worker().equals(worker) && job.dimension().equals(dimension)
+                    && job.position() == position && job.slot() == slot) return true;
+        }
+        return false;
+    }
     public void put(Job job) { jobs.put(job.worker(), job); setDirty(); }
     public void remove(UUID worker) { if (jobs.remove(worker) != null) setDirty(); }
     static KingdomTfcGrillData load(CompoundTag root) {
