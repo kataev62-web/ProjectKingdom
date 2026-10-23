@@ -145,7 +145,8 @@ public final class NpcFieldWork {
                     if(field.enabled() && !field.seedId().isBlank())reservedSeeds.add(field.seedId());
         for(int inv=0;inv<w.fieldInventory.size();){
             ItemStack s=w.fieldInventory.get(inv);
-            if(reservedSeeds.contains(BuiltInRegistries.ITEM.getKey(s.getItem()).toString())){
+            if(reservedSeeds.contains(BuiltInRegistries.ITEM.getKey(s.getItem()).toString())
+                    || ("farmer".equals(w.job) && KingdomFarmNutrition.recognized(s))){
                 inv++;continue; // Keep genuine seeds in the NPC's persistent planting bag.
             }
             for(int slot=0;slot<c.getContainerSize()&&!s.isEmpty();slot++){
