@@ -49,6 +49,12 @@ public record GraphicAtlasResponsePacket(KingdomGraphicAtlasData.Snapshot snapsh
             buf.writeInt(marker.blockZ());
             buf.writeUtf(marker.label(), 72);
         }
+        buf.writeVarInt(view.outlines().size());
+        for (var outline : view.outlines()) {
+            buf.writeByte(outline.kind().ordinal());
+            buf.writeInt(outline.minX()); buf.writeInt(outline.minZ());
+            buf.writeInt(outline.maxX()); buf.writeInt(outline.maxZ());
+        }
     }
 
     public static GraphicAtlasResponsePacket decode(FriendlyByteBuf buf) {
@@ -95,8 +101,20 @@ public record GraphicAtlasResponsePacket(KingdomGraphicAtlasData.Snapshot snapsh
             markers.add(new ru.projectkingdom.map.KingdomAtlasInfrastructure.Marker(
                     ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.values()[kind], px, pz, label));
         }
+        int outlineCount = buf.readVarInt();
+        if (outlineCount < 0 || outlineCount > ru.projectkingdom.map.KingdomAtlasBuildingOutlines.MAX_OUTLINES)
+            throw new IllegalArgumentException("Oversized building outlines");
+        List<ru.projectkingdom.map.KingdomAtlasBuildingOutlines.Outline> outlines = new ArrayList<>(outlineCount);
+        for (int i = 0; i < outlineCount; i++) {
+            int kind = buf.readUnsignedByte();
+            if (kind >= ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.values().length)
+                throw new IllegalArgumentException("Invalid outline type");
+            outlines.add(new ru.projectkingdom.map.KingdomAtlasBuildingOutlines.Outline(
+                    ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.values()[kind],
+                    buf.readInt(), buf.readInt(), buf.readInt(), buf.readInt()));
+        }
         return new GraphicAtlasResponsePacket(new KingdomGraphicAtlasData.Snapshot(
-                request, x, z, scale, KingdomGraphicAtlasData.Layer.values()[layerId], cells, markers));
+                request, x, z, scale, KingdomGraphicAtlasData.Layer.values()[layerId], cells, markers, outlines));
     }
 
     public static void handle(GraphicAtlasResponsePacket packet, Supplier<NetworkEvent.Context> supplier) {
