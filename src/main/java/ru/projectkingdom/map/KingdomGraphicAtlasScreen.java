@@ -38,7 +38,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gridWidth = cell * KingdomGraphicAtlasData.COLUMNS;
         gridHeight = cell * KingdomGraphicAtlasData.ROWS;
         panelWidth = gridWidth + 156;
-        panelHeight = gridHeight + 55;
+        panelHeight = Math.max(gridHeight + 55, Math.min(260, height - 8));
         left = Math.max(0, (width - panelWidth) / 2);
         top = Math.max(0, (height - panelHeight) / 2);
         gridX = left + 9;
@@ -155,7 +155,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gui.drawString(font, Component.literal("Свободная земля"), sx + 12, sy + 54, MUTED, false);
 
         int infoY = sy + 72;
-        gui.drawString(font, Component.literal("Участок:"), sx, infoY, INK, false);
+        if (infoY + 48 < top + panelHeight - 30) {
+            gui.drawString(font, Component.literal("Участок:"), sx, infoY, INK, false);
         if (snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
             var tile = snapshot.tile(selectedCol, selectedRow);
             shortText(gui, tile.town().isEmpty() ? "Свободный" : tile.town(), sx, infoY + 12);
@@ -164,6 +165,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                     tile.business() + " (" + tile.enterprises() + ")", sx, infoY + 36);
         } else {
             shortText(gui, "Выберите клетку", sx, infoY + 12);
+        }
         }
         super.render(gui, mouseX, mouseY, partialTick);
         if (snapshot != null && mouseX >= gridX && mouseX < gridX + gridWidth
