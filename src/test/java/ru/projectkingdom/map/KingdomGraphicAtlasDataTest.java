@@ -64,4 +64,32 @@ class KingdomGraphicAtlasDataTest {
         assertTrue(center.empty());
         assertEquals("",center.business());
     }
+    @Test void projectsTerrainWithoutInventingLandOwnership() {
+        var civic = new KingdomCivicsData();
+        var forest = new KingdomAtlasTerrain.Cell(0,0,KingdomAtlasTerrain.Type.FOREST,14);
+        var water = new KingdomAtlasTerrain.Cell(1,0,KingdomAtlasTerrain.Type.WATER,-4);
+        var snapshot = KingdomGraphicAtlasData.project(9,0,0,1,
+                KingdomGraphicAtlasData.Layer.LAND,WORLD,null,civic,
+                List.of(),Set.of(),List.of(forest,water));
+        var center = snapshot.tile(KingdomGraphicAtlasData.COLUMNS/2,KingdomGraphicAtlasData.ROWS/2);
+        var neighbor = snapshot.tile(KingdomGraphicAtlasData.COLUMNS/2+1,KingdomGraphicAtlasData.ROWS/2);
+        assertEquals(KingdomAtlasTerrain.Type.FOREST.ordinal(),center.terrain());
+        assertEquals(14,center.elevation());
+        assertEquals(KingdomAtlasTerrain.Type.WATER.ordinal(),neighbor.terrain());
+        assertEquals(0,center.claims());
+        assertEquals(0,neighbor.claims());
+        assertEquals(0,civic.mapPlots(WORLD).size());
+    }
+    @Test void terrainSamplesAtMagnificationAndClampsElevation() {
+        var civic = new KingdomCivicsData();
+        var view = KingdomGraphicAtlasData.project(3,-8,8,4,
+                KingdomGraphicAtlasData.Layer.POLITICAL,WORLD,null,civic,List.of(),
+                List.of(),List.of(new KingdomAtlasTerrain.Cell(-6,10,
+                        KingdomAtlasTerrain.Type.MOUNTAIN,100000)));
+        assertEquals(KingdomAtlasTerrain.Type.MOUNTAIN.ordinal(),
+                view.tile(KingdomGraphicAtlasData.COLUMNS/2,KingdomGraphicAtlasData.ROWS/2).terrain());
+        assertEquals(1024,view.tile(KingdomGraphicAtlasData.COLUMNS/2,
+                KingdomGraphicAtlasData.ROWS/2).elevation());
+    }
+
 }
