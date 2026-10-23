@@ -24,7 +24,10 @@
       "kingdomnpc:land_office_core",
       "kingdomnpc:court_core",
       "kingdomnpc:prison_core",
-      "kingdomnpc:guard_administration_core"
+      "kingdomnpc:guard_administration_core",
+      "kingdomnpc:drafting_table",
+      "kingdomnpc:building_blueprint",
+      "kingdomnpc:builders_hammer"
     ]
   }
 }
