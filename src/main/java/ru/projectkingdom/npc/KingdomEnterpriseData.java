@@ -487,18 +487,16 @@ public final class KingdomEnterpriseData extends SavedData {
             if(inventory.getItem(i).isEmpty()){destination=i;break;}
         }
         if(destination<0)return false;
-        if(!KingdomCurrency.debit(visitor,offer.unitPrice()))return false;
-        // Both physical inventories are mutated by the single server thread.
+        // Validate the stock before taking money, not after the cash is deposited.
         ItemStack from=source.getItem(stockSlot);
         ItemStack originalSlot=inventory.getItem(destination);
         if(from.isEmpty() || !ItemStack.isSameItemSameTags(from,delivery)
-                || ( !originalSlot.isEmpty() &&
-                     (!ItemStack.isSameItemSameTags(originalSlot,delivery)
-                     || originalSlot.getCount()>=originalSlot.getMaxStackSize()))) {
-            if(!KingdomCurrency.credit(visitor,offer.unitPrice()))
-                throw new IllegalStateException("Kingdom sale: buyer refund failed");
-            return false;
-        }
+                || (!originalSlot.isEmpty() &&
+                    (!ItemStack.isSameItemSameTags(originalSlot,delivery)
+                    || originalSlot.getCount()>=originalSlot.getMaxStackSize())))return false;
+        var cash=EnterpriseAccessService.snapshot(level,this,sellerId,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE || cash.container()==source
+                || !KingdomPhysicalCash.deposit(visitor,cash.container(),offer.unitPrice()))return false;
         from.shrink(1);
         if(originalSlot.isEmpty())inventory.setItem(destination,delivery.copy());
         else originalSlot.grow(1);
