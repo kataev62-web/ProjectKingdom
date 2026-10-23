@@ -99,6 +99,8 @@ public final class KingdomNpcData extends SavedData {
         /** Five TFC-style nutrition groups. Defaults preserve older saves. */
         public int dietGrain=50,dietFruit=50,dietVegetables=50,dietProtein=50,dietDairy=50;
         public long lastMealDay=-1;
+        /** Employer explicitly supplies meals from this worker's marked finished warehouse. */
+        public boolean rationsEnabled=false;
         public int energy = 80;
         public int morale = 70;
         public int safety = 70;
@@ -176,6 +178,7 @@ public final class KingdomNpcData extends SavedData {
             w.dietProtein=t.contains("DietProtein",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietProtein")):50;
             w.dietDairy=t.contains("DietDairy",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietDairy")):50;
             w.lastMealDay=t.contains("LastMealDay",Tag.TAG_LONG)?t.getLong("LastMealDay"):-1;
+            w.rationsEnabled=t.getBoolean("RationsEnabled");
             w.energy = t.contains("Energy", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Energy")) : 80;
             w.morale = t.contains("Morale", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Morale")) : 70;
             w.safety = t.contains("Safety", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Safety")) : 70;
@@ -248,6 +251,7 @@ public final class KingdomNpcData extends SavedData {
             t.putInt("DietGrain",dietGrain);t.putInt("DietFruit",dietFruit);
             t.putInt("DietVegetables",dietVegetables);t.putInt("DietProtein",dietProtein);
             t.putInt("DietDairy",dietDairy);t.putLong("LastMealDay",lastMealDay);
+            t.putBoolean("RationsEnabled",rationsEnabled);
             t.putString("Settlement",settlement);t.putString("FamilyName",familyName);
             t.putLong("LastLifeDay",lastLifeDay);t.putInt("PersonalStock",personalStock);
             t.putString("Gender", gender); t.putInt("AgeYears", ageYears);
