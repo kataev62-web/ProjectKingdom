@@ -23,4 +23,11 @@ final class EnterpriseAccessServiceTest {
         assertFalse(source.contains("getChunk("));
         assertFalse(source.contains("addRegionTicket"));
     }
+
+    @Test void everyBindingAttemptConsumesThePendingSession() throws Exception {
+        String source=Files.readString(Path.of("src/main/java/ru/projectkingdom/enterprise/EnterpriseAccessService.java"));
+        assertTrue(source.contains("EnterpriseBindingSession session=SESSIONS.remove(player.getUUID())"),
+                "an invalid target must not leave the player trapped in binding mode");
+        assertFalse(source.contains("EnterpriseBindingSession session=SESSIONS.get(player.getUUID())"));
+    }
 }
