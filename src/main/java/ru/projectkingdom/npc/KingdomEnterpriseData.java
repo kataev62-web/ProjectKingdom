@@ -210,17 +210,19 @@ public final class KingdomEnterpriseData extends SavedData {
         Enterprise firm=firms.get(enterprise);EnterpriseCoreBinding core=cores.get(enterprise);
         if(firm==null||core==null||!core.active()||!mayManage(actor.getUUID(),enterprise)||amount<=0||amount>1_000_000
                 ||firm.cash()>Long.MAX_VALUE-amount)return false;
-        if(EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX).status()
-                !=EnterpriseAccessService.Status.BOUND_AVAILABLE)return false;
-        if(!KingdomCurrency.debit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||!KingdomPhysicalCash.deposit(actor,cash.container(),amount))return false;
         firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));setDirty();return true;
     }
     public boolean withdrawAtCore(ServerPlayer actor,UUID enterprise,long amount){
         Enterprise firm=firms.get(enterprise);EnterpriseCoreBinding core=cores.get(enterprise);
         if(firm==null||core==null||!core.active()||!mayManage(actor.getUUID(),enterprise)||amount<=0||amount>1_000_000
                 ||firm.cash()<amount)return false;
-        if(EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX).status()
-                !=EnterpriseAccessService.Status.BOUND_AVAILABLE||!KingdomCurrency.credit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.withdraw(actor,cash.container(),amount))return false;
         firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));setDirty();return true;
     }
     public Counter counter(UUID id) { return counters.get(id); }
