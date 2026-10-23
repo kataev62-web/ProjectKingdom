@@ -52,6 +52,50 @@ public final class KingdomFarmFieldData extends SavedData {
         fields.put(fieldId,new Field(old.id(),old.farm(),old.dimension(),old.minX(),old.maxX(),
             old.y(),old.minZ(),old.maxZ(),seedId,old.enabled()));setDirty();return true;
     }
+    /** Trusted server-only NPC farm planning, never callable by a client packet. */
+    public boolean chooseForOwnerNpc(ServerLevel level,UUID ownerNpc,UUID farm,UUID fieldId,String seed){
+        if(!validSeed(seed)||!npcOwns(level,ownerNpc,farm))return false;
+        Field old=fields.get(fieldId);
+        if(old==null||!old.farm().equals(farm)||!old.enabled()
+                ||!old.dimension().equals(level.dimension().location().toString()))return false;
+        var land=KingdomTerritories.get(level.getServer());
+        for(int x=old.minX();x<=old.maxX();x++)for(int z=old.minZ();z<=old.maxZ();z++){
+            BlockPos soil=new BlockPos(x,old.y(),z);
+            if(!level.hasChunkAt(soil)||!land.canUse(level,soil,ownerNpc))return false;
+        }
+        if(old.seedId().equals(seed))return true;
+        fields.put(fieldId,new Field(old.id(),old.farm(),old.dimension(),old.minX(),
+            old.maxX(),old.y(),old.minZ(),old.maxZ(),seed,old.enabled()));
+        setDirty();
+        return true;
+    }
+
+    /** Called by the autonomous settlement builder only AFTER a real owned farm and tillage exist. */
+    public boolean registerForOwnerNpc(ServerLevel level,UUID ownerNpc,UUID farm,BlockPos first,BlockPos second){
+        if(!npcOwns(level,ownerNpc,farm)||first.getY()!=second.getY())return false;
+        int x1=Math.min(first.getX(),second.getX()),x2=Math.max(first.getX(),second.getX());
+        int z1=Math.min(first.getZ(),second.getZ()),z2=Math.max(first.getZ(),second.getZ());
+        if(x2-x1+1>MAX_SIDE||z2-z1+1>MAX_SIDE||of(farm).size()>=MAX_FIELDS)return false;
+        String dimension=level.dimension().location().toString();
+        for(Field f:fields.values())if(f.dimension().equals(dimension)&&f.y()==first.getY()
+                && x1<=f.maxX()&&x2>=f.minX()&&z1<=f.maxZ()&&z2>=f.minZ())return false;
+        var land=KingdomTerritories.get(level.getServer());
+        for(int x=x1;x<=x2;x++)for(int z=z1;z<=z2;z++){
+            BlockPos soil=new BlockPos(x,first.getY(),z);
+            if(!level.hasChunkAt(soil)||!land.canUse(level,soil,ownerNpc)
+                ||!level.getBlockState(soil).getBlock().getClass().getName()
+                    .startsWith("net.dries007.tfc.common.blocks.soil.FarmlandBlock"))return false;
+        }
+        Field field=new Field(UUID.randomUUID(),farm,dimension,x1,x2,first.getY(),z1,z2,"",true);
+        fields.put(field.id(),field);setDirty();return true;
+    }
+    private static boolean npcOwns(ServerLevel level,UUID ownerNpc,UUID farm){
+        if(ownerNpc==null||farm==null)return false;
+        return KingdomNpcData.get(level.getServer()).all().stream()
+            .anyMatch(w->ownerNpc.equals(w.entityId)
+                && farm.equals(KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)));
+    }
+
     public boolean toggle(ServerPlayer player,UUID farm,UUID id) {
         if(!allowed(player,farm))return false;
         Field old=fields.get(id);if(old==null||!old.farm().equals(farm))return false;
