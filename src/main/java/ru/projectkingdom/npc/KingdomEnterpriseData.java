@@ -153,9 +153,10 @@ public final class KingdomEnterpriseData extends SavedData {
         return ClosureStatus.CLOSED;
     }
     private boolean KindIsConstructionAndHasSite(ServerLevel level,UUID firm,BlockPos pos){
-        return kind(firm)==EnterpriseKind.CONSTRUCTION &&
-            KingdomConstructionData.get(level.getServer()).atMarker(
-                level.dimension().location().toString(),pos.getX(),pos.getY(),pos.getZ())!=null;
+        if(kind(firm)!=EnterpriseKind.CONSTRUCTION)return false;
+        var site=KingdomConstructionData.get(level.getServer()).atMarker(
+                level.dimension().location().toString(),pos.getX(),pos.getY(),pos.getZ());
+        return site!=null && site.status()!=KingdomConstructionData.Status.COMPLETED;
     }
 
     private final Map<UUID, Invoice> legacyInvoices = new LinkedHashMap<>();
