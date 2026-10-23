@@ -872,9 +872,10 @@ public final class KingdomNpcMod {
                 if(entity instanceof Villager resident && resident.isAlive()) {
                     // The physical adapters are shared by the workday scheduler.
                     // Existing independent gatherers remain independent.
-                    if (w.employer == null
-                            || KingdomNpcDuty.mayExecute(w.job, w.order,
-                                w.autonomousIntent, KingdomNpcWorkday.employed(server, w))) {
+                    if ((w.employer == null && KingdomNpcFarmOwner.ownedFarm(server,w)==null)
+                            || (KingdomNpcNutrition.permittedWorkTick(w,server.getTickCount())
+                                && KingdomNpcDuty.mayExecute(w.job, w.order,
+                                    w.autonomousIntent, KingdomNpcWorkday.employed(server,w)))) {
                         executed |= NpcFieldWork.tick(level,resident,w)
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
@@ -912,7 +913,8 @@ public final class KingdomNpcMod {
             long timeOfDay = server.overworld().getDayTime() % TICKS_PER_DAY;
             boolean daytime = timeOfDay >= 0 && timeOfDay < 12000;
             var goal = KingdomNpcGoalSelector.choose(new KingdomNpcGoalSelector.Context(
-                w.employer != null, activeContract, assignment,
+                w.employer != null || KingdomNpcFarmOwner.ownedFarm(server,w)!=null,
+                activeContract, assignment,
                 daytime, w.hasHome, w.hunger, w.energy));
             var intent = switch (goal) {
                 case EAT -> NpcAutonomyPlanner.Intention.EAT;
@@ -939,6 +941,7 @@ public final class KingdomNpcMod {
                 boolean working="work".equals(w.order)&&w.employer!=null&&!w.contractPaused;
                 w.energy=NpcLife.stepEnergy(w.energy,lifeDays,working,w.hasHome);
                 w.morale=NpcLife.stepMorale(w.morale,w.hunger,w.energy,w.safety,!w.contractPaused,lifeDays);
+                KingdomNpcNutrition.age(w,lifeDays);
                 w.lastLifeDay=day;changed=true;
             }
             long days = NpcSimulation.elapsed(day, w.lastWorkedDay);
@@ -1000,7 +1003,8 @@ public final class KingdomNpcMod {
                                     npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
                                 else npc.getNavigation().stop();
                             }
-                        } else if (w.employer != null && !w.contractPaused
+                        } else if ((w.employer != null
+                                || KingdomNpcFarmOwner.ownedFarm(server,w)!=null) && !w.contractPaused
                                 && ("CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)
                                     || "ON_DUTY".equals(w.autonomousIntent))) {
                             BlockPos site = KingdomNpcWorkday.site(server, level, w);
