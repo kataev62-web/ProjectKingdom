@@ -30,4 +30,22 @@ class KingdomArchitectBuiltinCatalogTest {
                         }
                     })));
     }
+    @org.junit.jupiter.api.TestFactory
+    java.util.stream.Stream<org.junit.jupiter.api.DynamicTest> eachBuiltinMustProduceNetworkPreview() {
+        return java.util.Arrays.stream(KingdomBuildingTypes.Type.values())
+            .map(kind->org.junit.jupiter.api.DynamicTest.dynamicTest(
+                kind.name()+" packet preview",()->{
+                    var design=KingdomArchitectDesignRotation.rotate(
+                        KingdomBuildingTypes.design(kind),0);
+                    var packet=ru.projectkingdom.network.ArchitectPreviewPacket.fromDesign(
+                        design,java.util.UUID.randomUUID(),new net.minecraft.core.BlockPos(10,64,10),
+                        kind.title);
+                    assertNotNull(packet,kind.name());
+                    assertFalse(packet.cells().isEmpty(),kind.name());
+                    assertEquals(design.width(),packet.width());
+                    assertEquals(design.length(),packet.length());
+                    assertEquals(design.height(),packet.height());
+                }));
+    }
+
 }
