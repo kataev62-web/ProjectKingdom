@@ -44,7 +44,8 @@ class KingdomAtlasNavigatorTest {
     @Test void willNotInventPathsThroughUnknownTerrainOrWater() {
         var water=terrain(1,KingdomAtlasTerrain.Type.WATER,new int[][]{
             {11,7,KingdomAtlasTerrain.Type.PLAIN.ordinal()},
-            {12,7,KingdomAtlasTerrain.Type.PLAIN.ordinal()}
+            {12,7,KingdomAtlasTerrain.Type.PLAIN.ordinal()},
+            {14,7,KingdomAtlasTerrain.Type.PLAIN.ordinal()}
         });
         assertEquals(KingdomAtlasNavigator.Status.BLOCKED,
                 KingdomAtlasNavigator.plan(water,0,0,3,0).status());
