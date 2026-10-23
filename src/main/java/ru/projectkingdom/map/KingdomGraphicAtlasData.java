@@ -47,7 +47,13 @@ public final class KingdomGraphicAtlasData {
     }
     public record Snapshot(int requestId, int centerX, int centerZ, int scale,
                            Layer layer, List<Tile> tiles,
-                           List<KingdomAtlasInfrastructure.Marker> markers) {
+                           List<KingdomAtlasInfrastructure.Marker> markers,
+                           List<KingdomAtlasBuildingOutlines.Outline> outlines) {
+        public Snapshot(int requestId, int centerX, int centerZ, int scale,
+                        Layer layer, List<Tile> tiles,
+                        List<KingdomAtlasInfrastructure.Marker> markers) {
+            this(requestId,centerX,centerZ,scale,layer,tiles,markers,List.of());
+        }
         /** Backward compatible constructor for empty infrastructure viewports. */
         public Snapshot(int requestId, int centerX, int centerZ, int scale,
                         Layer layer, List<Tile> tiles) {
@@ -55,10 +61,12 @@ public final class KingdomGraphicAtlasData {
         }
         public Snapshot {
             if (!supportedScale(scale) || layer == null || tiles == null || tiles.size() != MAX_CELLS
-                    || markers == null || markers.size() > KingdomAtlasInfrastructure.MAX_MARKERS)
+                    || markers == null || markers.size() > KingdomAtlasInfrastructure.MAX_MARKERS
+                    || outlines == null || outlines.size() > KingdomAtlasBuildingOutlines.MAX_OUTLINES)
                 throw new IllegalArgumentException("Invalid graphic atlas dimensions");
             tiles = List.copyOf(tiles);
             markers = List.copyOf(markers);
+            outlines = List.copyOf(outlines);
         }
         public Tile tile(int column, int row) { return tiles.get(row * COLUMNS + column); }
     }
@@ -110,8 +118,9 @@ public final class KingdomGraphicAtlasData {
         var projected = project(requestId, centerX, centerZ, scale, layer, dimension,
                 ownId, civic, businesses, planned, terrain);
         var markers = KingdomAtlasInfrastructure.forPlayer(player, centerX, centerZ, scale);
+        var outlines = KingdomAtlasBuildingOutlines.forPlayer(player, centerX, centerZ, scale);
         return new Snapshot(projected.requestId(), projected.centerX(), projected.centerZ(),
-                projected.scale(), projected.layer(), projected.tiles(), markers);
+                projected.scale(), projected.layer(), projected.tiles(), markers, outlines);
     }
 
     /** Pure projection for tests; does not load world chunks or expose ore. */
