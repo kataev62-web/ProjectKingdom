@@ -119,8 +119,9 @@ public final class KingdomSiteBuilder {
      * physical site depot as the NPC builder. No personal-inventory duplication.
      */
     public static String build(ServerPlayer player, KingdomConstructionData.Project project) {
-        if (project == null || !project.owner().equals(player.getUUID()))
-            return "Нет прав на стройку.";
+        if (project == null || !KingdomConstructionData.get(player.getServer())
+                .mayAssist(project.id(), player.getUUID()))
+            return "Нет прав на стройку: попроси владельца пригласить тебя в бригаду.";
         if (!project.dimension().equals(player.level().dimension().location().toString()))
             return "Стройка в другом измерении.";
         BlockPos marker = new BlockPos(project.x() - 2, project.y(), project.z() - 2);
