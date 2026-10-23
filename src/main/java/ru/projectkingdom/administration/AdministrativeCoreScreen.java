@@ -7,6 +7,9 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import ru.projectkingdom.core.ParchmentIconButton;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import ru.projectkingdom.core.KingdomFonts;
@@ -15,7 +18,7 @@ import ru.projectkingdom.network.KingdomNetwork;
 public final class AdministrativeCoreScreen extends AbstractContainerScreen<AdministrativeCoreMenu> {
     private static final int INK=0xFF312116,MUTED=0xFF72563A,PARCHMENT=0xFFF1D69C,EDGE=0xFF9E713B,ACCENT=0xFF6E2830;
     private AdministrativeMenuLayout.Tab selected=AdministrativeMenuLayout.Tab.INFO;
-    private final List<Button> tabButtons=new ArrayList<>();
+    private final List<ParchmentIconButton> tabButtons=new ArrayList<>();
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox roleTarget;
@@ -26,8 +29,9 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         super.init();var tabs=AdministrativeMenuLayout.tabs(menu.kind());var rects=AdministrativeMenuLayout.tabRects(menu.kind());
         for(int i=0;i<tabs.size();i++){
             var tab=tabs.get(i);var rect=rects.get(i);
-            tabButtons.add(addRenderableWidget(Button.builder(KingdomFonts.readable(shortLabel(tab)),button->{selected=tab;updateVisibility();})
-                    .bounds(leftPos+rect.x(),topPos+rect.y(),rect.width(),rect.height()).build()));
+            tabButtons.add(addRenderableWidget(new ParchmentIconButton(
+                    leftPos+rect.x(),topPos+rect.y(),rect.width(),rect.height(),
+                    tabIcon(tab),title(tab),()->{selected=tab;updateVisibility();},()->selected==tab)));
         }
         if(menu.kind()==AdministrativeKind.TOWN_HALL){
             roleTarget=addRenderableWidget(new EditBox(font,leftPos+58,topPos+90,242,18,KingdomFonts.readable(Component.literal("UUID гражданина"))));
@@ -79,7 +83,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         g.fill(leftPos+53,topPos+43,leftPos+imageWidth-20,topPos+44,EDGE);
     }
     @Override protected void renderLabels(GuiGraphics g,int mouseX,int mouseY){
-        g.drawCenteredString(font,KingdomFonts.readable(menu.kind().russianName().toUpperCase(java.util.Locale.ROOT)),190,18,ACCENT);
+        g.drawCenteredString(font,KingdomFonts.readable(menu.kind().russianName()),190,18,ACCENT);
         line(g,"Город: "+menu.townName(),58,51,INK);line(g,"Раздел: "+title(selected),58,68,MUTED);
         switch(selected){
             case INFO->{line(g,"Основатель: "+menu.founder(),58,90,MUTED);line(g,"Мэр: "+menu.mayor(),58,108,MUTED);line(g,"Состояние: активно",58,126,MUTED);}
@@ -109,9 +113,20 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private void placeholder(GuiGraphics g,String text,int y){line(g,text,58,y,MUTED);line(g,"Подробные действия подключаются по этапам.",58,y+18,MUTED);}
     private void renderRows(GuiGraphics g,String heading,List<String> rows){line(g,heading,58,82,MUTED);int y=100;for(String row:rows){line(g,row,58,y,MUTED);y+=15;}if(rows.isEmpty())line(g,"Нет записей.",58,y,MUTED);}
     private void line(GuiGraphics g,String text,int x,int y,int color){g.drawString(font,KingdomFonts.readable(text),x,y,color,false);}
-    private static String shortLabel(AdministrativeMenuLayout.Tab tab){return switch(tab){
-        case INFO->"И";case CITIZENS->"Ж";case OFFICES->"Д";case FINANCE->"Ф";case STORAGE->"С";case TRADE->"Т";
-        case LAND->"З";case CASES->"ДЛ";case CELLS->"К";case GUARDS->"СЖ";case LOG->"Л";case SETTINGS->"Н";};}
+    private static Item tabIcon(AdministrativeMenuLayout.Tab tab){return switch(tab){
+        case INFO -> Items.BOOK;
+        case CITIZENS -> Items.VILLAGER_SPAWN_EGG;
+        case OFFICES -> Items.WRITABLE_BOOK;
+        case FINANCE -> Items.GOLD_INGOT;
+        case STORAGE -> Items.CHEST;
+        case TRADE -> Items.EMERALD;
+        case LAND -> Items.GRASS_BLOCK;
+        case CASES -> Items.PAPER;
+        case CELLS -> Items.IRON_BARS;
+        case GUARDS -> Items.SHIELD;
+        case LOG -> Items.WRITABLE_BOOK;
+        case SETTINGS -> Items.COMPARATOR;
+    };}
     private static String title(AdministrativeMenuLayout.Tab tab){return switch(tab){
         case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case FINANCE->"Финансы";case STORAGE->"Склад";
         case TRADE->"Рынок";case LAND->"Земля";case CASES->"Дела";case CELLS->"Камеры";case GUARDS->"Стража";case LOG->"Журнал";case SETTINGS->"Настройки";};}
