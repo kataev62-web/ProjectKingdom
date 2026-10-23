@@ -93,7 +93,8 @@ public final class KingdomCityExpansionPurchase {
         var civics = KingdomCivicsData.get(player.getServer());
         var town = civics.townOf(player.getUUID());
         if (town == null || !founder(player, town)) return Result.NOT_FOUNDER;
-        if (!nearOwnTownHall(player, town)) return Result.NOT_AT_TOWN_HALL;
+        // Free, unclaimed territory is bought remotely on the city map.
+        // The spend is still limited by the city's physically backed treasury.
         if (!reconcile(player, town.id())) return Result.RECONCILIATION_REQUIRED;
 
         String dimension = player.serverLevel().dimension().location().toString();
@@ -123,7 +124,14 @@ public final class KingdomCityExpansionPurchase {
                     && !owner.equals(town.mayor())) return Result.LAND_CONFLICT;
         }
         var admin = KingdomAdministrationData.get(player.getServer());
-        if (admin.treasuryReserve(town.id()) < quote.price())
+        var treasury=KingdomPhysicalCash.townVault(player,town.id(),
+                ru.projectkingdom.administration.AdministrativeBindingRole.TREASURY_VAULT);
+        // The acquisition fee is earmarked as sovereign revenue in the treasury;
+        // the receipt prevents city members from re-spending its ledger balance.
+        // Actual inter-vault transport to a separate sovereign capital treasury is
+        // not enabled until that vault is configured, so do not fake a destination.
+        if(treasury==null || KingdomPhysicalCash.value(treasury)<admin.treasuryReserve(town.id())
+                ||admin.treasuryReserve(town.id()) < quote.price())
             return Result.INSUFFICIENT_FUNDS;
 
         UUID id = UUID.randomUUID();
