@@ -34,7 +34,7 @@ public final class KingdomTfcQuernData extends SavedData {
     public void release(UUID worker) {
         if (jobs.remove(worker) != null) setDirty();
     }
-    private static KingdomTfcQuernData load(CompoundTag root) {
+    static KingdomTfcQuernData load(CompoundTag root) {
         KingdomTfcQuernData data = new KingdomTfcQuernData();
         for (Tag raw : root.getList("Jobs", Tag.TAG_COMPOUND)) {
             CompoundTag tag = (CompoundTag) raw;
