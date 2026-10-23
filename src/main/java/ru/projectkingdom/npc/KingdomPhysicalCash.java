@@ -68,6 +68,8 @@ public final class KingdomPhysicalCash {
             int available=Math.min(present.getMaxStackSize(),container.getMaxStackSize())-present.getCount();
             if(available<=0)continue;
             int move=(int)Math.min(remaining,available);
+            ItemStack candidate=present.copy();candidate.grow(move);
+            if(!container.canPlaceItem(i,candidate))continue;
             present.grow(move);remaining-=move;
         }
         for(int i=0;i<slots.size()&&remaining>0;i++){
