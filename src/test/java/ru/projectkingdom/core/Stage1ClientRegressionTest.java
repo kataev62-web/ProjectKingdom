@@ -37,6 +37,16 @@ final class Stage1ClientRegressionTest {
                 "large all-caps labels are harder to read with Minecraft's Cyrillic font");
     }
 
+    @Test void purseActionsSynchronizeChangedInventoryBackToTheOpenClient() throws Exception {
+        String menu = source("economy/MoneyPurseMenu.java");
+        assertTrue(menu.contains("DataSlot.standalone()"),
+                "the open screen needs server-authoritative purse counters");
+        assertTrue(menu.contains("addDataSlot"));
+        assertTrue(menu.contains("syncPurseData()"));
+        assertTrue(menu.contains("server.inventoryMenu.broadcastChanges()"),
+                "changed physical coin stacks must also refresh in the player inventory");
+    }
+
     @Test void customScreensUseReadableIconTabsAndMixedCaseHeadings() throws Exception {
         String enterprise = source("enterprise/EnterpriseCoreScreen.java");
         String administration = source("administration/AdministrativeCoreScreen.java");
