@@ -337,7 +337,7 @@ public final class KingdomEnterpriseData extends SavedData {
     public Offer publishWorkshop(MinecraftServer server,UUID worker,UUID firmId,long unitPrice){
         Enterprise firm=firms.get(firmId);
         EnterpriseCoreBinding core=cores.get(firmId);
-        if(firm==null||kind(firmId)!=EnterpriseKind.SMITHY||core==null||!core.active()
+        if(firm==null||core==null||!core.active()||core.kind()!=kind(firmId)
                 ||worker==null||unitPrice<1||unitPrice>100000)return null;
         var plan=KingdomNpcWorkshopData.get(server).plan(worker);
         if(plan==null||!firmId.equals(plan.enterprise())||unresolved(firmId))return null;
@@ -345,6 +345,7 @@ public final class KingdomEnterpriseData extends SavedData {
         var person=KingdomNpcData.get(server).all().stream().filter(w->worker.equals(w.entityId))
                 .findFirst().orElse(null);
         if(employment==null||!employment.active()||person==null||!firm.owner().equals(person.employer)
+                ||!KingdomProfessionWorkRules.crafting(person.job,kind(firmId))
                 ||!person.hasDestination)return null;
         for(ServerLevel level:server.getAllLevels()){
             if(!person.dimension.equals(level.dimension().location().toString()))continue;
