@@ -11,6 +11,7 @@ import ru.projectkingdom.npc.KingdomCurrency;
 public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int action) {
     public static final int BIND_TREASURY=110,BIND_BANK=111,BIND_WAREHOUSE=112,BIND_MARKET=113,BIND_PRISON_CELL=114;
     public static final int BANK_DEPOSIT_100=200,BANK_WITHDRAW_100=201,TREASURY_DEPOSIT_100=202,TREASURY_WITHDRAW_100=203;
+    public static final int SOCIAL_PROMOTE=204;
     public static void encode(AdministrativeActionPacket packet,FriendlyByteBuf buffer){
         buffer.writeUUID(packet.townId);buffer.writeUtf(packet.kind==null?"":packet.kind.id(),32);buffer.writeInt(packet.action);
     }
@@ -24,7 +25,15 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                     ||!packet.townId.equals(menu.townId())||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
             boolean publicFinance=(packet.kind==AdministrativeKind.BANK&&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100))
                     ||(packet.kind==AdministrativeKind.TREASURY&&packet.action==TREASURY_DEPOSIT_100);
-            if(!publicFinance&&!menu.manager())return;
+            boolean socialPromotion=packet.kind==AdministrativeKind.TOWN_HALL&&packet.action==SOCIAL_PROMOTE;
+            if(!publicFinance&&!socialPromotion&&!menu.manager())return;
+            if(socialPromotion){
+                boolean promoted=ru.projectkingdom.social.KingdomSocialPromotionService.promote(sender,packet.townId);
+                sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(promoted
+                        ?"[Project Kingdom] Статус повышен! Откройте ратушу снова для просмотра новых прав."
+                        :"[Project Kingdom] Повышение недоступно: проверьте требования, долг и кошелёк."));
+                return;
+            }
             if(packet.action==BANK_DEPOSIT_100){KingdomBankData.get(sender.getServer()).deposit(sender,100);return;}
             if(packet.action==BANK_WITHDRAW_100){KingdomBankData.get(sender.getServer()).withdraw(sender,100);return;}
             if(packet.action==TREASURY_DEPOSIT_100){

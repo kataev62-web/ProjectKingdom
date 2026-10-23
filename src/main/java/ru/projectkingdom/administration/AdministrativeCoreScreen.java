@@ -22,6 +22,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox roleTarget;
+    private Button promoteSocial;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
     }
@@ -41,6 +42,11 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             addRolePair(MunicipalRole.WAREHOUSE_MANAGER,"Склад",58,158);
             Button mayor=addRenderableWidget(Button.builder(KingdomFonts.readable("Назначить мэром"),ignored->sendText("appoint_mayor",roleTarget.getValue()))
                     .bounds(leftPos+184,topPos+158,116,18).build());roleControls.add(mayor);
+            promoteSocial=addRenderableWidget(Button.builder(KingdomFonts.readable("Повысить статус"),
+                    ignored->KingdomNetwork.CHANNEL.sendToServer(new AdministrativeActionPacket(
+                            menu.townId(),menu.kind(),AdministrativeActionPacket.SOCIAL_PROMOTE)))
+                    .bounds(leftPos+80,topPos+181,200,20).build());
+            promoteSocial.active=menu.social().ready();
         }
         switch(menu.kind()){
             case TREASURY->{
@@ -76,6 +82,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private void updateVisibility(){
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
+        if(promoteSocial!=null)promoteSocial.visible=selected==AdministrativeMenuLayout.Tab.SOCIAL;
     }
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){
         g.fill(leftPos+36,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);
@@ -89,6 +96,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             case INFO->{line(g,"Основатель: "+menu.founder(),58,90,MUTED);line(g,"Мэр: "+menu.mayor(),58,108,MUTED);line(g,"Состояние: активно",58,126,MUTED);}
             case CITIZENS->renderRows(g,"Граждане города",menu.pageRows());
             case OFFICES->{if(menu.manager())line(g,"Укажите UUID гражданина:",58,78,MUTED);else placeholder(g,"Только просмотр должностей",90);}
+            case SOCIAL->renderSocial(g);
             case FINANCE->{
                 if(menu.kind()==AdministrativeKind.BANK){
                     line(g,"Ваш счёт: "+menu.bankAccount()+" монет",58,90,MUTED);
@@ -110,11 +118,30 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         }
         line(g,menu.manager()?"Права управления подтверждены сервером.":"Доступен разрешённый просмотр.",58,204,MUTED);
     }
+    private void renderSocial(GuiGraphics g){
+        var view=menu.social();var rule=view.requirements();
+        line(g,"Ваш статус: "+view.rank().displayName(),58,84,INK);
+        if(rule==null){
+            line(g,"Следующее повышение — через владения или титул.",58,106,MUTED);
+            line(g,"Оформление за монеты недоступно.",58,124,MUTED);
+            return;
+        }
+        line(g,"Следующий: "+rule.target().displayName(),58,104,INK);
+        line(g,"Стоимость: "+rule.feeCopper()+" мед. | Есть: "+view.balanceCopper(),58,124,MUTED);
+        line(g,"Предприятия: "+view.enterprises()+"/"+rule.minEnterprises()
+                +" | Работники: "+view.workers()+"/"+rule.minPersonalWorkers(),58,141,MUTED);
+        line(g,"Земля: "+view.plots()+"/"+rule.minPurchasedPlots()
+                +" | Налоговый долг: "+view.taxDebt(),58,158,MUTED);
+        if(rule.jobOrEnterprise() && !view.hasJob() && view.enterprises()==0)
+            line(g,"Нужен трудовой договор или предприятие.",58,169,ACCENT);
+        if(view.ready())line(g,"Все условия выполнены.",58,169,INK);
+    }
     private void placeholder(GuiGraphics g,String text,int y){line(g,text,58,y,MUTED);line(g,"Подробные действия подключаются по этапам.",58,y+18,MUTED);}
     private void renderRows(GuiGraphics g,String heading,List<String> rows){line(g,heading,58,82,MUTED);int y=100;for(String row:rows){line(g,row,58,y,MUTED);y+=15;}if(rows.isEmpty())line(g,"Нет записей.",58,y,MUTED);}
     private void line(GuiGraphics g,String text,int x,int y,int color){g.drawString(font,KingdomFonts.readable(text),x,y,color,false);}
     private static Item tabIcon(AdministrativeMenuLayout.Tab tab){return switch(tab){
         case INFO -> Items.BOOK;
+        case SOCIAL -> Items.NAME_TAG;
         case CITIZENS -> Items.VILLAGER_SPAWN_EGG;
         case OFFICES -> Items.WRITABLE_BOOK;
         case FINANCE -> Items.GOLD_INGOT;
@@ -128,7 +155,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         case SETTINGS -> Items.COMPARATOR;
     };}
     private static String title(AdministrativeMenuLayout.Tab tab){return switch(tab){
-        case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case FINANCE->"Финансы";case STORAGE->"Склад";
+        case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case SOCIAL->"Статус";case FINANCE->"Финансы";case STORAGE->"Склад";
         case TRADE->"Рынок";case LAND->"Земля";case CASES->"Дела";case CELLS->"Камеры";case GUARDS->"Стража";case LOG->"Журнал";case SETTINGS->"Настройки";};}
     private record ActionButton(AdministrativeMenuLayout.Tab tab,Button button,boolean managerOnly){}
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float partial){renderBackground(g);super.render(g,mouseX,mouseY,partial);renderTooltip(g,mouseX,mouseY);}
