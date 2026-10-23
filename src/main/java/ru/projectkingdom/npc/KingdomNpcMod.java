@@ -87,7 +87,8 @@ public final class KingdomNpcMod {
         if (!player.isShiftKeyDown()
                 || !(event.getItemStack().is(Items.MAP) || event.getItemStack().is(Items.FILLED_MAP)))
             return;
-        KingdomWorldAtlasMenu.open(player);
+        KingdomNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+                new ru.projectkingdom.network.OpenGraphicAtlasPacket());
         event.setCancellationResult(InteractionResult.SUCCESS);
         event.setCanceled(true);
     }
