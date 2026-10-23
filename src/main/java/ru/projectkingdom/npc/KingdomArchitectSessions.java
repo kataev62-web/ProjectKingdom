@@ -76,6 +76,8 @@ public final class KingdomArchitectSessions {
             player.serverLevel().getGameTime()+LIFE_TICKS);
         ACTIVE.put(player.getUUID(),session);
         KingdomNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(()->player),preview);
+        tell(player,"Схема «"+KingdomConstructionPlans.title(design)
+            +"» выбрана. Отправляю 3D-макет. Если окно не появилось — проверь клиентский JAR.");
     }
 
     public static void decide(ServerPlayer player, ArchitectDecisionPacket packet) {
