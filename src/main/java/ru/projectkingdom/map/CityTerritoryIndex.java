@@ -27,6 +27,8 @@ public final class CityTerritoryIndex {
     public enum ClaimResult { CLAIMED, UNKNOWN_CITY, NOT_FOUNDER, NOT_ADJACENT, OCCUPIED, PROTECTED, ALREADY_OWNED }
 
     private final Map<UUID, City> cities = new HashMap<>();
+    private final Map<UUID, ChunkKey> foundingChunks = new HashMap<>();
+    public record CityExport(City city, ChunkKey origin, List<ChunkKey> additionalClaims) {}
     private final Map<ChunkKey, UUID> claims = new HashMap<>();
     private final Set<ChunkKey> protectedChunks = new HashSet<>();
 
@@ -35,6 +37,7 @@ public final class CityTerritoryIndex {
         Objects.requireNonNull(foundingChunk, "foundingChunk");
         if (cities.containsKey(city.id()) || claims.containsKey(foundingChunk) || protectedChunks.contains(foundingChunk)) return false;
         cities.put(city.id(), city);
+        foundingChunks.put(city.id(), foundingChunk);
         claims.put(foundingChunk, city.id());
         return true;
     }
@@ -78,6 +81,44 @@ public final class CityTerritoryIndex {
             if (cityId.equals(e.getValue())) result.add(e.getKey());
         }
         return List.copyOf(result);
+    }
+
+    /** Deterministic, adjacency-safe export for NBT replay. */
+    public synchronized List<CityExport> exportCities() {
+        List<CityExport> result = new ArrayList<>();
+        List<UUID> orderedIds = new ArrayList<>(cities.keySet());
+        orderedIds.sort(UUID::compareTo);
+        for (UUID id : orderedIds) {
+            ChunkKey origin = foundingChunks.get(id);
+            Set<ChunkKey> seen = new HashSet<>();
+            List<ChunkKey> frontier = new ArrayList<>();
+            List<ChunkKey> ordered = new ArrayList<>();
+            frontier.add(origin);
+            seen.add(origin);
+            for (int i = 0; i < frontier.size(); i++) {
+                ChunkKey current = frontier.get(i);
+                List<ChunkKey> neighbors = List.of(
+                    new ChunkKey(current.dimension(), current.x() - 1, current.z()),
+                    new ChunkKey(current.dimension(), current.x() + 1, current.z()),
+                    new ChunkKey(current.dimension(), current.x(), current.z() - 1),
+                    new ChunkKey(current.dimension(), current.x(), current.z() + 1));
+                for (ChunkKey neighbor : neighbors) {
+                    if (id.equals(claims.get(neighbor)) && seen.add(neighbor)) {
+                        frontier.add(neighbor);
+                        ordered.add(neighbor);
+                    }
+                }
+            }
+            if (seen.size() != claimedChunks(id).size()) {
+                throw new IllegalStateException("Disconnected claims for city " + id);
+            }
+            result.add(new CityExport(cities.get(id), origin, List.copyOf(ordered)));
+        }
+        return List.copyOf(result);
+    }
+
+    public synchronized Set<ChunkKey> protectedSnapshot() {
+        return Set.copyOf(protectedChunks);
     }
     private boolean adjacent(UUID cityId, ChunkKey key) {
         return cityId.equals(claims.get(new ChunkKey(key.dimension(), key.x() + 1, key.z())))
