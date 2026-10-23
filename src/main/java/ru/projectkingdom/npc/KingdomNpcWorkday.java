@@ -64,7 +64,8 @@ public final class KingdomNpcWorkday {
                             && project.status() != KingdomConstructionData.Status.WAITING_MATERIALS))
                     continue;
                 var marker = new BlockPos(project.x() - 2, project.y(), project.z() - 2);
-                if (!KingdomConstructionMarkers.isMarker(level, marker))
+                if (KingdomConstructionPlans.resolve(server, project.design()) == null
+                        || !KingdomConstructionMarkers.isMarker(level, marker))
                     continue;
                 double d = marker.distSqr(new BlockPos(worker.hasHome ? worker.homeX : project.x(),
                     worker.hasHome ? worker.homeY : project.y(),
