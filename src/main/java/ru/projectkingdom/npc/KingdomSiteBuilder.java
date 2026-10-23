@@ -80,8 +80,13 @@ public final class KingdomSiteBuilder {
             if (!KingdomBlockStateCodec.buildable(requested))
                 return "Невозможно построить из этого предмета: " + cell.material();
             var present = player.serverLevel().getBlockState(target);
-            if (!present.isAir() && !present.equals(requested))
-                return "Очисти площадку: мешает блок " + target.toShortString();
+            // Harmless terrain is cleared later by the hammer/NPC, one planned
+            // cell at a time, after the real building material is available.
+            // Containers and protected blocks must still be removed manually.
+            if (!present.isAir() && !present.equals(requested)
+                    && !KingdomConstructionWork.canClearObstacle(player.serverLevel(),target,present))
+                return "Мешает защищённый блок " + target.toShortString()
+                    + ". Убери его вручную до начала стройки.";
         }
 
         String designKey = id;
