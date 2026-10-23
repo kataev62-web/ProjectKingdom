@@ -125,13 +125,15 @@ public final class KingdomCityExpansionPurchase {
         }
         var admin = KingdomAdministrationData.get(player.getServer());
         var treasury=KingdomPhysicalCash.townVault(player,town.id(),
-                ru.projectkingdom.administration.AdministrativeBindingRole.TREASURY_VAULT);
+                ru.projectkingdom.administration.AdministrativeBindingRole.BANK_VAULT);
         // The acquisition fee is earmarked as sovereign revenue in the treasury;
         // the receipt prevents city members from re-spending its ledger balance.
         // Actual inter-vault transport to a separate sovereign capital treasury is
         // not enabled until that vault is configured, so do not fake a destination.
-        if(treasury==null || KingdomPhysicalCash.value(treasury)<admin.treasuryReserve(town.id())
-                ||admin.treasuryReserve(town.id()) < quote.price())
+        long bankClaims=admin.bankReserve(town.id()),cityClaims=admin.treasuryReserve(town.id());
+        if(treasury==null||bankClaims>Long.MAX_VALUE-cityClaims
+                ||KingdomPhysicalCash.value(treasury)<bankClaims+cityClaims
+                ||cityClaims<quote.price())
             return Result.INSUFFICIENT_FUNDS;
 
         UUID id = UUID.randomUUID();
