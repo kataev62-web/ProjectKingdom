@@ -27,5 +27,11 @@ public final class KingdomNetwork {
                 OpenCityExpansionMapPacket::decode,OpenCityExpansionMapPacket::handle);
         CHANNEL.registerMessage(5,OpenWorldAtlasPacket.class,OpenWorldAtlasPacket::encode,
                 OpenWorldAtlasPacket::decode,OpenWorldAtlasPacket::handle);
+        CHANNEL.registerMessage(6,GraphicAtlasRequestPacket.class,GraphicAtlasRequestPacket::encode,
+                GraphicAtlasRequestPacket::decode,GraphicAtlasRequestPacket::handle);
+        CHANNEL.registerMessage(7,GraphicAtlasResponsePacket.class,GraphicAtlasResponsePacket::encode,
+                GraphicAtlasResponsePacket::decode,GraphicAtlasResponsePacket::handle);
+        CHANNEL.registerMessage(8,OpenGraphicAtlasPacket.class,OpenGraphicAtlasPacket::encode,
+                OpenGraphicAtlasPacket::decode,OpenGraphicAtlasPacket::handle);
     }
 }
