@@ -48,8 +48,8 @@ final class CentralBankTreasuryFlowTest {
     @Test void bankMessagesExplainWalletAndPhysicalBankDeficits() throws Exception {
         String bank=source("npc/KingdomBankData.java");
         assertTrue(bank.contains("covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town))"));
-        assertTrue(bank.contains("старого"));
-        assertTrue(bank.contains("Кошел"));
+        assertTrue(bank.contains("Старый баланс"));
+        assertTrue(bank.contains("кошельке"));
         for(var result:KingdomTaxData.PaymentResult.values()) {
             String message=KingdomTaxData.paymentMessage(result);
             assertNotNull(message);
