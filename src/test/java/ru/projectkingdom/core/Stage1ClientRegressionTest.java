@@ -27,6 +27,15 @@ final class Stage1ClientRegressionTest {
         assertTrue(mod.contains("AdministrativeAccessService.cancel(player.getUUID())"));
     }
 
+    @Test void everyCounterInteractionLetsHeldBlocksPlaceNormally() throws Exception {
+        String mod = source("npc/KingdomNpcMod.java");
+        long guards = mod.lines()
+                .filter(line -> line.contains("BindingInteractionPolicy.allowsPlacement(event.getItemStack())"))
+                .count();
+        assertTrue(guards >= 6,
+                "bank, warehouse, trade, administrative, enterprise and NPC binding handlers need placement guards");
+    }
+
     @Test void purseUsesPhysicalCoinPresentationInsteadOfAPlainAccountingForm() throws Exception {
         String screen = source("economy/MoneyPurseScreen.java");
         assertTrue(screen.contains("graphics.renderItem(new ItemStack(KingdomCurrency.COPPER.get())"));
@@ -43,6 +52,9 @@ final class Stage1ClientRegressionTest {
                 "the open screen needs server-authoritative purse counters");
         assertTrue(menu.contains("addDataSlot"));
         assertTrue(menu.contains("syncPurseData()"));
+        assertTrue(menu.contains("joinLong("),
+                "legacy long coin counts must not be truncated to a 32-bit display value");
+        assertFalse(menu.contains("Math.min(Integer.MAX_VALUE"));
         assertTrue(menu.contains("server.inventoryMenu.broadcastChanges()"),
                 "changed physical coin stacks must also refresh in the player inventory");
     }
@@ -68,5 +80,15 @@ final class Stage1ClientRegressionTest {
             assertTrue(Files.isRegularFile(Path.of("src/main/resources/data/kingdomnpc/recipes/" + id + ".json")), id);
             assertTrue(unlock.contains("kingdomnpc:" + id), id + " is not unlocked");
         }
+    }
+
+    @Test void managedStorageCanBeOwnedOpenedAndUsedAsAnEnterpriseContainer() throws Exception {
+        String block = source("npc/KingdomManagedStorage.java");
+        String entity = source("npc/KingdomManagedStorageEntity.java");
+        assertTrue(block.contains("setPlacedBy"), "placement must bind the physical owner");
+        assertTrue(block.contains("player.openMenu(storage)"), "the owner needs physical inventory access");
+        assertTrue(entity.contains("implements Container, MenuProvider"),
+                "enterprise binding and a vanilla chest menu both require a real Container");
+        assertTrue(entity.contains("ChestMenu.threeRows"));
     }
 }
