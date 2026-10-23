@@ -237,18 +237,33 @@ public final class KingdomMainMenu extends ChestMenu {
                     "Чертёж: ПКМ по столу действующей стройки подсветит следующий блок.");
             }
             case SITE -> {
-                var project=KingdomConstructionData.get(viewer.getServer()).find(siteId);
-                if(project!=null && project.owner().equals(viewer.getUUID())) {
+                var sites=KingdomConstructionData.get(viewer.getServer());
+                var project=sites.find(siteId);
+                if(project!=null && sites.mayAssist(siteId,viewer.getUUID())) {
                     var design=KingdomConstructionPlans.resolve(viewer.getServer(),project.design());
                     if(design!=null) {
                         int progress=KingdomConstructionData.get(viewer.getServer()).progress(project.id());
                         icon(10,Items.BRICKS,KingdomConstructionPlans.title(project.design())+" — "+project.status());
                         icon(11,Items.CLOCK,"Готово: "+progress+" из "+design.blocks().size()+" блоков");
-                        icon(13,Items.IRON_PICKAXE,project.status()==KingdomConstructionData.Status.PLANNED?"Начать строительство NPC":"Приостановить строительство NPC");
+                        icon(13,Items.IRON_PICKAXE,project.owner().equals(viewer.getUUID())
+                            ?(project.status()==KingdomConstructionData.Status.PLANNED?"Начать строительство NPC":"Приостановить строительство NPC")
+                            :"Запускать и останавливать стройку может только владелец");
                         icon(14,Items.CHEST,"Склад материалов рядом со столом; NPC-строитель с договором работает по дневному расписанию");
                         icon(15,Items.WRITABLE_BOOK,"Смета: "+KingdomConstructionPlans.bill(design));
                         icon(16,Items.COMPASS,"Состояние: "+KingdomConstructionDiagnostics.nextStep(viewer.getServer(),project));
                         icon(17,Items.HOPPER,KingdomConstructionDiagnostics.missingMaterials(viewer.getServer(),project));
+                        int helpers=sites.assistants(project.id()).size();
+                        if(project.owner().equals(viewer.getUUID())) {
+                            var nearby=nearbyPlayers().stream().min(
+                                java.util.Comparator.comparingDouble(viewer::distanceToSqr));
+                            if(nearby.isPresent()) {
+                                var p=nearby.get();
+                                icon(18,Items.PLAYER_HEAD,
+                                    (sites.assistants(project.id()).contains(p.getUUID())?"Отозвать приглашение: ":"Пригласить в бригаду: ")
+                                        +p.getScoreboardName()+" (ЛКМ)");
+                            } else icon(18,Items.PLAYER_HEAD,"Для приглашения строитель должен стоять рядом (до 8 блоков)");
+                        } else icon(18,Items.PLAYER_HEAD,"Ты приглашён в бригаду — строй молотом из общего склада");
+                        icon(19,Items.PAPER,"Бригада: "+helpers+"/8. Приглашение не даёт права менять владельца или распоряжаться проектом.");
                         icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),"ПКМ по столу / кафедре для управления. Молот — строить, чертёж — подсветка");
                     }
                 }
@@ -256,7 +271,8 @@ public final class KingdomMainMenu extends ChestMenu {
             case PROJECTS -> {
                 int count=0;
                 for(var project:KingdomConstructionData.get(viewer.getServer()).all()) {
-                    if(!project.owner().equals(viewer.getUUID()))continue;
+                    if(!KingdomConstructionData.get(viewer.getServer())
+                            .mayAssist(project.id(),viewer.getUUID()))continue;
                     if(count>=18)break;
                     icon(count,Items.PAPER,KingdomConstructionPlans.title(project.design())+" | "+project.status()+" | "+project.x()+","+project.y()+","+project.z());count++;
                 }
@@ -484,16 +500,31 @@ public final class KingdomMainMenu extends ChestMenu {
                     }
                 }
             }
-            case SITE -> {if(slot==13){
+            case SITE -> {
                 var db=KingdomConstructionData.get(viewer.getServer());
                 var project=db.find(siteId);
-                boolean start=project!=null && project.status()==KingdomConstructionData.Status.PLANNED;
-                say(db.order(siteId,viewer.getUUID(),start)?(start?"Строительство поручено NPC. Поставь сундук рядом с кафедрой и назначь строителя.":"Строительство остановлено."):"Нельзя изменить заказ");draw();
-            }}
+                if(slot==13) {
+                    boolean start=project!=null && project.status()==KingdomConstructionData.Status.PLANNED;
+                    say(db.order(siteId,viewer.getUUID(),start)
+                        ?(start?"Строительство поручено NPC. Поставь сундук рядом со столом и назначь строителя.":"Строительство остановлено.")
+                        :"Только владелец может управлять строительством.");draw();
+                } else if(slot==18 && project!=null && project.owner().equals(viewer.getUUID())) {
+                    var nearby=nearbyPlayers().stream().min(
+                        java.util.Comparator.comparingDouble(viewer::distanceToSqr));
+                    if(nearby.isPresent()) {
+                        var target=nearby.get();
+                        boolean previously=db.assistants(siteId).contains(target.getUUID());
+                        say(db.toggleAssistant(siteId,viewer.getUUID(),target.getUUID())
+                            ?(previously?"Отозвано разрешение строить для ":"Приглашён строитель: ")+target.getScoreboardName()
+                            :"Не удалось изменить бригаду (максимум 8 участников).");
+                    } else say("Пусть помощник подойдёт к тебе на расстояние до 8 блоков.");
+                    draw();
+                }
+            }
             case PROJECTS -> {if(slot>=0&&slot<18){
                 int i=0;
                 for(var project:KingdomConstructionData.get(viewer.getServer()).all()){
-                    if(!project.owner().equals(viewer.getUUID()))continue;
+                    if(!KingdomConstructionData.get(viewer.getServer()).mayAssist(project.id(),viewer.getUUID()))continue;
                     if(i++==slot){openSite(viewer,project.id());break;}
                 }
             }}
