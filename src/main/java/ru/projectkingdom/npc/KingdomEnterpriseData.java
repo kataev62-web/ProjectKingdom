@@ -433,6 +433,80 @@ public final class KingdomEnterpriseData extends SavedData {
                 || !atCounter(buyer,offer.seller()))return false;
         return purchase(buyer.serverLevel(),purchaser.id(),offer,count,false);
     }
+    /**
+     * Customer-facing, single-item purchase. The server owns the published offer,
+     * physical stock, wallet debit and delivery; the client only selects an ID.
+     * Inventory space and purse balance are checked before any mutation.
+     */
+    public boolean buyAsVisitor(ServerPlayer visitor, UUID sellerId, UUID offerId) {
+        if(visitor==null || sellerId==null || offerId==null)return false;
+        Offer offer=offers.get(offerId);
+        Enterprise vendor=firms.get(sellerId);
+        if(offer==null || vendor==null || !sellerId.equals(offer.seller())
+                || vendor.owner().equals(visitor.getUUID()) || unresolved(sellerId)
+                || offer.unitPrice()<1 || offer.unitPrice()>1_000_000
+                || vendor.cash()>Long.MAX_VALUE-offer.unitPrice())return false;
+        ServerLevel level=visitor.serverLevel();
+        var core=cores.get(sellerId);
+        if(core==null || !core.active()
+                || !level.dimension().location().toString().equals(core.dimension())
+                || !level.hasChunkAt(BlockPos.of(core.packedPos()))
+                || BlockPos.of(core.packedPos()).distSqr(visitor.blockPosition())>64
+                || !(level.getBlockEntity(BlockPos.of(core.packedPos()))
+                     instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity present)
+                || !sellerId.equals(present.enterpriseId()))return false;
+        Container source=inventoryForOffer(level,offer);
+        if(source==null || KingdomCurrency.balance(visitor)<offer.unitPrice())return false;
+        ResourceLocation itemId=ResourceLocation.tryParse(offer.itemId());
+        if(itemId==null)return false;
+        int stockSlot=-1;
+        ItemStack delivery=ItemStack.EMPTY;
+        for(int i=0;i<source.getContainerSize();i++) {
+            ItemStack stack=source.getItem(i);
+            if(!stack.isEmpty() && itemId.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()))
+                    && source.canTakeItem(source,i,stack)) {
+                stockSlot=i;
+                delivery=stack.copy();delivery.setCount(1);break;
+            }
+        }
+        if(stockSlot<0)return false;
+        // Do not rely on partial Inventory.add operations: reserve one main-inventory
+        // slot that can accept the exact stack and its NBT metadata.
+        int destination=-1;
+        var inventory=visitor.getInventory();
+        for(int i=0;i<36;i++){
+            var stack=inventory.getItem(i);
+            if(!stack.isEmpty() && ItemStack.isSameItemSameTags(stack,delivery)
+                    && stack.getCount()<Math.min(stack.getMaxStackSize(),inventory.getMaxStackSize())){
+                destination=i;break;
+            }
+        }
+        if(destination<0)for(int i=0;i<36;i++) {
+            if(inventory.getItem(i).isEmpty()){destination=i;break;}
+        }
+        if(destination<0)return false;
+        if(!KingdomCurrency.debit(visitor,offer.unitPrice()))return false;
+        // Both physical inventories are mutated by the single server thread.
+        ItemStack from=source.getItem(stockSlot);
+        ItemStack originalSlot=inventory.getItem(destination);
+        if(from.isEmpty() || !ItemStack.isSameItemSameTags(from,delivery)
+                || ( !originalSlot.isEmpty() &&
+                     (!ItemStack.isSameItemSameTags(originalSlot,delivery)
+                     || originalSlot.getCount()>=originalSlot.getMaxStackSize()))) {
+            if(!KingdomCurrency.credit(visitor,offer.unitPrice()))
+                throw new IllegalStateException("Kingdom sale: buyer refund failed");
+            return false;
+        }
+        from.shrink(1);
+        if(originalSlot.isEmpty())inventory.setItem(destination,delivery.copy());
+        else originalSlot.grow(1);
+        source.setChanged();
+        inventory.setChanged();
+        firms.put(vendor.id(),new Enterprise(vendor.id(),vendor.owner(),vendor.name(),
+                vendor.cash()+offer.unitPrice()));
+        setDirty();
+        return true;
+    }
     /** Authorised adjacent-counter pickup by a real physically present, contracted NPC.
      * This transfers goods directly between two nearby physical counters. For distant
      * parties a separate courier escrow/delivery protocol is necessary.
