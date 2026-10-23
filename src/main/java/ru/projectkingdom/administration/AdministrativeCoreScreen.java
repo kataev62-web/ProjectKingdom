@@ -131,10 +131,11 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         line(g,"Предприятия: "+view.enterprises()+"/"+rule.minEnterprises()
                 +" | Работники: "+view.workers()+"/"+rule.minPersonalWorkers(),58,141,MUTED);
         line(g,"Земля: "+view.plots()+"/"+rule.minPurchasedPlots()
-                +" | Налоговый долг: "+view.taxDebt(),58,158,MUTED);
+                +" | Налоговый долг: "+view.taxDebt(),58,154,MUTED);
+        line(g,"Репутация: "+view.reputation()+"/"+rule.minReputation(),58,168,MUTED);
         if(rule.jobOrEnterprise() && !view.hasJob() && view.enterprises()==0)
-            line(g,"Нужен трудовой договор или предприятие.",58,169,ACCENT);
-        if(view.ready())line(g,"Все условия выполнены.",58,169,INK);
+            line(g,"Требуется работа по найму.",58,181,ACCENT);
+        // Preview is server-verified. The actual promotion always rechecks live conditions.
     }
     private void placeholder(GuiGraphics g,String text,int y){line(g,text,58,y,MUTED);line(g,"Подробные действия подключаются по этапам.",58,y+18,MUTED);}
     private void renderRows(GuiGraphics g,String heading,List<String> rows){line(g,heading,58,82,MUTED);int y=100;for(String row:rows){line(g,row,58,y,MUTED);y+=15;}if(rows.isEmpty())line(g,"Нет записей.",58,y,MUTED);}

@@ -56,7 +56,11 @@ public final class KingdomCivicsData extends SavedData {
         String k=key(dimension,x,z); Plot p=plots.get(k);
         if(p==null||seller==null||buyer==null||seller.equals(buyer)||!seller.equals(plotOwner(dimension,x,z))
                 ||p.tenant()!=null||leases.containsKey(k)||!socialMayBuy(buyer))return false;
-        plotOwners.put(k,buyer); offers.remove(k); sales.remove(k);clearWorkers(k);setDirty();return true;
+        long paid=sales.containsKey(k)?sales.get(k).priceCopper():1;
+        plotOwners.put(k,buyer); offers.remove(k); sales.remove(k);clearWorkers(k);setDirty();
+        if(runtimeServer!=null)ru.projectkingdom.social.KingdomReputationEvents.landPurchased(
+                runtimeServer,buyer,p.town(),paid);
+        return true;
     }
     /** Server-side land sale listings. Payment is always physical cash at a town hall or bank counter. */
     public record SaleOffer(UUID seller, long priceCopper) {}

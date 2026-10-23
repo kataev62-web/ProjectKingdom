@@ -20,6 +20,14 @@ final class KingdomSocialPromotionWiringTest {
         assertTrue(service.contains("KingdomCurrency.debit(player,amount)"));
         assertTrue(service.contains("civics.depositTownTo(townId,player.getUUID(),amount)"));
         assertTrue(service.contains("KingdomSocialData.get(server).grantVerified"));
+        assertTrue(service.contains("KingdomReputationData.get(server).score(townId,person)"));
+    }
+    @Test void socialReputationIsEarnedOnlyAfterConfirmedEvents() throws Exception {
+        assertTrue(source("npc/KingdomTaxData.java").contains("KingdomReputationEvents.taxSettled("));
+        assertTrue(source("npc/KingdomPayrollData.java").contains("KingdomReputationEvents.earnedCityWage("));
+        assertTrue(source("npc/KingdomEnterprisePayrollData.java").contains("KingdomReputationEvents.earnedEnterpriseWage("));
+        assertTrue(source("npc/KingdomCivicsData.java").contains("KingdomReputationEvents.landPurchased("));
+        assertTrue(source("npc/NpcDialogueService.java").contains("KingdomReputationPolicy.standing(standing)"));
     }
     @Test void publicSocialTabUsesBoundTownHallWithoutGrantingAdmin() throws Exception {
         String layout=source("administration/AdministrativeMenuLayout.java");
@@ -30,5 +38,6 @@ final class KingdomSocialPromotionWiringTest {
         assertTrue(menu.contains("social.write(buffer)"));
         assertTrue(screen.contains("promoteSocial.active=menu.social().ready()"));
         assertTrue(screen.contains("case SOCIAL->renderSocial(g)"));
+        assertTrue(screen.contains("view.reputation()"));
     }
 }

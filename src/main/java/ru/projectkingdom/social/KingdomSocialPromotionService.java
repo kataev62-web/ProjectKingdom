@@ -15,16 +15,16 @@ import ru.projectkingdom.npc.KingdomTaxData;
 public final class KingdomSocialPromotionService {
     public record Preview(int level, long balanceCopper, long taxDebt,
                           long enterprises, long workers, long plots, boolean hasJob,
-                          boolean ready) {
-        public static Preview empty() { return new Preview(1,0,0,0,0,0,false,false); }
+                          int reputation, boolean ready) {
+        public static Preview empty() { return new Preview(1,0,0,0,0,0,false,0,false); }
         public void write(FriendlyByteBuf out) {
             out.writeVarInt(level);out.writeLong(balanceCopper);out.writeLong(taxDebt);
             out.writeLong(enterprises);out.writeLong(workers);out.writeLong(plots);
-            out.writeBoolean(hasJob);out.writeBoolean(ready);
+            out.writeBoolean(hasJob);out.writeVarInt(reputation);out.writeBoolean(ready);
         }
         public static Preview read(FriendlyByteBuf in) {
             return new Preview(in.readVarInt(),in.readLong(),in.readLong(),in.readLong(),
-                    in.readLong(),in.readLong(),in.readBoolean(),in.readBoolean());
+                    in.readLong(),in.readLong(),in.readBoolean(),in.readVarInt(),in.readBoolean());
         }
         public KingdomSocialRank rank() { return KingdomSocialRank.fromLevel(level); }
         public KingdomSocialPromotionRules.Requirements requirements() {
@@ -48,8 +48,9 @@ public final class KingdomSocialPromotionService {
         boolean employed = KingdomPayrollData.get(server).contract(person) != null;
         long debt = KingdomTaxData.get(server).owed(server,person);
         long balance = KingdomCurrency.balance(player);
-        var progress = new KingdomSocialPromotionRules.Progress(firms,hired,plots,employed,debt,balance);
-        return new Preview(rank.level(),balance,debt,firms,hired,plots,employed,
+        int reputation = KingdomReputationData.get(server).score(townId,person);
+        var progress = new KingdomSocialPromotionRules.Progress(firms,hired,plots,employed,debt,balance,reputation);
+        return new Preview(rank.level(),balance,debt,firms,hired,plots,employed,reputation,
                 KingdomSocialPromotionRules.evaluate(rank,progress).ready());
     }
 

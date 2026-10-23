@@ -143,7 +143,10 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         if(!KingdomEnterpriseData.get(server).payVerifiedWage(worker,enterprise,amount))return false;
         String k=key(enterprise,worker.getUUID());Employment c=entries.get(k);
         entries.put(k,new Employment(enterprise,c.worker(),c.dailyCopper(),c.lastDay(),c.owed()-amount,c.active()));
-        setDirty();return true;
+        setDirty();
+        ru.projectkingdom.social.KingdomReputationEvents.earnedEnterpriseWage(
+                server,worker.getUUID(),amount);
+        return true;
     }
     public boolean claimAny(MinecraftServer server,ServerPlayer worker){
         for(Employment c:new ArrayList<>(entries.values()))if(c.worker().equals(worker.getUUID())

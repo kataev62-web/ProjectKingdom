@@ -52,6 +52,15 @@ public final class NpcDialogueService {
         long day = player.serverLevel().getDayTime() / 24000L;
         NpcSocialMemory memory = before.talked(reply.intent().name(), day);
         String text = reply.text();
+        if(reply.intent()==NpcDialogueEngine.Intent.RELATIONSHIP) {
+            var town=KingdomCivicsData.get(player.getServer()).townAt(player.serverLevel(),npc.blockPosition());
+            if(town!=null) {
+                int standing=ru.projectkingdom.social.KingdomReputationData.get(player.getServer())
+                        .score(town.id(),player.getUUID());
+                text+=" В "+town.name()+" тебя знают как: "
+                        +ru.projectkingdom.social.KingdomReputationPolicy.standing(standing)+".";
+            }
+        }
         boolean positive = false;
 
         if (reply.action() == NpcDialogueEngine.Action.GIVE_BREAD) {
