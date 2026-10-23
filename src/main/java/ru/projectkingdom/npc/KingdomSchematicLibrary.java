@@ -161,7 +161,7 @@ public final class KingdomSchematicLibrary {
         }
     }
 
-    private static KingdomDesignEngine.Design readDesign(Path path, String name)
+    static KingdomDesignEngine.Design readDesign(Path path, String name)
             throws IOException {
         validateFile(path);
         // Bounded NBT read protects the server from compressed NBT expansion.
