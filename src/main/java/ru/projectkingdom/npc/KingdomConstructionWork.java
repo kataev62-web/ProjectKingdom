@@ -8,6 +8,8 @@ import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
 
 /**
  * Server-authoritative, shared survival construction step for players and NPCs.
@@ -87,7 +89,18 @@ public final class KingdomConstructionWork {
             advance(server, project);
             return new Step(Result.ALREADY_PRESENT, target, next.material());
         }
-        if (!level.getBlockState(target).isAir() || !desired.canSurvive(level, target))
+        BlockState occupying = level.getBlockState(target);
+        // A schematic may specify a different facing for a block already in place.
+        // Updating the state in situ preserves the actual item and avoids free drops.
+        if (occupying.is(desired.getBlock())) {
+            if (occupying.hasBlockEntity() || !desired.canSurvive(level, target)
+                    || !level.setBlock(target, desired, 3)
+                    || !level.getBlockState(target).equals(desired))
+                return new Step(Result.OBSTACLE, target, next.material());
+            advance(server, project);
+            return new Step(Result.ALREADY_PRESENT, target, next.material());
+        }
+        if (!occupying.isAir() && !canClearObstacle(level, target, occupying))
             return new Step(Result.OBSTACLE, target, next.material());
 
         Container depot = depot(level, marker);
@@ -104,6 +117,15 @@ public final class KingdomConstructionWork {
         if (slot < 0) return new Step(Result.NO_MATERIALS, target, next.material());
 
         // The world and the inventory are mutated together on the single server thread.
+        // Only clear the *next planned cell*, inside the verified construction claim.
+        // Never clear protected blocks, inventories, tile entities or unbreakable blocks.
+        // Check stock BEFORE demolition so missing supplies cannot strip a site.
+        if (!occupying.isAir()) {
+            if (!level.destroyBlock(target, true) || !level.getBlockState(target).isAir())
+                return new Step(Result.OBSTACLE, target, next.material());
+        }
+        if (!desired.canSurvive(level, target))
+            return new Step(Result.OBSTACLE, target, next.material());
         ItemStack material = depot.removeItem(slot, 1);
         if (material.isEmpty()) return new Step(Result.NO_MATERIALS, target, next.material());
         boolean changed = level.setBlock(target, desired, 3);
@@ -118,6 +140,17 @@ public final class KingdomConstructionWork {
         depot.setChanged();
         advance(server, project);
         return new Step(Result.PLACED, target, next.material());
+    }
+
+    /** Safe site clearance shared by an NPC and the hand-held builder's hammer. */
+    public static boolean canClearObstacle(ServerLevel level, BlockPos pos, BlockState state) {
+        if (state.isAir() || state.hasBlockEntity() || state.getDestroySpeed(level, pos) < 0)
+            return false;
+        if (state.is(Blocks.LECTERN) || state.is(KingdomConstructionRegistry.DRAFTING_TABLE.get()))
+            return false;
+        // Block entities are excluded above; all other clearance is restricted to
+        // cells of an authorised, loaded construction project by placeNext().
+        return state.getFluidState().isEmpty();
     }
 
     private static void restoreMaterial(Container depot, int slot, ItemStack removed, BlockPos target) {
