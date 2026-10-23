@@ -178,7 +178,8 @@ public final class KingdomFarmWorker {
                 if(cropMatches(found,field)&&mature(found)&&distance<harvestDistance) {
                     harvestTarget=crop;harvestState=found;harvestField=field;harvestDistance=distance;
                 }else if(found.isAir() && desired.canSurvive(level,crop)
-                    && distance<plantDistance){
+                    && distance<plantDistance
+                    && KingdomFarmClimate.read(level,crop,desired).suitable()){
                     plantTarget=crop;plantState=desired;plantField=field;plantDistance=distance;
                 }
             }
