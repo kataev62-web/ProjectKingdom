@@ -45,16 +45,22 @@ public final class KingdomBookGuardian {
         return kept;
     }
 
+    private static void restoreBookAndRecipes(ServerPlayer player) {
+        ensure(player);
+        // Award live server recipes even when the advancement did not re-fire.
+        player.awardRecipes(KingdomRecipeUnlock.all(player.getServer().getRecipeManager()));
+    }
+
     @SubscribeEvent public void login(PlayerEvent.PlayerLoggedInEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) ensure(player);
+        if (event.getEntity() instanceof ServerPlayer player) restoreBookAndRecipes(player);
     }
 
     @SubscribeEvent public void respawn(PlayerEvent.PlayerRespawnEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) ensure(player);
+        if (event.getEntity() instanceof ServerPlayer player) restoreBookAndRecipes(player);
     }
 
     @SubscribeEvent public void changedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
-        if (event.getEntity() instanceof ServerPlayer player) ensure(player);
+        if (event.getEntity() instanceof ServerPlayer player) restoreBookAndRecipes(player);
     }
 
     @SubscribeEvent public void toss(ItemTossEvent event) {
