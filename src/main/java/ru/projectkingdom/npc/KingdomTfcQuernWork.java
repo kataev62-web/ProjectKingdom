@@ -190,7 +190,19 @@ public final class KingdomTfcQuernWork {
         if (machine == null || machine.getSlots() < 3) return false;
         if (machine.getStackInSlot(HANDSTONE).isEmpty()) return false; // Never invent handstones.
 
+        var custody = KingdomTfcQuernData.get(level.getServer());
+        if (custody.reservedByOther(worker.entityId, worker.dimension, station.asLong())) return false;
+        var batch = custody.job(worker.entityId);
+        if (batch != null && (!batch.dimension().equals(worker.dimension)
+                || batch.station() != station.asLong())) {
+            custody.release(worker.entityId);
+            return false;
+        }
         ItemStack produced = machine.getStackInSlot(OUTPUT).copy();
+        // The native block also accepts player items; no claim means no NPC pickup.
+        if (!produced.isEmpty() && (batch == null
+                || !BuiltInRegistries.ITEM.getKey(produced.getItem()).toString().equals(batch.output())))
+            return false;
         if (!produced.isEmpty()) {
             ItemStack[] planned = depositPlan(finished, produced);
             if (planned == null || !ItemStack.matches(
@@ -199,6 +211,7 @@ public final class KingdomTfcQuernWork {
             if (!ItemStack.matches(taken, produced)) return false;
             for (int i = 0; i < planned.length; i++) finished.setItem(i, planned[i]);
             finished.setChanged();
+            custody.release(worker.entityId);
             worker.workUnits++;
             worker.produced += taken.getCount();
             worker.skillXp++;
@@ -209,7 +222,13 @@ public final class KingdomTfcQuernWork {
 
         if (grinding(quernEntity)) return false;
         ItemStack machineInput = machine.getStackInSlot(INPUT).copy();
+        if (machineInput.isEmpty() && batch != null) {
+            custody.release(worker.entityId); // Player removed the original input.
+            batch = null;
+        }
         if (!machineInput.isEmpty()) {
+            if (batch == null || !BuiltInRegistries.ITEM.getKey(machineInput.getItem())
+                    .toString().equals(batch.input())) return false;
             ItemStack expected = recipeOutput(level, machineInput);
             if (expected.isEmpty() || KingdomCurrency.value(expected) > 0
                     || expected.is(KingdomCurrency.WALLET.get())
@@ -243,6 +262,9 @@ public final class KingdomTfcQuernWork {
                 return false;
             }
             raw.setChanged();
+            custody.assign(new KingdomTfcQuernData.Job(worker.entityId, worker.dimension,
+                station.asLong(), BuiltInRegistries.ITEM.getKey(one.getItem()).toString(),
+                BuiltInRegistries.ITEM.getKey(expected.getItem()).toString()));
             return start(quernEntity);
         }
         return false;
