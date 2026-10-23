@@ -6,13 +6,44 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.Container;
 import ru.projectkingdom.npc.KingdomCivicsData;
+import ru.projectkingdom.npc.KingdomContainerAccess;
+import ru.projectkingdom.npc.KingdomManagedStorageEntity;
 
 public final class AdministrativeAccessService {
-    public enum Status {BOUND,NO_SESSION,WRONG_DIMENSION,TOO_FAR,UNLOADED,FOREIGN_TOWN,INVALID_TARGET,NO_PERMISSION,CORE_INACTIVE}
+    public enum Status {
+        BOUND, NO_SESSION, WRONG_DIMENSION, TOO_FAR, UNLOADED, FOREIGN_TOWN,
+        INVALID_TARGET, NO_PERMISSION, CORE_INACTIVE, ALREADY_BOUND, STORAGE_OWNER_MISMATCH
+    }
     private static final Map<UUID,AdministrativeBindingSession> SESSIONS=new ConcurrentHashMap<>();
     private AdministrativeAccessService(){}
+
+    public static String pendingRole(UUID player){
+        var session=SESSIONS.get(player);
+        return session==null ? "Городское хранилище" : switch(session.role()) {
+            case TREASURY_VAULT->"Казна города";
+            case BANK_VAULT->"Банковский резерв";
+            case WAREHOUSE_STORAGE->"Городской склад";
+            case MARKET_STORAGE->"Склад рынка";
+            case PRISON_CELL->"Тюремная камера";
+        };
+    }
+    public static String explanation(Status status){
+        if(status==null)return "Не удалось определить ошибку. Попробуйте повторить.";
+        return switch(status){
+            case BOUND->"Подключено! Сундук теперь закреплён за городской службой.";
+            case NO_SESSION->"Сначала нажмите «Привязать» в ратуше, банке или другом городском здании.";
+            case WRONG_DIMENSION->"Нельзя выбрать сундук в другом измерении. Вернитесь и начните заново.";
+            case TOO_FAR->"Слишком далеко. Подойдите к сундуку не дальше 6 блоков и начните заново.";
+            case UNLOADED->"Чанк сундука не загружен. Подойдите ближе и повторите.";
+            case FOREIGN_TOWN->"Сундук должен находиться на территории именно этого города.";
+            case INVALID_TARGET->"Вы выбрали блок без инвентаря. Нужен настоящий сундук, бочка или хранилище Kingdom.";
+            case NO_PERMISSION->"Только основатель, мэр или уполномоченный чиновник может привязывать это хранилище.";
+            case CORE_INACTIVE->"Эта городская служба больше не активна. Проверьте блок и откройте меню повторно.";
+            case ALREADY_BOUND->"Касса уже назначена. Используйте прежний сундук; смена хранилища с деньгами запрещена ради сохранности монет.";
+            case STORAGE_OWNER_MISMATCH->"Этот склад Kingdom принадлежит другому игроку. Выберите городской сундук.";
+        };
+    }
     public static boolean begin(ServerPlayer player,UUID townId,AdministrativeKind kind,AdministrativeBindingRole role){
         if(player==null||townId==null||kind==null||role==null
                 ||(role.kind()!=kind && !(kind==AdministrativeKind.TOWN_HALL
@@ -37,10 +68,21 @@ public final class AdministrativeAccessService {
                 data.roles(town.id(),player.getUUID()),session.kind()))return Status.NO_PERMISSION;
         AdministrativeCoreBinding core=data.core(town.id(),session.kind());
         if(core==null||!core.dimension().equals(session.dimension())||core.packedPos()!=session.corePos())return Status.CORE_INACTIVE;
-        if(session.role()!=AdministrativeBindingRole.PRISON_CELL&&!(level.getBlockEntity(pos) instanceof Container))return Status.INVALID_TARGET;
+        if(session.role()!=AdministrativeBindingRole.PRISON_CELL
+                && KingdomContainerAccess.resolve(level,pos)==null)return Status.INVALID_TARGET;
+        if(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity managed
+                && managed.owner()!=null && !managed.owner().equals(player.getUUID()))
+            return Status.STORAGE_OWNER_MISMATCH;
         if(session.role()==AdministrativeBindingRole.PRISON_CELL&&level.getBlockState(pos).isAir())return Status.INVALID_TARGET;
-        if(!data.bindContainer(town.id(),session.role(),session.dimension(),pos.asLong()))return Status.INVALID_TARGET;
-        data.record(town.id(),player.getUUID(),primaryRole(data.roles(town.id(),player.getUUID())),"bind."+session.role().name().toLowerCase(),level.getGameTime());
+        // Idempotent: binding the same vault again is not an error.
+        var previous=data.containerBindings(town.id(),session.role());
+        if(previous.stream().anyMatch(c->c.dimension().equals(session.dimension())&&c.packedPos()==pos.asLong()))
+            return Status.BOUND;
+        if(!session.role().multiple()&&!previous.isEmpty())return Status.ALREADY_BOUND;
+        if(!data.bindContainer(town.id(),session.role(),session.dimension(),pos.asLong()))
+            return Status.ALREADY_BOUND;
+        data.record(town.id(),player.getUUID(),primaryRole(data.roles(town.id(),player.getUUID())),
+                "bind."+session.role().name().toLowerCase(),level.getGameTime());
         return Status.BOUND;
     }
     private static MunicipalRole primaryRole(java.util.Set<MunicipalRole> roles){return roles.stream().findFirst().orElse(null);}
