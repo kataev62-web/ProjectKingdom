@@ -73,7 +73,7 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
             @Override public Component getDisplayName(){return Component.literal(core.kind().russianName());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
                 return new AdministrativeCoreMenu(id,inv,core.getBlockPos(),town.id(),core.kind(),town.name(),founder,town.mayor(),manager,publicAccess,
-                        account,bankReserve,manager?town.treasury():0L,manager?treasuryReserve:0L,
+                        account,manager?bankReserve:0L,manager?town.treasury():0L,manager?treasuryReserve:0L,
                         manager?historical:0L,rows,member,canJoin);
             }
         },buffer->{buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(town.id());buffer.writeUtf(core.kind().id(),32);
