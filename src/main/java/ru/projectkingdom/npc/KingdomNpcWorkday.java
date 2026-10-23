@@ -3,7 +3,6 @@ package ru.projectkingdom.npc;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
-import java.util.UUID;
 
 /**
  * Shared workday adapter for every Kingdom profession.
@@ -30,10 +29,15 @@ public final class KingdomNpcWorkday {
     /** Does an existing site allow this profession to join the common shift? */
     public static boolean hasAssignment(MinecraftServer server, ServerLevel level,
                                         KingdomNpcData.Worker worker) {
-        if (!employed(server, worker) || site(server, level, worker) == null) return false;
-        return switch (KingdomNpcDuty.kind(worker.job)) {
-            case NONE -> false;
-            case FIELD, DELIVERY -> worker.hasSource && worker.hasDestination;
+        if (!employed(server, worker)) return false;
+        var kind = KingdomNpcDuty.kind(worker.job);
+        // Couriers use physical pickup/delivery coordinates from assigned paid orders;
+        // they do not require a fixed personal raw/finished warehouse.
+        if (kind == KingdomNpcDuty.Kind.DELIVERY) return true;
+        if (site(server, level, worker) == null) return false;
+        return switch (kind) {
+            case NONE, DELIVERY -> false;
+            case FIELD -> worker.hasSource && worker.hasDestination;
             case WORKSHOP -> worker.hasSource && worker.hasDestination && worker.hasWorkstation
                 && KingdomNpcWorkshopData.get(server).plan(worker.entityId) != null;
             case CONSTRUCTION, SERVICE -> true;
