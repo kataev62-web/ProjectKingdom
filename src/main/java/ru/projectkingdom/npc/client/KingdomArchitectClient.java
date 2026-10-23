@@ -81,6 +81,10 @@ public final class KingdomArchitectClient {
         for(var cell:packet.cells())blocks.add(new View.ModelCell(
             cell.x(),cell.y(),cell.z(),palette.get(cell.state())));
         active=new View(packet,blocks);
+        client.player.displayClientMessage(
+            net.minecraft.network.chat.Component.literal(
+                "[Архитектор] 3D-модель «"+packet.title()+"» получена: "
+                    +blocks.size()+" блоков визуализации. Осмотр — F8."),false);
         // Closing the server menu here is also done by the atlas client.
         if(client.screen instanceof net.minecraft.client.gui.screens.inventory.AbstractContainerScreen<?>)
             client.player.closeContainer();
