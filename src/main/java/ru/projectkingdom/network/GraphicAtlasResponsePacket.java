@@ -38,6 +38,8 @@ public record GraphicAtlasResponsePacket(KingdomGraphicAtlasData.Snapshot snapsh
             buf.writeUtf(cell.town(), 72);
             buf.writeUtf(cell.nation(), 72);
             buf.writeUtf(cell.business(), 72);
+            buf.writeByte(cell.terrain());
+            buf.writeShort(cell.elevation());
         }
     }
 
@@ -60,10 +62,17 @@ public record GraphicAtlasResponsePacket(KingdomGraphicAtlasData.Snapshot snapsh
             if (index < 0 || index >= used.length || used[index])
                 throw new IllegalArgumentException("Duplicate or invalid atlas tile");
             used[index] = true;
-            cells.set(index, new KingdomGraphicAtlasData.Tile(
-                buf.readVarInt(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
-                buf.readInt(), buf.readInt(), buf.readVarInt(),
-                buf.readUtf(72), buf.readUtf(72), buf.readUtf(72)));
+            int claims = buf.readVarInt();
+            boolean own = buf.readBoolean(), mixed = buf.readBoolean(), planned = buf.readBoolean();
+            int townColor = buf.readInt(), nationColor = buf.readInt();
+            int businesses = buf.readVarInt();
+            String town = buf.readUtf(72), nation = buf.readUtf(72), business = buf.readUtf(72);
+            int terrain = buf.readUnsignedByte();
+            int elevation = buf.readShort();
+            if (claims < 0 || businesses < 0 || terrain >= ru.projectkingdom.map.KingdomAtlasTerrain.Type.values().length)
+                throw new IllegalArgumentException("Invalid atlas tile data");
+            cells.set(index, new KingdomGraphicAtlasData.Tile(claims, own, mixed, planned,
+                    townColor, nationColor, businesses, town, nation, business, terrain, elevation));
         }
         return new GraphicAtlasResponsePacket(new KingdomGraphicAtlasData.Snapshot(
                 request, x, z, scale, KingdomGraphicAtlasData.Layer.values()[layerId], cells));
