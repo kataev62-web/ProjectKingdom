@@ -69,7 +69,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
         item(47,Items.COMPASS,"↓ Сдвинуть карту на юг");
         item(48,Items.ARROW,"→ Сдвинуть карту на восток");
         item(49,Items.MAP,"Выбран чанк: "+selectedX+", "+selectedZ+" | ЛКМ по квадрату для выбора");
-        item(50,Items.GOLD_NUGGET,"Оформить покупку в ратуше — 100 медных (только мэр)");
+        item(50,Items.WRITABLE_BOOK,"Новые земли: Книга Kingdom → Государство → Границы города");
         db.clearExpiredLease(dimension(),selectedX,selectedZ,System.currentTimeMillis());
         var debt=db.leaseDebt(dimension(),selectedX,selectedZ);
         item(17,Items.WRITABLE_BOOK,debt==null?"Арендной задолженности нет":
@@ -114,25 +114,10 @@ public final class KingdomLandMapMenu extends ChestMenu {
         message("Для оформления сделки приди в построенную ратушу (не дальше 16 блоков).");
         return false;
     }
+    /** City growth is exclusively authorized through the treasury-backed founder map. */
     private void purchase() {
-        if(!atTownHall())return;
-        var db=KingdomCivicsData.get(viewer.getServer());
-        var town=db.townOf(viewer.getUUID());
-        if(town==null||!town.mayor().equals(viewer.getUUID())){message("Покупать городскую землю может только мэр");return;}
-        if(plot(selectedX,selectedZ)!=null){message("Участок уже зарегистрирован");return;}
-        BlockPos at=new BlockPos(selectedX<<4,64,selectedZ<<4);
-        var old=KingdomTerritories.get(viewer.getServer());
-        var oldOwner=old.owner(viewer.serverLevel(),at);
-        if(oldOwner!=null&&!oldOwner.equals(viewer.getUUID())){message("Чужой участок в старом реестре");return;}
-        if(KingdomCurrency.balance(viewer)<100){message("Для покупки нужно 100 медных в денежных мешках");return;}
-        // Debit first; compensate on any failed registration. A claimed plot cannot be bought twice.
-        if(!KingdomCurrency.debit(viewer,100)){message("Оплата не прошла");return;}
-        if(!old.claim(viewer.serverLevel(),at,viewer.getUUID()) || !db.claim(viewer.getUUID(),dimension(),selectedX,selectedZ)) {
-            KingdomCurrency.credit(viewer,100);
-            message("Не удалось оформить участок; деньги возвращены");return;
-        }
-        viewer.getInventory().setChanged();
-        message("Куплен чанк "+selectedX+", "+selectedZ+" за 100 медных. Монеты списаны из кошелька.");
+        message("Присоединение новых чанков: Книга Kingdom → Государство → Границы города. "
+                + "Оформление через городскую казну в собственной ратуше.");
     }
     private void leaseAction() {
         if(!atTownHall())return;
