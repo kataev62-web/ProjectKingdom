@@ -1,6 +1,9 @@
 package ru.projectkingdom.npc;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.level.block.state.properties.IntegerProperty;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.Container;
@@ -66,17 +69,48 @@ public final class NpcFieldWork {
         if(state.is(Blocks.POTATOES))return Items.POTATO;
         return null;
     }
+    private static String blockId(BlockState state) {
+        return BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+    }
+    /** TFC simple crops have a real age property and are harvested ONLY at the final age. */
+    private static boolean matureSimpleTfcCrop(BlockState state) {
+        if (!KingdomTfcFieldRules.simpleCrop(blockId(state), state.getBlock().getClass().getName()))
+            return false;
+        for (var property : state.getProperties()) {
+            if (property instanceof IntegerProperty age && "age".equals(age.getName())) {
+                int last = age.getPossibleValues().stream().mapToInt(Integer::intValue).max().orElse(-1);
+                return last >= 0 && state.getValue(age) == last;
+            }
+        }
+        return false;
+    }
     private static boolean isCandidate(BlockState state,KingdomNpcData.Worker w) {
-        if("farmer".equals(w.job))return state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state);
+        if("farmer".equals(w.job))
+            return (state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state))
+                || matureSimpleTfcCrop(state);
         if("lumberjack".equals(w.job))return state.is(BlockTags.LOGS);
         if("miner".equals(w.job))return state.is(BlockTags.MINEABLE_WITH_PICKAXE) &&
-              (state.is(Blocks.STONE)||state.is(Blocks.DEEPSLATE)||state.is(Blocks.COAL_ORE)||state.is(Blocks.IRON_ORE));
+              (state.is(Blocks.STONE)||state.is(Blocks.DEEPSLATE)||state.is(Blocks.COAL_ORE)
+                ||state.is(Blocks.IRON_ORE)||KingdomTfcFieldRules.ore(blockId(state)));
         return false;
     }
     private static boolean toolOk(BlockState state, KingdomNpcData.Worker w) {
-        if(state.getBlock() instanceof CropBlock)return true;
-        if(state.is(BlockTags.LOGS))return w.fieldTool.getItem() instanceof AxeItem;
-        return w.fieldTool.getItem() instanceof PickaxeItem && w.fieldTool.isCorrectToolForDrops(state);
+        if(state.getBlock() instanceof CropBlock || matureSimpleTfcCrop(state))return true;
+        if(state.is(BlockTags.LOGS))
+            return w.fieldTool.is(ItemTags.AXES) || w.fieldTool.getItem() instanceof AxeItem;
+        return (w.fieldTool.is(ItemTags.PICKAXES) || w.fieldTool.getItem() instanceof PickaxeItem)
+            && w.fieldTool.isCorrectToolForDrops(state);
+    }
+    private static ItemStack takeSeedById(KingdomNpcData.Worker w, String seedId) {
+        for (int i = 0; i < w.fieldInventory.size(); i++) {
+            ItemStack item = w.fieldInventory.get(i);
+            if (!item.isEmpty() && seedId.equals(BuiltInRegistries.ITEM.getKey(item.getItem()).toString())) {
+                ItemStack one = item.split(1);
+                if (item.isEmpty()) w.fieldInventory.remove(i);
+                return one;
+            }
+        }
+        return ItemStack.EMPTY;
     }
     /** Borrow the actual tool from the designated RAW warehouse; never create tools. */
     private static boolean borrowTool(ServerLevel level, Villager npc, KingdomNpcData.Worker w) {
@@ -88,8 +122,9 @@ public final class NpcFieldWork {
         BlockEntity be=level.getBlockEntity(pos);if(!(be instanceof Container c))return false;
         for(int i=0;i<c.getContainerSize();i++){
             ItemStack stack=c.getItem(i);
-            if(("lumberjack".equals(w.job)&&stack.getItem() instanceof AxeItem ||
-                "miner".equals(w.job)&&stack.getItem() instanceof PickaxeItem) && c.canTakeItem(c,i,stack)){
+            if(("lumberjack".equals(w.job)&&(stack.is(ItemTags.AXES)||stack.getItem() instanceof AxeItem) ||
+                "miner".equals(w.job)&&(stack.is(ItemTags.PICKAXES)||stack.getItem() instanceof PickaxeItem))
+                && c.canTakeItem(c,i,stack)){
                 w.fieldTool=c.removeItem(i,1);c.setChanged();KingdomNpcData.get(level.getServer()).setDirty();return !w.fieldTool.isEmpty();
             }
         }
@@ -156,6 +191,14 @@ public final class NpcFieldWork {
         if(state.getBlock() instanceof CropBlock){
             var seed=replantSeed(state);
             if(seed!=null && !takeOne(w,seed).isEmpty())level.setBlock(target,state.getBlock().defaultBlockState(),3);
+        }else if(matureSimpleTfcCrop(state)){
+            // Real TFC loot tables drop seeds. Consume one harvested seed before planting.
+            BlockState baby = state.getBlock().defaultBlockState();
+            String seedId = KingdomTfcFieldRules.seeds(blockId(state));
+            if (baby.canSurvive(level,target)) {
+                ItemStack seed = takeSeedById(w,seedId);
+                if (!seed.isEmpty() && !level.setBlock(target,baby,3)) put(w,seed);
+            }
         }else if(!w.fieldTool.isEmpty()){
             w.fieldTool.hurt(1,level.random,null);
             if(w.fieldTool.getDamageValue()>=w.fieldTool.getMaxDamage())w.fieldTool=ItemStack.EMPTY;
