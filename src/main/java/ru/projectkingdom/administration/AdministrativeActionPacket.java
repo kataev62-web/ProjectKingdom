@@ -28,6 +28,10 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
             boolean socialPromotion=packet.kind==AdministrativeKind.TOWN_HALL&&packet.action==SOCIAL_PROMOTE;
             if(!publicFinance&&!socialPromotion&&!menu.manager())return;
             if(socialPromotion){
+                // Bind one click to the rank present when the server opened this exact town-hall menu.
+                // Replayed/double-click packets cannot silently purchase further ranks.
+                if(ru.projectkingdom.social.KingdomSocialData.get(sender.getServer())
+                        .rank(sender.getUUID()).level()!=menu.social().level())return;
                 boolean promoted=ru.projectkingdom.social.KingdomSocialPromotionService.promote(sender,packet.townId);
                 sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(promoted
                         ?"[Project Kingdom] Статус повышен! Откройте ратушу снова для просмотра новых прав."

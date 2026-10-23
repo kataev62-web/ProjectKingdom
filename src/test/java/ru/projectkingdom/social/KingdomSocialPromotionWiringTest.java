@@ -12,6 +12,7 @@ final class KingdomSocialPromotionWiringTest {
     @Test void actionUsesLiveServerSideValidationNotClientRank() throws Exception {
         String packet=source("administration/AdministrativeActionPacket.java");
         assertTrue(packet.contains("SOCIAL_PROMOTE"));
+        assertTrue(packet.contains("menu.social().level()"));
         assertTrue(packet.contains("menu.stillValid(sender)"));
         assertTrue(packet.contains("KingdomSocialPromotionService.promote(sender,packet.townId)"));
         String service=source("social/KingdomSocialPromotionService.java");
