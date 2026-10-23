@@ -61,6 +61,35 @@ public final class KingdomFarmAutonomy {
         }
         return total;
     }
+    /**
+     * Leave harvested soil available for a new crop choice when the current
+     * harvest has accumulated to a meaningful surplus and there are real
+     * alternative seeds. No living plant is destroyed to rotate the field.
+     */
+    public static boolean leaveForRotation(ServerLevel level,KingdomNpcData.Worker owner,
+                                           KingdomFarmFieldData.Field field) {
+        if(owner==null||field==null || !field.enabled()
+                ||KingdomNpcFarmOwner.ownedFarm(level.getServer(),owner)==null
+                ||!owner.hasSource||!owner.hasDestination)return false;
+        BlockPos supply=new BlockPos(owner.sourceX,owner.sourceY,owner.sourceZ);
+        BlockPos store=new BlockPos(owner.destX,owner.destY,owner.destZ);
+        var land=KingdomTerritories.get(level.getServer());
+        if(!level.hasChunkAt(supply)||!level.hasChunkAt(store)
+                ||!land.usable(level,supply,owner.entityId,"raw")
+                ||!land.usable(level,store,owner.entityId,"finished")
+                ||!(level.getBlockEntity(supply) instanceof Container raw)
+                ||!(level.getBlockEntity(store) instanceof Container finished))return false;
+        if(count(finished,harvestItemId(field.seedId()))<64)return false;
+        for(int i=0;i<raw.getContainerSize();i++){
+            ItemStack stack=raw.getItem(i);
+            if(stack.isEmpty()||stack.getCount()<2)continue;
+            String seed=BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            if(!seed.equals(field.seedId()) && KingdomFarmFieldData.validSeed(seed)
+                    && nutritionGroup(seed)>=0) return true;
+        }
+        return false;
+    }
+
     private static String harvestItemId(String seedId){
         if(!seedId.startsWith("tfc:seeds/"))return "";
         return "tfc:food/"+seedId.substring(10);
