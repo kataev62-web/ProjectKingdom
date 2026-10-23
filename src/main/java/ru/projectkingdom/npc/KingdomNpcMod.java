@@ -882,6 +882,17 @@ public final class KingdomNpcMod {
                         if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
                             npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
                         else npc.getNavigation().stop();
+                    } else if ("work".equals(w.order) && "smith".equals(w.job)
+                            && w.hasWorkstation && w.employer != null
+                            && !w.contractPaused
+                            && "CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)) {
+                        // The workshop itself owns the actual recipe, stock and payroll.
+                        // Here we only route the worker to the registered station.
+                        BlockPos station = new BlockPos(w.workX, w.workY, w.workZ);
+                        if (level.hasChunkAt(station)
+                                && KingdomTerritories.get(server).canUse(level, station, w.employer)
+                                && npc.distanceToSqr(w.workX + 0.5, w.workY, w.workZ + 0.5) > 6.25)
+                            npc.getNavigation().moveTo(w.workX + 0.5, w.workY, w.workZ + 0.5, 0.8);
                     } else if ("follow".equals(w.order) && w.employer != null) {
                         ServerPlayer owner = server.getPlayerList().getPlayer(w.employer);
                         if (owner != null && owner.level() == level && npc.distanceToSqr(owner) > 9)
