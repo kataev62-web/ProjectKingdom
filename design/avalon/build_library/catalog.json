@@ -4,8 +4,8 @@
   "location": "Avalon",
   "target_minecraft": "Java 1.20.1 Forge",
   "last_reviewed": "2026-10-23",
-  "source_binary_count_in_repository": 1,
-  "warning": "10+ candidate projects, and one genuine legacy dock review fixture. No third-party structure has passed in-game architectural approval.",
+  "source_binary_count_in_repository": 2,
+  "warning": "One GDMC dock original plus one converted derivative are under review. None are accepted until in-client QA. Other candidates remain links only.",
   "candidates": [
     {
       "id": "stubbs_medieval_bundle",
@@ -220,7 +220,13 @@
       "status": "file_received",
       "github_path": "design/avalon/build_library/schematics/review/gdmc_dock_middle_legacy.schematic",
       "sha256": "ac570af9955a7ca8ebb5a056d8e8a7b74ce368e821a8b14477246787c83b68ca",
-      "next": "Convert legacy ID/data to modern blocks, inspect from first-person and shoreline, then accept/reject; DO NOT copy directly into Avalon."
+      "next": "Test converted review .schem in Forge 1.20.1 staging world, view at player eye-level, verify fence/stair orientations and pier alignment; only then consider approval for Avalon.",
+      "converted_review_path": "design/avalon/build_library/schematics/review/gdmc_dock_middle_converted_1_20_1.schem",
+      "converted_format": "Sponge v2",
+      "converted_data_version": 3465,
+      "converted_sha256": "0bdf041242ad4fe712d4e1fdee3e8724e08835d725d81569228c913c6f815cbe",
+      "converted_palette_size": 30,
+      "converted_status": "NBT_validated_not_in_game_tested"
     }
   ]
 }
