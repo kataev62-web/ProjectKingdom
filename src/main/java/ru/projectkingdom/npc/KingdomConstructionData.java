@@ -106,7 +106,7 @@ public final class KingdomConstructionData extends SavedData {
         if(p==null || !p.owner().equals(actor))return false;
         projects.put(id,new Project(p.id(),p.owner(),p.dimension(),p.design(),p.x(),p.y(),p.z(),status));setDirty();return true;
     }
-    private static KingdomConstructionData load(CompoundTag tag) {
+    static KingdomConstructionData load(CompoundTag tag) {
         KingdomConstructionData data=new KingdomConstructionData();
         ListTag rows=tag.getList("Projects",Tag.TAG_COMPOUND);
         for(int i=0;i<rows.size();i++) {
