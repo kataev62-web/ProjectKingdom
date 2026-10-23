@@ -94,7 +94,11 @@ public final class KingdomLandMapMenu extends ChestMenu {
         item(35,Items.PAPER,"Цена аренды: "+PRICE_CHOICES[leasePriceIndex]+" медных / 7 суток | изменить");
         item(38,Items.EMERALD,"Выставить свой участок на продажу: "+PRICE_CHOICES[salePriceIndex]+" медных");
         item(39,Items.BARRIER,"Снять объявление о продаже");
+        var selectedPlot=plot(selectedX,selectedZ);
+        var sellerTown=selectedPlot==null?null:db.townById(selectedPlot.town());
+        boolean municipal=sale!=null&&sellerTown!=null&&sale.seller().equals(sellerTown.mayor());
         item(40,Items.GOLD_BLOCK,sale==null?"Нет объявления о продаже":
+                municipal?"Забронировать землю города: "+sale.priceCopper()+" медных, оплата в местной ратуше":
                 "Купить у владельца: "+sale.priceCopper()+" медных (наличными в банке)");
         item(27,Items.IRON_PICKAXE,"Работник рядом: выдать/отозвать право строить и ломать");
         item(37,Items.OAK_DOOR,"Работник рядом: выдать/отозвать право взаимодействовать");
@@ -225,9 +229,18 @@ public final class KingdomLandMapMenu extends ChestMenu {
             message(db.cancelSale(viewer.getUUID(),dimension(),selectedX,selectedZ)
                     ?"Объявление о продаже снято":"Нет твоего объявления");
         } else {
-            message(KingdomBankData.get(viewer.getServer()).payLandSaleCash(viewer,dimension(),selectedX,selectedZ)
-                    ?"Покупка зарегистрирована; наличные переданы в банк продавца"
-                    :"Покупка отклонена: приди к банковской стойке с кошельком и проверь объявление");
+            var land=plot(selectedX,selectedZ);
+            var city=land==null?null:db.townById(land.town());
+            var listing=db.saleOffer(dimension(),selectedX,selectedZ);
+            if(listing!=null&&city!=null&&listing.seller().equals(city.mayor())){
+                message(KingdomLandReservations.get(viewer.getServer()).reserve(viewer,dimension(),selectedX,selectedZ)
+                    ?"Земля забронирована на 24 часа. Приди в ратушу города «"+city.name()+"» и оплати участок там."
+                    :"Бронь отклонена: участок не продаётся или уже забронирован.");
+            } else {
+                message(KingdomBankData.get(viewer.getServer()).payLandSaleCash(viewer,dimension(),selectedX,selectedZ)
+                    ?"Покупка оформлена, монеты помещены в кассу банка."
+                    :"Покупка отклонена: приди к банковской стойке с кошельком и проверь объявление.");
+            }
         }
     }
     /** Face-to-face property sale: seller receives physical coins, bank balances remain untouched. */
@@ -238,6 +251,12 @@ public final class KingdomLandMapMenu extends ChestMenu {
             message("Участок не продаётся или сделка недоступна");return;
         }
         var offer=db.saleOffer(dimension(),selectedX,selectedZ);
+        var land=plot(selectedX,selectedZ);
+        var city=land==null?null:db.townById(land.town());
+        if(city!=null&&offer.seller().equals(city.mayor())){
+            message("Землю города сначала бронируют через карту, затем оплачивают в его ратуше.");
+            return;
+        }
         ServerPlayer seller=viewer.getServer().getPlayerList().getPlayer(offer.seller());
         if(seller==null||seller.level()!=viewer.level()||seller.distanceToSqr(viewer)>64) {
             message("Продавец должен находиться рядом (8 блоков)");return;
