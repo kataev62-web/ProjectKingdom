@@ -44,7 +44,13 @@ public final class KingdomMainMenu extends ChestMenu {
         return new KingdomMainMenu(id, inventory, player, page, new SimpleContainer(27),siteId,architectAnchor);
     }
     public static void open(ServerPlayer player) { show(player,Page.HOME); }
-    public static void openMaps(ServerPlayer player) { show(player,Page.MAPS); }
+    /** One native Kingdom atlas instead of a separate vanilla chest map selector. */
+    public static void openMaps(ServerPlayer player) {
+        ru.projectkingdom.network.KingdomNetwork.CHANNEL.send(
+                net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
+                new ru.projectkingdom.network.OpenGraphicAtlasPacket(
+                    ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.LAND.ordinal()));
+    }
     public static void openWallet(ServerPlayer player) { show(player,Page.WALLET); }
     public static void openBank(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.BANK); }
     public static void openWarehouse(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.CITY_MARKET); }
@@ -135,8 +141,8 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(13,Items.COMPASS,"Городские границы: план расширения и выкуп из казны");
                 icon(14,Items.MAP,"Земельные участки: собственность и разрешённые сделки");
                 icon(15,Items.BRICKS,"Инфраструктура: ратуши, здания, дороги, мосты и предприятия");
-                icon(16,Items.FILLED_MAP,"Изготовить карту Kingdom в руки (1 бумага): дороги, границы, путь");
-                icon(22,Items.PAPER,"Большой атлас — в меню; переносная карта — в руках персонажа");
+                icon(16,Items.COMPASS,"Навигатор Kingdom: маршрут и объекты на встроенной карте");
+                icon(22,Items.BOOK,"Вся картография и навигация — в собственном интерфейсе Kingdom");
                 icon(23,Items.BOOK,"Масштаб, перемещение, маркер игрока — в графическом атласе");
             }
             case WALLET -> {
@@ -435,7 +441,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 case 15 -> openTownHall(viewer);
                 case 16 -> openWarehouse(viewer);
                 case 20 -> show(viewer,Page.CIVICS);
-                case 21 -> show(viewer,Page.MAPS);
+                case 21 -> openMaps(viewer);
                 case 22 -> show(viewer,Page.WALLET);
                 case 23 -> {if(!openNearbyEnterprise()){say("Подойди к установленному блоку-ядру предприятия.");show(viewer,Page.ENTERPRISE);}}
             }}
@@ -447,7 +453,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     case 13 -> KingdomCityExpansionMapMenu.open(viewer);
                     case 14 -> KingdomLandMapMenu.open(viewer);
                     case 15 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.INFRASTRUCTURE);
-                    case 16 -> { ru.projectkingdom.map.KingdomHeldMapService.issue(viewer); draw(); }
+                    case 16 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.LAND);
                     default -> { }
                 }
             }
