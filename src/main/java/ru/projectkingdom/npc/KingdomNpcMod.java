@@ -875,10 +875,10 @@ public final class KingdomNpcMod {
                     executed |= KingdomNpcFoodRoutine.tick(level,resident,w);
                     // The physical adapters are shared by the workday scheduler.
                     // Existing independent gatherers remain independent.
-                    if ((w.employer == null && KingdomNpcFarmOwner.ownedFarm(server,w)==null)
-                            || (KingdomNpcNutrition.permittedWorkTick(w,server.getTickCount())
-                                && KingdomNpcDuty.mayExecute(w.job, w.order,
-                                    w.autonomousIntent, KingdomNpcWorkday.employed(server,w)))) {
+                    if (KingdomNpcNutrition.permittedWorkTick(w,server.getTickCount())
+                            && ((w.employer == null && KingdomNpcFarmOwner.ownedFarm(server,w)==null)
+                                || KingdomNpcDuty.mayExecute(w.job,w.order,
+                                    w.autonomousIntent,KingdomNpcWorkday.employed(server,w)))) {
                         executed |= NpcFieldWork.tick(level,resident,w)
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
@@ -941,7 +941,9 @@ public final class KingdomNpcMod {
             long lifeDays = NpcSimulation.elapsed(day,w.lastLifeDay);
             if(lifeDays>0){
                 w.hunger=NpcLife.stepHunger(w.hunger,lifeDays);
-                boolean working="work".equals(w.order)&&w.employer!=null&&!w.contractPaused;
+                boolean working="work".equals(w.order)
+                    &&(w.employer!=null||KingdomNpcFarmOwner.ownedFarm(server,w)!=null)
+                    &&!w.contractPaused;
                 w.energy=NpcLife.stepEnergy(w.energy,lifeDays,working,w.hasHome);
                 w.morale=NpcLife.stepMorale(w.morale,w.hunger,w.energy,w.safety,!w.contractPaused,lifeDays);
                 KingdomNpcNutrition.age(w,lifeDays);
