@@ -90,7 +90,9 @@ public final class KingdomBankData extends SavedData {
         var newBindings=admin.containerBindings(town,AdministrativeBindingRole.BANK_VAULT);
         if(newBindings.size()!=1)return LegacyTransferStatus.NO_NEW_VAULT;
         if(oldBindings.get(0).dimension().equals(newBindings.get(0).dimension())
-                &&oldBindings.get(0).packedPos()==newBindings.get(0).packedPos())
+                &&KingdomContainerAccess.samePhysicalStorage(manager.serverLevel(),
+                    BlockPos.of(oldBindings.get(0).packedPos()),
+                    BlockPos.of(newBindings.get(0).packedPos())))
             return LegacyTransferStatus.SAME_CONTAINER;
         var source=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.TREASURY_VAULT);
         var destination=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
