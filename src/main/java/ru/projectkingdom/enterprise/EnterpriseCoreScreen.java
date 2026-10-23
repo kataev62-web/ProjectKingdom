@@ -6,6 +6,9 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.Items;
+import ru.projectkingdom.core.ParchmentIconButton;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import ru.projectkingdom.core.KingdomFonts;
@@ -21,7 +24,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     public EnterpriseCoreScreen(EnterpriseCoreMenu menu,Inventory inventory,Component title){super(menu,inventory,KingdomFonts.readable(title));imageWidth=EnterpriseMenuLayout.WIDTH;imageHeight=EnterpriseMenuLayout.HEIGHT;}
     @Override protected void init(){
         super.init();var tabs=EnterpriseMenuLayout.tabs();int index=0;
-        for(var tab:EnterpriseMenuLayout.Tab.values()){var r=tabs.get(index++);addRenderableWidget(Button.builder(KingdomFonts.readable(tabLabel(tab)),b->{selected=tab;updateVisibility();}).bounds(leftPos+r.x(),topPos+r.y(),r.width(),r.height()).build());}
+        for(var tab:EnterpriseMenuLayout.Tab.values()){var r=tabs.get(index++);addRenderableWidget(new ParchmentIconButton(leftPos+r.x(),topPos+r.y(),r.width(),r.height(),tabIcon(tab),title(tab),()->{selected=tab;updateVisibility();},()->selected==tab));}
         storageButtons.add(addRenderableWidget(action("Касса",60,132,70,EnterpriseCoreMenu.BIND_CASHBOX)));
         storageButtons.add(addRenderableWidget(action("Сырьё",136,132,70,EnterpriseCoreMenu.BIND_RAW)));
         storageButtons.add(addRenderableWidget(action("Продукция",212,132,78,EnterpriseCoreMenu.BIND_FINISHED)));
@@ -33,10 +36,10 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     }
     private Button action(String text,int x,int y,int width,int id){return Button.builder(KingdomFonts.readable(text),b->{if(minecraft!=null&&minecraft.gameMode!=null)minecraft.gameMode.handleInventoryButtonClick(menu.containerId,id);}).bounds(leftPos+x,topPos+y,width,20).build();}
     private void updateVisibility(){for(Button b:storageButtons)b.visible=selected==EnterpriseMenuLayout.Tab.STORAGE&&menu.manager();for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();boolean settings=selected==EnterpriseMenuLayout.Tab.SETTINGS&&menu.manager();if(rename!=null)rename.setVisible(settings);if(renameButton!=null)renameButton.visible=settings;}
-    private static String tabLabel(EnterpriseMenuLayout.Tab tab){return switch(tab){case INFO->"И";case WORKERS->"Л";case PRODUCTION->"П";case STORAGE->"С";case CASH->"К";case ORDERS->"З";case SETTINGS->"Н";};}
+    private static Item tabIcon(EnterpriseMenuLayout.Tab tab){return switch(tab){case INFO->Items.BOOK;case WORKERS->Items.VILLAGER_SPAWN_EGG;case PRODUCTION->Items.IRON_PICKAXE;case STORAGE->Items.CHEST;case CASH->Items.GOLD_INGOT;case ORDERS->Items.PAPER;case SETTINGS->Items.COMPARATOR;};}
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){g.fill(leftPos+34,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);g.fill(leftPos+39,topPos+9,leftPos+imageWidth-9,topPos+imageHeight-9,PARCHMENT);g.fill(leftPos+51,topPos+42,leftPos+imageWidth-20,topPos+43,EDGE);}
     @Override protected void renderLabels(GuiGraphics g,int mouseX,int mouseY){
-        g.drawCenteredString(font,KingdomFonts.readable(menu.kind().title().toUpperCase(java.util.Locale.ROOT)),174,18,ACCENT);
+        g.drawCenteredString(font,KingdomFonts.readable(menu.kind().title()),174,18,ACCENT);
         g.drawString(font,KingdomFonts.readable(menu.enterpriseName()),54,48,INK,false);g.drawString(font,KingdomFonts.readable("Вкладка: "+title(selected)),54,64,MUTED,false);
         switch(selected){
             case INFO->{line(g,"Владелец: "+menu.owner(),54,84);line(g,"Состояние: активно",54,100);line(g,"Ядро: "+menu.enterpriseId(),54,116);}
