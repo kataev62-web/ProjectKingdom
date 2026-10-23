@@ -216,20 +216,26 @@ public final class KingdomNpcMod {
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
             AdministrativeAccessService.cancel(player.getUUID());
+            player.sendSystemMessage(Component.literal("[Город] Привязка отменена: вы держите строительный блок. Освободите руку и начните заново."));
             return;
         }
+        String role=AdministrativeAccessService.pendingRole(player.getUUID());
         var status=AdministrativeAccessService.complete(player,player.serverLevel(),event.getPos());
-        player.sendSystemMessage(Component.literal("[Project Kingdom] Привязка городской службы: "+status));
+        player.sendSystemMessage(Component.literal("[Город] "+role+": "
+                +AdministrativeAccessService.explanation(status)));
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
     @SubscribeEvent public void bindEnterpriseContainer(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!EnterpriseAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
             EnterpriseAccessService.cancel(player.getUUID());
+            player.sendSystemMessage(Component.literal("[Предприятие] Привязка отменена: у вас в руке блок. Уберите его и начните привязку заново."));
             return;
         }
+        String role=EnterpriseAccessService.pendingRole(player.getUUID());
         var status=EnterpriseAccessService.complete(player,player.serverLevel(),event.getPos());
-        player.sendSystemMessage(Component.literal("[Project Kingdom] Привязка предприятия: "+status));
+        player.sendSystemMessage(Component.literal("[Предприятие] "+role+": "
+                +EnterpriseAccessService.explanation(status)));
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
     @SubscribeEvent public void bindChest(PlayerInteractEvent.RightClickBlock event) {
