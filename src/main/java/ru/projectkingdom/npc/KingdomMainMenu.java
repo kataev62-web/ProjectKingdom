@@ -372,11 +372,6 @@ public final class KingdomMainMenu extends ChestMenu {
         if(page!=Page.HOME)icon(26,Items.ARROW,page==Page.MATERIALS?"Назад к строительству":"Назад в главное меню");
         broadcastChanges();
     }
-    private void openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer layer) {
-        ru.projectkingdom.network.KingdomNetwork.CHANNEL.send(
-            net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> viewer),
-            new ru.projectkingdom.network.OpenGraphicAtlasPacket(layer.ordinal()));
-    }
     private void say(String message) {viewer.sendSystemMessage(Component.literal("[Project Kingdom] "+message));}
     private void place(KingdomBuildingTypes.Type type) {
         KingdomArchitectSessions.beginBuiltin(viewer,type,architectAnchor);
