@@ -20,7 +20,7 @@ import ru.projectkingdom.npc.KingdomManagedStorageEntity;
 public final class EnterpriseAccessService {
     public enum Status {
         BOUND_AVAILABLE, BOUND_UNLOADED, MISSING, FOREIGN_TERRITORY, INVALID_CONTAINER,
-        ALREADY_ASSIGNED, TOO_FAR, NO_SESSION, WRONG_DIMENSION, NO_PERMISSION, STORAGE_OWNER_MISMATCH
+        ALREADY_ASSIGNED, TOO_FAR, NO_SESSION, WRONG_DIMENSION, NO_PERMISSION, STORAGE_OWNER_MISMATCH, STORAGE_NOT_READY
     }
     public record Access(Status status,Container container,BlockPos position) {}
     private static final Map<UUID,EnterpriseBindingSession> SESSIONS=new ConcurrentHashMap<>();
@@ -40,6 +40,7 @@ public final class EnterpriseAccessService {
             case WRONG_DIMENSION->"Нельзя привязать в другом измерении";
             case NO_PERMISSION->"Нет прав владельца предприятия";
             case STORAGE_OWNER_MISMATCH->"Склад принадлежит другому игроку";
+            case STORAGE_NOT_READY->"Склад Kingdom не готов к работе";
         };
     }
 
@@ -57,6 +58,7 @@ public final class EnterpriseAccessService {
             case WRONG_DIMENSION->"Вернитесь в измерение, где начинали привязку, и начните её заново.";
             case NO_PERMISSION->"Привязку выполняет только владелец предприятия.";
             case STORAGE_OWNER_MISMATCH->"Выберите свой склад Kingdom или используйте обычный сундук на своём участке.";
+            case STORAGE_NOT_READY->"Склад ещё не закреплён за владельцем или его защита не активна. Нажмите ПКМ по складу с пустой рукой; при необходимости поставьте новый блок на своей земле.";
         };
     }
     public static String display(Status status) {return label(status);}
@@ -80,8 +82,10 @@ public final class EnterpriseAccessService {
                 && owner.equals(city.plotOwner(level.dimension().location().toString(),pos.getX()>>4,pos.getZ()>>4));
     }
     private static Status checkContainer(ServerLevel level,BlockPos pos,UUID owner) {
-        if(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity managed
-                && !owner.equals(managed.owner()))return Status.STORAGE_OWNER_MISMATCH;
+        if(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity managed) {
+            if(managed.owner()==null || !managed.readyForTransactions())return Status.STORAGE_NOT_READY;
+            if(!owner.equals(managed.owner()))return Status.STORAGE_OWNER_MISMATCH;
+        }
         return KingdomContainerAccess.resolve(level,pos)==null ? Status.INVALID_CONTAINER : Status.BOUND_AVAILABLE;
     }
     /** Both halves of a double chest are a single private inventory/role. */
