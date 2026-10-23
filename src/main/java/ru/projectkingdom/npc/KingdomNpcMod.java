@@ -796,11 +796,29 @@ public final class KingdomNpcMod {
                     }
                 }
             }
-            var plan=NpcAutonomyPlanner.plan(new NpcAutonomyPlanner.Snapshot(
-                w.employer != null,w.contractPaused,w.hunger,w.energy,w.safety,
-                w.hasHome,w.hasWorkstation,w.hasSource,w.hasDestination,authorized,
-                KingdomNpcWorkshopData.get(server).plan(w.entityId)!=null));
-            if(!w.autonomousIntent.equals(plan.name())) {w.autonomousIntent=plan.name();changed=true;}
+            // Millenaire-inspired needs and day/night goal selection. Respect explicit
+            // player orders; goals only annotate intent and guide autonomous movement.
+            long timeOfDay = server.overworld().getDayTime() % TICKS_PER_DAY;
+            boolean daytime = timeOfDay >= 0 && timeOfDay < 12000;
+            var goal = KingdomNpcGoalSelector.choose(new KingdomNpcGoalSelector.Context(
+                w.employer != null, !w.contractPaused && authorized,
+                w.hasWorkstation && w.hasSource && w.hasDestination
+                    && KingdomNpcWorkshopData.get(server).plan(w.entityId) != null,
+                daytime, w.hasHome, w.hunger, w.energy));
+            var intent = switch (goal) {
+                case EAT -> NpcAutonomyPlanner.Intention.EAT;
+                case REST -> NpcAutonomyPlanner.Intention.REST;
+                case RETURN_HOME -> NpcAutonomyPlanner.Intention.SEEK_SHELTER;
+                case WORK -> NpcAutonomyPlanner.Intention.CONTINUE_ASSIGNED_JOB;
+                case IDLE -> NpcAutonomyPlanner.plan(new NpcAutonomyPlanner.Snapshot(
+                    w.employer != null,w.contractPaused,w.hunger,w.energy,w.safety,
+                    w.hasHome,w.hasWorkstation,w.hasSource,w.hasDestination,authorized,
+                    KingdomNpcWorkshopData.get(server).plan(w.entityId)!=null));
+            };
+            if(w.safety < 25) intent = NpcAutonomyPlanner.Intention.SEEK_SHELTER;
+            if(!w.autonomousIntent.equals(intent.name())) {
+                w.autonomousIntent=intent.name();changed=true;
+            }
             if (NpcIdentity.advance(w,day)) changed=true;
             long lifeDays = NpcSimulation.elapsed(day,w.lastLifeDay);
             if(lifeDays>0){
