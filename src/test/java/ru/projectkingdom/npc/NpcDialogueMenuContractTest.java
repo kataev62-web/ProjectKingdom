@@ -27,7 +27,7 @@ final class NpcDialogueMenuContractTest {
 
         // Existing validated management actions must remain reachable.
         assertTrue(source.contains("НАНЯТЬ жителя"));
-        assertTrue(source.contains("РАБОТАТЬ: реальные культуры"));
+        assertTrue(source.contains("РАБОТАТЬ: по профессии, с физическими ресурсами и складом"));
         assertTrue(source.contains("СКЛАД СЫРЬЯ"));
     }
 }
