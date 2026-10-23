@@ -96,6 +96,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     AdministrativeActionPacket.BIND_BANK,80,179,224,true);
                 addAction("Перенести монеты старой казны",AdministrativeMenuLayout.Tab.INFO,
                     AdministrativeActionPacket.CONSOLIDATE_BANK,58,158,246,true);
+                addAction("Сверить старые остатки (пустой сейф)",AdministrativeMenuLayout.Tab.INFO,
+                    AdministrativeActionPacket.RECONCILE_BANK,58,184,246,true);
             }
             case CENTRAL_WAREHOUSE->addAction("Добавить контейнер",AdministrativeMenuLayout.Tab.STORAGE,AdministrativeActionPacket.BIND_WAREHOUSE,78,146,190,true);
             case CITY_MARKET->addAction("Добавить склад рынка",AdministrativeMenuLayout.Tab.TRADE,AdministrativeActionPacket.BIND_MARKET,78,146,190,true);
