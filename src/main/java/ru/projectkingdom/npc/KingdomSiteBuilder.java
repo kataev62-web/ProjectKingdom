@@ -3,7 +3,6 @@ package ru.projectkingdom.npc;
 import java.io.IOException;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.ItemStack;
 
 /**
  * Creates paid, server-validated survival sites from built-in templates or
@@ -14,21 +13,25 @@ public final class KingdomSiteBuilder {
 
     public static String place(ServerPlayer player, KingdomBuildingTypes.Type type) {
         if (type == null) return "Неизвестный тип здания.";
-        return placeDesign(player, type.name(), KingdomBuildingTypes.design(type), false);
+        return placeDesign(player, type.name(), KingdomBuildingTypes.design(type));
     }
 
     public static String placeSchematic(ServerPlayer player, String name) {
         if (!KingdomSchematicLibrary.validName(name)) return "Недопустимое имя схемы.";
         try {
-            var design = KingdomSchematicLibrary.preview(player.getServer(), name);
-            return placeDesign(player, name, design, true);
+            // Freeze once, then validate and build from that exact immutable snapshot.
+            // The editable source file must never be substituted after land checks.
+            String key = KingdomSchematicLibrary.freeze(player.getServer(), name);
+            var design = KingdomConstructionPlans.resolve(player.getServer(), key);
+            if (design == null) return "Ошибка .schem: закреплённая схема недоступна.";
+            return placeDesign(player, key, design);
         } catch (IOException | IllegalArgumentException ex) {
             return "Ошибка .schem: " + ex.getMessage();
         }
     }
 
     private static String placeDesign(ServerPlayer player, String id,
-                                      KingdomDesignEngine.Design design, boolean imported) {
+                                      KingdomDesignEngine.Design design) {
         BlockPos marker = findLectern(player);
         if (marker == null) return "Установи чертёжный стол или кафедру на расстоянии до 4 блоков.";
         var db = KingdomConstructionData.get(player.getServer());
@@ -82,13 +85,6 @@ public final class KingdomSiteBuilder {
         }
 
         String designKey = id;
-        if (imported) {
-            try {
-                designKey = KingdomSchematicLibrary.freeze(player.getServer(), id);
-            } catch (IOException ex) {
-                return "Не удалось закрепить копию схемы: " + ex.getMessage();
-            }
-        }
         var project = db.add(player.getUUID(), dimension, designKey,
             marker.getX() + 2, marker.getY(), marker.getZ() + 2);
         if (blueprintSlot >= 0) {
