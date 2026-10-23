@@ -137,9 +137,18 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         line(g,"Город: "+menu.townName(),58,51,INK);line(g,"Раздел: "+title(selected),58,68,MUTED);
         switch(selected){
             case INFO->{
-                line(g,"Основатель: "+menu.founder(),58,90,MUTED);
-                line(g,"Мэр: "+menu.mayor(),58,108,MUTED);
-                line(g,"Состояние: активно",58,126,MUTED);
+                if(menu.kind()==AdministrativeKind.BANK){
+                    line(g,"Архив старого личного счёта: "+menu.legacyPersonal()+" мед.",58,80,MUTED);
+                    if(menu.manager()){
+                        line(g,"Архив обязательств банка: "+menu.legacyBank()+" мед.",58,102,MUTED);
+                        line(g,"Архив старой казны: "+menu.legacyTown()+" мед.",58,121,MUTED);
+                        line(g,"Архив не равен доступным монетам!",58,140,ACCENT);
+                    }else line(g,"Архив — на сверке. Снять его нельзя.",58,105,ACCENT);
+                }else{
+                    line(g,"Основатель: "+menu.founder(),58,90,MUTED);
+                    line(g,"Мэр: "+menu.mayor(),58,108,MUTED);
+                    line(g,"Состояние: активно",58,126,MUTED);
+                }
                 if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager())
                     line(g,"Вкладка «Граждане» — вступление в город",58,148,MUTED);
             }
