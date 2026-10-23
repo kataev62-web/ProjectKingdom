@@ -163,8 +163,10 @@ public final class KingdomFarmWorker {
         UUID id=farm(level,w);if(id==null)return null;
         var fields=KingdomFarmFieldData.get(level.getServer()).of(id);
         BlockPos preferred=null;double best=Double.MAX_VALUE;
+        boolean owner=KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)!=null;
         for(var field:fields)if(field.enabled()
-            &&field.dimension().equals(w.dimension)&&!field.seedId().isBlank()){
+            &&field.dimension().equals(w.dimension)
+            && (owner || !field.seedId().isBlank())){
             var pos=field.centerCrop();
             if(!level.hasChunkAt(pos))continue;
             double d=pos.distSqr(new BlockPos(w.hasHome?w.homeX:w.sourceX,
@@ -181,6 +183,10 @@ public final class KingdomFarmWorker {
             ||!"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)
             ||!w.hasSource||!w.hasDestination)return false;
         UUID enterprise=farm(level,w);if(enterprise==null)return false;
+        // Decisions are cheap, bounded and only applied to an actually NPC-owned farm.
+        if(level.getServer().getTickCount()%1200==0
+                && KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)!=null)
+            KingdomFarmAutonomy.review(level,w,enterprise);
         var planned=KingdomFarmFieldData.get(level.getServer()).of(enterprise).stream()
             .filter(f->f.enabled()&&!f.seedId().isBlank()
                 &&f.dimension().equals(w.dimension)).toList();
