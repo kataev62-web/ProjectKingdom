@@ -122,9 +122,13 @@ public final class KingdomNpcMenu extends ChestMenu {
         icon(5, Items.ANVIL, "НАЗНАЧИТЬ РАБОЧУЮ СТАНЦИЮ (ПКМ по блоку)");
         var workshop=KingdomNpcWorkshopData.get(viewer.getServer());
         var plan=workshop.plan(w.entityId);
-        icon(9, Items.CRAFTING_TABLE, plan==null
-            ? "РЕЦЕПТ (ЛКМ): выложи ингредиенты в первых 9 ячейках сырьевого склада"
-            : "РЕЦЕПТ "+plan.output()+" | ЛКМ: записать заново | ПКМ: цена "+plan.salePrice()+" мед./шт.");
+        boolean tfcQuern = viewer.level().dimension().location().toString().equals(w.dimension)
+            && KingdomTfcQuernWork.isQuern(viewer.serverLevel(), w);
+        icon(9, tfcQuern ? Items.STONE : Items.CRAFTING_TABLE, tfcQuern
+            ? "TFC ЖЕРНОВ: автоматическое измельчение по настоящим рецептам TFC; нужна каменная рукоять"
+            : plan==null
+                ? "РЕЦЕПТ (ЛКМ): выложи ингредиенты в первых 9 ячейках сырьевого склада"
+                : "РЕЦЕПТ "+plan.output()+" | ЛКМ: записать заново | ПКМ: цена "+plan.salePrice()+" мед./шт.");
         icon(10, Items.BOOK, "Профессия: " + profession(w.job));
         icon(11, Items.CLOCK, "Возраст: " + w.ageYears + " лет | Пол: " + gender(w.gender));
         icon(12, Items.BREAD, "Сытость: " + w.hunger + "/100");
@@ -142,7 +146,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         if (owned) {
             icon(20, Items.LEAD, "СЛЕДОВАТЬ за мной");
             icon(21, Items.BARRIER, "СТОЯТЬ на месте");
-            icon(22, Items.IRON_PICKAXE, "РАБОТАТЬ: реальные культуры, древесина, руда");
+            icon(22, Items.IRON_PICKAXE, "РАБОТАТЬ: по профессии, с физическими ресурсами и складом");
             icon(23, Items.OAK_DOOR, "ВЕРНУТЬСЯ ДОМОЙ");
             icon(24, Items.SUNFLOWER, "СВОБОДНАЯ ЖИЗНЬ");
             icon(25, Items.GOLD_NUGGET, "+1 к дневной зарплате");
@@ -208,6 +212,11 @@ public final class KingdomNpcMenu extends ChestMenu {
             case 2 -> page=Page.DIALOGUE;
             case 9 -> {
                 if(!owner){info("Нужны права работодателя.");break;}
+                if(viewer.level().dimension().location().toString().equals(w.dimension)
+                        && KingdomTfcQuernWork.isQuern(viewer.serverLevel(),w)){
+                    info("Жернов TFC работает без ручного рецепта. Поставь настоящий жернов, положи в него ручной камень, назначь сырьевой и готовый склады, выдай работнику приказ работать.");
+                    break;
+                }
                 if(button==1){
                     var registry=KingdomNpcWorkshopData.get(viewer.getServer());
                     var plan=registry.plan(w.entityId);
