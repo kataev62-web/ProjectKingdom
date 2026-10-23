@@ -30,6 +30,9 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     private KingdomGraphicAtlasData.Snapshot snapshot;
     private int selectedCol = -1, selectedRow = -1;
     private KingdomAtlasInfrastructure.Marker selectedMarker;
+    private Integer destinationChunkX, destinationChunkZ;
+    private KingdomAtlasNavigator.Route route;
+    private int lastRouteChunkX = Integer.MIN_VALUE, lastRouteChunkZ = Integer.MIN_VALUE;
     private int left, top, cell, gridX, gridY, gridWidth, gridHeight, panelWidth, panelHeight;
 
     public KingdomGraphicAtlasScreen() {
@@ -84,12 +87,14 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 button -> pan(0,1)).bounds(side + 72, y + 49, 32, 18).build());
         addRenderableWidget(Button.builder(Component.literal("→"),
                 button -> pan(1,0)).bounds(side + 108, y + 49, 32, 18).build());
-        addRenderableWidget(Button.builder(Component.literal("План города"),
+        addRenderableWidget(Button.builder(Component.literal("Путь"),
+                button -> planSelectedRoute()).bounds(side, top + panelHeight - 28, 38, 18).build());
+        addRenderableWidget(Button.builder(Component.literal("Земли"),
                 button -> KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()))
-                .bounds(side, top + panelHeight - 28, 83, 18).build());
-        addRenderableWidget(Button.builder(Component.literal("К картам"),
+                .bounds(side + 40, top + panelHeight - 28, 47, 18).build());
+        addRenderableWidget(Button.builder(Component.literal("Карты"),
                 button -> KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsHubPacket()))
-                .bounds(side + 86, top + panelHeight - 28, 56, 18).build());
+                .bounds(side + 89, top + panelHeight - 28, 53, 18).build());
         if (requestId == 0) resetCenter();
         else request();
     }
@@ -126,6 +131,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             selectedCol = -1;
             selectedRow = -1;
             selectedMarker = null;
+            route = null;
+            destinationChunkX = destinationChunkZ = null;
         }
         requestId++;
         KingdomNetwork.CHANNEL.sendToServer(new GraphicAtlasRequestPacket(
@@ -138,9 +145,15 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 || reply.scale() != KingdomGraphicAtlasData.SCALES[scaleIndex]
                 || reply.layer() != layer) return;
         snapshot = reply;
+        recomputeRoute();
     }
     @Override public void tick() {
         ticks++;
+        if (minecraft != null && minecraft.player != null
+                && (minecraft.player.chunkPosition().x != lastRouteChunkX
+                    || minecraft.player.chunkPosition().z != lastRouteChunkZ)) {
+            recomputeRoute();
+        }
         if (ticks % 40 != 0) return;
         if (followPlayer && minecraft != null && minecraft.player != null) {
             int threshold = 3 * KingdomGraphicAtlasData.SCALES[scaleIndex];
@@ -153,6 +166,56 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             }
         }
         request();
+    }
+
+    private void planSelectedRoute() {
+        if (minecraft == null || minecraft.player == null || snapshot == null) return;
+        if (selectedMarker != null) {
+            destinationChunkX = Math.floorDiv(selectedMarker.blockX(),16);
+            destinationChunkZ = Math.floorDiv(selectedMarker.blockZ(),16);
+        } else if (selectedCol >= 0 && selectedRow >= 0) {
+            int scale = KingdomGraphicAtlasData.SCALES[scaleIndex];
+            destinationChunkX = centerX - (KingdomGraphicAtlasData.COLUMNS/2)*scale
+                    + selectedCol*scale + scale/2;
+            destinationChunkZ = centerZ - (KingdomGraphicAtlasData.ROWS/2)*scale
+                    + selectedRow*scale + scale/2;
+        } else return;
+        recomputeRoute();
+    }
+
+    private void recomputeRoute() {
+        if (minecraft == null || minecraft.player == null || snapshot == null
+                || destinationChunkX == null || destinationChunkZ == null) return;
+        lastRouteChunkX = minecraft.player.chunkPosition().x;
+        lastRouteChunkZ = minecraft.player.chunkPosition().z;
+        route = KingdomAtlasNavigator.plan(snapshot,lastRouteChunkX,lastRouteChunkZ,
+                destinationChunkX,destinationChunkZ);
+    }
+
+    private String routeHint() {
+        if(route==null)return "Выберите объект и нажмите Путь";
+        return switch(route.status()) {
+            case ROUTE -> "Пешком ≈ " + route.estimatedBlocks() + " блоков";
+            case ALREADY_THERE -> "Вы у пункта назначения";
+            case ZOOM_IN -> "Для пути: масштаб 1 чанк";
+            case OUTSIDE_MAP -> "Цель вне видимой области";
+            case UNCHARTED -> "Маршрут не исследован";
+            case BLOCKED -> "Связного прохода нет";
+        };
+    }
+
+    private void renderRoute(GuiGraphics gui) {
+        if(route==null || route.status()!=KingdomAtlasNavigator.Status.ROUTE) return;
+        var steps=route.steps();
+        for(int i=1;i<steps.size();i++) {
+            var p=steps.get(i-1);var q=steps.get(i);
+            int ax=gridX+p.column()*cell+cell/2, ay=gridY+p.row()*cell+cell/2;
+            int bx=gridX+q.column()*cell+cell/2, by=gridY+q.row()*cell+cell/2;
+            int x1=Math.min(ax,bx),x2=Math.max(ax,bx);
+            int y1=Math.min(ay,by),y2=Math.max(ay,by);
+            gui.fill(x1-1,y1-1,x2+2,y2+2,0xFF253F67);
+            gui.fill(x1,y1,x2+1,y2+1,0xFFFCE27B);
+        }
     }
 
     private static int mix(int left, int right, int percentage) {
@@ -217,6 +280,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 gridX + gridWidth - 148, top + panelHeight - 17, MUTED, false);
         if (snapshot != null) {
             renderTiles(gui);
+            renderBuildingOutlines(gui);
+            renderRoute(gui);
             renderInfrastructureMarkers(gui);
         } else gui.fill(gridX, gridY, gridX + gridWidth, gridY + gridHeight, FREE);
         // The position and heading of THIS player are rendered every frame,
@@ -225,7 +290,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
 
         int sx = gridX + gridWidth + 11;
         int sy = gridY + 78;
-        gui.drawString(font, Component.literal("Границы и владения"), sx, sy, INK, false);
+        gui.drawString(font, Component.literal("Маршрут / местность"), sx, sy, INK, false);
         // Compact two-column legend keeps the owner inspector visible even
         // on 240px Minecraft GUI height at higher interface scaling.
         gui.fill(sx, sy + 14, sx + 8, sy + 22, OWN);
@@ -262,6 +327,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         } else {
             shortText(gui, "Нажмите на область", sx, infoY + 12);
         }
+        gui.drawString(font, font.plainSubstrByWidth(routeHint(), 142),
+                sx, top + panelHeight - 44, INK, false);
         super.render(gui, mouseX, mouseY, partialTick);
         if (snapshot != null && mouseX >= gridX && mouseX < gridX + gridWidth
                 && mouseY >= gridY && mouseY < gridY + gridHeight) {
@@ -327,6 +394,33 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             case ROAD -> 0xFF9F6941;
             case BRIDGE -> 0xFFB5D6E1;
         };
+    }
+
+    private void renderBuildingOutlines(GuiGraphics gui) {
+        if(snapshot==null) return;
+        int scale=KingdomGraphicAtlasData.SCALES[scaleIndex];
+        long west=((long)centerX-(KingdomGraphicAtlasData.COLUMNS/2L)*scale)*16L;
+        long north=((long)centerZ-(KingdomGraphicAtlasData.ROWS/2L)*scale)*16L;
+        for(var outline:snapshot.outlines()) {
+            int x1=gridX+(int)Math.floor(((long)outline.minX()-west)*cell/(16.0*scale));
+            int z1=gridY+(int)Math.floor(((long)outline.minZ()-north)*cell/(16.0*scale));
+            int x2=gridX+(int)Math.ceil(((long)outline.maxX()+1-west)*cell/(16.0*scale));
+            int z2=gridY+(int)Math.ceil(((long)outline.maxZ()+1-north)*cell/(16.0*scale));
+            if(x2<=gridX||z2<=gridY||x1>=gridX+gridWidth||z1>=gridY+gridHeight)continue;
+            x1=Math.max(gridX,x1);z1=Math.max(gridY,z1);
+            x2=Math.min(gridX+gridWidth,x2);z2=Math.min(gridY+gridHeight,z2);
+            if(x2<=x1||z2<=z1)continue;
+            int stroke=switch(outline.kind()) {
+                case ROAD -> 0xFF8C5B35;
+                case BRIDGE -> 0xFFDEF1ED;
+                case TOWN_HALL -> 0xFFFFDC75;
+                case BUILDING, ADMINISTRATION, ENTERPRISE -> 0xFFEFE2BF;
+            };
+            gui.fill(x1,z1,x2,z1+1,stroke);
+            gui.fill(x1,z2-1,x2,z2,stroke);
+            gui.fill(x1,z1,x1+1,z2,stroke);
+            gui.fill(x2-1,z1,x2,z2,stroke);
+        }
     }
 
     private void renderInfrastructureMarkers(GuiGraphics gui) {
@@ -472,6 +566,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         if (button == 0 && mx >= gridX && mx < gridX + gridWidth
                 && my >= gridY && my < gridY + gridHeight) {
             selectedMarker = infrastructureAt(mx, my);
+            destinationChunkX = destinationChunkZ = null;
+            route = null;
             selectedCol = ((int)mx - gridX) / cell;
             selectedRow = ((int)my - gridY) / cell;
             return true;
