@@ -22,18 +22,29 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox roleTarget;
+    private Button joinButton;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
     }
     @Override protected void init(){
-        super.init();var tabs=AdministrativeMenuLayout.tabs(menu.kind());var rects=AdministrativeMenuLayout.tabRects(menu.kind());
+        super.init();
+        var tabs=menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()
+                ?List.of(AdministrativeMenuLayout.Tab.INFO,AdministrativeMenuLayout.Tab.CITIZENS)
+                :AdministrativeMenuLayout.tabs(menu.kind());
+        var rects=AdministrativeMenuLayout.tabRects(menu.kind());
         for(int i=0;i<tabs.size();i++){
             var tab=tabs.get(i);var rect=rects.get(i);
             tabButtons.add(addRenderableWidget(new ParchmentIconButton(
                     leftPos+rect.x(),topPos+rect.y(),rect.width(),rect.height(),
                     tabIcon(tab),title(tab),()->{selected=tab;updateVisibility();},()->selected==tab)));
         }
-        if(menu.kind()==AdministrativeKind.TOWN_HALL){
+        if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()&&menu.canJoin()){
+            joinButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Вступить в город"),
+                    ignored->KingdomNetwork.CHANNEL.sendToServer(new AdministrativeActionPacket(
+                            menu.townId(),AdministrativeKind.TOWN_HALL,AdministrativeActionPacket.JOIN_TOWN)))
+                    .bounds(leftPos+74,topPos+132,204,22).build());
+        }
+        if(menu.kind()==AdministrativeKind.TOWN_HALL&&menu.manager()){
             roleTarget=addRenderableWidget(new EditBox(font,leftPos+58,topPos+90,242,18,KingdomFonts.readable(Component.literal("UUID гражданина"))));
             roleTarget.setMaxLength(36);roleControls.add(roleTarget);
             addRolePair(MunicipalRole.TREASURER,"Казна",58,114);addRolePair(MunicipalRole.LAND_MANAGER,"Земля",184,114);
@@ -76,6 +87,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private void updateVisibility(){
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
+        if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
     }
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){
         g.fill(leftPos+36,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);
@@ -86,8 +98,21 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         g.drawCenteredString(font,KingdomFonts.readable(menu.kind().russianName()),190,18,ACCENT);
         line(g,"Город: "+menu.townName(),58,51,INK);line(g,"Раздел: "+title(selected),58,68,MUTED);
         switch(selected){
-            case INFO->{line(g,"Основатель: "+menu.founder(),58,90,MUTED);line(g,"Мэр: "+menu.mayor(),58,108,MUTED);line(g,"Состояние: активно",58,126,MUTED);}
-            case CITIZENS->renderRows(g,"Граждане города",menu.pageRows());
+            case INFO->{
+                line(g,"Основатель: "+menu.founder(),58,90,MUTED);
+                line(g,"Мэр: "+menu.mayor(),58,108,MUTED);
+                line(g,"Состояние: активно",58,126,MUTED);
+                if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager())
+                    line(g,"Вкладка «Граждане» — вступление в город",58,148,MUTED);
+            }
+            case CITIZENS->{
+                if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()){
+                    line(g,"Гражданство",58,91,INK);
+                    if(menu.member())line(g,"Вы уже состоите в этом городе.",58,112,MUTED);
+                    else if(menu.canJoin())line(g,"Чтобы стать жителем, нажмите кнопку ниже.",58,112,MUTED);
+                    else line(g,"Вы уже состоите в другом городе.",58,112,MUTED);
+                } else renderRows(g,"Граждане города",menu.pageRows());
+            }
             case OFFICES->{if(menu.manager())line(g,"Укажите UUID гражданина:",58,78,MUTED);else placeholder(g,"Только просмотр должностей",90);}
             case FINANCE->{
                 if(menu.kind()==AdministrativeKind.BANK){
