@@ -63,31 +63,52 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gridX = left + navWidth + 8;
         gridY = top + 26;
         int navX = left + 6, navButtonWidth = navWidth - 11;
-        String[] labels = {"Местность", "Государства", "Предприятия", "Стройки"};
+        boolean compactControls = panelHeight < 218;
         KingdomGraphicAtlasData.Layer[] layers = KingdomGraphicAtlasData.Layer.values();
-        for (int i=0;i<layers.length;i++) {
-            var chosen = layers[i];
-            addRenderableWidget(Button.builder(Component.literal(labels[i]),
-                    button -> setLayer(chosen))
-                    .bounds(navX,top + 27 + i * 19,navButtonWidth,17).build());
-        }
         int half = (navButtonWidth - 3) / 2;
+        if (compactControls) {
+            String[] labels = {"Мир", "Нации", "Фирмы", "Стройки"};
+            for (int i=0;i<layers.length;i++) {
+                var chosen=layers[i];
+                int col=i%2,row=i/2;
+                addRenderableWidget(Button.builder(Component.literal(labels[i]),
+                        button -> setLayer(chosen)).bounds(
+                        navX+col*(half+3),top+26+row*17,
+                        col==0?half:navButtonWidth-half-3,16).build());
+            }
+        } else {
+            String[] labels = {"Местность", "Государства", "Предприятия", "Стройки"};
+            for (int i=0;i<layers.length;i++) {
+                var chosen=layers[i];
+                addRenderableWidget(Button.builder(Component.literal(labels[i]),
+                        button -> setLayer(chosen))
+                        .bounds(navX,top+27+i*19,navButtonWidth,17).build());
+            }
+        }
+        int up=compactControls?66:108;
+        int leftRight=compactControls?82:126;
+        int down=compactControls?98:144;
+        int zoom=compactControls?114:162;
+        int centre=compactControls?130:180;
+        int routeY=compactControls?146:198;
         addRenderableWidget(Button.builder(Component.literal("↑"),
-                button -> pan(0,-1)).bounds(navX,top + 108,navButtonWidth,16).build());
+                button -> pan(0,-1)).bounds(navX,top + up,navButtonWidth,16).build());
         addRenderableWidget(Button.builder(Component.literal("←"),
-                button -> pan(-1,0)).bounds(navX,top + 126,half,16).build());
+                button -> pan(-1,0)).bounds(navX,top + leftRight,half,16).build());
         addRenderableWidget(Button.builder(Component.literal("→"),
-                button -> pan(1,0)).bounds(navX + half + 3,top + 126,navButtonWidth - half - 3,16).build());
+                button -> pan(1,0)).bounds(navX + half + 3,top + leftRight,
+                    navButtonWidth - half - 3,16).build());
         addRenderableWidget(Button.builder(Component.literal("↓"),
-                button -> pan(0,1)).bounds(navX,top + 144,navButtonWidth,16).build());
+                button -> pan(0,1)).bounds(navX,top + down,navButtonWidth,16).build());
         addRenderableWidget(Button.builder(Component.literal("−"),
-                button -> zoom(-1)).bounds(navX,top + 162,half,16).build());
+                button -> zoom(-1)).bounds(navX,top + zoom,half,16).build());
         addRenderableWidget(Button.builder(Component.literal("+"),
-                button -> zoom(1)).bounds(navX + half + 3,top + 162,navButtonWidth - half - 3,16).build());
+                button -> zoom(1)).bounds(navX + half + 3,top + zoom,
+                    navButtonWidth - half - 3,16).build());
         addRenderableWidget(Button.builder(Component.literal("Моё место"),
-                button -> resetCenter()).bounds(navX,top + 180,navButtonWidth,16).build());
+                button -> resetCenter()).bounds(navX,top + centre,navButtonWidth,16).build());
         addRenderableWidget(Button.builder(Component.literal("Маршрут"),
-                button -> planSelectedRoute()).bounds(navX,top + 198,navButtonWidth,16).build());
+                button -> planSelectedRoute()).bounds(navX,top + routeY,navButtonWidth,16).build());
 
         // Selection remains informative. Only existing server menus may change
         // property rights or debit the real municipal treasury.
@@ -290,8 +311,9 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gui.drawString(font, Component.literal("KINGDOM  |  КАРТЫ"),
                 gridX, top + 8, INK, false);
         // Make the currently selected category obvious at a glance.
-        gui.fill(left + 3,top + 27 + layer.ordinal() * 19,
-                left + 6,top + 44 + layer.ordinal() * 19,0xFFFFD784);
+        int activeTop = panelHeight < 218 ? top + 26 + (layer.ordinal() / 2) * 17
+                : top + 27 + layer.ordinal() * 19;
+        gui.fill(left + 3,activeTop,left + 6,activeTop + 16,0xFFFFD784);
         if (minecraft != null && minecraft.player != null) {
             gui.drawString(font, Component.literal("Вы: X " + minecraft.player.blockPosition().getX()
                     + "  Z " + minecraft.player.blockPosition().getZ()),
