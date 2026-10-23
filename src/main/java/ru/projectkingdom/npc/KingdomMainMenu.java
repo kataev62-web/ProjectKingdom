@@ -248,15 +248,15 @@ public final class KingdomMainMenu extends ChestMenu {
                 var schematics=KingdomSchematicLibrary.available(viewer.getServer());
                 int offset=schematicPage*7;
                 for(int i=0;i<7 && offset+i<schematics.size();i++)
-                    icon(15+i,Items.MAP,"WorldEdit .schem: "+schematics.get(offset+i));
+                    icon(15+i,Items.MAP,"Предпросмотр 3D: "+schematics.get(offset+i));
                 int pages=Math.max(1,(schematics.size()+6)/7);
                 icon(25,Items.COMPASS,"Схемы .schem, страница "+(schematicPage+1)+"/"+pages+" (следующая)");
                 icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),
-                    "Чертёжный стол + 1 строительный чертёж. Выбери здание: чертёж израсходуется после проверки участка.");
+                    "Выбери проект: появится 3D-макет. Передвигай и поворачивай; фиксируй только после проверки участка.");
                 icon(23,KingdomConstructionRegistry.BUILDERS_HAMMER.get(),
                     "Строительный молот: ПКМ по столу проекта = один реальный блок из соседнего сундука.");
                 icon(24,KingdomConstructionRegistry.BUILDING_BLUEPRINT.get(),
-                    "Чертёж: ПКМ по столу действующей стройки подсветит следующий блок.");
+                    "После фиксации нужен один чертёж, реальные материалы и NPC-строители. F8 — вернуть предпросмотр.");
             }
             case SITE -> {
                 var sites=KingdomConstructionData.get(viewer.getServer());
@@ -368,7 +368,7 @@ public final class KingdomMainMenu extends ChestMenu {
     }
     private void say(String message) {viewer.sendSystemMessage(Component.literal("[Project Kingdom] "+message));}
     private void place(KingdomBuildingTypes.Type type) {
-        say(KingdomSiteBuilder.place(viewer,type));
+        KingdomArchitectSessions.beginBuiltin(viewer,type);
     }
     private java.util.List<ServerPlayer> nearbyPlayers() {
         return viewer.serverLevel().players().stream()
@@ -551,7 +551,7 @@ public final class KingdomMainMenu extends ChestMenu {
                         if(slot>=15&&slot<=21) {
                             var items=KingdomSchematicLibrary.available(viewer.getServer());
                             int idx=schematicPage*7+slot-15;
-                            if(idx<items.size())say(KingdomSiteBuilder.placeSchematic(viewer,items.get(idx)));
+                            if(idx<items.size())KingdomArchitectSessions.beginSchematic(viewer,items.get(idx));
                         }
                     }
                 }
