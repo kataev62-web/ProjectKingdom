@@ -21,7 +21,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ParchmentIconButton> tabButtons=new ArrayList<>();
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
-    private EditBox roleTarget,taxAmount;
+    private EditBox roleTarget,taxAmount,bankAmount;
     private Button joinButton,landPayButton;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
@@ -77,9 +77,21 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,part,false));
             }
             case BANK->{
-                addAction("Внести 100",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.BANK_DEPOSIT_100,58,132,96,false);
-                addAction("Снять 100",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.BANK_WITHDRAW_100,162,132,96,false);
-                addAction("Привязать резерв",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.BIND_BANK,78,158,190,true);
+                bankAmount=new EditBox(font,leftPos+150,topPos+118,132,18,KingdomFonts.readable("Сумма"));
+                bankAmount.setMaxLength(7);
+                bankAmount.setFilter(value->value.matches("[0-9]*"));
+                bankAmount.setValue("100");
+                addRenderableWidget(bankAmount);
+                Button deposit=addRenderableWidget(Button.builder(KingdomFonts.readable("Внести"),
+                    ignored->sendText("bank_deposit",bankAmount.getValue()))
+                    .bounds(leftPos+58,topPos+151,108,20).build());
+                Button withdraw=addRenderableWidget(Button.builder(KingdomFonts.readable("Снять"),
+                    ignored->sendText("bank_withdraw",bankAmount.getValue()))
+                    .bounds(leftPos+180,topPos+151,108,20).build());
+                actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,deposit,false));
+                actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,withdraw,false));
+                addAction("Привязать банковский сейф",AdministrativeMenuLayout.Tab.FINANCE,
+                    AdministrativeActionPacket.BIND_BANK,80,179,224,true);
             }
             case CENTRAL_WAREHOUSE->addAction("Добавить контейнер",AdministrativeMenuLayout.Tab.STORAGE,AdministrativeActionPacket.BIND_WAREHOUSE,78,146,190,true);
             case CITY_MARKET->addAction("Добавить склад рынка",AdministrativeMenuLayout.Tab.TRADE,AdministrativeActionPacket.BIND_MARKET,78,146,190,true);
@@ -105,6 +117,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
         if(taxAmount!=null)taxAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
+        if(bankAmount!=null)bankAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
         if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
         if(landPayButton!=null)landPayButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS;
     }
@@ -135,8 +148,9 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             case OFFICES->{if(menu.manager())line(g,"Укажите UUID гражданина:",58,78,MUTED);else placeholder(g,"Только просмотр должностей",90);}
             case FINANCE->{
                 if(menu.kind()==AdministrativeKind.BANK){
-                    line(g,"Ваш счёт: "+menu.bankAccount()+" монет",58,90,MUTED);
-                    line(g,"Физический резерв банка: "+menu.bankReserve(),58,108,MUTED);
+                    line(g,"Ваш счёт: "+menu.bankAccount()+" медных",58,83,MUTED);
+                    line(g,"Ваш кошелёк: "+menu.walletCoins()+" медных",58,101,MUTED);
+                    line(g,"Сумма:",58,122,MUTED);
                 }else if(menu.kind()==AdministrativeKind.TREASURY){
                     line(g,"Ваш долг городу: "+menu.taxDebt()+" медных",58,82,INK);
                     line(g,"Монет в кошельке: "+menu.walletCoins()+" медных",58,102,MUTED);
