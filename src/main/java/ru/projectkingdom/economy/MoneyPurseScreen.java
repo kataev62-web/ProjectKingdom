@@ -5,6 +5,8 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
+import net.minecraft.world.item.ItemStack;
+import ru.projectkingdom.npc.KingdomCurrency;
 import ru.projectkingdom.core.KingdomFonts;
 
 /** Compact parchment purse screen with server-authoritative actions. */
@@ -22,7 +24,7 @@ public final class MoneyPurseScreen extends AbstractContainerScreen<MoneyPurseMe
 
     @Override protected void init() {
         super.init();
-        addRenderableWidget(button("Собрать монеты", leftPos + 24, topPos + 112, 98, MoneyPurseMenu.COLLECT));
+        addRenderableWidget(button("Собрать монеты", leftPos + 24, topPos + 126, 98, MoneyPurseMenu.COLLECT));
         addRenderableWidget(button("Медь", leftPos + 130, topPos + 88, 88, MoneyPurseMenu.WITHDRAW_COPPER));
         addRenderableWidget(button("Серебро", leftPos + 130, topPos + 112, 88, MoneyPurseMenu.WITHDRAW_SILVER));
         addRenderableWidget(button("Золото", leftPos + 130, topPos + 136, 88, MoneyPurseMenu.WITHDRAW_GOLD));
@@ -45,15 +47,21 @@ public final class MoneyPurseScreen extends AbstractContainerScreen<MoneyPurseMe
 
     @Override protected void renderLabels(GuiGraphics graphics, int mouseX, int mouseY) {
         MoneyPurse purse = menu.purse();
-        graphics.drawCenteredString(font, KingdomFonts.readable("ДЕНЕЖНЫЙ МЕШОК"), imageWidth / 2, 18, INK);
-        graphics.drawString(font, KingdomFonts.readable("Монет: " + purse.coinCount() + " / " + MoneyPurse.MAX_COINS), 24, 52, INK, false);
-        graphics.drawString(font, KingdomFonts.readable("Медь: " + purse.copper()), 24, 70, MUTED, false);
-        graphics.drawString(font, KingdomFonts.readable("Серебро: " + purse.silver()), 24, 84, MUTED, false);
-        graphics.drawString(font, KingdomFonts.readable("Золото: " + purse.gold()), 24, 98, MUTED, false);
+        graphics.drawCenteredString(font, KingdomFonts.readable("Денежный мешок"), imageWidth / 2, 18, INK);
+        graphics.drawString(font, KingdomFonts.readable("Заполнено: " + purse.coinCount()
+            + " / " + MoneyPurse.MAX_COINS), 24, 48, INK, false);
+
+        // Real physical coin icons instead of a cramped accounting-only screen.
+        graphics.renderItem(new ItemStack(KingdomCurrency.COPPER.get()), 24, 61);
+        graphics.renderItem(new ItemStack(KingdomCurrency.SILVER.get()), 24, 79);
+        graphics.renderItem(new ItemStack(KingdomCurrency.GOLD.get()), 24, 97);
+        graphics.drawString(font, KingdomFonts.readable("Медь: " + purse.copper()), 45, 65, MUTED, false);
+        graphics.drawString(font, KingdomFonts.readable("Серебро: " + purse.silver()), 45, 83, MUTED, false);
+        graphics.drawString(font, KingdomFonts.readable("Золото: " + purse.gold()), 45, 101, MUTED, false);
         graphics.drawString(font, KingdomFonts.readable("Стоимость"), 140, 52, MUTED, false);
         graphics.drawString(font, KingdomFonts.readable(format(purse.valueCopper()) + " мед."), 140, 68, INK, false);
         if (purse.legacyOverflow()) {
-            graphics.drawString(font, KingdomFonts.readable("Старый переполненный мешок"), 24, 144, 0xFF8B2F2F, false);
+            graphics.drawString(font, KingdomFonts.readable("Старый переполненный мешок"), 24, 155, 0xFF8B2F2F, false);
         }
     }
 
