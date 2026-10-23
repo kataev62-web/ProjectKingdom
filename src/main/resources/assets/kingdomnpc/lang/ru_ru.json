@@ -25,5 +25,9 @@
   "block.kingdomnpc.land_office_core": "Земельное управление",
   "block.kingdomnpc.court_core": "Суд",
   "block.kingdomnpc.prison_core": "Тюрьма",
-  "block.kingdomnpc.guard_administration_core": "Управление стражи"
+  "block.kingdomnpc.guard_administration_core": "Управление стражи",
+  "block.kingdomnpc.drafting_table": "Чертёжный стол",
+  "item.kingdomnpc.drafting_table": "Чертёжный стол",
+  "item.kingdomnpc.building_blueprint": "Строительный чертёж",
+  "item.kingdomnpc.builders_hammer": "Строительный молот"
 }
