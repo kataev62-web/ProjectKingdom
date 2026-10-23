@@ -366,6 +366,18 @@ public final class KingdomCivicsData extends SavedData {
         plots.put(k,new Plot(p.dimension(),p.x(),p.z(),p.town(),p.tenant(),p.zone(),allow));setDirty();return true;
     }
     /** Atomic town treasury transaction: caller must debit a real inventory or other backing asset first. */
+    /** Municipal land revenue: credit only after coins physically entered the city's
+     * registered treasury vault. NOT an API for issuing money or player deposits. */
+    public boolean creditTownLandRevenue(UUID city,long amount) {
+        Town town=towns.get(city);
+        if(town==null||runtimeServer==null||amount<=0||amount>1_000_000
+                ||town.treasury()>Long.MAX_VALUE-amount)return false;
+        var admin=KingdomAdministrationData.get(runtimeServer);
+        if(!admin.depositTreasuryReserve(city,amount))return false;
+        towns.put(city,new Town(town.id(),town.name(),town.mayor(),town.nation(),
+                town.treasury()+amount));
+        setDirty();return true;
+    }
     public boolean depositTown(UUID actor,long amount) {
         Town t=townOf(actor);
         return t!=null&&depositTownTo(t.id(),actor,amount);
