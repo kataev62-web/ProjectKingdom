@@ -103,8 +103,8 @@ public final class KingdomNpcMod {
             } else {
                 var step = KingdomConstructionWork.placeNext(player.getServer(), level, project);
                 var progress = data.progress(project.id());
-                var type = KingdomBuildingTypes.type(project.design());
-                int total = type == null ? 0 : KingdomBuildingTypes.design(type).blocks().size();
+                var design = KingdomConstructionPlans.resolve(player.getServer(),project.design());
+                int total = design == null ? 0 : design.blocks().size();
                 player.sendSystemMessage(Component.literal("[Строительство] " + step.result().message()
                     + " — " + progress + "/" + total
                     + (step.target() == null ? "" : " (" + step.target().toShortString() + ")")));
