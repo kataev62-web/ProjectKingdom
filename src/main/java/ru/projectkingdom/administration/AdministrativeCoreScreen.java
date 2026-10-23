@@ -39,7 +39,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     tabIcon(tab),title(tab),()->{selected=tab;updateVisibility();},()->selected==tab)));
         }
         if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()){
-            landPayButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Оплатить бронь земли в кассу"),
+            landPayButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Оплатить бронь земли через банк"),
                     ignored->KingdomNetwork.CHANNEL.sendToServer(new AdministrativeActionPacket(
                         menu.townId(),AdministrativeKind.TOWN_HALL,AdministrativeActionPacket.PAY_RESERVED_LAND)))
                     .bounds(leftPos+60,topPos+170,245,20).build());
