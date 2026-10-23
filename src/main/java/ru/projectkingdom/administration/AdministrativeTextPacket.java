@@ -45,12 +45,43 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                         UUID target=UUID.fromString(command.substring(0,separator));MunicipalRole role=MunicipalRole.valueOf(command.substring(separator+1));
                         if(role==MunicipalRole.MAYOR)return;
                         KingdomAdministrationData data=KingdomAdministrationData.get(sender.getServer());
-                        if(field.equals("appoint_role")&&civics.isMember(packet.townId,target))changed=data.appoint(packet.townId,sender.getUUID(),town.mayor(),target,role);
+                        if(field.equals("appoint_role")&&civics.isMember(packet.townId,target)
+                                 &&ru.projectkingdom.social.KingdomSocialPolicy.mayHoldAdministrativeOffice(
+                                     ru.projectkingdom.social.KingdomSocialData.get(sender.getServer()).rank(target)))
+                             changed=data.appoint(packet.townId,sender.getUUID(),town.mayor(),target,role);
                         else if(field.equals("revoke_role"))changed=data.revoke(packet.townId,sender.getUUID(),town.mayor(),target,role);
                     }catch(IllegalArgumentException ignored){}
                 }
                 if(changed)KingdomAdministrationData.get(sender.getServer()).record(packet.townId,sender.getUUID(),null,
                         field,sender.level().getGameTime());
+                return;
+            }
+            if(field.equals("realm_award")){
+                if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
+                String raw=validatedCommandValue(packet.value);if(raw==null)return;
+                try {
+                    UUID target=UUID.fromString(raw);
+                    boolean ok=ru.projectkingdom.social.KingdomCivicService.awardRealm(sender,
+                            packet.townId,target);
+                    sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(ok
+                        ?"[Project Kingdom] Государственный орден пожалован."
+                        :"[Project Kingdom] Орден недоступен: проверяются власть правителя, гражданство и заслуги."));
+                }catch(IllegalArgumentException ignored){}
+                return;
+            }
+            if(field.equals("honor_grant")){
+                if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
+                String command=validatedCommandValue(packet.value);if(command==null)return;
+                int divider=command.indexOf('|');if(divider<1)return;
+                try {
+                    UUID target=UUID.fromString(command.substring(0,divider));
+                    var honor=ru.projectkingdom.social.KingdomCivicHonor.valueOf(command.substring(divider+1));
+                    boolean ok=ru.projectkingdom.social.KingdomCivicService.award(sender,
+                            packet.townId,target,honor);
+                    sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(ok
+                        ?"[Project Kingdom] Городская награда вручена."
+                        :"[Project Kingdom] Награда недоступна: проверьте заслуги, гражданство, полномочия и повтор."));
+                }catch(IllegalArgumentException ignored){}
                 return;
             }
             String text=validatedText(packet.value);if(text==null)return;

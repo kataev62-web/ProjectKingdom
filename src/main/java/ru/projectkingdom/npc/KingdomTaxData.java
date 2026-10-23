@@ -98,7 +98,10 @@ public final class KingdomTaxData extends SavedData {
                 continue;
             }
             debts.put(key(d.town(),d.person()),new Debt(d.town(),d.person(),d.amount()-amount,d.lastDay()));
-            player.getInventory().setChanged();setDirty();return true;
+            player.getInventory().setChanged();setDirty();
+            ru.projectkingdom.social.KingdomReputationEvents.taxSettled(
+                    server,player.getUUID(),d.town(),amount);
+            return true;
         }
         return false;
     }

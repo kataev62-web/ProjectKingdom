@@ -46,11 +46,21 @@ public final class KingdomCivicsData extends SavedData {
         return titled!=null?titled:(town==null?null:town.mayor());
     }
     /** Registers a personal title only after an externally verified, paid land sale. */
+    /** Only explicit personal titles, not mayoral stewardship over public plots. */
+    public Map<UUID,Long> purchasedPlotOwnerCounts() {
+        Map<UUID,Long> counts=new LinkedHashMap<>();
+        for(UUID holder:plotOwners.values())counts.merge(holder,1L,Long::sum);
+        return Collections.unmodifiableMap(counts);
+    }
     public boolean registerPaidSale(UUID seller,UUID buyer,String dimension,int x,int z) {
         String k=key(dimension,x,z); Plot p=plots.get(k);
         if(p==null||seller==null||buyer==null||seller.equals(buyer)||!seller.equals(plotOwner(dimension,x,z))
-                ||p.tenant()!=null||leases.containsKey(k))return false;
-        plotOwners.put(k,buyer); offers.remove(k); sales.remove(k);clearWorkers(k);setDirty();return true;
+                ||p.tenant()!=null||leases.containsKey(k)||!socialMayBuy(buyer))return false;
+        long paid=sales.containsKey(k)?sales.get(k).priceCopper():1;
+        plotOwners.put(k,buyer); offers.remove(k); sales.remove(k);clearWorkers(k);setDirty();
+        if(runtimeServer!=null)ru.projectkingdom.social.KingdomReputationEvents.landPurchased(
+                runtimeServer,buyer,p.town(),paid);
+        return true;
     }
     /** Server-side land sale listings. Payment is always physical cash at a town hall or bank counter. */
     public record SaleOffer(UUID seller, long priceCopper) {}
@@ -71,7 +81,14 @@ public final class KingdomCivicsData extends SavedData {
         String k=key(dimension,x,z);SaleOffer o=sales.get(k);Plot p=plots.get(k);
         return buyer!=null&&o!=null&&p!=null&&!buyer.equals(o.seller())
                 &&o.seller().equals(plotOwner(dimension,x,z))
-                &&p.tenant()==null&&!leases.containsKey(k);
+                &&p.tenant()==null&&!leases.containsKey(k)&&socialMayBuy(buyer);
+    }
+    private boolean socialMayBuy(UUID buyer) {
+        if(buyer==null)return false;
+        if(runtimeServer==null)return true; // isolated data fixture; production uses get(server)
+        long personalPlots=plotOwners.values().stream().filter(buyer::equals).count();
+        return ru.projectkingdom.social.KingdomSocialPolicy.canPurchasePlot(
+                ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(buyer),personalPlots);
     }
     public boolean completeSale(UUID buyer,String dimension,int x,int z) {
         if(!canBuySale(buyer,dimension,x,z))return false;
@@ -277,7 +294,9 @@ public final class KingdomCivicsData extends SavedData {
         Town town=towns.get(townId);if(town==null||runtimeServer==null||replacement==null||!isMember(townId,replacement))return false;
         KingdomAdministrationData administration=KingdomAdministrationData.get(runtimeServer);
         if(!AdministrativePermissionService.mayPerformFounderOnly(actor,administration.founder(townId)))return false;
-        if(replacement.equals(town.mayor()))return false;
+        if(replacement.equals(town.mayor()) ||
+                !ru.projectkingdom.social.KingdomSocialPolicy.mayHoldAdministrativeOffice(
+                    ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(replacement)))return false;
         towns.put(town.id(),new Town(town.id(),town.name(),replacement,town.nation(),town.treasury()));
         administration.appoint(townId,actor,town.mayor(),replacement,MunicipalRole.MAYOR);setDirty();return true;
     }
@@ -303,7 +322,22 @@ public final class KingdomCivicsData extends SavedData {
     public Plot plot(ServerLevel level,BlockPos pos) { return plots.get(key(dim(level),pos.getX()>>4,pos.getZ()>>4)); }
     public Town foundTown(UUID mayor,String name) {
         if(mayor==null || townOf(mayor)!=null || name==null || name.isBlank() || name.length()>48)return null;
-        Town t=new Town(UUID.randomUUID(),name,mayor,null,0);towns.put(t.id(),t);memberships.put(mayor,t.id());setDirty();return t;
+        // A founder cannot create a second settlement even after delegating its mayoral office.
+        boolean alreadyFounded=towns.values().stream().anyMatch(t->t.mayor().equals(mayor));
+        if(runtimeServer!=null) {
+            KingdomAdministrationData admin=KingdomAdministrationData.get(runtimeServer);
+            alreadyFounded|=towns.values().stream().anyMatch(t->mayor.equals(admin.founder(t.id())));
+            if(!ru.projectkingdom.social.KingdomSocialPolicy.canFoundSettlement(
+                    ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(mayor),alreadyFounded))return null;
+        } else if(alreadyFounded)return null;
+        Town t=new Town(UUID.randomUUID(),name,mayor,null,0);
+        towns.put(t.id(),t);memberships.put(mayor,t.id());setDirty();
+        if(runtimeServer!=null) {
+            KingdomAdministrationData.get(runtimeServer).ensureFounder(t.id(),mayor);
+            ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).preserveAtLeast(
+                    mayor,ru.projectkingdom.social.KingdomSocialRank.SETTLEMENT_FOUNDER);
+        }
+        return t;
     }
     public boolean joinTown(UUID player,UUID townId) {
         if(player==null||memberships.containsKey(player)||!towns.containsKey(townId))return false;

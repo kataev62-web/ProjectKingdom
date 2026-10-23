@@ -15,6 +15,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkHooks;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomBankData;
+import ru.projectkingdom.social.KingdomSocialPromotionService;
+import ru.projectkingdom.social.KingdomCivicService;
 
 public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     private final Inventory inventory;
@@ -25,23 +27,26 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     private final boolean manager,publicAccess;
     private final long bankAccount,bankReserve,treasuryBalance,treasuryReserve,historicalTreasury;
     private final List<String> pageRows;
+    private final KingdomSocialPromotionService.Preview social;
+    private final KingdomCivicService.Snapshot civic;
 
     public AdministrativeCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),AdministrativeKind.byId(buffer.readUtf(32)).orElseThrow(),
                 buffer.readUtf(48),buffer.readUUID(),buffer.readUUID(),buffer.readBoolean(),buffer.readBoolean(),
-                buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),readRows(buffer));
+                buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),readRows(buffer),KingdomSocialPromotionService.Preview.read(buffer),KingdomCivicService.Snapshot.read(buffer));
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess){
-        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of());
+        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of(),KingdomSocialPromotionService.Preview.empty(),KingdomCivicService.Snapshot.empty());
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess,
-                                   long bankAccount,long bankReserve,long treasuryBalance,long treasuryReserve,long historicalTreasury,List<String> pageRows){
+                                   long bankAccount,long bankReserve,long treasuryBalance,long treasuryReserve,long historicalTreasury,List<String> pageRows,
+                                   KingdomSocialPromotionService.Preview social,KingdomCivicService.Snapshot civic){
         super(KingdomAdministrationRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=corePos;this.townId=townId;
         this.kind=kind;this.townName=townName;this.founder=founder;this.mayor=mayor;this.manager=manager;this.publicAccess=publicAccess;
         this.bankAccount=bankAccount;this.bankReserve=bankReserve;this.treasuryBalance=treasuryBalance;this.treasuryReserve=treasuryReserve;this.historicalTreasury=historicalTreasury;
-        this.pageRows=List.copyOf(pageRows);
+        this.pageRows=List.copyOf(pageRows);this.social=social;this.civic=civic;
     }
     private static List<String> readRows(FriendlyByteBuf buffer){int count=Math.min(8,Math.max(0,buffer.readVarInt()));List<String> rows=new ArrayList<>();for(int i=0;i<count;i++)rows.add(buffer.readUtf(96));return List.copyOf(rows);}
     public static void open(ServerPlayer player,AdministrativeCoreBlockEntity core){
@@ -55,6 +60,11 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
         boolean manager=AdministrativePermissionService.mayManage(player.getUUID(),founder,town.mayor(),data.roles(town.id(),player.getUUID()),core.kind());
         long account=KingdomBankData.get(player.getServer()).balance(player.getUUID());long bankReserve=data.bankReserve(town.id());
         long treasuryReserve=data.treasuryReserve(town.id()),historical=data.historicalTreasuryLiability(town.id());
+        var social=core.kind()==AdministrativeKind.TOWN_HALL
+                ?KingdomSocialPromotionService.preview(player,town.id())
+                :KingdomSocialPromotionService.Preview.empty();
+        var civic=core.kind()==AdministrativeKind.TOWN_HALL
+                ?KingdomCivicService.preview(player,town.id()):KingdomCivicService.Snapshot.empty();
         List<String> rows=new ArrayList<>();
         if(core.kind()==AdministrativeKind.TOWN_HALL)for(UUID member:civics.townMembers(town.id(),0,6))rows.add(member.toString());
         if(core.kind()==AdministrativeKind.LAND_OFFICE)for(KingdomCivicsData.Plot plot:civics.townPlots(town.id(),0,6))
@@ -69,18 +79,20 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
             @Override public Component getDisplayName(){return Component.literal(core.kind().russianName());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
                 return new AdministrativeCoreMenu(id,inv,core.getBlockPos(),town.id(),core.kind(),town.name(),founder,town.mayor(),manager,publicAccess,
-                        account,bankReserve,town.treasury(),treasuryReserve,historical,rows);
+                        account,bankReserve,town.treasury(),treasuryReserve,historical,rows,social,civic);
             }
         },buffer->{buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(town.id());buffer.writeUtf(core.kind().id(),32);
             buffer.writeUtf(town.name(),48);buffer.writeUUID(founder);buffer.writeUUID(town.mayor());buffer.writeBoolean(manager);buffer.writeBoolean(publicAccess);
             buffer.writeLong(account);buffer.writeLong(bankReserve);buffer.writeLong(town.treasury());buffer.writeLong(treasuryReserve);buffer.writeLong(historical);
-            buffer.writeVarInt(rows.size());for(String row:rows)buffer.writeUtf(row,96);});
+            buffer.writeVarInt(rows.size());for(String row:rows)buffer.writeUtf(row,96);social.write(buffer);civic.write(buffer);});
     }
     public BlockPos corePos(){return corePos;}public UUID townId(){return townId;}public AdministrativeKind kind(){return kind;}public String townName(){return townName;}
     public UUID founder(){return founder;}public UUID mayor(){return mayor;}public boolean manager(){return manager;}public boolean publicAccess(){return publicAccess;}
     public long bankAccount(){return bankAccount;}public long bankReserve(){return bankReserve;}public long treasuryBalance(){return treasuryBalance;}
     public long treasuryReserve(){return treasuryReserve;}public long historicalTreasury(){return historicalTreasury;}
     public List<String> pageRows(){return pageRows;}
+    public KingdomSocialPromotionService.Preview social(){return social;}
+    public KingdomCivicService.Snapshot civic(){return civic;}
     @Override public ItemStack quickMoveStack(Player player,int slot){return ItemStack.EMPTY;}
     @Override public boolean stillValid(Player player){
         if(player.level()!=inventory.player.level()||corePos.distSqr(player.blockPosition())>64||!player.level().hasChunkAt(corePos))return false;

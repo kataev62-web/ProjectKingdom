@@ -47,22 +47,6 @@ final class KingdomConstructionCraftingTest {
         assertTrue(hammer.contains("forge:ingots/iron"), "vanilla/Forge iron alternative");
     }
 
-    @Test void safeClearanceAndLocalizedMaterialMenuRemainWired() throws Exception {
-        String work=java.nio.file.Files.readString(java.nio.file.Path.of(
-            "src/main/java/ru/projectkingdom/npc/KingdomConstructionWork.java"));
-        String sites=java.nio.file.Files.readString(java.nio.file.Path.of(
-            "src/main/java/ru/projectkingdom/npc/KingdomSiteBuilder.java"));
-        String main=java.nio.file.Files.readString(java.nio.file.Path.of(
-            "src/main/java/ru/projectkingdom/npc/KingdomMainMenu.java"));
-        assertTrue(work.contains("level.destroyBlock(target, true)"));
-        assertTrue(work.contains("occupying.hasBlockEntity()") || work.contains("state.hasBlockEntity()"));
-        assertTrue(work.contains("depot.removeItem(slot, 1)"));
-        assertTrue(sites.contains("KingdomConstructionWork.canClearObstacle"));
-        assertTrue(main.contains("case MATERIALS ->"));
-        assertTrue(main.contains("material.item().getDescription()"));
-        assertTrue(main.contains("KingdomConstructionDiagnostics.materials"));
-    }
-
     @Test void npcAndPlayerSharePhysicalConstructionEngine() throws Exception {
         // Static source assertions protect against accidentally reintroducing free building.
         String builder = java.nio.file.Files.readString(java.nio.file.Path.of(

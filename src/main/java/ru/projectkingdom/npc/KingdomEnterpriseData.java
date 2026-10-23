@@ -29,6 +29,7 @@ import ru.projectkingdom.enterprise.EnterpriseAccessService;
 public final class KingdomEnterpriseData extends SavedData {
     private static final String KEY = "kingdom_enterprises_v1"; // keep old save key
     private static final int MAX_BUSINESSES = 16;
+    private transient MinecraftServer socialRuntimeServer;
     public record Enterprise(UUID id, UUID owner, String name, long cash) {}
     /** Legacy invoices are read for migration/administration but not payable. */
     public record Invoice(UUID id, UUID seller, UUID buyer, long price, boolean paid) {}
@@ -99,6 +100,7 @@ public final class KingdomEnterpriseData extends SavedData {
 
     public static KingdomEnterpriseData get(MinecraftServer server) {
         KingdomEnterpriseData data = server.overworld().getDataStorage().computeIfAbsent(KingdomEnterpriseData::load, KingdomEnterpriseData::new, KEY);
+        data.socialRuntimeServer = server;
         data.connectJournal(server);
         return data;
     }
@@ -132,6 +134,11 @@ public final class KingdomEnterpriseData extends SavedData {
     public Enterprise create(UUID owner, String name, EnterpriseKind kind) {
         if(owner==null || name==null || name.isBlank() || name.length()>48 || ownedAll(owner).size()>=MAX_BUSINESSES)return null;
         if(kind==null)return null;
+        // Player firms have tier-specific limits; server-owned NPC firms retain the global hard cap.
+        if(socialRuntimeServer!=null && socialRuntimeServer.getPlayerList().getPlayer(owner)!=null
+                && !ru.projectkingdom.social.KingdomSocialPolicy.canOpenEnterprise(
+                    ru.projectkingdom.social.KingdomSocialData.get(socialRuntimeServer).rank(owner),
+                    ownedAll(owner).size()))return null;
         Enterprise firm=new Enterprise(UUID.randomUUID(),owner,name,0);
         firms.put(firm.id(),firm);kinds.put(firm.id(),kind);selections.put(owner,firm.id());setDirty();return firm;
     }

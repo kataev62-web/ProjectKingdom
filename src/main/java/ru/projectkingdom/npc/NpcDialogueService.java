@@ -52,6 +52,37 @@ public final class NpcDialogueService {
         long day = player.serverLevel().getDayTime() / 24000L;
         NpcSocialMemory memory = before.talked(reply.intent().name(), day);
         String text = reply.text();
+        // Official civic recognition changes how NPCs address the player, not their prices or ownership rights.
+        var localTown = KingdomCivicsData.get(player.getServer())
+                .townAt(player.serverLevel(),npc.blockPosition());
+        var localHonor = localTown==null?null
+                :ru.projectkingdom.social.KingdomCivicHonorsData.get(player.getServer())
+                    .best(localTown.id(),player.getUUID());
+        boolean nationalHonoree=localTown!=null&&localTown.nation()!=null
+                &&KingdomCivicsData.get(player.getServer()).nationOf(player.getUUID())!=null
+                &&localTown.nation().equals(KingdomCivicsData.get(player.getServer())
+                    .nationOf(player.getUUID()).id())
+                &&ru.projectkingdom.social.KingdomNationalHonorsData.get(player.getServer())
+                    .award(localTown.nation(),player.getUUID())!=null;
+        if(localTown!=null && (reply.intent()==NpcDialogueEngine.Intent.GREETING
+                ||reply.intent()==NpcDialogueEngine.Intent.IDENTITY)){
+            if(nationalHonoree)text="Приветствую обладателя ордена королевства. "+text;
+            else if(localHonor!=null)text="Рад встрече, обладатель награды «"+localHonor.russian()+"». "+text;
+            else if(ru.projectkingdom.social.KingdomSocialData.get(player.getServer())
+                    .rank(player.getUUID()).level()>=5)
+                text="Приветствую вас, уважаемый землевладелец. "+text;
+        }
+        if(reply.intent()==NpcDialogueEngine.Intent.RELATIONSHIP) {
+            var town=KingdomCivicsData.get(player.getServer()).townAt(player.serverLevel(),npc.blockPosition());
+            if(town!=null) {
+                int standing=ru.projectkingdom.social.KingdomReputationData.get(player.getServer())
+                        .score(town.id(),player.getUUID());
+                text+=" В "+town.name()+" тебя знают как: "
+                        +ru.projectkingdom.social.KingdomReputationPolicy.standing(standing)+".";
+                if(localHonor!=null)text+=" Городская награда: «"+localHonor.russian()+"».";
+                if(nationalHonoree)text+=" Орден королевства признан.";
+            }
+        }
         boolean positive = false;
 
         if (reply.action() == NpcDialogueEngine.Action.GIVE_BREAD) {

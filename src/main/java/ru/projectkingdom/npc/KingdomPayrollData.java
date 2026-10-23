@@ -103,7 +103,10 @@ public final class KingdomPayrollData extends SavedData {
             if(live!=null && live.town().equals(c.town()))active.put(id,updated);
             else if(updated.owedCopper()==0)arrears.remove(key(c.town(),id));
             else arrears.put(key(c.town(),id),updated);
-            worker.getInventory().setChanged();setDirty();return true;
+            worker.getInventory().setChanged();setDirty();
+            ru.projectkingdom.social.KingdomReputationEvents.earnedCityWage(
+                    server,worker.getUUID(),c.town(),amount);
+            return true;
         }
         return false;
     }
