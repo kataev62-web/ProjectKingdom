@@ -122,6 +122,14 @@ public final class KingdomPhysicalCash {
         }
         return slots;
     }
+    /** Trusted NPC settlement: the payroll layer validates the recipient's physical purse
+     * capacity before taking actual coins from the company's protected container. */
+    static boolean takeForNpc(Container vault,long amount) {
+        List<ItemStack> plan=planWithdrawal(vault,amount);
+        if(plan==null)return false;
+        apply(vault,plan);
+        return true;
+    }
     /** Verify space before removing funds from a player's real wallet. */
     public static boolean deposit(ServerPlayer payer,Container vault,long amount){
         if(payer==null||KingdomCurrency.balance(payer)<amount)return false;
