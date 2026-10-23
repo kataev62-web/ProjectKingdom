@@ -6,6 +6,11 @@ import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.SlabBlock;
+import net.minecraft.world.level.block.DoorBlock;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.DoublePlantBlock;
+import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.ScaffoldingBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.level.block.state.properties.SlabType;
@@ -64,6 +69,12 @@ public final class KingdomBlockStateCodec {
         if (block instanceof SlabBlock
                 && state.hasProperty(SlabBlock.TYPE)
                 && state.getValue(SlabBlock.TYPE) == SlabType.DOUBLE) return false;
+        // These blocks require multi-block placement or special support logic.
+        // A raw setBlock would consume items without reliably producing the
+        // intended structure, so refuse until dedicated atomic adapters exist.
+        if (block instanceof DoorBlock || block instanceof BedBlock
+                || block instanceof DoublePlantBlock || block instanceof FallingBlock
+                || block instanceof ScaffoldingBlock) return false;
         ResourceLocation id = BuiltInRegistries.BLOCK.getKey(block);
         if (id == null) return false;
         String name = id.getPath();
