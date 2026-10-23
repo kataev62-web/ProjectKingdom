@@ -857,7 +857,8 @@ public final class KingdomNpcMod {
                             || KingdomNpcDuty.mayExecute(w.job, w.order,
                                 w.autonomousIntent, KingdomNpcWorkday.employed(server, w))) {
                         executed |= NpcFieldWork.tick(level,resident,w)
-                            | KingdomNpcWorkshop.tick(level,resident,w);
+                            | KingdomNpcWorkshop.tick(level,resident,w)
+                            | KingdomTfcQuernWork.tick(level,resident,w);
                     }
                 }
             }
