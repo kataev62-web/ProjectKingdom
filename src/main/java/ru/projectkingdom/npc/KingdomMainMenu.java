@@ -115,7 +115,7 @@ public final class KingdomMainMenu extends ChestMenu {
             }
             case MAPS -> {
                 icon(10,Items.FILLED_MAP,"Карта мира: реальный рельеф, границы и ваше местоположение");
-                icon(11,Items.BANNER_PATTERN,"Политическая карта: города и государства");
+                icon(11,Items.BLUE_BANNER,"Политическая карта: города и государства");
                 icon(12,Items.EMERALD,"Карта предприятий: действующие мастерские, фермы и торговля");
                 icon(13,Items.COMPASS,"Городские границы: план расширения и выкуп из казны");
                 icon(14,Items.MAP,"Земельные участки: собственность и разрешённые сделки");
