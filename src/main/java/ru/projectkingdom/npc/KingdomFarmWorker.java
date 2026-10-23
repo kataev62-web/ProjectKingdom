@@ -23,7 +23,9 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
 public final class KingdomFarmWorker {
     private KingdomFarmWorker(){}
 
-    private static UUID farm(ServerLevel level,KingdomNpcData.Worker w) {
+    static UUID farm(ServerLevel level,KingdomNpcData.Worker w) {
+        UUID personal=KingdomNpcFarmOwner.ownedFarm(level.getServer(),w);
+        if(personal!=null)return personal;
         if(w.employer==null||!KingdomNpcWorkday.employed(level.getServer(),w))return null;
         var enterprises=KingdomEnterpriseData.get(level.getServer());
         for(var employment:KingdomEnterprisePayrollData.get(level.getServer()).all()) {
@@ -60,10 +62,10 @@ public final class KingdomFarmWorker {
     }
     /** Pull at most one REAL stack of 16 seeds from the assigned RAW container. */
     private static boolean refill(ServerLevel level,Villager npc,KingdomNpcData.Worker w,String seedId){
-        if(seedId.isBlank()||w.employer==null||!w.hasSource)return false;
+        if(seedId.isBlank()||KingdomNpcFarmOwner.workOwner(level,w)==null||!w.hasSource)return false;
         BlockPos pos=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
         if(!level.hasChunkAt(pos)
-            ||!KingdomTerritories.get(level.getServer()).usable(level,pos,w.employer,"raw")
+            ||!KingdomTerritories.get(level.getServer()).usable(level,pos,KingdomNpcFarmOwner.workOwner(level,w),"raw")
             ||!(level.getBlockEntity(pos) instanceof Container raw))return false;
         if(!storeNear(level,npc,pos)){
             npc.getNavigation().moveTo(pos.getX()+.5,pos.getY(),pos.getZ()+.5,.75);
@@ -100,7 +102,7 @@ public final class KingdomFarmWorker {
         }
         BlockPos store=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
         if(!level.hasChunkAt(store)||!KingdomTerritories.get(level.getServer())
-                .usable(level,store,w.employer,"raw")
+                .usable(level,store,KingdomNpcFarmOwner.workOwner(level,w),"raw")
                 ||!(level.getBlockEntity(store) instanceof Container raw))return false;
         if(!storeNear(level,npc,store)){
             npc.getNavigation().moveTo(store.getX()+.5,store.getY(),store.getZ()+.5,.75);
@@ -172,7 +174,7 @@ public final class KingdomFarmWorker {
         return preferred;
     }
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w) {
-        if(w==null||!"farmer".equals(w.job)||w.employer==null
+        if(w==null||!"farmer".equals(w.job)||KingdomNpcFarmOwner.workOwner(level,w)==null
             ||!w.dimension.equals(level.dimension().location().toString())
             ||!KingdomNpcDuty.autonomousOrder(w.order)
             ||!NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)
@@ -199,7 +201,7 @@ public final class KingdomFarmWorker {
                     desired.getBlock().getClass().getName()))continue;
             for(int x=field.minX();x<=field.maxX();x++)for(int z=field.minZ();z<=field.maxZ();z++){
                 BlockPos soil=new BlockPos(x,field.y(),z),crop=soil.above();
-                if(!level.hasChunkAt(crop)||!land.canUse(level,soil,w.employer))continue;
+                if(!level.hasChunkAt(crop)||!land.canUse(level,soil,KingdomNpcFarmOwner.workOwner(level,w)))continue;
                 BlockState found=level.getBlockState(crop);
                 double distance= crop.distSqr(npc.blockPosition());
                 if(cropMatches(found,field)&&mature(found)&&distance<harvestDistance) {
@@ -221,7 +223,7 @@ public final class KingdomFarmWorker {
                 npc.getNavigation().moveTo(harvestTarget.getX()+.5,
                     harvestTarget.getY(),harvestTarget.getZ()+.5,.75);return false;
             }
-            if(!level.hasChunkAt(harvestTarget)||!land.canUse(level,harvestTarget,w.employer)
+            if(!level.hasChunkAt(harvestTarget)||!land.canUse(level,harvestTarget,KingdomNpcFarmOwner.workOwner(level,w))
                 ||!cropMatches(level.getBlockState(harvestTarget),harvestField)
                 ||!mature(level.getBlockState(harvestTarget)))return false;
             return harvest(level,npc,w,harvestTarget,level.getBlockState(harvestTarget),harvestField);
@@ -235,12 +237,12 @@ public final class KingdomFarmWorker {
                 npc.getNavigation().moveTo(plantTarget.getX()+.5,plantTarget.getY(),
                     plantTarget.getZ()+.5,.75);return false;
             }
-            if(!level.hasChunkAt(plantTarget)||!land.canUse(level,plantTarget,w.employer))
+            if(!level.hasChunkAt(plantTarget)||!land.canUse(level,plantTarget,KingdomNpcFarmOwner.workOwner(level,w)))
                 return false;
             return plant(level,w,plantTarget,plantField,plantState);
         }
         if(nutritionTarget!=null && level.hasChunkAt(nutritionTarget)
-                && land.canUse(level,nutritionTarget,w.employer))
+                && land.canUse(level,nutritionTarget,KingdomNpcFarmOwner.workOwner(level,w)))
             return fertilize(level,npc,w,nutritionTarget,nutritionState);
         return hasProduce(w,planned)&&NpcFieldWork.deposit(level,npc,w);
     }
