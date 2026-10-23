@@ -63,7 +63,8 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
         long treasuryReserve=data.treasuryReserve(town.id()),historical=data.historicalTreasuryLiability(town.id());
         long taxDebt=core.kind()==AdministrativeKind.TREASURY
                 ?KingdomTaxData.get(player.getServer()).owedToTown(player.getServer(),player.getUUID(),town.id()):0;
-        long walletCoins=core.kind()==AdministrativeKind.TREASURY?KingdomCurrency.balance(player):0;
+        long walletCoins=(core.kind()==AdministrativeKind.TREASURY || core.kind()==AdministrativeKind.BANK)
+                ?KingdomCurrency.balance(player):0;
         List<String> rows=new ArrayList<>();
         if(core.kind()==AdministrativeKind.TOWN_HALL && manager){
             for(var booking:KingdomLandReservations.get(player.getServer())
