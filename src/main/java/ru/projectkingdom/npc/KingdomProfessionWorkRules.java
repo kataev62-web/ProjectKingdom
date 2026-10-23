@@ -20,6 +20,11 @@ public final class KingdomProfessionWorkRules {
         };
     }
 
+    public static boolean grill(String job, EnterpriseKind kind) {
+        return kind == EnterpriseKind.BAKERY && ("baker".equals(job)
+            || "cook".equals(job) || "butcher".equals(job));
+    }
+
     public static boolean quern(String job, EnterpriseKind kind) {
         return "baker".equals(job) && kind == EnterpriseKind.BAKERY;
     }
