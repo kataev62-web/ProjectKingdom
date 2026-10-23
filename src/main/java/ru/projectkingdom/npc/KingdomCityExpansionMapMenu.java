@@ -231,7 +231,17 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         // town hall, founder and treasury on the server.
         confirmedPlan = null;
         var result = KingdomCityExpansionPurchase.purchase(viewer);
-        viewer.sendSystemMessage(Component.literal("[Kingdom] Результат расширения: " + result));
+        String status = switch (result) {
+            case PURCHASED -> "Территория присоединена, средства списаны из городской казны.";
+            case NOT_FOUNDER -> "Покупка доступна только основателю города.";
+            case NOT_AT_TOWN_HALL -> "Приди в собственную построенную ратушу (не дальше 16 блоков).";
+            case INVALID_PLAN -> "План пуст, несмежен или больше не актуален.";
+            case LAND_CONFLICT -> "Один из участков занят или находится за границей мира.";
+            case INSUFFICIENT_FUNDS -> "В казне недостаточно обеспеченных монет.";
+            case LEDGER_ERROR -> "Платёж не удалось зарегистрировать.";
+            case RECONCILIATION_REQUIRED -> "Обнаружено расхождение реестров. Требуется проверка администрации сервера.";
+        };
+        viewer.sendSystemMessage(Component.literal("[Kingdom] " + status));
         if (result == KingdomCityExpansionPurchase.Result.PURCHASED) {
             planned.clear();
             for (var cell : KingdomExpansionPlans.get(viewer.getServer()).snapshot(cityId))
