@@ -22,9 +22,11 @@ public final class KingdomCityExpansionPurchase {
         LAND_CONFLICT, INSUFFICIENT_FUNDS, LEDGER_ERROR, RECONCILIATION_REQUIRED }
     private KingdomCityExpansionPurchase() {}
 
+    private static UUID adminFounder(ServerPlayer player, KingdomCivicsData.Town town) {
+        return KingdomAdministrationData.get(player.getServer()).founder(town.id());
+    }
     private static boolean founder(ServerPlayer player, KingdomCivicsData.Town town) {
-        return player.getUUID().equals(
-                KingdomAdministrationData.get(player.getServer()).founder(town.id()));
+        return player.getUUID().equals(adminFounder(player,town));
     }
 
     private static boolean nearOwnTownHall(ServerPlayer player, KingdomCivicsData.Town town) {
@@ -65,6 +67,23 @@ public final class KingdomCityExpansionPurchase {
             if (debit == null && !admin.debitExpansion(cityId, receipt.id(), receipt.copper()))
                 return false;
         }
+        // Repair a legacy NPC-workshop claim mirror after a crash, without
+        // touching the authoritative city plot or charging the treasury.
+        var town = civics.townById(cityId);
+        if (town == null) return false;
+        UUID stableFounder = admin.founder(cityId);
+        if (stableFounder == null) return false;
+        var legacy = KingdomTerritories.get(player.getServer());
+        String dimension = player.serverLevel().dimension().location().toString();
+        for (var plot : civics.mapPlots(dimension)) {
+            if (!cityId.equals(plot.town())) continue;
+            var pos = new BlockPos(plot.x() << 4, 64, plot.z() << 4);
+            UUID legacyOwner = legacy.owner(player.serverLevel(), pos);
+            if (legacyOwner != null && !legacyOwner.equals(town.mayor())
+                    && !legacyOwner.equals(stableFounder)) return false;
+            if (legacyOwner == null && !legacy.claim(player.serverLevel(), pos, stableFounder))
+                return false;
+        }
         return true;
     }
 
@@ -92,7 +111,7 @@ public final class KingdomCityExpansionPurchase {
         if (quote.status() != KingdomExpansionQuote.Status.READY) return Result.INVALID_PLAN;
 
         var legacy = KingdomTerritories.get(player.getServer());
-        UUID originalMayor = town.mayor();
+        UUID stableFounder = adminFounder(player, town);
         for (var cell : cells) {
             BlockPos start = new BlockPos(cell.x() << 4, 64, cell.z() << 4);
             BlockPos end = new BlockPos((cell.x() << 4) + 15, 64, (cell.z() << 4) + 15);
@@ -100,8 +119,8 @@ public final class KingdomCityExpansionPurchase {
                     || !player.serverLevel().getWorldBorder().isWithinBounds(end))
                 return Result.LAND_CONFLICT;
             UUID owner = legacy.owner(player.serverLevel(), start);
-            if (owner != null && !owner.equals(originalMayor)
-                    && !owner.equals(player.getUUID())) return Result.LAND_CONFLICT;
+            if (owner != null && !owner.equals(stableFounder)
+                    && !owner.equals(town.mayor())) return Result.LAND_CONFLICT;
         }
         var admin = KingdomAdministrationData.get(player.getServer());
         if (admin.treasuryReserve(town.id()) < quote.price())
@@ -118,7 +137,7 @@ public final class KingdomCityExpansionPurchase {
         // ownership index after commit; never charge again to repair the mirror.
         for (var cell : cells) {
             BlockPos pos = new BlockPos(cell.x() << 4, 64, cell.z() << 4);
-            if (!legacy.claim(player.serverLevel(), pos, originalMayor))
+            if (!legacy.claim(player.serverLevel(), pos, stableFounder))
                 return Result.RECONCILIATION_REQUIRED;
         }
 
