@@ -49,6 +49,48 @@ public final class KingdomBankData extends SavedData {
     }
     public long balance(UUID owner) {return accounts.getOrDefault(owner,0L);}
     public long vault() {return vault;}
+    private static boolean covered(long cash,long bank,long city){
+        return cash>=0&&bank>=0&&city>=0&&bank<=Long.MAX_VALUE-city
+                &&cash>=bank+city;
+    }
+    /** Exact human-readable deposit/withdrawal diagnostics for the city bank. */
+    public String depositProblem(ServerPlayer player,long amount){
+        if(player==null||!atBranch(player))return "Откройте меню банковского блока и подойдите к нему.";
+        if(amount<=0||amount>1_000_000)return "Допустимая сумма от 1 до 1 000 000 медных.";
+        UUID town=bankTown(player);
+        if(town==null)return "Нужен установленный городской банк, а не старый магнетитовый терминал.";
+        if(!payableAt(player.getUUID(),town))
+            return "Старый баланс счёта ещё не привязан к физическому банку. Нужна сверка старого счёта.";
+        var cash=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        if(cash==null)return "Банковский сейф не подключён или его чанк выгружен. Управляющий должен привязать сундук.";
+        var admin=KingdomAdministrationData.get(player.getServer());
+        if(!covered(KingdomPhysicalCash.value(cash),admin.bankReserve(town),admin.treasuryReserve(town)))
+            return "В сейфе не хватает реальных монет для уже записанных счетов и казны. Требуется сверка.";
+        long wallet=KingdomCurrency.balance(player);
+        if(wallet<amount)return "В кошельке "+wallet+" медных. Внесите монеты в кошелёк Kingdom: нужно "+amount+".";
+        if(balance(player.getUUID())>Long.MAX_VALUE-amount)return "Баланс счёта превысил допустимый размер.";
+        if(admin.bankReserve(town)>Long.MAX_VALUE-amount)return "Банковский резерв переполнен.";
+        return "Банковский сундук полон или не принимает такой номинал монет.";
+    }
+    public String withdrawProblem(ServerPlayer player,long amount){
+        if(player==null||!atBranch(player))return "Подойдите к городскому банку и откройте его меню.";
+        if(amount<=0||amount>1_000_000)return "Некорректная сумма.";
+        UUID town=bankTown(player);
+        if(town==null)return "Городской банк не найден.";
+        if(!payableAt(player.getUUID(),town))
+            return "Старый баланс банковского счёта требует сверки физического резерва.";
+        long owned=balance(player.getUUID());
+        if(owned<amount)return "На счёте "+owned+" медных; для снятия требуется "+amount+".";
+        var cash=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        if(cash==null)return "Банковский сейф не подключён или не загружен.";
+        var admin=KingdomAdministrationData.get(player.getServer());
+        long physical=KingdomPhysicalCash.value(cash);
+        if(!covered(physical,admin.bankReserve(town),admin.treasuryReserve(town)))
+            return "В физическом хранилище меньше монет, чем зарегистрировано на счетах и в казне. Нужна сверка.";
+        if(admin.bankReserve(town)<amount)return "Банковский резерв не подтверждает указанную сумму. Нужна сверка.";
+        if(physical<amount)return "В сейфе физически недостаточно монет.";
+        return "Не получилось выдать нужные монеты: проверьте номиналы в сейфе и место в кошельке.";
+    }
     public boolean deposit(ServerPlayer player, long amount) {
         if(!atBranch(player)||amount<=0||amount>1_000_000)return false;
         long previous=balance(player.getUUID());
@@ -58,6 +100,7 @@ public final class KingdomBankData extends SavedData {
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         var admin=KingdomAdministrationData.get(player.getServer());
         if(vault==null||previous>Long.MAX_VALUE-amount||admin.bankReserve(town)>Long.MAX_VALUE-amount
+                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town))
                 ||!KingdomPhysicalCash.deposit(player,vault,amount))return false;
         if(!admin.depositBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical deposit");
@@ -72,7 +115,7 @@ public final class KingdomBankData extends SavedData {
         var admin=KingdomAdministrationData.get(player.getServer());
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null||admin.bankReserve(town)<amount
-                ||KingdomPhysicalCash.value(vault)<admin.bankReserve(town)
+                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town))
                 ||!KingdomPhysicalCash.withdraw(player,vault,amount))return false;
         if(!admin.withdrawBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical withdrawal");
