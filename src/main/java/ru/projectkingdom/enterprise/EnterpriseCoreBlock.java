@@ -43,7 +43,10 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
         var data=KingdomEnterpriseData.get(server.getServer());
         EnterpriseCoreItemData.Bound bound=EnterpriseCoreItemData.read(stack);
         UUIDHolder identity;
-        if(bound==null){
+        // A dismantled core from a closed company may be reused as a fresh
+        // unbound core by its original owner. The defunct company ID stays closed.
+        if(bound==null || (bound.owner().equals(player.getUUID())&&bound.kind()==kind
+                &&data.wasClosed(bound.enterpriseId()))){
             if(!canPlaceBusiness(server,pos,player.getUUID())){
                 reject(server,pos,player,stack,"Сначала зарегистрируйте свою территорию.");return;
             }
