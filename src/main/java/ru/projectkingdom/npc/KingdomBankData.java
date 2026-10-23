@@ -76,6 +76,9 @@ public final class KingdomBankData extends SavedData {
      */
     public boolean payLeaseCash(ServerPlayer payer, String dimension, int x, int z, boolean renewal) {
         if(!atBranch(payer))return false;
+        UUID bank=bankTown(payer);
+        var physical=KingdomPhysicalCash.townVault(payer,bank,AdministrativeBindingRole.BANK_VAULT);
+        if(physical==null)return false;
         var civics=KingdomCivicsData.get(payer.getServer());
         long now=System.currentTimeMillis();
         civics.clearExpiredLease(dimension,x,z,now);
@@ -88,13 +91,20 @@ public final class KingdomBankData extends SavedData {
         long prior=balance(recipient);
         if(amount<=0||amount>1_000_000
                 ||KingdomCurrency.balance(payer)<amount
-                ||prior>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.debit(payer,amount))return false;
+                ||prior>Long.MAX_VALUE-amount
+                ||KingdomAdministrationData.get(payer.getServer()).bankReserve(bank)>Long.MAX_VALUE-amount)return false;
+        if(!KingdomPhysicalCash.deposit(payer,physical,amount))return false;
         boolean recorded=renewal
                 ? civics.renewLease(payer.getUUID(),dimension,x,z,now,amount,7L*24*60*60*1000)
                 : civics.acceptLease(payer.getUUID(),dimension,x,z,now);
-        if(!recorded){KingdomCurrency.credit(payer,amount);return false;}
-        accounts.put(recipient,prior+amount);vault+=amount;
+        if(!recorded){
+            if(!KingdomPhysicalCash.withdraw(payer,physical,amount))
+                throw new IllegalStateException("Bank lease payment compensation failed");
+            return false;
+        }
+        if(!KingdomAdministrationData.get(payer.getServer()).depositBankReserve(bank,amount))
+            throw new IllegalStateException("Bank lease reserve update failed after payment");
+        accounts.put(recipient,prior+amount);
         payer.getInventory().setChanged();setDirty();return true;
     }
     /** Settle an assessed rent debt using coins presented at a real bank branch.
@@ -103,6 +113,9 @@ public final class KingdomBankData extends SavedData {
      */
     public boolean payLeaseDebtCash(ServerPlayer payer,String dimension,int x,int z,long amount) {
         if(!atBranch(payer)||amount<=0||amount>1_000_000)return false;
+        UUID bank=bankTown(payer);
+        var physical=KingdomPhysicalCash.townVault(payer,bank,AdministrativeBindingRole.BANK_VAULT);
+        if(physical==null)return false;
         var civics=KingdomCivicsData.get(payer.getServer());
         civics.clearExpiredLease(dimension,x,z,System.currentTimeMillis());
         if(!civics.canPayLeaseDebt(payer.getUUID(),dimension,x,z,amount))return false;
@@ -110,20 +123,25 @@ public final class KingdomBankData extends SavedData {
         UUID landlord=debt.landlord();
         long previous=balance(landlord);
         if(KingdomCurrency.balance(payer)<amount
-                ||previous>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.debit(payer,amount))return false;
+                ||previous>Long.MAX_VALUE-amount
+                ||KingdomAdministrationData.get(payer.getServer()).bankReserve(bank)>Long.MAX_VALUE-amount)return false;
+        if(!KingdomPhysicalCash.deposit(payer,physical,amount))return false;
         if(!civics.recordLeaseDebtPayment(payer.getUUID(),dimension,x,z,amount)) {
-            if(!KingdomCurrency.credit(payer,amount))
-                payer.sendSystemMessage(net.minecraft.network.chat.Component.literal("[Kingdom] ОШИБКА: возврат денег не выполнен"));
+            if(!KingdomPhysicalCash.withdraw(payer,physical,amount))
+                throw new IllegalStateException("Bank debt payment compensation failed");
             return false;
         }
+        if(!KingdomAdministrationData.get(payer.getServer()).depositBankReserve(bank,amount))
+            throw new IllegalStateException("Bank debt reserve update failed after payment");
         accounts.put(landlord,previous+amount);
-        vault+=amount;
         payer.getInventory().setChanged();setDirty();return true;
     }
     /** Buyer brings coins to a real bank counter. Seller receives a backed deposit receipt. */
     public boolean payLandSaleCash(ServerPlayer buyer,String dimension,int x,int z) {
         if(!atBranch(buyer))return false;
+        UUID bank=bankTown(buyer);
+        var physical=KingdomPhysicalCash.townVault(buyer,bank,AdministrativeBindingRole.BANK_VAULT);
+        if(physical==null)return false;
         var civics=KingdomCivicsData.get(buyer.getServer());
         if(!civics.canBuySale(buyer.getUUID(),dimension,x,z))return false;
         var offer=civics.saleOffer(dimension,x,z);
@@ -131,14 +149,17 @@ public final class KingdomBankData extends SavedData {
         long previous=balance(seller);
         if(amount<=0||amount>1_000_000
                 ||KingdomCurrency.balance(buyer)<amount
-                ||previous>Long.MAX_VALUE-amount||vault>Long.MAX_VALUE-amount)return false;
-        if(!KingdomCurrency.debit(buyer,amount))return false;
+                ||previous>Long.MAX_VALUE-amount
+                ||KingdomAdministrationData.get(buyer.getServer()).bankReserve(bank)>Long.MAX_VALUE-amount)return false;
+        if(!KingdomPhysicalCash.deposit(buyer,physical,amount))return false;
         if(!civics.completeSale(buyer.getUUID(),dimension,x,z)) {
-            if(!KingdomCurrency.credit(buyer,amount))
-                buyer.sendSystemMessage(net.minecraft.network.chat.Component.literal("[Kingdom] КРИТИЧЕСКАЯ ОШИБКА: возврат денег за землю не удался"));
+            if(!KingdomPhysicalCash.withdraw(buyer,physical,amount))
+                throw new IllegalStateException("Bank land payment compensation failed");
             return false;
         }
-        accounts.put(seller,previous+amount);vault+=amount;
+        if(!KingdomAdministrationData.get(buyer.getServer()).depositBankReserve(bank,amount))
+            throw new IllegalStateException("Bank land reserve update failed after payment");
+        accounts.put(seller,previous+amount);
         buyer.getInventory().setChanged();setDirty();return true;
     }
     /** A bank branch must actually exist within interaction distance. */
