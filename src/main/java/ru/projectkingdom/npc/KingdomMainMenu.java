@@ -32,6 +32,7 @@ public final class KingdomMainMenu extends ChestMenu {
     private int marketQuote=0;
     private int schematicPage=0;
     private int materialsPage=0;
+    private java.util.UUID orphanClosurePending;
     // Server-bound slot identities: never let live market ordering change the clicked offer.
     private final java.util.Map<Integer,java.util.UUID> tradeSlots=new java.util.HashMap<>();
     private KingdomMainMenu(int id, Inventory inventory, ServerPlayer player, Page page, SimpleContainer content, java.util.UUID siteId, BlockPos architectAnchor) {
@@ -215,6 +216,14 @@ public final class KingdomMainMenu extends ChestMenu {
                         +" | "+vendor.name());n++;
                 }
                 icon(22,Items.BOOK,"Товары реально переходят между сундуками двух предприятий; оплата только из кассы.");
+                if(firm!=null){
+                    var binding=data.core(firm.id());
+                    icon(23,Items.BARRIER,binding!=null&&binding.active()
+                        ?"Для закрытия установленного предприятия открой его ядро → Настройки"
+                        :(orphanClosurePending!=null&&orphanClosurePending.equals(firm.id())
+                            ?"ПОДТВЕРДИТЬ закрытие снятого предприятия "+firm.name()+" (ПКМ)"
+                            :"Закрыть снятое предприятие "+firm.name()+" и освободить место (ПКМ дважды)"));
+                }
                 var nearby=nearbyPlayers();
                 if(firm!=null && !nearby.isEmpty()) {
                     var target=nearby.get(0);
@@ -495,6 +504,20 @@ public final class KingdomMainMenu extends ChestMenu {
                                 ?"Сотрудник нанят; ставка "+rate:"Нет прав");
                         }
                     }draw();
+                }
+                else if(slot==23&&firm!=null){
+                    var registered=db.core(firm.id());
+                    if(registered!=null&&registered.active()){
+                        say("Для действующего блока используй «Настройки → Закрыть предприятие».");
+                    }else if(!firm.id().equals(orphanClosurePending)){
+                        orphanClosurePending=firm.id();
+                        say("ПОДТВЕРДИ закрытие предприятия ещё одним нажатием. Деньги, склады и долги должны быть погашены.");
+                    }else{
+                        orphanClosurePending=null;
+                        var result=db.closeBusiness(viewer,firm.id(),null);
+                        say(KingdomEnterpriseData.closeMessage(result));
+                    }
+                    draw();
                 }
                 else if(slot==25){say(KingdomEnterprisePayrollData.get(viewer.getServer()).claimAny(viewer.getServer(),viewer)
                     ?"Начисленная зарплата получена":"Нет долга или доступной кассы с деньгами");draw();}
