@@ -36,6 +36,9 @@ public final class KingdomAdministrationData extends SavedData {
     private final Map<UUID,EnumMap<AdministrativeBindingRole,LinkedHashSet<BoundContainer>>> containers=new LinkedHashMap<>();
     private final Map<UUID,Long> bankReserves=new LinkedHashMap<>();
     private final Map<UUID,Long> treasuryReserves=new LinkedHashMap<>();
+    /** Recorded but physically unbacked legacy liabilities, never spendable. */
+    private final Map<UUID,Long> legacyBankLiabilities=new LinkedHashMap<>();
+    private final Map<UUID,Long> legacyTreasuryLiabilities=new LinkedHashMap<>();
     private final Map<UUID,Long> historicalTreasuries=new LinkedHashMap<>();
     private final Map<UUID,ExpansionDebit> expansionDebits=new LinkedHashMap<>();
     private final Map<UUID,LinkedHashMap<UUID,JusticeCase>> justiceCases=new LinkedHashMap<>();
@@ -144,6 +147,27 @@ public final class KingdomAdministrationData extends SavedData {
     }
     public long bankReserve(UUID townId){return bankReserves.getOrDefault(townId,0L);}
     public long treasuryReserve(UUID townId){return treasuryReserves.getOrDefault(townId,0L);}
+    public long legacyBankLiability(UUID town){return legacyBankLiabilities.getOrDefault(town,0L);}
+    public long legacyTreasuryLiability(UUID town){return legacyTreasuryLiabilities.getOrDefault(town,0L);}
+    /** Freeze a city's unbacked numerical reserves for investigation, never mint them.
+     * Invoked only during an explicit manager-confirmed empty-vault migration.
+     */
+    public void archiveUnbackedReserves(UUID town){
+        if(town==null)return;
+        long oldBank=bankReserve(town),oldCity=treasuryReserve(town);
+        if(oldBank>0){
+            legacyBankLiabilities.merge(town,oldBank,KingdomAdministrationData::saturatingSum);
+            bankReserves.remove(town);
+        }
+        if(oldCity>0){
+            legacyTreasuryLiabilities.merge(town,oldCity,KingdomAdministrationData::saturatingSum);
+            treasuryReserves.remove(town);
+        }
+        if(oldBank>0||oldCity>0)setDirty();
+    }
+    private static long saturatingSum(long a,long b){
+        return a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b;
+    }
     public ExpansionDebit expansionDebit(UUID id){return expansionDebits.get(id);}
     public List<ExpansionDebit> expansionDebits(UUID townId){
         List<ExpansionDebit> result=new ArrayList<>();
@@ -288,6 +312,10 @@ public final class KingdomAdministrationData extends SavedData {
             data.bankReserves.put(town,Math.max(0,row.getLong("BankReserve")));
             data.treasuryReserves.put(town,Math.max(0,row.getLong("TreasuryReserve")));
             data.historicalTreasuries.put(town,Math.max(0,row.getLong("HistoricalTreasury")));
+            long legacyBank=Math.max(0,row.getLong("LegacyBankLiability"));
+            long legacyCity=Math.max(0,row.getLong("LegacyTreasuryLiability"));
+            if(legacyBank>0)data.legacyBankLiabilities.put(town,legacyBank);
+            if(legacyCity>0)data.legacyTreasuryLiabilities.put(town,legacyCity);
         }
         ListTag expansionList=root.getList("ExpansionDebits",Tag.TAG_COMPOUND);
         for(int i=0;i<expansionList.size();i++){
