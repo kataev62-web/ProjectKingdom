@@ -26,7 +26,7 @@ public final class EnterpriseAccessService {
     public static void cancel(UUID player){SESSIONS.remove(player);}
 
     public static Status complete(ServerPlayer player,ServerLevel level,BlockPos pos){
-        EnterpriseBindingSession session=SESSIONS.get(player.getUUID());
+        EnterpriseBindingSession session=SESSIONS.remove(player.getUUID());
         if(session==null||!session.dimension().equals(level.dimension().location().toString())
                 ||pos.distSqr(player.blockPosition())>36)return Status.MISSING;
         var data=KingdomEnterpriseData.get(player.getServer());var firm=data.find(session.enterpriseId());
@@ -36,7 +36,7 @@ public final class EnterpriseAccessService {
         if(!(level.getBlockEntity(pos) instanceof Container))return Status.INVALID_CONTAINER;
         if(!data.bindStorage(player.getUUID(),session.enterpriseId(),session.role(),
                 level.dimension().location().toString(),pos))return Status.INVALID_CONTAINER;
-        SESSIONS.remove(player.getUUID());return Status.BOUND_AVAILABLE;
+        return Status.BOUND_AVAILABLE;
     }
 
     public static Access snapshot(ServerLevel level,KingdomEnterpriseData data,UUID enterprise,EnterpriseBindingRole role){
