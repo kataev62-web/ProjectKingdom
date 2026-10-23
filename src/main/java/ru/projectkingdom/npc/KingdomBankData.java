@@ -145,6 +145,10 @@ public final class KingdomBankData extends SavedData {
         var civics=KingdomCivicsData.get(buyer.getServer());
         if(!civics.canBuySale(buyer.getUUID(),dimension,x,z))return false;
         var offer=civics.saleOffer(dimension,x,z);
+        var parcel=civics.plot(buyer.serverLevel(),new BlockPos(x<<4,64,z<<4));
+        var city=parcel==null?null:civics.townById(parcel.town());
+        // Public municipal title transfers only via the local hall's reservation.
+        if(city!=null&&offer.seller().equals(city.mayor()))return false;
         UUID seller=offer.seller();long amount=offer.priceCopper();
         long previous=balance(seller);
         if(amount<=0||amount>1_000_000
