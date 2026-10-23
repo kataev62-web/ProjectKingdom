@@ -25,7 +25,10 @@ class GraphicAtlasProtocolTest {
                         "Ратуша Авалона"),
                         new ru.projectkingdom.map.KingdomAtlasInfrastructure.Marker(
                         ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.BRIDGE, -1900, 5100,
-                        "Каменный мост")));
+                        "Каменный мост")),
+                List.of(new ru.projectkingdom.map.KingdomAtlasBuildingOutlines.Outline(
+                        ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.BRIDGE,
+                        -1910,5090,-1890,5110)));
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
         try {
             GraphicAtlasResponsePacket.encode(new GraphicAtlasResponsePacket(original),buffer);
@@ -40,6 +43,8 @@ class GraphicAtlasProtocolTest {
             assertEquals("Ратуша Авалона", copy.markers().get(0).label());
             assertEquals(ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.BRIDGE,
                     copy.markers().get(1).kind());
+            assertEquals(1,copy.outlines().size());
+            assertEquals(-1910,copy.outlines().get(0).minX());
         } finally { buffer.release(); }
     }
 
@@ -60,6 +65,19 @@ class GraphicAtlasProtocolTest {
             buffer.writeVarInt(0); // no terrain / property tiles
             buffer.writeVarInt(ru.projectkingdom.map.KingdomAtlasInfrastructure.MAX_MARKERS + 1);
             assertThrows(IllegalArgumentException.class, () ->
+                    GraphicAtlasResponsePacket.decode(buffer));
+        } finally { buffer.release(); }
+    }
+
+    @Test void rejectsOversizedOutlineListBeforeAllocation() {
+        var buffer = new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            buffer.writeVarInt(1);buffer.writeInt(0);buffer.writeInt(0);
+            buffer.writeVarInt(1);buffer.writeByte(0);
+            buffer.writeVarInt(0); // no atlas tiles
+            buffer.writeVarInt(0); // no building markers
+            buffer.writeVarInt(ru.projectkingdom.map.KingdomAtlasBuildingOutlines.MAX_OUTLINES + 1);
+            assertThrows(IllegalArgumentException.class,()->
                     GraphicAtlasResponsePacket.decode(buffer));
         } finally { buffer.release(); }
     }
