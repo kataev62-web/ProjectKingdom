@@ -7,7 +7,6 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import java.util.*;
 
 /** Survival-mode building, one real inventory block for each newly placed plan block. */
@@ -17,6 +16,19 @@ public final class KingdomSiteBuilder {
         BlockPos marker=findLectern(p);
         if(marker==null)return "Поставь кафедру (lectern) и стой не дальше 4 блоков от неё.";
         var db=KingdomConstructionData.get(p.getServer());
+        // A craftable blueprint pays for registering the building plan in survival.
+        // It is consumed only after all placement, land and collision checks pass.
+        int blueprintSlot = -1;
+        if (!p.isCreative()) {
+            for (int slot = 0; slot < p.getInventory().getContainerSize(); slot++) {
+                if (p.getInventory().getItem(slot).is(KingdomConstructionRegistry.BUILDING_BLUEPRINT.get())) {
+                    blueprintSlot = slot;
+                    break;
+                }
+            }
+            if (blueprintSlot < 0)
+                return "Сначала скрафти строительный чертёж (бумага + уголь) и возьми его в инвентарь.";
+        }
         String dimension=p.level().dimension().location().toString();
         if(db.atMarker(dimension,marker.getX(),marker.getY(),marker.getZ())!=null)return "На этой кафедре уже есть стройка.";
         var design=KingdomBuildingTypes.design(type);
@@ -44,13 +56,17 @@ public final class KingdomSiteBuilder {
             if(!existing.isAir()&&!existing.is(b))return "Очисти площадку: препятствие в "+target.toShortString();
         }
         var project=db.add(p.getUUID(),dimension,type.name(),marker.getX()+2,marker.getY(),marker.getZ()+2);
+        if (blueprintSlot >= 0) {
+            p.getInventory().getItem(blueprintSlot).shrink(1);
+            p.getInventory().setChanged();
+        }
         return "Площадка "+type.title+" создана. Открой кафедру ПКМ. ID: "+project.id();
     }
     public static BlockPos findLectern(ServerPlayer p) {
         BlockPos base=p.blockPosition();BlockPos closest=null;double dist=Double.MAX_VALUE;
         for(int dx=-4;dx<=4;dx++)for(int dy=-2;dy<=2;dy++)for(int dz=-4;dz<=4;dz++){
             BlockPos pos=base.offset(dx,dy,dz);
-            if(!p.serverLevel().getBlockState(pos).is(Blocks.LECTERN))continue;
+            if (!KingdomConstructionMarkers.isMarker(p.serverLevel(), pos)) continue;
             double d=pos.distSqr(base);if(d<dist){dist=d;closest=pos;}
         }return closest;
     }
@@ -61,7 +77,7 @@ public final class KingdomSiteBuilder {
         var plan=KingdomBuildingTypes.design(type).blocks();var data=KingdomConstructionData.get(p.getServer());
         int index=data.progress(project.id());if(index>=plan.size())return "Здание уже построено.";
         BlockPos marker=new BlockPos(project.x()-2,project.y(),project.z()-2);
-        if(!p.serverLevel().getBlockState(marker).is(Blocks.LECTERN))return "Строительная кафедра удалена.";
+        if(!KingdomConstructionMarkers.isMarker(p.serverLevel(),marker))return "Чертёжный стол или кафедра удалены.";
         if(p.distanceToSqr(marker.getX()+0.5,marker.getY()+0.5,marker.getZ()+0.5)>144)return "Подойди к стройке (не дальше 12 блоков).";
         var claims=KingdomTerritories.get(p.getServer());var civics=KingdomCivicsData.get(p.getServer());
         int placed=0;
