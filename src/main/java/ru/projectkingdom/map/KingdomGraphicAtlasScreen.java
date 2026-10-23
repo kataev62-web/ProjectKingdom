@@ -211,6 +211,39 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 }
             }
         }
+        // Render a few readable settlement captions at their visible centroids.
+        // Never fabricate villages for empty cells or reveal hidden ore.
+        java.util.Map<String, int[]> captions = new java.util.LinkedHashMap<>();
+        for (int row = 0; row < KingdomGraphicAtlasData.ROWS; row++) {
+            for (int col = 0; col < KingdomGraphicAtlasData.COLUMNS; col++) {
+                var tile = snapshot.tile(col,row);
+                if (tile.claims() == 0 || tile.town().isBlank()
+                        || "Несколько городов".equals(tile.town())) continue;
+                String name = layer == KingdomGraphicAtlasData.Layer.POLITICAL
+                        && !tile.nation().isBlank() ? tile.nation() : tile.town();
+                int[] current = captions.computeIfAbsent(name, unused -> new int[3]);
+                current[0] += col; current[1] += row; current[2]++;
+            }
+        }
+        int shown = 0;
+        java.util.List<int[]> drawn = new java.util.ArrayList<>();
+        for (var caption : captions.entrySet()) {
+            int[] area = caption.getValue();
+            if (area[2] < 2 || shown >= 5) continue;
+            int px = gridX + (area[0] * cell / area[2]) + cell / 2;
+            int py = gridY + (area[1] * cell / area[2]) + cell / 2;
+            boolean overlap = false;
+            for (int[] old : drawn)
+                if (Math.abs(px - old[0]) < 80 && Math.abs(py - old[1]) < 16) overlap = true;
+            if (overlap) continue;
+            String name = caption.getKey();
+            if (name.length() > 22) name = name.substring(0, 21) + "…";
+            int w = Math.min(gridWidth - 4, font.width(name) + 9);
+            px = Math.max(gridX + w / 2 + 2, Math.min(gridX + gridWidth - w / 2 - 2, px));
+            gui.fill(px - w / 2, py - 5, px + w / 2, py + 7, 0xD334281F);
+            gui.drawCenteredString(font, name, px, py - 3, 0xFFFBEBD0);
+            drawn.add(new int[]{px,py}); shown++;
+        }
     }
     private boolean different(KingdomGraphicAtlasData.Tile a, KingdomGraphicAtlasData.Tile b) {
         if (a.claims() == 0 && b.claims() == 0) return false;
