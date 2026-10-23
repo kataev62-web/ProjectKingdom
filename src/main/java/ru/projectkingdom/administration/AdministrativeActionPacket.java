@@ -59,8 +59,20 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
             boolean publicFinance=(packet.kind==AdministrativeKind.BANK&&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100))
                     ||(packet.kind==AdministrativeKind.TREASURY&&packet.action==TREASURY_DEPOSIT_100);
             if(!publicFinance&&!menu.manager())return;
-            if(packet.action==BANK_DEPOSIT_100){KingdomBankData.get(sender.getServer()).deposit(sender,100);return;}
-            if(packet.action==BANK_WITHDRAW_100){KingdomBankData.get(sender.getServer()).withdraw(sender,100);return;}
+            if(packet.action==BANK_DEPOSIT_100){
+                boolean ok=KingdomBankData.get(sender.getServer()).deposit(sender,100);
+                sender.sendSystemMessage(Component.literal(ok
+                    ?"[Банк] Внесено 100 медных: монеты помещены в банковскую кассу."
+                    :"[Банк] Внести не удалось: проверьте привязку банковского сейфа, место для монет и кошелёк."));
+                return;
+            }
+            if(packet.action==BANK_WITHDRAW_100){
+                boolean ok=KingdomBankData.get(sender.getServer()).withdraw(sender,100);
+                sender.sendSystemMessage(Component.literal(ok
+                    ?"[Банк] Выдано 100 медных из физического резерва."
+                    :"[Банк] Снять не удалось: проверьте привязку сейфа, баланс счёта и реальные монеты в нём."));
+                return;
+            }
             if(packet.action==TREASURY_DEPOSIT_100){
                 var civics=KingdomCivicsData.get(sender.getServer());
                 var vault=KingdomPhysicalCash.townVault(sender,packet.townId,AdministrativeBindingRole.TREASURY_VAULT);
@@ -93,7 +105,13 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 case BIND_PRISON_CELL->AdministrativeBindingRole.PRISON_CELL;
                 default->null;
             };
-            if(role!=null)AdministrativeAccessService.begin(sender,packet.townId,packet.kind,role);
+            if(role!=null){
+                boolean ok=AdministrativeAccessService.begin(sender,packet.townId,packet.kind,role);
+                sender.sendSystemMessage(Component.literal(ok
+                    ?"[Город] "+AdministrativeAccessService.pendingRole(sender.getUUID())
+                        +": подойдите не дальше 6 блоков и нажмите ПКМ по настоящему сундуку или складу Kingdom. Рука должна быть пустой."
+                    :"[Город] Нет прав на привязку. Откройте нужную службу её управляющим и попробуйте снова."));
+            }
         });context.setPacketHandled(true);
     }
 }
