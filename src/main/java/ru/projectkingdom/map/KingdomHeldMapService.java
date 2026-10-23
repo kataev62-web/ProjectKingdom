@@ -57,9 +57,14 @@ public final class KingdomHeldMapService {
     /** One paper is consumed; issuing a map cannot mint paper from nothing. */
     public static void issue(ServerPlayer player) {
         if (player.getServer() == null) return;
-        if (hasAtlas(player)) {
+        if (hasNearbyAtlas(player)) {
             player.sendSystemMessage(Component.literal(
-                    "[Kingdom] Карта уже есть в инвентаре. Возьмите её в руку."));
+                    "[Kingdom] Карта этого района уже есть. Возьмите её в руку."));
+            return;
+        }
+        if (countAtlases(player) >= 6) {
+            player.sendSystemMessage(Component.literal(
+                    "[Kingdom] Можно хранить до 6 карт районов. Уберите старую карту в сундук."));
             return;
         }
         if (!player.isCreative() && !hasPaper(player)) {
@@ -87,10 +92,22 @@ public final class KingdomHeldMapService {
                 "[Kingdom] Карта изготовлена. Возьмите её в руку: дороги, города и путь будут прямо на бумаге."));
     }
 
-    private static boolean hasAtlas(ServerPlayer player) {
+    private static int countAtlases(ServerPlayer player) {
+        int count=0;
         for (int i=0;i<player.getInventory().getContainerSize();i++)
-            if (isKingdomMap(player.getInventory().getItem(i))) return true;
-        return isKingdomMap(player.getOffhandItem());
+            if (isKingdomMap(player.getInventory().getItem(i))) count++;
+        return count;
+    }
+    private static boolean hasNearbyAtlas(ServerPlayer player) {
+        String dimension=player.serverLevel().dimension().location().toString();
+        for (int i=0;i<player.getInventory().getContainerSize();i++) {
+            var stack=player.getInventory().getItem(i);
+            if (!isKingdomMap(stack) || !dimension.equals(stack.getTag().getString(DIM_TAG))) continue;
+            var data=MapItem.getSavedData(stack,player.serverLevel());
+            if(data!=null && Math.abs((long)data.centerX-player.blockPosition().getX())<160
+                    && Math.abs((long)data.centerZ-player.blockPosition().getZ())<160) return true;
+        }
+        return false;
     }
     private static boolean hasPaper(ServerPlayer player) {
         for (int i=0;i<player.getInventory().getContainerSize();i++)
