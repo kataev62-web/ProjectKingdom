@@ -296,6 +296,7 @@ public final class KingdomNpcMenu extends ChestMenu {
                         info("Не получилось оформить договор с предприятием.");break;
                     }
                     w.employer = viewer.getUUID();
+                    w.rationsEnabled=false; // New employer must explicitly opt into food provision.
                     w.workplaceId=firm.id().toString();
                     w.lastPaidDay = viewer.getServer().overworld().getDayTime() / 24000;
                     w.unpaidDays = 0;
@@ -308,6 +309,7 @@ public final class KingdomNpcMenu extends ChestMenu {
                         if(contract.worker().equals(w.entityId)&&contract.active())
                             jobs.dismiss(viewer.getServer(),viewer.getUUID(),contract.enterprise(),w.entityId);
                     w.employer = null;
+                    w.rationsEnabled=false;
                     w.order = "wander";
                     w.contractPaused = false;
                     w.unpaidDays = 0;
