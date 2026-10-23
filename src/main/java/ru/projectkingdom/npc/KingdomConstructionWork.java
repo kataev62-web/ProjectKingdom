@@ -2,15 +2,11 @@ package ru.projectkingdom.npc;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 
 /**
@@ -48,9 +44,9 @@ public final class KingdomConstructionWork {
 
     public static Step next(MinecraftServer server, KingdomConstructionData.Project project) {
         if (project == null) return new Step(Result.NO_PROJECT, null, "");
-        var kind = KingdomBuildingTypes.type(project.design());
-        if (kind == null) return new Step(Result.INVALID_BLOCK, null, "");
-        var blocks = KingdomBuildingTypes.design(kind).blocks();
+        var design = KingdomConstructionPlans.resolve(server, project.design());
+        if (design == null) return new Step(Result.INVALID_BLOCK, null, "");
+        var blocks = design.blocks();
         int index = KingdomConstructionData.get(server).progress(project.id());
         if (index >= blocks.size()) return new Step(Result.COMPLETED, null, "");
         var cell = blocks.get(index);
@@ -78,17 +74,20 @@ public final class KingdomConstructionWork {
         if (!KingdomConstructionAccess.canBuild(server, level, target, project.owner()))
             return new Step(Result.NO_RIGHTS, target, next.material());
 
-        ResourceLocation id = ResourceLocation.tryParse(next.material());
-        if (id == null || !BuiltInRegistries.BLOCK.containsKey(id))
+        net.minecraft.world.level.block.state.BlockState desired;
+        try {
+            desired = KingdomBlockStateCodec.parse(next.material());
+        } catch (IllegalArgumentException error) {
             return new Step(Result.INVALID_BLOCK, target, next.material());
-        var block = BuiltInRegistries.BLOCK.get(id);
-        if (block == Blocks.AIR || block.asItem() == Items.AIR)
+        }
+        if (!KingdomBlockStateCodec.buildable(desired))
             return new Step(Result.INVALID_BLOCK, target, next.material());
-        if (level.getBlockState(target).is(block)) {
+        var block = desired.getBlock();
+        if (level.getBlockState(target).equals(desired)) {
             advance(server, project);
             return new Step(Result.ALREADY_PRESENT, target, next.material());
         }
-        if (!level.getBlockState(target).isAir())
+        if (!level.getBlockState(target).isAir() || !desired.canSurvive(level, target))
             return new Step(Result.OBSTACLE, target, next.material());
 
         Container depot = depot(level, marker);
@@ -107,7 +106,7 @@ public final class KingdomConstructionWork {
         // The world and the inventory are mutated together on the single server thread.
         ItemStack material = depot.removeItem(slot, 1);
         if (material.isEmpty()) return new Step(Result.NO_MATERIALS, target, next.material());
-        if (!level.setBlock(target, block.defaultBlockState(), 3)) {
+        if (!level.setBlock(target, desired, 3)) {
             // Roll back the exact item. A failed restore is an integrity error,
             // not an excuse to silently delete or invent inventory.
             ItemStack current = depot.getItem(slot);
@@ -128,10 +127,9 @@ public final class KingdomConstructionWork {
     }
 
     private static void advance(MinecraftServer server, KingdomConstructionData.Project project) {
-        var type = KingdomBuildingTypes.type(project.design());
-        if (type == null) return;
-        KingdomConstructionData.get(server).advance(project.id(), 1,
-            KingdomBuildingTypes.design(type).blocks().size());
+        var design = KingdomConstructionPlans.resolve(server, project.design());
+        if (design == null) return;
+        KingdomConstructionData.get(server).advance(project.id(), 1, design.blocks().size());
     }
 
     private static Container depot(ServerLevel level, BlockPos marker) {
