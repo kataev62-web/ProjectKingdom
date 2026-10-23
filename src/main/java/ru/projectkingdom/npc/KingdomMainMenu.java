@@ -252,7 +252,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     var design=KingdomConstructionPlans.resolve(viewer.getServer(),project.design());
                     if(design!=null) {
                         int progress=KingdomConstructionData.get(viewer.getServer()).progress(project.id());
-                        icon(10,Items.BRICKS,KingdomConstructionPlans.title(project.design())+" — "+project.status());
+                        icon(10,Items.BRICKS,KingdomConstructionPlans.title(project.design())+" — "+KingdomConstructionData.statusRu(project.status()));
                         icon(11,Items.CLOCK,"Готово: "+progress+" из "+design.blocks().size()+" блоков");
                         icon(13,Items.IRON_PICKAXE,project.owner().equals(viewer.getUUID())
                             ?(project.status()==KingdomConstructionData.Status.PLANNED?"Начать строительство NPC":"Приостановить строительство NPC")
@@ -299,7 +299,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     if(!KingdomConstructionData.get(viewer.getServer())
                             .mayAssist(project.id(),viewer.getUUID()))continue;
                     if(count>=18)break;
-                    icon(count,Items.PAPER,KingdomConstructionPlans.title(project.design())+" | "+project.status()+" | "+project.x()+","+project.y()+","+project.z());count++;
+                    icon(count,Items.PAPER,KingdomConstructionPlans.title(project.design())+" | "+KingdomConstructionData.statusRu(project.status())+" | "+project.x()+","+project.y()+","+project.z());count++;
                 }
                 icon(22,Items.BOOK,"Показано проектов: "+count+" (макс. 18). ЛКМ по проекту — открыть стройку.");
             }
