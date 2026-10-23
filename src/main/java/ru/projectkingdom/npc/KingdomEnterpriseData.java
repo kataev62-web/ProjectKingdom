@@ -556,6 +556,15 @@ public final class KingdomEnterpriseData extends SavedData {
         if(unresolved(vendor.id()) || unresolved(purchaser.id()))return false;
         Container from=inventoryForOffer(level,offer),to=inventory(level,purchaser.id());
         if(from==null||to==null||from==to||(npc&&to.getContainerSize()<=9))return false;
+        var buyerCash=EnterpriseAccessService.snapshot(level,this,buyerFirm,EnterpriseBindingRole.CASHBOX);
+        var sellerCash=EnterpriseAccessService.snapshot(level,this,vendor.id(),EnterpriseBindingRole.CASHBOX);
+        if(buyerCash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||sellerCash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE)return false;
+        Container coinsFrom=buyerCash.container(),coinsTo=sellerCash.container();
+        if(coinsFrom==null||coinsTo==null||coinsFrom==coinsTo
+                ||coinsFrom==from||coinsFrom==to||coinsTo==from||coinsTo==to
+                ||KingdomPhysicalCash.value(coinsFrom)<purchaser.cash()
+                ||!KingdomPhysicalCash.canMove(coinsFrom,coinsTo,total))return false;
         List<ItemStack> source=new ArrayList<>(),dest=new ArrayList<>();
         for(int i=0;i<from.getContainerSize();i++)source.add(from.getItem(i).copy());
         for(int i=0;i<to.getContainerSize();i++)dest.add(to.getItem(i).copy());
@@ -594,6 +603,13 @@ public final class KingdomEnterpriseData extends SavedData {
         trades.put(id,new Trade(id,offer.id(),purchaser.id(),vendor.id(),count,total,TradeState.PENDING));setDirty();
         // An unflushed chunk and SavedData are NOT an atomic commit. Remain quarantined
         // after apparent success; an operator must reconcile durable world state.
+        // Physical coins must move first, between the actual independent cashboxes.
+        if(!KingdomPhysicalCash.move(coinsFrom,coinsTo,total)) {
+            trades.put(id,new Trade(id,offer.id(),purchaser.id(),vendor.id(),count,total,
+                TradeState.NEEDS_RECONCILIATION));
+            setDirty();
+            return false;
+        }
         for(int i=0;i<source.size();i++)from.setItem(i,source.get(i));
         for(int i=0;i<dest.size();i++)to.setItem(i,dest.get(i));
         from.setChanged();to.setChanged();
