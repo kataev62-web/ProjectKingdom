@@ -170,7 +170,9 @@ public final class NpcFieldWork {
         if (w.employer != null && !KingdomNpcDuty.autonomousOrder(w.order)) return false;
         if(!"farmer".equals(w.job)&&!"lumberjack".equals(w.job)&&!"miner".equals(w.job))return false;
         // Farm employees must respect the explicit fields and TFC climate plan.
-        if("farmer".equals(w.job)&&w.employer!=null)return KingdomFarmWorker.tick(level,npc,w);
+        if("farmer".equals(w.job) && (w.employer!=null
+                || KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)!=null))
+            return KingdomFarmWorker.tick(level,npc,w);
         if(w.employer!=null && !w.fieldInventory.isEmpty()){
             boolean deposited=deposit(level,npc,w);
             if(deposited || carried(w)>=MAX_CARRIED/2)return deposited;
