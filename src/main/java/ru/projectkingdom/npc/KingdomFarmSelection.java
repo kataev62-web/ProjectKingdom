@@ -39,8 +39,21 @@ public final class KingdomFarmSelection {
             || !KingdomFarmFieldData.allowed(p,pending.farm())){
             PENDING.remove(p.getUUID());return false;
         }
-        BlockPos soil=event.getPos();
+        BlockPos clicked=event.getPos();
+        if(!p.serverLevel().hasChunkAt(clicked))return false;
+        // If a crop covers the soil, select its underlying farmland instead.
+        var hit=p.serverLevel().getBlockState(clicked);
+        String blockId=net.minecraft.core.registries.BuiltInRegistries.BLOCK
+            .getKey(hit.getBlock()).toString();
+        BlockPos soil=blockId.startsWith("tfc:crop/") ? clicked.below() : clicked;
         if(!p.serverLevel().hasChunkAt(soil))return false;
+        String soilClass=p.serverLevel().getBlockState(soil).getBlock().getClass().getName();
+        if(!soilClass.startsWith("net.dries007.tfc.common.blocks.soil.FarmlandBlock")){
+            p.sendSystemMessage(Component.literal("[Ферма] Отметь вспаханную почву TFC или растение над ней."));
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+            return true;
+        }
         if(!KingdomTerritories.get(p.getServer()).canUse(p.serverLevel(),soil,p.getUUID())){
             p.sendSystemMessage(Component.literal("[Ферма] Земля должна принадлежать владельцу фермы."));
         }else if(pending.first()==null){
