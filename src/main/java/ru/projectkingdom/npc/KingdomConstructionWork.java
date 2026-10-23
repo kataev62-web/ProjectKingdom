@@ -106,24 +106,31 @@ public final class KingdomConstructionWork {
         // The world and the inventory are mutated together on the single server thread.
         ItemStack material = depot.removeItem(slot, 1);
         if (material.isEmpty()) return new Step(Result.NO_MATERIALS, target, next.material());
-        if (!level.setBlock(target, desired, 3)) {
-            // Roll back the exact item. A failed restore is an integrity error,
-            // not an excuse to silently delete or invent inventory.
-            ItemStack current = depot.getItem(slot);
-            if (current.isEmpty()) {
-                depot.setItem(slot, material);
-            } else if (ItemStack.isSameItemSameTags(current, material)
-                    && current.getCount() < current.getMaxStackSize()) {
-                current.grow(1);
-            } else {
-                throw new IllegalStateException("Kingdom: cannot restore building material at " + target);
-            }
-            depot.setChanged();
+        boolean changed = level.setBlock(target, desired, 3);
+        if (!changed || !level.getBlockState(target).equals(desired)) {
+            // Some mods rewrite or discard states on neighbour updates.
+            // Never acknowledge a completed cell when the expected block is absent.
+            if (changed && level.getBlockState(target).is(desired.getBlock()))
+                level.setBlock(target, net.minecraft.world.level.block.Blocks.AIR.defaultBlockState(), 3);
+            restoreMaterial(depot, slot, material, target);
             return new Step(Result.OBSTACLE, target, next.material());
         }
         depot.setChanged();
         advance(server, project);
         return new Step(Result.PLACED, target, next.material());
+    }
+
+    private static void restoreMaterial(Container depot, int slot, ItemStack removed, BlockPos target) {
+        ItemStack current = depot.getItem(slot);
+        if (current.isEmpty()) {
+            depot.setItem(slot, removed);
+        } else if (ItemStack.isSameItemSameTags(current, removed)
+                && current.getCount() + removed.getCount() <= current.getMaxStackSize()) {
+            current.grow(removed.getCount());
+        } else {
+            throw new IllegalStateException("Kingdom: cannot restore building material at " + target);
+        }
+        depot.setChanged();
     }
 
     private static void advance(MinecraftServer server, KingdomConstructionData.Project project) {
