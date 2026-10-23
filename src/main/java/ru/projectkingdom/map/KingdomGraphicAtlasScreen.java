@@ -280,6 +280,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 gridX + gridWidth - 148, top + panelHeight - 17, MUTED, false);
         if (snapshot != null) {
             renderTiles(gui);
+            renderSurveyedRoads(gui);
             renderBuildingOutlines(gui);
             renderRoute(gui);
             renderInfrastructureMarkers(gui);
@@ -394,6 +395,32 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             case ROAD -> 0xFF9F6941;
             case BRIDGE -> 0xFFB5D6E1;
         };
+    }
+
+    /** Draw a coarse road network from genuinely surveyed dirt_path cells. */
+    private void renderSurveyedRoads(GuiGraphics gui) {
+        if (snapshot == null) return;
+        int road = KingdomAtlasTerrain.Type.ROAD.ordinal();
+        int paint = 0xFF9A673B, highlight = 0xFFEAC690;
+        for (int row = 0; row < KingdomGraphicAtlasData.ROWS; row++) {
+            for (int col = 0; col < KingdomGraphicAtlasData.COLUMNS; col++) {
+                if (snapshot.tile(col,row).terrain() != road) continue;
+                int px = gridX + col * cell + cell / 2;
+                int py = gridY + row * cell + cell / 2;
+                gui.fill(px - 2,py - 2,px + 3,py + 3,paint);
+                gui.fill(px - 1,py - 1,px + 2,py + 2,highlight);
+                if (col + 1 < KingdomGraphicAtlasData.COLUMNS
+                        && snapshot.tile(col+1,row).terrain() == road) {
+                    gui.fill(px,py-2,px+cell+1,py+3,paint);
+                    gui.fill(px,py-1,px+cell+1,py+2,highlight);
+                }
+                if (row + 1 < KingdomGraphicAtlasData.ROWS
+                        && snapshot.tile(col,row+1).terrain() == road) {
+                    gui.fill(px-2,py-2,px+3,py+cell+1,paint);
+                    gui.fill(px-1,py-1,px+2,py+cell+1,highlight);
+                }
+            }
+        }
     }
 
     private void renderBuildingOutlines(GuiGraphics gui) {
