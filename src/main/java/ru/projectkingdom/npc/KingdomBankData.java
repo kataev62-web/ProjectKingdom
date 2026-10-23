@@ -255,7 +255,7 @@ public final class KingdomBankData extends SavedData {
         UUID bank=bankTown(buyer);
         var physical=KingdomPhysicalCash.townVault(buyer,bank,AdministrativeBindingRole.BANK_VAULT);
         if(physical==null)return false;
-        var financial=KingdomAdministrationData.get(payer.getServer());
+        var financial=KingdomAdministrationData.get(buyer.getServer());
         if(!covered(KingdomPhysicalCash.value(physical),financial.bankReserve(bank),
                 financial.treasuryReserve(bank)))return false;
         var civics=KingdomCivicsData.get(buyer.getServer());
