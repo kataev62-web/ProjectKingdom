@@ -54,6 +54,56 @@ public final class KingdomBankData extends SavedData {
                 &&cash>=bank+city;
     }
     /** Exact human-readable deposit/withdrawal diagnostics for the city bank. */
+    public enum LegacyTransferStatus {
+        MOVED, NOT_BANK_MANAGER, NOT_AT_BANK, NO_OLD_VAULT, NO_NEW_VAULT,
+        EMPTY, SAME_CONTAINER, TOO_MANY_COINS, NO_ROOM
+    }
+    public static String legacyTransferMessage(LegacyTransferStatus status){
+        return switch(status){
+            case MOVED->"Монеты из старого сундука казны перенесены в банковский сейф.";
+            case NOT_BANK_MANAGER->"Перенос может выполнять только мэр или уполномоченный казначей.";
+            case NOT_AT_BANK->"Откройте главное меню установленного городского банка.";
+            case NO_OLD_VAULT->"Ранее привязанный сундук казны не найден или его чанк не загружен.";
+            case NO_NEW_VAULT->"Привяжите отдельный банковский сейф и убедитесь, что его чанк загружен.";
+            case EMPTY->"В старом сундуке нет монет Kingdom — переносить нечего.";
+            case SAME_CONTAINER->"Старая и новая касса указывают на один сундук. Перенос не нужен.";
+            case TOO_MANY_COINS->"В старой казне больше 1 000 000 медных. Разделите перенос на несколько партий.";
+            case NO_ROOM->"В банковском сейфе не хватает места для всех монет; освободите слоты.";
+        };
+    }
+    /** Backwards-compatible physical consolidation. Does not touch city finances:
+     * existing bank/treasury ledgers remain unchanged, no minting or withdrawal.
+     * The old vault becomes empty of coins if the operation succeeds.
+     */
+    public LegacyTransferStatus consolidateOldTownVault(ServerPlayer manager){
+        UUID town=manager==null?null:bankTown(manager);
+        if(town==null)return LegacyTransferStatus.NOT_AT_BANK;
+        var civics=KingdomCivicsData.get(manager.getServer());
+        var city=civics.townById(town);
+        var admin=KingdomAdministrationData.get(manager.getServer());
+        if(city==null||!ru.projectkingdom.administration.AdministrativePermissionService.mayManage(
+                manager.getUUID(),admin.founder(town),city.mayor(),
+                admin.roles(town,manager.getUUID()),AdministrativeKind.BANK))
+            return LegacyTransferStatus.NOT_BANK_MANAGER;
+        var oldBindings=admin.containerBindings(town,AdministrativeBindingRole.TREASURY_VAULT);
+        if(oldBindings.size()!=1)return LegacyTransferStatus.NO_OLD_VAULT;
+        var newBindings=admin.containerBindings(town,AdministrativeBindingRole.BANK_VAULT);
+        if(newBindings.size()!=1)return LegacyTransferStatus.NO_NEW_VAULT;
+        if(oldBindings.get(0).dimension().equals(newBindings.get(0).dimension())
+                &&oldBindings.get(0).packedPos()==newBindings.get(0).packedPos())
+            return LegacyTransferStatus.SAME_CONTAINER;
+        var source=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.TREASURY_VAULT);
+        var destination=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
+        if(source==null)return LegacyTransferStatus.NO_OLD_VAULT;
+        if(destination==null)return LegacyTransferStatus.NO_NEW_VAULT;
+        if(source==destination)return LegacyTransferStatus.SAME_CONTAINER;
+        long copper=KingdomPhysicalCash.value(source);
+        if(copper==0)return LegacyTransferStatus.EMPTY;
+        if(copper<0||copper>1_000_000)return LegacyTransferStatus.TOO_MANY_COINS;
+        if(!KingdomPhysicalCash.move(source,destination,copper))return LegacyTransferStatus.NO_ROOM;
+        return LegacyTransferStatus.MOVED;
+    }
+
     public String depositProblem(ServerPlayer player,long amount){
         if(player==null||!atBranch(player))return "Откройте меню банковского блока и подойдите к нему.";
         if(amount<=0||amount>1_000_000)return "Допустимая сумма от 1 до 1 000 000 медных.";
