@@ -25,7 +25,7 @@ public final class KingdomGraphicAtlasData {
     public static final int ROWS = 15;
     public static final int MAX_CELLS = COLUMNS * ROWS;
     public static final int[] SCALES = {1, 4, 16, 64};
-    public enum Layer { LAND, POLITICAL, ENTERPRISES }
+    public enum Layer { LAND, POLITICAL, ENTERPRISES, INFRASTRUCTURE }
     public record Tile(int claims, boolean own, boolean mixed, boolean planned,
                        int townColor, int nationColor, int enterprises,
                        String town, String nation, String business,
