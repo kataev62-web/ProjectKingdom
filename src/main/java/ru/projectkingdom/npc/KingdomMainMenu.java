@@ -28,6 +28,7 @@ public final class KingdomMainMenu extends ChestMenu {
     private String marketItem="minecraft:charcoal";
     private int marketCount=20;
     private int marketQuote=0;
+    private int schematicPage=0;
     // Server-bound slot identities: never let live market ordering change the clicked offer.
     private final java.util.Map<Integer,java.util.UUID> tradeSlots=new java.util.HashMap<>();
     private KingdomMainMenu(int id, Inventory inventory, ServerPlayer player, Page page, SimpleContainer content, java.util.UUID siteId) {
@@ -222,6 +223,12 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(12,Items.BARREL,"Склад: 13x15, 1 этаж");
                 icon(13,Items.ANVIL,"Кузница: 11x13, 1 этаж");
                 icon(14,Items.BREWING_STAND,"Таверна: 13x15, 2 этажа");
+                var schematics=KingdomSchematicLibrary.available(viewer.getServer());
+                int offset=schematicPage*7;
+                for(int i=0;i<7 && offset+i<schematics.size();i++)
+                    icon(15+i,Items.MAP,"WorldEdit .schem: "+schematics.get(offset+i));
+                int pages=Math.max(1,(schematics.size()+6)/7);
+                icon(25,Items.COMPASS,"Схемы .schem, страница "+(schematicPage+1)+"/"+pages+" (следующая)");
                 icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),
                     "Чертёжный стол + 1 строительный чертёж. Выбери здание: чертёж израсходуется после проверки участка.");
                 icon(23,KingdomConstructionRegistry.BUILDERS_HAMMER.get(),
@@ -232,15 +239,14 @@ public final class KingdomMainMenu extends ChestMenu {
             case SITE -> {
                 var project=KingdomConstructionData.get(viewer.getServer()).find(siteId);
                 if(project!=null && project.owner().equals(viewer.getUUID())) {
-                    var type=KingdomBuildingTypes.type(project.design());
-                    if(type!=null) {
-                        var design=KingdomBuildingTypes.design(type);
+                    var design=KingdomConstructionPlans.resolve(viewer.getServer(),project.design());
+                    if(design!=null) {
                         int progress=KingdomConstructionData.get(viewer.getServer()).progress(project.id());
-                        icon(10,Items.BRICKS,type.title+" — "+project.status());
+                        icon(10,Items.BRICKS,KingdomConstructionPlans.title(project.design())+" — "+project.status());
                         icon(11,Items.CLOCK,"Готово: "+progress+" из "+design.blocks().size()+" блоков");
                         icon(13,Items.IRON_PICKAXE,project.status()==KingdomConstructionData.Status.PLANNED?"Начать строительство NPC":"Приостановить строительство NPC");
                         icon(14,Items.CHEST,"Склад материалов рядом со столом; NPC-строитель с договором работает по дневному расписанию");
-                        icon(15,Items.WRITABLE_BOOK,"Смета: "+design.bill());
+                        icon(15,Items.WRITABLE_BOOK,"Смета: "+KingdomConstructionPlans.bill(design));
                         icon(16,Items.COMPASS,"Состояние: "+KingdomConstructionDiagnostics.nextStep(viewer.getServer(),project));
                         icon(17,Items.HOPPER,KingdomConstructionDiagnostics.missingMaterials(viewer.getServer(),project));
                         icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),"ПКМ по столу / кафедре для управления. Молот — строить, чертёж — подсветка");
@@ -252,7 +258,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 for(var project:KingdomConstructionData.get(viewer.getServer()).all()) {
                     if(!project.owner().equals(viewer.getUUID()))continue;
                     if(count>=18)break;
-                    icon(count,Items.PAPER,project.design()+" | "+project.status()+" | "+project.x()+","+project.y()+","+project.z());count++;
+                    icon(count,Items.PAPER,KingdomConstructionPlans.title(project.design())+" | "+project.status()+" | "+project.x()+","+project.y()+","+project.z());count++;
                 }
                 icon(22,Items.BOOK,"Показано проектов: "+count+" (макс. 18). ЛКМ по проекту — открыть стройку.");
             }
@@ -457,13 +463,27 @@ public final class KingdomMainMenu extends ChestMenu {
                     draw();
                 }
             }
-            case BUILD -> {switch(slot){
-                case 10 -> place(KingdomBuildingTypes.Type.TOWN_HALL);
-                case 11 -> place(KingdomBuildingTypes.Type.HOUSE);
-                case 12 -> place(KingdomBuildingTypes.Type.WAREHOUSE);
-                case 13 -> place(KingdomBuildingTypes.Type.SMITHY);
-                case 14 -> place(KingdomBuildingTypes.Type.TAVERN);
-            }}
+            case BUILD -> {
+                switch(slot){
+                    case 10 -> place(KingdomBuildingTypes.Type.TOWN_HALL);
+                    case 11 -> place(KingdomBuildingTypes.Type.HOUSE);
+                    case 12 -> place(KingdomBuildingTypes.Type.WAREHOUSE);
+                    case 13 -> place(KingdomBuildingTypes.Type.SMITHY);
+                    case 14 -> place(KingdomBuildingTypes.Type.TAVERN);
+                    case 25 -> {
+                        int size=KingdomSchematicLibrary.available(viewer.getServer()).size();
+                        schematicPage=(schematicPage+1)%Math.max(1,(size+6)/7);
+                        draw();
+                    }
+                    default -> {
+                        if(slot>=15&&slot<=21) {
+                            var items=KingdomSchematicLibrary.available(viewer.getServer());
+                            int idx=schematicPage*7+slot-15;
+                            if(idx<items.size())say(KingdomSiteBuilder.placeSchematic(viewer,items.get(idx)));
+                        }
+                    }
+                }
+            }
             case SITE -> {if(slot==13){
                 var db=KingdomConstructionData.get(viewer.getServer());
                 var project=db.find(siteId);
