@@ -23,6 +23,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         0xFFBD7D8F, 0xFF98A45C, 0xFF936FBD, 0xFF8EAA95, 0xFFB39A67
     };
     private int centerX, centerZ, scaleIndex, requestId, ticks;
+    /** Following is disabled when manually panning, restored by the Centre button. */
+    private boolean followPlayer = true;
     private KingdomGraphicAtlasData.Layer layer = KingdomGraphicAtlasData.Layer.LAND;
     private KingdomGraphicAtlasData.Snapshot snapshot;
     private int selectedCol = -1, selectedRow = -1;
@@ -83,6 +85,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
 
     private void resetCenter() {
         if (minecraft == null || minecraft.player == null) return;
+        followPlayer = true;
         centerX = minecraft.player.chunkPosition().x;
         centerZ = minecraft.player.chunkPosition().z;
         request();
@@ -96,6 +99,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         request();
     }
     private void pan(int dx, int dz) {
+        followPlayer = false;
         int displacement = KingdomGraphicAtlasData.SCALES[scaleIndex] * 5;
         centerX = Math.max(-16384, Math.min(16384, centerX + dx * displacement));
         centerZ = Math.max(-16384, Math.min(16384, centerZ + dz * displacement));
@@ -125,7 +129,18 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     }
     @Override public void tick() {
         ticks++;
-        if (ticks % 40 == 0) request();
+        if (ticks % 40 != 0) return;
+        if (followPlayer && minecraft != null && minecraft.player != null) {
+            int threshold = 3 * KingdomGraphicAtlasData.SCALES[scaleIndex];
+            int playerX = minecraft.player.chunkPosition().x;
+            int playerZ = minecraft.player.chunkPosition().z;
+            if (Math.abs((long)playerX - centerX) > threshold
+                    || Math.abs((long)playerZ - centerZ) > threshold) {
+                centerX = playerX;
+                centerZ = playerZ;
+            }
+        }
+        request();
     }
 
     private static int mix(int left, int right, int percentage) {
@@ -179,12 +194,18 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gui.fill(left + 2, top + 2, left + panelWidth - 2, top + panelHeight - 2, 0xFFEAE0C8);
         gui.fill(gridX - 2, gridY - 2, gridX + gridWidth + 2, gridY + gridHeight + 2, INK);
         gui.drawString(font, Component.literal("ATLAS  •  PROJECT KINGDOM"), left + 10, top + 9, INK, false);
-        gui.drawString(font, Component.literal("X " + centerX + "  Z " + centerZ),
-                gridX, top + panelHeight - 17, MUTED, false);
+        if (minecraft != null && minecraft.player != null) {
+            gui.drawString(font, Component.literal("Вы: X " + minecraft.player.blockPosition().getX()
+                    + "  Z " + minecraft.player.blockPosition().getZ()),
+                    gridX, top + panelHeight - 17, INK, false);
+        }
         gui.drawString(font, Component.literal("1 клетка = " + KingdomGraphicAtlasData.SCALES[scaleIndex] + " чанков"),
                 gridX + gridWidth - 148, top + panelHeight - 17, MUTED, false);
         if (snapshot != null) renderTiles(gui);
         else gui.fill(gridX, gridY, gridX + gridWidth, gridY + gridHeight, FREE);
+        // The position and heading of THIS player are rendered every frame,
+        // independently of the slower terrain/territory snapshot refresh.
+        renderPlayerMarker(gui);
 
         int sx = gridX + gridWidth + 11;
         int sy = gridY + 78;
@@ -240,6 +261,39 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                     + " | " + terrain + " | " + (tile.town().isEmpty() ? "свободно" : tile.town())),
                     mouseX, mouseY);
         }
+    }
+
+    private void renderPlayerMarker(GuiGraphics gui) {
+        if (minecraft == null || minecraft.player == null) return;
+        var player = minecraft.player;
+        var projection = KingdomAtlasPlayerMarker.project(
+                player.getX(), player.getZ(), player.getYRot(), centerX, centerZ,
+                KingdomGraphicAtlasData.SCALES[scaleIndex]);
+        int x = gridX + (int)Math.round(projection.gridX() * cell);
+        int y = gridY + (int)Math.round(projection.gridY() * cell);
+        if (!projection.onMap()) {
+            // A marker pinned to the rim signifies DIRECTION, not a false
+            // world position. The actual X/Z coordinates remain in the footer.
+            x = Math.max(gridX + 4, Math.min(gridX + gridWidth - 5, x));
+            y = Math.max(gridY + 4, Math.min(gridY + gridHeight - 5, y));
+        }
+        // Gold/dark outline contrasts with both water and forest. Point the
+        // nose in the player's actual Minecraft yaw direction.
+        int outline = 0xFF392315;
+        int white = 0xFFFFFFFF;
+        int blue = projection.onMap() ? 0xFF1376D3 : 0xFFF4B534;
+        gui.fill(x - 4, y - 4, x + 5, y + 5, outline);
+        gui.fill(x - 3, y - 3, x + 4, y + 4, white);
+        gui.fill(x - 2, y - 2, x + 3, y + 3, blue);
+        for (int step = 3; step <= 8; step++) {
+            int dx = (int)Math.round(projection.facingX() * step);
+            int dy = (int)Math.round(projection.facingY() * step);
+            gui.fill(x + dx - 1, y + dy - 1, x + dx + 2, y + dy + 2, outline);
+            gui.fill(x + dx, y + dy, x + dx + 1, y + dy + 1, blue);
+        }
+        // Fixed label: the map is always north-up, not player-rotated.
+        gui.drawCenteredString(font, projection.onMap() ? "ВЫ" : "ВНЕ КАРТЫ",
+                x, Math.max(gridY + 1, y - 17), outline);
     }
 
     private void shortText(GuiGraphics gui, String text, int x, int y) {
