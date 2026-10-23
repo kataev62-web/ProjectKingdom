@@ -6,6 +6,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomTaxData;
+import ru.projectkingdom.npc.KingdomBankData;
 import net.minecraft.network.chat.Component;
 
 public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,String field,String value) {
@@ -34,6 +35,32 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
             if(sender==null||packet.kind==null||field==null
                     ||!(sender.containerMenu instanceof AdministrativeCoreMenu menu)||!packet.townId.equals(menu.townId())
                     ||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
+            if(field.equals("bank_deposit")||field.equals("bank_withdraw")){
+                if(packet.kind!=AdministrativeKind.BANK)return;
+                String value=packet.value==null?"":packet.value.trim();
+                if(!value.matches("[0-9]{1,7}")){
+                    sender.sendSystemMessage(Component.literal("[Банк] Укажите целую сумму от 1 до 1 000 000 медных."));
+                    return;
+                }
+                long amount;
+                try{amount=Long.parseLong(value);}catch(NumberFormatException ignored){return;}
+                if(amount<1||amount>1_000_000){
+                    sender.sendSystemMessage(Component.literal("[Банк] Слишком большая сумма. Максимум 1 000 000 медных за операцию."));
+                    return;
+                }
+                var bank=KingdomBankData.get(sender.getServer());
+                if(!packet.townId.equals(bank.bankTown(sender))){
+                    sender.sendSystemMessage(Component.literal("[Банк] Откройте банковский блок своего города и встаньте ближе к нему."));
+                    return;
+                }
+                boolean deposit=field.equals("bank_deposit");
+                boolean ok=deposit?bank.deposit(sender,amount):bank.withdraw(sender,amount);
+                sender.sendSystemMessage(Component.literal(ok
+                    ?"[Банк] "+(deposit?"Внесено ":"Снято ")+amount+" медных. Реальные монеты переведены."
+                    :"[Банк] "+(deposit?bank.depositProblem(sender,amount):bank.withdrawProblem(sender,amount))));
+                if(ok)sender.closeContainer();
+                return;
+            }
             if(field.equals("pay_taxes")){
                 if(packet.kind!=AdministrativeKind.TREASURY)return;
                 var taxes=KingdomTaxData.get(sender.getServer());
