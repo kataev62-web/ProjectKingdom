@@ -10,17 +10,20 @@ import org.junit.jupiter.api.Test;
  * interactions. Purchasing land stays in authoritative city administration.
  */
 class KingdomMapNavigationSourceTest {
-    @Test void mapsHubContainsEveryMapType() throws Exception {
+    @Test void allKingdomMapsUseTheNativeGraphicalScreen() throws Exception {
         String menu = Files.readString(Path.of(
                 "src/main/java/ru/projectkingdom/npc/KingdomMainMenu.java"));
+        String atlas = Files.readString(Path.of(
+                "src/main/java/ru/projectkingdom/map/KingdomGraphicAtlasScreen.java"));
         assertTrue(menu.contains("public static void openMaps(ServerPlayer player)"));
         assertTrue(menu.contains("new ru.projectkingdom.network.OpenGraphicAtlasPacket("));
-        assertTrue(menu.contains("case MAPS -> {"));
-        assertTrue(menu.contains("KingdomGraphicAtlasData.Layer.LAND"));
-        assertTrue(menu.contains("KingdomGraphicAtlasData.Layer.POLITICAL"));
-        assertTrue(menu.contains("KingdomGraphicAtlasData.Layer.ENTERPRISES"));
-        assertTrue(menu.contains("KingdomCityExpansionMapMenu.open(viewer)"));
-        assertTrue(menu.contains("KingdomLandMapMenu.open(viewer)"));
+        assertFalse(menu.contains("case MAPS ->"));
+        assertFalse(menu.contains("Page.MAPS"));
+        assertTrue(atlas.contains("KingdomGraphicAtlasData.Layer.values()"));
+        assertTrue(atlas.contains("OpenCityPlanFromAtlasPacket"));
+        assertTrue(atlas.contains("OpenLandMapFromAtlasPacket"));
+        assertTrue(atlas.contains("renderKingdomInspector(gui)"));
+        assertTrue(atlas.contains("KingdomAtlasNavigator.plan("));
         assertFalse(menu.contains("if(!old.claim(viewer.serverLevel()"));
     }
 
