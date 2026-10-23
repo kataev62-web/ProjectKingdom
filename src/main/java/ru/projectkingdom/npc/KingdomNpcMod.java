@@ -808,8 +808,11 @@ public final class KingdomNpcMod {
             boolean daytime = timeOfDay >= 0 && timeOfDay < 12000;
             var goal = KingdomNpcGoalSelector.choose(new KingdomNpcGoalSelector.Context(
                 w.employer != null, !w.contractPaused && authorized,
-                w.hasWorkstation && w.hasSource && w.hasDestination
-                    && KingdomNpcWorkshopData.get(server).plan(w.entityId) != null,
+                (("smith".equals(w.job) && w.hasWorkstation && w.hasSource
+                    && w.hasDestination
+                    && KingdomNpcWorkshopData.get(server).plan(w.entityId) != null)
+                    || (("farmer".equals(w.job) || "miner".equals(w.job)
+                        || "lumberjack".equals(w.job)) && w.hasSource && w.hasDestination)),
                 daytime, w.hasHome, w.hunger, w.energy));
             var intent = switch (goal) {
                 case EAT -> NpcAutonomyPlanner.Intention.EAT;
