@@ -124,8 +124,11 @@ public final class KingdomNpcMenu extends ChestMenu {
         var plan=workshop.plan(w.entityId);
         boolean tfcQuern = viewer.level().dimension().location().toString().equals(w.dimension)
             && KingdomTfcQuernWork.isQuern(viewer.serverLevel(), w);
-        icon(9, tfcQuern ? Items.STONE : Items.CRAFTING_TABLE, tfcQuern
-            ? "TFC ЖЕРНОВ: автоматическое измельчение по настоящим рецептам TFC; нужна каменная рукоять"
+        boolean tfcGrill = viewer.level().dimension().location().toString().equals(w.dimension)
+            && KingdomTfcGrillWork.isGrill(viewer.serverLevel(), w);
+        icon(9, tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE : Items.CRAFTING_TABLE, tfcQuern
+            ? "TFC ЖЕРНОВ: реальный помол по рецептам TFC с настоящим ручным камнем"
+            : tfcGrill ? "TFC ГРИЛЬ: жарка еды по настоящим рецептам TFC с расходом топлива"
             : plan==null
                 ? "РЕЦЕПТ (ЛКМ): выложи ингредиенты в первых 9 ячейках сырьевого склада"
                 : "РЕЦЕПТ "+plan.output()+" | ЛКМ: записать заново | ПКМ: цена "+plan.salePrice()+" мед./шт.");
@@ -214,7 +217,12 @@ public final class KingdomNpcMenu extends ChestMenu {
                 if(!owner){info("Нужны права работодателя.");break;}
                 if(viewer.level().dimension().location().toString().equals(w.dimension)
                         && KingdomTfcQuernWork.isQuern(viewer.serverLevel(),w)){
-                    info("Жернов TFC работает без ручного рецепта. Поставь настоящий жернов, положи в него ручной камень, назначь сырьевой и готовый склады, выдай работнику приказ работать.");
+                    info("Жернов TFC работает без ручного рецепта. Нужны ручной камень, сырьевой и готовый склады, приказ работать.");
+                    break;
+                }
+                if(viewer.level().dimension().location().toString().equals(w.dimension)
+                        && KingdomTfcGrillWork.isGrill(viewer.serverLevel(),w)){
+                    info("Гриль TFC готовит реальные продукты без ручного рецепта. Положи в сырьевой склад мясо или другую еду и топливо; нужны оба склада, приказ работать и действующая пекарня.");
                     break;
                 }
                 if(button==1){
