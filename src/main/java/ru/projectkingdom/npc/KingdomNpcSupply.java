@@ -22,10 +22,10 @@ public final class KingdomNpcSupply {
     private static int charcoalNeed(ServerLevel level,KingdomNpcData.Worker w,BlockPos work){
         var p=KingdomNpcWorkshopData.get(level.getServer()).plan(w.entityId);
         if(p!=null){
-            var stock=KingdomEnterpriseStock.inspect(level,p.enterprise(),COAL,
-                    ru.projectkingdom.enterprise.EnterpriseBindingRole.RAW_STORAGE,
+            var stock=KingdomWarehouseStockCoordinator.raw(level,p.enterprise(),COAL,
                     new BlockPos(w.sourceX,w.sourceY,w.sourceZ));
-            return stock.complete()?EnterpriseStockPolicy.reorderQuantity(COAL_LIMITS,stock.state(0)):-1;
+            // Unknown is not an empty store; do not take money or place new orders.
+            return stock.complete()?KingdomWarehouseStockCoordinator.needed(COAL_LIMITS,stock):-1;
         }
         if(!level.hasChunkAt(work)||!(level.getBlockEntity(work) instanceof Container chest))return -1;
         int physical=0;
