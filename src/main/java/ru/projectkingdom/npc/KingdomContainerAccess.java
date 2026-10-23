@@ -38,6 +38,14 @@ public final class KingdomContainerAccess {
             this.entity=entity;this.handler=handler;
         }
         @Override public int getContainerSize(){return handler.getSlots();}
+        @Override public int getMaxStackSize(){
+            int limit=64;
+            for(int i=0;i<handler.getSlots();i++){
+                int slots=handler.getSlotLimit(i);
+                if(slots>0)limit=Math.min(limit,slots);
+            }
+            return Math.max(1,limit);
+        }
         @Override public boolean isEmpty(){
             for(int i=0;i<handler.getSlots();i++)if(!handler.getStackInSlot(i).isEmpty())return false;
             return true;
