@@ -12,6 +12,8 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
     public static final int BIND_TREASURY=110,BIND_BANK=111,BIND_WAREHOUSE=112,BIND_MARKET=113,BIND_PRISON_CELL=114;
     public static final int BANK_DEPOSIT_100=200,BANK_WITHDRAW_100=201,TREASURY_DEPOSIT_100=202,TREASURY_WITHDRAW_100=203;
     public static final int SOCIAL_PROMOTE=204;
+    public static final int PETITION_ROADS=210,PETITION_MARKET=211,PETITION_SAFETY=212;
+    public static final int PETITION_ACCEPT=213,PETITION_REJECT=214;
     public static void encode(AdministrativeActionPacket packet,FriendlyByteBuf buffer){
         buffer.writeUUID(packet.townId);buffer.writeUtf(packet.kind==null?"":packet.kind.id(),32);buffer.writeInt(packet.action);
     }
@@ -25,8 +27,32 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                     ||!packet.townId.equals(menu.townId())||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
             boolean publicFinance=(packet.kind==AdministrativeKind.BANK&&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100))
                     ||(packet.kind==AdministrativeKind.TREASURY&&packet.action==TREASURY_DEPOSIT_100);
-            boolean socialPromotion=packet.kind==AdministrativeKind.TOWN_HALL&&packet.action==SOCIAL_PROMOTE;
-            if(!publicFinance&&!socialPromotion&&!menu.manager())return;
+            boolean townHall=packet.kind==AdministrativeKind.TOWN_HALL;
+            boolean socialPromotion=townHall&&packet.action==SOCIAL_PROMOTE;
+            boolean petitionFile=townHall&&packet.action>=PETITION_ROADS&&packet.action<=PETITION_SAFETY;
+            boolean petitionReview=townHall&&(packet.action==PETITION_ACCEPT||packet.action==PETITION_REJECT);
+            if(!publicFinance&&!socialPromotion&&!petitionFile&&!petitionReview&&!menu.manager())return;
+            if(petitionFile){
+                var topic=switch(packet.action){
+                    case PETITION_ROADS->ru.projectkingdom.social.KingdomCitizenPetitionsData.Topic.ROADS;
+                    case PETITION_MARKET->ru.projectkingdom.social.KingdomCitizenPetitionsData.Topic.MARKET;
+                    case PETITION_SAFETY->ru.projectkingdom.social.KingdomCitizenPetitionsData.Topic.SAFETY;
+                    default->null;
+                };
+                boolean ok=ru.projectkingdom.social.KingdomCivicService.file(sender,packet.townId,topic);
+                sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(ok
+                    ?"[Project Kingdom] Обращение принято. Его рассмотрит городская администрация."
+                    :"[Project Kingdom] Обращение не подано: нужен статус 3+, репутация 30+, соблюдение срока и лимита."));
+                return;
+            }
+            if(petitionReview){
+                boolean ok=ru.projectkingdom.social.KingdomCivicService.review(sender,packet.townId,
+                        menu.civic().pendingId(),packet.action==PETITION_ACCEPT);
+                sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(ok
+                    ?"[Project Kingdom] Решение записано. Откройте ратушу снова для следующего обращения."
+                    :"[Project Kingdom] Обращение недоступно или уже рассмотрено."));
+                return;
+            }
             if(socialPromotion){
                 // Bind one click to the rank present when the server opened this exact town-hall menu.
                 // Replayed/double-click packets cannot silently purchase further ranks.

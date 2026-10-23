@@ -23,6 +23,11 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox roleTarget;
     private Button promoteSocial;
+    private final List<AbstractWidget> civicCitizenControls=new ArrayList<>();
+    private final List<AbstractWidget> civicCouncilControls=new ArrayList<>();
+    private EditBox civicTarget;
+    private Button civicToggle;
+    private boolean councilMode;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
     }
@@ -47,6 +52,30 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                             menu.townId(),menu.kind(),AdministrativeActionPacket.SOCIAL_PROMOTE)))
                     .bounds(leftPos+80,topPos+181,200,20).build());
             promoteSocial.active=menu.social().ready();
+            civicToggle=addRenderableWidget(Button.builder(KingdomFonts.readable("Совет / Я"),
+                    ignored->{councilMode=!councilMode;updateVisibility();})
+                    .bounds(leftPos+242,topPos+74,82,18).build());
+            civicCitizenControls.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Дороги"),
+                    ignored->sendCivicAction(AdministrativeActionPacket.PETITION_ROADS))
+                    .bounds(leftPos+58,topPos+169,83,18).build()));
+            civicCitizenControls.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Рынок"),
+                    ignored->sendCivicAction(AdministrativeActionPacket.PETITION_MARKET))
+                    .bounds(leftPos+150,topPos+169,83,18).build()));
+            civicCitizenControls.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Стража"),
+                    ignored->sendCivicAction(AdministrativeActionPacket.PETITION_SAFETY))
+                    .bounds(leftPos+242,topPos+169,83,18).build()));
+            civicCouncilControls.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Принять"),
+                    ignored->sendCivicAction(AdministrativeActionPacket.PETITION_ACCEPT))
+                    .bounds(leftPos+58,topPos+129,118,18).build()));
+            civicCouncilControls.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Отклонить"),
+                    ignored->sendCivicAction(AdministrativeActionPacket.PETITION_REJECT))
+                    .bounds(leftPos+190,topPos+129,118,18).build()));
+            civicTarget=addRenderableWidget(new EditBox(font,leftPos+58,topPos+153,250,17,
+                    KingdomFonts.readable(Component.literal("UUID награждаемого"))));
+            civicTarget.setMaxLength(36);civicCouncilControls.add(civicTarget);
+            addCivicHonor("За труд",ru.projectkingdom.social.KingdomCivicHonor.SERVICE,58,178);
+            addCivicHonor("Заслуги",ru.projectkingdom.social.KingdomCivicHonor.MERIT,150,178);
+            addCivicHonor("Почётный",ru.projectkingdom.social.KingdomCivicHonor.DISTINCTION,242,178);
         }
         switch(menu.kind()){
             case TREASURY->{
@@ -73,6 +102,15 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 .bounds(leftPos+x+100,topPos+y,20,18).build());
         roleControls.add(add);roleControls.add(remove);
     }
+    private void sendCivicAction(int action){
+        KingdomNetwork.CHANNEL.sendToServer(new AdministrativeActionPacket(menu.townId(),menu.kind(),action));
+    }
+    private void addCivicHonor(String label,ru.projectkingdom.social.KingdomCivicHonor honor,int x,int y){
+        Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(label),
+                ignored->sendText("honor_grant",civicTarget.getValue()+"|"+honor.name()))
+                .bounds(leftPos+x,topPos+y,83,18).build());
+        civicCouncilControls.add(button);
+    }
     private void sendText(String field,String value){KingdomNetwork.CHANNEL.sendToServer(new AdministrativeTextPacket(menu.townId(),menu.kind(),field,value));}
     private void addAction(String label,AdministrativeMenuLayout.Tab tab,int action,int x,int y,int width,boolean managerOnly){
         Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(label),ignored->KingdomNetwork.CHANNEL.sendToServer(
@@ -83,6 +121,14 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
         if(promoteSocial!=null)promoteSocial.visible=selected==AdministrativeMenuLayout.Tab.SOCIAL;
+        if(civicToggle!=null)civicToggle.visible=selected==AdministrativeMenuLayout.Tab.CIVIC&&menu.civic().council();
+        boolean citizen=selected==AdministrativeMenuLayout.Tab.CIVIC&&(!councilMode||!menu.civic().council());
+        boolean council=selected==AdministrativeMenuLayout.Tab.CIVIC&&councilMode&&menu.civic().council();
+        for(AbstractWidget widget:civicCitizenControls)widget.visible=citizen;
+        for(AbstractWidget widget:civicCouncilControls)widget.visible=council;
+        // The current server preview prevents a second decision against the next, unseen request.
+        for(int i=0;i<civicCouncilControls.size()&&i<2;i++)
+            civicCouncilControls.get(i).active=menu.civic().pendingId()!=null;
     }
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){
         g.fill(leftPos+36,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);
@@ -97,6 +143,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             case CITIZENS->renderRows(g,"Граждане города",menu.pageRows());
             case OFFICES->{if(menu.manager())line(g,"Укажите UUID гражданина:",58,78,MUTED);else placeholder(g,"Только просмотр должностей",90);}
             case SOCIAL->renderSocial(g);
+            case CIVIC->renderCivic(g);
             case FINANCE->{
                 if(menu.kind()==AdministrativeKind.BANK){
                     line(g,"Ваш счёт: "+menu.bankAccount()+" монет",58,90,MUTED);
@@ -137,12 +184,29 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             line(g,"Требуется работа по найму.",58,181,ACCENT);
         // Preview is server-verified. The actual promotion always rechecks live conditions.
     }
+    private void renderCivic(GuiGraphics g){
+        var civic=menu.civic();
+        if(councilMode&&civic.council()){
+            line(g,"Городской совет",58,88,INK);
+            line(g,"Новое обращение: "+civic.pendingLine(),58,109,MUTED);
+            line(g,"Принять / отклонить — запись решения, без расходов.",58,120,MUTED);
+            line(g,"Наградить гражданина (UUID):",58,144,INK);
+            line(g,"Награды выдаются по подтверждённым заслугам.",58,201,MUTED);
+        }else{
+            line(g,"Ваше общественное положение",58,88,INK);
+            line(g,"Репутация: "+civic.reputation()+" | Уровень: "+civic.socialLevel(),58,109,MUTED);
+            line(g,"Городская награда: "+civic.bestHonor(),58,125,MUTED);
+            line(g,"Ваше обращение: "+civic.petitionLine(),58,143,MUTED);
+            line(g,"Подать обращение в совет (от 30 репутации):",58,158,MUTED);
+        }
+    }
     private void placeholder(GuiGraphics g,String text,int y){line(g,text,58,y,MUTED);line(g,"Подробные действия подключаются по этапам.",58,y+18,MUTED);}
     private void renderRows(GuiGraphics g,String heading,List<String> rows){line(g,heading,58,82,MUTED);int y=100;for(String row:rows){line(g,row,58,y,MUTED);y+=15;}if(rows.isEmpty())line(g,"Нет записей.",58,y,MUTED);}
     private void line(GuiGraphics g,String text,int x,int y,int color){g.drawString(font,KingdomFonts.readable(text),x,y,color,false);}
     private static Item tabIcon(AdministrativeMenuLayout.Tab tab){return switch(tab){
         case INFO -> Items.BOOK;
         case SOCIAL -> Items.NAME_TAG;
+        case CIVIC -> Items.GOLD_NUGGET;
         case CITIZENS -> Items.VILLAGER_SPAWN_EGG;
         case OFFICES -> Items.WRITABLE_BOOK;
         case FINANCE -> Items.GOLD_INGOT;
@@ -156,7 +220,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         case SETTINGS -> Items.COMPARATOR;
     };}
     private static String title(AdministrativeMenuLayout.Tab tab){return switch(tab){
-        case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case SOCIAL->"Статус";case FINANCE->"Финансы";case STORAGE->"Склад";
+        case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case SOCIAL->"Статус";case CIVIC->"Заслуги";case FINANCE->"Финансы";case STORAGE->"Склад";
         case TRADE->"Рынок";case LAND->"Земля";case CASES->"Дела";case CELLS->"Камеры";case GUARDS->"Стража";case LOG->"Журнал";case SETTINGS->"Настройки";};}
     private record ActionButton(AdministrativeMenuLayout.Tab tab,Button button,boolean managerOnly){}
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float partial){renderBackground(g);super.render(g,mouseX,mouseY,partial);renderTooltip(g,mouseX,mouseY);}

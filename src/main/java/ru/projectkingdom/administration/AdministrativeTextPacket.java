@@ -56,6 +56,21 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                         field,sender.level().getGameTime());
                 return;
             }
+            if(field.equals("honor_grant")){
+                if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
+                String command=validatedCommandValue(packet.value);if(command==null)return;
+                int divider=command.indexOf('|');if(divider<1)return;
+                try {
+                    UUID target=UUID.fromString(command.substring(0,divider));
+                    var honor=ru.projectkingdom.social.KingdomCivicHonor.valueOf(command.substring(divider+1));
+                    boolean ok=ru.projectkingdom.social.KingdomCivicService.award(sender,
+                            packet.townId,target,honor);
+                    sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(ok
+                        ?"[Project Kingdom] Городская награда вручена."
+                        :"[Project Kingdom] Награда недоступна: проверьте заслуги, гражданство, полномочия и повтор."));
+                }catch(IllegalArgumentException ignored){}
+                return;
+            }
             String text=validatedText(packet.value);if(text==null)return;
             KingdomAdministrationData.get(sender.getServer()).record(packet.townId,sender.getUUID(),null,"text."+field+"="+text,sender.level().getGameTime());
         });context.setPacketHandled(true);
