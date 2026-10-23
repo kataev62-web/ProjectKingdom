@@ -40,8 +40,13 @@ public final class KingdomEnterpriseStock {
         long total=0;
         String usage=role==EnterpriseBindingRole.RAW_STORAGE?"raw":"finished";
         for(BlockPos pos:positions){
-            if(!level.hasChunkAt(pos)||firms.storageClaimedByOther(enterprise,dim,pos)
-                    ||!KingdomTerritories.get(level.getServer()).usable(level,pos,firm.owner(),usage))
+            // Registered enterprise storage is authorized by its binding + land claim.
+            // Legacy worker chests require their explicit raw/finished territory marker.
+            boolean registered=binding!=null&&binding.pos().equals(pos);
+            boolean allowed=registered
+                    ? KingdomTerritories.get(level.getServer()).canUse(level,pos,firm.owner())
+                    : KingdomTerritories.get(level.getServer()).usable(level,pos,firm.owner(),usage);
+            if(!level.hasChunkAt(pos)||firms.storageClaimedByOther(enterprise,dim,pos)||!allowed)
                 return new Snapshot(0,0,false);
             BlockEntity be=level.getBlockEntity(pos);
             if(!(be instanceof Container c))return new Snapshot(0,0,false);
