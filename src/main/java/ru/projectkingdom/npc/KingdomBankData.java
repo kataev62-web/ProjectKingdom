@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
 import ru.projectkingdom.administration.AdministrativeKind;
+import ru.projectkingdom.administration.AdministrativeBindingRole;
 import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Deposits are backed by real copper-value coins taken from a physical wallet.
@@ -45,23 +46,29 @@ public final class KingdomBankData extends SavedData {
         if(!atBranch(player)||amount<=0||amount>1_000_000)return false;
         long previous=balance(player.getUUID());
         UUID town=bankTown(player);
-        if(KingdomCurrency.balance(player)<amount||previous>Long.MAX_VALUE-amount||(town==null&&vault>Long.MAX_VALUE-amount))return false;
-        if(!KingdomCurrency.debit(player,amount))return false;
-        if(town!=null&&!KingdomAdministrationData.get(player.getServer()).depositBankReserve(town,amount)){
-            if(!KingdomCurrency.credit(player,amount))throw new IllegalStateException("Bank deposit rollback failed");return false;
-        }
-        accounts.put(player.getUUID(),previous+amount);if(town==null)vault+=amount;
+        // Old unbound lodestone branches cannot accept virtual deposits.
+        if(town==null)return false;
+        var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        var admin=KingdomAdministrationData.get(player.getServer());
+        if(vault==null||previous>Long.MAX_VALUE-amount||admin.bankReserve(town)>Long.MAX_VALUE-amount
+                ||!KingdomPhysicalCash.deposit(player,vault,amount))return false;
+        if(!admin.depositBankReserve(town,amount))
+            throw new IllegalStateException("Bank reserve update failed after physical deposit");
+        accounts.put(player.getUUID(),previous+amount);
         player.getInventory().setChanged();setDirty();return true;
     }
     public boolean withdraw(ServerPlayer player,long amount) {
         if(!atBranch(player)||amount<=0||amount>1_000_000||balance(player.getUUID())<amount)return false;
-        UUID town=bankTown(player);KingdomAdministrationData administration=KingdomAdministrationData.get(player.getServer());
-        if(town==null?vault<amount:administration.bankReserve(town)<amount)return false;
-        if(town!=null&&!administration.withdrawBankReserve(town,amount))return false;
-        if(!KingdomCurrency.credit(player,amount)){
-            if(town!=null&&!administration.depositBankReserve(town,amount))throw new IllegalStateException("Bank reserve rollback failed");return false;
-        }
-        accounts.put(player.getUUID(),balance(player.getUUID())-amount);if(town==null)vault-=amount;
+        UUID town=bankTown(player);
+        if(town==null)return false;
+        var admin=KingdomAdministrationData.get(player.getServer());
+        var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null||admin.bankReserve(town)<amount
+                ||KingdomPhysicalCash.value(vault)<admin.bankReserve(town)
+                ||!KingdomPhysicalCash.withdraw(player,vault,amount))return false;
+        if(!admin.withdrawBankReserve(town,amount))
+            throw new IllegalStateException("Bank reserve update failed after physical withdrawal");
+        accounts.put(player.getUUID(),balance(player.getUUID())-amount);
         player.getInventory().setChanged();setDirty();return true;
     }
     /** Cash paid over a physical bank counter for a named lease. No bank-balance transfers.
