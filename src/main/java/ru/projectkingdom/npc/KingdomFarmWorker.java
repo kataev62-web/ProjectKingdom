@@ -133,7 +133,8 @@ public final class KingdomFarmWorker {
         if(drops.isEmpty()||!NpcFieldWork.canFit(w,drops))return false;
         if(!level.setBlock(pos,Blocks.AIR.defaultBlockState(),3))return false;
         for(ItemStack item:drops)NpcFieldWork.put(w,item);
-        ItemStack replanted=NpcFieldWork.takeSeedById(w,field.seedId());
+        boolean switchCrop=KingdomFarmAutonomy.leaveForRotation(level,w,field);
+        ItemStack replanted=switchCrop?ItemStack.EMPTY:NpcFieldWork.takeSeedById(w,field.seedId());
         BlockState seedling=crop.getBlock().defaultBlockState();
         var climate=KingdomFarmClimate.read(level,pos,seedling);
         if(!replanted.isEmpty()){
