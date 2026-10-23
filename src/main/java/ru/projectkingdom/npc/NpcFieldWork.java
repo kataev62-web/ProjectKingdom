@@ -123,7 +123,7 @@ public final class NpcFieldWork {
     /** Execute ONE bounded action; called per NPC once every 2 seconds, never on unloaded chunks. */
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w) {
         if(!eligible(w)||!w.dimension.equals(level.dimension().location().toString())||"stay".equals(w.order)||"haul".equals(w.order)||"follow".equals(w.order))return false;
-        if(w.employer!=null && !"work".equals(w.order))return false;
+        if (w.employer != null && !KingdomNpcDuty.autonomousOrder(w.order)) return false;
         if(!"farmer".equals(w.job)&&!"lumberjack".equals(w.job)&&!"miner".equals(w.job))return false;
         if(w.employer!=null && !w.fieldInventory.isEmpty()){
             boolean deposited=deposit(level,npc,w);
