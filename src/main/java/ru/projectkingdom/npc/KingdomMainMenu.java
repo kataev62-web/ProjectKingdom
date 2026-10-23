@@ -120,7 +120,8 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(13,Items.COMPASS,"Городские границы: план расширения и выкуп из казны");
                 icon(14,Items.MAP,"Земельные участки: собственность и разрешённые сделки");
                 icon(15,Items.BRICKS,"Инфраструктура: ратуши, здания, дороги, мосты и предприятия");
-                icon(22,Items.PAPER,"Все карты открываются только в интерфейсе Kingdom");
+                icon(16,Items.FILLED_MAP,"Изготовить карту Kingdom в руки (1 бумага): дороги, границы, путь");
+                icon(22,Items.PAPER,"Большой атлас — в меню; переносная карта — в руках персонажа");
                 icon(23,Items.BOOK,"Масштаб, перемещение, маркер игрока — в графическом атласе");
             }
             case WALLET -> {
@@ -431,6 +432,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     case 13 -> KingdomCityExpansionMapMenu.open(viewer);
                     case 14 -> KingdomLandMapMenu.open(viewer);
                     case 15 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.INFRASTRUCTURE);
+                    case 16 -> { ru.projectkingdom.map.KingdomHeldMapService.issue(viewer); draw(); }
                     default -> { }
                 }
             }
