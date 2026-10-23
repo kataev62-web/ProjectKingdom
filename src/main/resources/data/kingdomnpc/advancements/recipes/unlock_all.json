@@ -27,7 +27,9 @@
       "kingdomnpc:guard_administration_core",
       "kingdomnpc:drafting_table",
       "kingdomnpc:building_blueprint",
-      "kingdomnpc:builders_hammer"
+      "kingdomnpc:builders_hammer",
+      "kingdomnpc:managed_storage",
+      "kingdomnpc:demand_board"
     ]
   }
 }
