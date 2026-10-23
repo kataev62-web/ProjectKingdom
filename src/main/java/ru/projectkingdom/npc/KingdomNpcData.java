@@ -74,6 +74,7 @@ public final class KingdomNpcData extends SavedData {
     public Collection<Worker> all() { return workers.values(); }
 
     public static final class Worker {
+        static final int MAX_SOCIAL_MEMORIES = 512;
         public final int id;
         public final UUID entityId;
         public final String name;
@@ -199,10 +200,10 @@ public final class KingdomNpcData extends SavedData {
             for(int i=0;i<wages.size()&&i<36;i++){ItemStack coin=ItemStack.of(wages.getCompound(i));
                 if(!coin.isEmpty() && KingdomCurrency.value(coin)>0)w.wagePurse.add(coin);}
             ListTag social=t.getList("SocialMemory", Tag.TAG_COMPOUND);
-            for(int i=0;i<social.size()&&i<512;i++){
+            for(int i=0;i<social.size();i++){
                 CompoundTag tag=social.getCompound(i);
                 if(!tag.hasUUID("Player"))continue;
-                w.socialMemory.put(tag.getUUID("Player"),new NpcSocialMemory(
+                w.remember(tag.getUUID("Player"),new NpcSocialMemory(
                     tag.getInt("Reputation"),tag.getInt("Conversations"),tag.getInt("Helped"),
                     tag.getString("LastTopic"),tag.getLong("LastDay")));
             }
@@ -291,7 +292,16 @@ public final class KingdomNpcData extends SavedData {
 
         public void remember(UUID player, NpcSocialMemory memory) {
             if(player==null || memory==null)return;
+            // LinkedHashMap iteration is oldest to newest. Refreshing an existing
+            // player moves it to the newest end; old saves over capacity retain
+            // the most recent 512 entries instead of silently keeping the oldest.
+            socialMemory.remove(player);
             socialMemory.put(player,memory);
+            while(socialMemory.size()>MAX_SOCIAL_MEMORIES) {
+                var oldest=socialMemory.keySet().iterator();
+                oldest.next();
+                oldest.remove();
+            }
         }
     }
 }

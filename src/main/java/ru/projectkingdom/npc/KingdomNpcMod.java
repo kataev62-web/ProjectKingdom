@@ -719,7 +719,12 @@ public final class KingdomNpcMod {
     /** Text fallback for voice: only explicit "Имя, фраза" / "#id фраза" is intercepted. */
     @SubscribeEvent
     public void addressedChat(ServerChatEvent event) {
-        if (NpcDialogueService.respondAddressed(event.getPlayer(),event.getRawText()))
+        var server=event.getPlayer().getServer();
+        boolean handled=server.isSameThread()
+                ? NpcDialogueService.respondAddressed(event.getPlayer(),event.getRawText())
+                : server.submit(() -> NpcDialogueService.respondAddressed(
+                        event.getPlayer(),event.getRawText())).join();
+        if (handled)
             event.setCanceled(true);
     }
 
@@ -748,16 +753,6 @@ public final class KingdomNpcMod {
             p.sendSystemMessage(Component.literal("[Королевство] Житель принят в систему, №" + found.id));
         }
         if(found==null)return;
-        // A warehouse clerk is a physical access point, not a remote market terminal.
-        // The player and clerk must both be at a registered warehouse desk.
-        if("warehouse".equals(found.job) && !p.isShiftKeyDown()
-                && KingdomWarehouseMarket.get(p.getServer()).nearDesk(p.serverLevel(),p.blockPosition())
-                && KingdomWarehouseMarket.get(p.getServer()).nearDesk(p.serverLevel(),npc.blockPosition())) {
-            KingdomMainMenu.openWarehouse(p);
-            event.setCancellationResult(InteractionResult.SUCCESS);
-            event.setCanceled(true);
-            return;
-        }
         // Freeze immediately, not after the next simulation update.
         npc.getNavigation().stop();
         npc.setNoAi(true);
@@ -768,8 +763,17 @@ public final class KingdomNpcMod {
     }
 
     public static void openNpcMenu(ServerPlayer player, int npcId) {
+        openNpcMenu(player,npcId,false);
+    }
+
+    public static void openNpcManagement(ServerPlayer player, int npcId) {
+        openNpcMenu(player,npcId,true);
+    }
+
+    private static void openNpcMenu(ServerPlayer player, int npcId, boolean management) {
         player.openMenu(new SimpleMenuProvider(
-            (windowId, inventory, user) -> new KingdomNpcMenu(windowId, inventory, player, npcId),
+            (windowId, inventory, user) -> new KingdomNpcMenu(
+                    windowId, inventory, player, npcId, management),
             Component.literal("Житель Королевства №" + npcId)));
     }
 

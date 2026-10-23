@@ -103,19 +103,7 @@ public final class NpcDialogueEngine {
     }
 
     private static String profession(String job) {
-        if (job == null) return "свободный житель";
-        return switch (job) {
-            case "farmer" -> "фермер";
-            case "smith" -> "кузнец";
-            case "miner" -> "шахтёр";
-            case "lumberjack" -> "лесоруб";
-            case "merchant" -> "купец";
-            case "guard" -> "стражник";
-            case "builder" -> "строитель";
-            case "courier" -> "курьер";
-            case "warehouse" -> "кладовщик";
-            default -> "свободный житель";
-        };
+        return KingdomProfessionRegistry.title(job);
     }
 
     private static String order(String value) {

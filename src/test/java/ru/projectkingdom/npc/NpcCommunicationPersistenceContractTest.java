@@ -18,6 +18,10 @@ final class NpcCommunicationPersistenceContractTest {
         assertTrue(source.contains("tag.putUUID(\"Player\""));
         assertTrue(source.contains("tag.putInt(\"Reputation\""));
         assertTrue(source.contains("tag.putString(\"LastTopic\""));
+        assertTrue(source.contains("MAX_SOCIAL_MEMORIES = 512"));
+        assertTrue(source.contains("socialMemory.remove(player)"));
+        assertTrue(source.contains("while(socialMemory.size()>MAX_SOCIAL_MEMORIES)"));
+        assertFalse(source.contains("social.size()&&i<512"));
     }
 }
 

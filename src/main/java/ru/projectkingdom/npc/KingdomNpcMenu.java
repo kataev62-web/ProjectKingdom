@@ -22,14 +22,21 @@ public final class KingdomNpcMenu extends ChestMenu {
     private Page page = Page.DIALOGUE;
 
     public KingdomNpcMenu(int containerId, Inventory inventory, ServerPlayer viewer, int npcId) {
-        this(containerId, inventory, viewer, npcId, new SimpleContainer(27));
+        this(containerId, inventory, viewer, npcId, false);
     }
 
-    private KingdomNpcMenu(int containerId, Inventory inventory, ServerPlayer viewer, int npcId, SimpleContainer contents) {
+    public KingdomNpcMenu(int containerId, Inventory inventory, ServerPlayer viewer, int npcId, boolean management) {
+        this(containerId, inventory, viewer, npcId, new SimpleContainer(27),
+                management ? Page.MANAGEMENT : Page.DIALOGUE);
+    }
+
+    private KingdomNpcMenu(int containerId, Inventory inventory, ServerPlayer viewer, int npcId,
+                           SimpleContainer contents, Page initialPage) {
         super(MenuType.GENERIC_9x3, containerId, inventory, contents, 3);
         this.display = contents;
         this.npcId = npcId;
         this.viewer = viewer;
+        this.page = initialPage;
         redraw();
     }
 

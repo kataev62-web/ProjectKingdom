@@ -22,6 +22,8 @@ final class NpcDialogueMenuContractTest {
         assertTrue(source.contains("NpcDialogueService.respond(viewer,w"));
         assertTrue(source.contains("page=Page.MANAGEMENT"));
         assertTrue(source.contains("page=Page.DIALOGUE"));
+        assertTrue(source.contains("boolean management"));
+        assertTrue(source.contains("management ? Page.MANAGEMENT : Page.DIALOGUE"));
 
         // Existing validated management actions must remain reachable.
         assertTrue(source.contains("НАНЯТЬ жителя"));

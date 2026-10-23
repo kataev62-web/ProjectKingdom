@@ -29,7 +29,23 @@ final class NpcCommunicationWiringTest {
         assertTrue(mod.contains("public void addressedChat(ServerChatEvent event)"));
         assertTrue(mod.contains("NpcDialogueService.respondAddressed"));
         assertTrue(mod.contains("event.setCanceled(true)"));
+        assertTrue(mod.contains("server.submit("));
+        assertTrue(mod.contains(".join()"));
         assertFalse(mod.contains("import ru.projectkingdom.core.BindingInteractionPolicy;"));
+    }
+
+    @Test void tradeUsesCurrentCityMarketForMerchantAndWarehouse() throws Exception {
+        String service = Files.readString(Path.of("src/main/java/ru/projectkingdom/npc/NpcDialogueService.java"));
+        assertTrue(service.contains("\"merchant\".equals(w.job)"));
+        assertTrue(service.contains("\"warehouse\".equals(w.job)"));
+        assertTrue(service.contains("nearbyCityMarketTown"));
+        assertFalse(service.contains("nearDesk("));
+    }
+
+    @Test void ordinaryTrackedNpcInteractionIsAlwaysDialogueFirst() throws Exception {
+        String mod = Files.readString(Path.of("src/main/java/ru/projectkingdom/npc/KingdomNpcMod.java"));
+        assertFalse(mod.contains("KingdomWarehouseMarket.get(p.getServer()).nearDesk"));
+        assertTrue(mod.contains("openNpcMenu(p,found.id);"));
     }
 }
 

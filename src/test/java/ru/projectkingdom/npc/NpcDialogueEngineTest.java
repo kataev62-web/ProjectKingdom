@@ -58,5 +58,13 @@ final class NpcDialogueEngineTest {
         assertEquals(NpcDialogueEngine.Action.NONE,
                 NpcDialogueEngine.reply("Покажи товары", farmer).action());
     }
+
+    @Test void everyRegisteredProfessionUsesCanonicalTitle() {
+        for (var profession : KingdomProfessionRegistry.all()) {
+            var reply = NpcDialogueEngine.reply("Кто ты?",
+                    state(80, 80, 80, true, false, true, true, profession.id()));
+            assertTrue(reply.text().contains(profession.title()));
+        }
+    }
 }
 

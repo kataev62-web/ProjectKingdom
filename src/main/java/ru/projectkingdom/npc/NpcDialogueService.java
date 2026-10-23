@@ -70,14 +70,24 @@ public final class NpcDialogueService {
         speak(player.serverLevel(), npc, w.name, text, positive);
 
         if (reply.action() == NpcDialogueEngine.Action.OPEN_MANAGEMENT) {
-            KingdomNpcMod.openNpcMenu(player, w.id);
-        } else if (reply.action() == NpcDialogueEngine.Action.OPEN_TRADE
-                && "warehouse".equals(w.job)
-                && KingdomWarehouseMarket.get(player.getServer()).nearDesk(player.serverLevel(), player.blockPosition())
-                && KingdomWarehouseMarket.get(player.getServer()).nearDesk(player.serverLevel(), npc.blockPosition())) {
-            KingdomMainMenu.openWarehouse(player);
+            KingdomNpcMod.openNpcManagement(player, w.id);
+        } else if (reply.action() == NpcDialogueEngine.Action.OPEN_TRADE) {
+            openTradeOrExplain(player,npc,w);
         }
         return true;
+    }
+
+    private static void openTradeOrExplain(ServerPlayer player, Villager npc, KingdomNpcData.Worker w) {
+        if (!"merchant".equals(w.job) && !"warehouse".equals(w.job)) return;
+        var market=KingdomWarehouseMarket.get(player.getServer());
+        var playerTown=market.nearbyCityMarketTown(player.serverLevel(),player.blockPosition(),8);
+        var npcTown=market.nearbyCityMarketTown(player.serverLevel(),npc.blockPosition(),8);
+        if(playerTown==null || !playerTown.equals(npcTown)) {
+            player.sendSystemMessage(Component.literal(
+                    "[Королевство] Для торговли вы с NPC должны находиться у одного активного городского рынка."));
+            return;
+        }
+        KingdomMainMenu.openWarehouse(player);
     }
 
     private static Villager loadedNpc(ServerLevel level, KingdomNpcData.Worker worker) {
