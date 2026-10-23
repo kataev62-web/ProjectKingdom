@@ -29,6 +29,7 @@ final class NpcCommunicationWiringTest {
         assertTrue(mod.contains("public void addressedChat(ServerChatEvent event)"));
         assertTrue(mod.contains("NpcDialogueService.respondAddressed"));
         assertTrue(mod.contains("event.setCanceled(true)"));
+        assertFalse(mod.contains("import ru.projectkingdom.core.BindingInteractionPolicy;"));
     }
 }
 

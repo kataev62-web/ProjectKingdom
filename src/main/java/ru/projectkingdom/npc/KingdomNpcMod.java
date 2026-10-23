@@ -28,7 +28,6 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import ru.projectkingdom.core.KingdomBookGuardian;
 import ru.projectkingdom.core.KingdomBookRegistry;
-import ru.projectkingdom.core.BindingInteractionPolicy;
 import ru.projectkingdom.economy.KingdomEconomyRegistry;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.enterprise.EnterpriseAccessService;
