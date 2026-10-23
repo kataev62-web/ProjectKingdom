@@ -62,7 +62,7 @@ public final class KingdomHeldMapService {
                     "[Kingdom] Карта уже есть в инвентаре. Возьмите её в руку."));
             return;
         }
-        if (!player.isCreative() && !consumePaper(player)) {
+        if (!player.isCreative() && !hasPaper(player)) {
             player.sendSystemMessage(Component.literal(
                     "[Kingdom] Для изготовления карты Kingdom требуется 1 лист бумаги."));
             return;
@@ -79,6 +79,8 @@ public final class KingdomHeldMapService {
         result.getOrCreateTag().putUUID(OWNER_TAG,player.getUUID());
         result.getOrCreateTag().putString(DIM_TAG,level.dimension().location().toString());
         result.setHoverName(Component.literal("Карта Kingdom — местность и навигация"));
+        // Only consume the actual paper after the map and its saved data exist.
+        if (!player.isCreative() && !consumePaper(player)) return;
         paint(player,result);
         if (!player.getInventory().add(result)) player.drop(result,false);
         player.sendSystemMessage(Component.literal(
@@ -89,6 +91,11 @@ public final class KingdomHeldMapService {
         for (int i=0;i<player.getInventory().getContainerSize();i++)
             if (isKingdomMap(player.getInventory().getItem(i))) return true;
         return isKingdomMap(player.getOffhandItem());
+    }
+    private static boolean hasPaper(ServerPlayer player) {
+        for (int i=0;i<player.getInventory().getContainerSize();i++)
+            if (player.getInventory().getItem(i).is(Items.PAPER)) return true;
+        return false;
     }
     private static boolean consumePaper(ServerPlayer player) {
         for(int i=0;i<player.getInventory().getContainerSize();i++){
