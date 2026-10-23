@@ -64,7 +64,7 @@ public final class KingdomAtlasInfrastructure {
         return select(sources, dimension, cx, cz, scale);
     }
 
-    private static Kind designKind(String design, String title) {
+    static Kind designKind(String design, String title) {
         String name = ((design == null ? "" : design) + " " + title).toLowerCase(java.util.Locale.ROOT);
         if (name.contains("town_hall") || name.contains("ратуш")) return Kind.TOWN_HALL;
         if (name.contains("bridge") || name.contains("мост")) return Kind.BRIDGE;
