@@ -15,6 +15,7 @@ import net.minecraft.world.item.Items;
 import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.RegisterCommandsEvent;
+import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.TickEvent;
 import net.minecraftforge.event.entity.player.PlayerInteractEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
@@ -27,6 +28,7 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import ru.projectkingdom.core.KingdomBookGuardian;
 import ru.projectkingdom.core.KingdomBookRegistry;
+import ru.projectkingdom.core.BindingInteractionPolicy;
 import ru.projectkingdom.economy.KingdomEconomyRegistry;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.enterprise.EnterpriseAccessService;
@@ -288,6 +290,15 @@ public final class KingdomNpcMod {
     public void commands(RegisterCommandsEvent event) {
         KingdomExpansionCommands.register(event);
         var root = Commands.literal("knpc");
+        root.then(Commands.literal("talk")
+            .then(Commands.argument("id", IntegerArgumentType.integer(1))
+            .then(Commands.argument("phrase", StringArgumentType.greedyString()).executes(ctx -> {
+                ServerPlayer speaker=player(ctx.getSource());
+                var worker=find(ctx.getSource(),IntegerArgumentType.getInteger(ctx,"id"));
+                boolean ok=NpcDialogueService.respond(speaker,worker,StringArgumentType.getString(ctx,"phrase"));
+                if(!ok)reply(ctx.getSource(),"NPC не найден, слишком далеко или реплика пуста.");
+                return ok?1:0;
+            }))));
         root.then(Commands.literal("village")
             .then(Commands.literal("audit").executes(ctx -> {
                 if (!(ctx.getSource().getEntity() instanceof ServerPlayer p)) return 0;
@@ -706,6 +717,13 @@ public final class KingdomNpcMod {
         event.getDispatcher().register(root);
     }
 
+    /** Text fallback for voice: only explicit "Имя, фраза" / "#id фраза" is intercepted. */
+    @SubscribeEvent
+    public void addressedChat(ServerChatEvent event) {
+        if (NpcDialogueService.respondAddressed(event.getPlayer(),event.getRawText()))
+            event.setCanceled(true);
+    }
+
     /** Vanilla villager remains interactive; avoid opening its trade UI for tracked workers. */
     @SubscribeEvent
     public void interact(PlayerInteractEvent.EntityInteract event) {
@@ -746,11 +764,14 @@ public final class KingdomNpcMod {
         npc.setNoAi(true);
         event.setCancellationResult(InteractionResult.SUCCESS);
         event.setCanceled(true);
-        final int npcId = found.id;
-        p.openMenu(new SimpleMenuProvider(
-            (windowId, inventory, user) -> new KingdomNpcMenu(windowId, inventory, p, npcId),
-            Component.literal("Житель Королевства №" + npcId)));
+        openNpcMenu(p,found.id);
 
+    }
+
+    public static void openNpcMenu(ServerPlayer player, int npcId) {
+        player.openMenu(new SimpleMenuProvider(
+            (windowId, inventory, user) -> new KingdomNpcMenu(windowId, inventory, player, npcId),
+            Component.literal("Житель Королевства №" + npcId)));
     }
 
     private static VillagerProfession profession(String job) {

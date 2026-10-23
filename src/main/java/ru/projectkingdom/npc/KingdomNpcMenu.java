@@ -15,9 +15,11 @@ import net.minecraft.world.item.Items;
 
 /** Server-authoritative UI backed by the vanilla three-row chest menu. No client-side menu registration required. */
 public final class KingdomNpcMenu extends ChestMenu {
+    private enum Page { DIALOGUE, MANAGEMENT }
     private final SimpleContainer display;
     private final int npcId;
     private final ServerPlayer viewer;
+    private Page page = Page.DIALOGUE;
 
     public KingdomNpcMenu(int containerId, Inventory inventory, ServerPlayer viewer, int npcId) {
         this(containerId, inventory, viewer, npcId, new SimpleContainer(27));
@@ -78,11 +80,34 @@ public final class KingdomNpcMenu extends ChestMenu {
         KingdomNpcData.Worker w = worker();
         display.clearContent();
         if (w == null) return;
+        if(page==Page.DIALOGUE)redrawDialogue(w);
+        else redrawManagement(w);
+        broadcastChanges();
+    }
+
+    private void redrawDialogue(KingdomNpcData.Worker w) {
+        NpcSocialMemory memory=w.social(viewer.getUUID());
+        icon(4, Items.PLAYER_HEAD, w.name + " | " + profession(w.job));
+        icon(0, Items.SUNFLOWER, "Поприветствовать");
+        icon(1, Items.NAME_TAG, "Спросить: кто ты?");
+        icon(2, Items.BREAD, "Спросить о нуждах");
+        icon(3, Items.IRON_PICKAXE, "Спросить о работе");
+        icon(5, Items.WRITABLE_BOOK, "Спросить о задании");
+        icon(6, Items.EMERALD, "Поговорить о торговле");
+        icon(7, Items.HEART_OF_THE_SEA, "Отношения: " + memory.label()
+                + " | репутация " + memory.reputation());
+        icon(8, Items.PAPER, "Можно написать рядом в чат: «"+w.name+", как дела?»");
+        icon(18, Items.BREAD, "Предложить помощь: передать 1 настоящий хлеб");
+        icon(22, Items.COMMAND_BLOCK, "Управление NPC: договор, работа, склады и приказы");
+        icon(26, Items.BARRIER, "Закончить разговор");
+    }
+
+    private void redrawManagement(KingdomNpcData.Worker w) {
         boolean owned = controls(w);
         icon(4, Items.PLAYER_HEAD, "NPC №" + w.id + " | " + w.name);
         icon(0, Items.RED_BED, "НАЗНАЧИТЬ ДОМ: здесь, где стоишь");
         icon(1, Items.CRAFTING_TABLE, "СМЕНИТЬ ПРОФЕССИЮ");
-        icon(2, Items.CLOCK, "Режим общения: NPC стоит на месте");
+        icon(2, Items.OAK_DOOR, "Назад к разговору");
         icon(3, Items.GRASS_BLOCK, "ЗАКРЕПИТЬ ТЕКУЩИЙ УЧАСТОК (чанк 16×16)");
         icon(6, Items.HOPPER, "СКЛАД СЫРЬЯ (участок должен принадлежать работодателю)");
         icon(7, Items.CHEST, "СКЛАД ГОТОВОЙ ПРОДУКЦИИ (участок работодателя)");
@@ -117,7 +142,6 @@ public final class KingdomNpcMenu extends ChestMenu {
         }
         icon(18, Items.BREAD, "ПОКОРМИТЬ: потратить 1 хлеб");
         icon(26, KingdomCurrency.COPPER.get(), "ВНЕСТИ 1 медную из кошелька на зарплатный счёт");
-        broadcastChanges();
     }
 
     private static NpcAutonomyPlanner.Intention safeIntent(String value) {
@@ -154,9 +178,27 @@ public final class KingdomNpcMenu extends ChestMenu {
         KingdomNpcData db = KingdomNpcData.get(viewer.getServer());
         KingdomNpcData.Worker w = worker();
         if (!nearby(w)) { viewer.closeContainer(); return; }
+        if(page==Page.DIALOGUE){
+            switch(slotId){
+                case 0 -> NpcDialogueService.respond(viewer,w,"Привет");
+                case 1 -> NpcDialogueService.respond(viewer,w,"Кто ты?");
+                case 2 -> NpcDialogueService.respond(viewer,w,"Как дела?");
+                case 3 -> NpcDialogueService.respond(viewer,w,"Как работа?");
+                case 5 -> NpcDialogueService.respond(viewer,w,"Чем тебе помочь?");
+                case 6 -> NpcDialogueService.respond(viewer,w,"Покажи товары");
+                case 7 -> NpcDialogueService.respond(viewer,w,"Какие у нас отношения?");
+                case 18 -> NpcDialogueService.respond(viewer,w,"Вот хлеб");
+                case 22 -> page=Page.MANAGEMENT;
+                case 26 -> {viewer.closeContainer();return;}
+                default -> { }
+            }
+            if(viewer.containerMenu==this)redraw();
+            return;
+        }
         boolean owner = controls(w);
         boolean changed = false;
         switch (slotId) {
+            case 2 -> page=Page.DIALOGUE;
             case 9 -> {
                 if(!owner){info("Нужны права работодателя.");break;}
                 if(button==1){

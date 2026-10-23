@@ -103,6 +103,8 @@ public final class KingdomNpcData extends SavedData {
         public long lastLifeDay;
         public int lifeSeed = 0;
         public int personalStock = 0; // test provisions, cannot be traded for currency
+        /** Per-player social memory only; it grants no ownership, employment or payment rights. */
+        public final Map<UUID, NpcSocialMemory> socialMemory = new LinkedHashMap<>();
 
         // Identity fields survive unloaded chunks and server restarts.
         public String gender = "unspecified";
@@ -196,6 +198,14 @@ public final class KingdomNpcData extends SavedData {
             ListTag wages=t.getList("WagePurse",Tag.TAG_COMPOUND);
             for(int i=0;i<wages.size()&&i<36;i++){ItemStack coin=ItemStack.of(wages.getCompound(i));
                 if(!coin.isEmpty() && KingdomCurrency.value(coin)>0)w.wagePurse.add(coin);}
+            ListTag social=t.getList("SocialMemory", Tag.TAG_COMPOUND);
+            for(int i=0;i<social.size()&&i<512;i++){
+                CompoundTag tag=social.getCompound(i);
+                if(!tag.hasUUID("Player"))continue;
+                w.socialMemory.put(tag.getUUID("Player"),new NpcSocialMemory(
+                    tag.getInt("Reputation"),tag.getInt("Conversations"),tag.getInt("Helped"),
+                    tag.getString("LastTopic"),tag.getLong("LastDay")));
+            }
 
             w.deliveredItems=Math.max(0L,t.getLong("DeliveredItems"));
             w.bakedBread=Math.max(0L,t.getLong("BakedBread"));
@@ -249,6 +259,18 @@ public final class KingdomNpcData extends SavedData {
             ListTag wages=new ListTag();for(ItemStack coin:wagePurse)
                 if(!coin.isEmpty() && KingdomCurrency.value(coin)>0)wages.add(coin.save(new CompoundTag()));
             t.put("WagePurse",wages);
+            ListTag social=new ListTag();
+            for(var entry:socialMemory.entrySet()){
+                CompoundTag tag=new CompoundTag();
+                tag.putUUID("Player",entry.getKey());
+                tag.putInt("Reputation",entry.getValue().reputation());
+                tag.putInt("Conversations",entry.getValue().conversations());
+                tag.putInt("Helped",entry.getValue().helped());
+                tag.putString("LastTopic",entry.getValue().lastTopic());
+                tag.putLong("LastDay",entry.getValue().lastDay());
+                social.add(tag);
+            }
+            t.put("SocialMemory", social);
             t.putLong("DeliveredItems",deliveredItems);
             t.putLong("BakedBread",bakedBread);
             t.putLong("SupplyQuoteCopper",supplyQuoteCopper);t.putString("SupplyOrderId",supplyOrderId);
@@ -260,6 +282,16 @@ public final class KingdomNpcData extends SavedData {
             t.putInt("WorkX",workX);t.putInt("WorkY",workY);t.putInt("WorkZ",workZ);
             if (hasHome) {t.putInt("HomeX", homeX);t.putInt("HomeY", homeY);t.putInt("HomeZ", homeZ);}
             return t;
+        }
+
+        public NpcSocialMemory social(UUID player) {
+            return player == null ? NpcSocialMemory.neutral()
+                    : socialMemory.getOrDefault(player,NpcSocialMemory.neutral());
+        }
+
+        public void remember(UUID player, NpcSocialMemory memory) {
+            if(player==null || memory==null)return;
+            socialMemory.put(player,memory);
         }
     }
 }
