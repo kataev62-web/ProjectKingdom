@@ -6,6 +6,9 @@ import net.minecraft.network.FriendlyByteBuf;
 import ru.projectkingdom.administration.KingdomAdministrationData;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomCurrency;
+import ru.projectkingdom.npc.KingdomPhysicalCash;
+import ru.projectkingdom.administration.AdministrativeBindingRole;
+import net.minecraft.world.Container;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomNpcData;
 import ru.projectkingdom.npc.KingdomPayrollData;
@@ -68,15 +71,19 @@ public final class KingdomSocialPromotionService {
         var admin = KingdomAdministrationData.get(server);
         if (town.treasury() > Long.MAX_VALUE - amount
                 || admin.treasuryReserve(townId) > Long.MAX_VALUE - amount) return false;
-        if (!KingdomCurrency.debit(player,amount)) return false;
-        if (!civics.depositTownTo(townId,player.getUUID(),amount)) {
-            if (!KingdomCurrency.credit(player,amount))
-                throw new IllegalStateException("Social fee refund to physical purse failed");
+        Container vault=KingdomPhysicalCash.townVault(player,townId,AdministrativeBindingRole.TREASURY_VAULT);
+        if(vault==null || KingdomPhysicalCash.value(vault)<admin.treasuryReserve(townId))return false;
+        // No virtual cash: physically move real coins from the purse into the city's bound vault.
+        if(!KingdomPhysicalCash.deposit(player,vault,amount))return false;
+        if(!civics.depositTownTo(townId,player.getUUID(),amount)) {
+            if(!KingdomPhysicalCash.withdraw(player,vault,amount))
+                throw new IllegalStateException("Social fee rollback failed");
             return false;
         }
-        if (!KingdomSocialData.get(server).grantVerified(player.getUUID(),rule.target())) {
-            if (!civics.payTownObligation(townId,amount) || !KingdomCurrency.credit(player,amount))
-                throw new IllegalStateException("Social promotion refund failed after treasury deposit");
+        if(!KingdomSocialData.get(server).grantVerified(player.getUUID(),rule.target())) {
+            if(!civics.payTownObligation(townId,amount)
+                    ||!KingdomPhysicalCash.withdraw(player,vault,amount))
+                throw new IllegalStateException("Social rank rollback failed");
             return false;
         }
         admin.record(townId,player.getUUID(),null,"social.promote."+rule.target().level(),

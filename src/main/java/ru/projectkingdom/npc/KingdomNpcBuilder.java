@@ -29,7 +29,7 @@ public final class KingdomNpcBuilder {
                 }
             }
             if (level == null) continue;
-            BlockPos marker = new BlockPos(site.x() - 2, site.y(), site.z() - 2);
+            BlockPos marker = sites.marker(site);
             if (!KingdomConstructionMarkers.isMarker(level, marker)) continue;
 
             Villager builder = null;

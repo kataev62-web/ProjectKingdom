@@ -8,8 +8,6 @@ import ru.projectkingdom.administration.AdministrativeActionPacket;
 import ru.projectkingdom.administration.AdministrativeTextPacket;
 
 public final class KingdomNetwork {
-    // Social/civic menu snapshots change the client/server wire format.
-    // Reject older clients rather than decoding newer payloads as legacy menus.
     private static final String PROTOCOL="2";
     public static final SimpleChannel CHANNEL=NetworkRegistry.newSimpleChannel(
             new ResourceLocation(KingdomNpcMod.MOD_ID,"main"),()->PROTOCOL,PROTOCOL::equals,PROTOCOL::equals);
@@ -27,5 +25,25 @@ public final class KingdomNetwork {
                 OpenLandMapFromBookPacket::decode,OpenLandMapFromBookPacket::handle);
         CHANNEL.registerMessage(4,OpenCityExpansionMapPacket.class,OpenCityExpansionMapPacket::encode,
                 OpenCityExpansionMapPacket::decode,OpenCityExpansionMapPacket::handle);
+        CHANNEL.registerMessage(5,OpenWorldAtlasPacket.class,OpenWorldAtlasPacket::encode,
+                OpenWorldAtlasPacket::decode,OpenWorldAtlasPacket::handle);
+        CHANNEL.registerMessage(6,GraphicAtlasRequestPacket.class,GraphicAtlasRequestPacket::encode,
+                GraphicAtlasRequestPacket::decode,GraphicAtlasRequestPacket::handle);
+        CHANNEL.registerMessage(7,GraphicAtlasResponsePacket.class,GraphicAtlasResponsePacket::encode,
+                GraphicAtlasResponsePacket::decode,GraphicAtlasResponsePacket::handle);
+        CHANNEL.registerMessage(8,OpenGraphicAtlasPacket.class,OpenGraphicAtlasPacket::encode,
+                OpenGraphicAtlasPacket::decode,OpenGraphicAtlasPacket::handle);
+        CHANNEL.registerMessage(9,OpenCityPlanFromAtlasPacket.class,OpenCityPlanFromAtlasPacket::encode,
+                OpenCityPlanFromAtlasPacket::decode,OpenCityPlanFromAtlasPacket::handle);
+        CHANNEL.registerMessage(10,ArchitectPreviewPacket.class,ArchitectPreviewPacket::encode,
+                ArchitectPreviewPacket::decode,ArchitectPreviewPacket::handle);
+        CHANNEL.registerMessage(11,ArchitectDecisionPacket.class,ArchitectDecisionPacket::encode,
+                ArchitectDecisionPacket::decode,ArchitectDecisionPacket::handle);
+        CHANNEL.registerMessage(12,ArchitectResultPacket.class,ArchitectResultPacket::encode,
+                ArchitectResultPacket::decode,ArchitectResultPacket::handle);
+        CHANNEL.registerMessage(13,OpenKingdomMapsFromBookPacket.class,OpenKingdomMapsFromBookPacket::encode,
+                OpenKingdomMapsFromBookPacket::decode,OpenKingdomMapsFromBookPacket::handle);
+        CHANNEL.registerMessage(14,OpenKingdomMapsHubPacket.class,OpenKingdomMapsHubPacket::encode,
+                OpenKingdomMapsHubPacket::decode,OpenKingdomMapsHubPacket::handle);
     }
 }

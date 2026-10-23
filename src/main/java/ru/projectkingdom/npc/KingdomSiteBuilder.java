@@ -34,6 +34,26 @@ public final class KingdomSiteBuilder {
                                       KingdomDesignEngine.Design design) {
         BlockPos marker = findLectern(player);
         if (marker == null) return "Установи чертёжный стол или кафедру на расстоянии до 4 блоков.";
+        return placeAt(player,id,design,marker,marker.offset(2,0,2));
+    }
+
+    /** Architect places a blueprint without placing any real building blocks. */
+    public static String placeAt(ServerPlayer player, String designKey,
+                                 BlockPos marker, BlockPos origin) {
+        if (player == null || designKey == null || marker == null || origin == null)
+            return "Неправильное положение строительного проекта.";
+        var design=KingdomConstructionPlans.resolve(player.getServer(),designKey);
+        if (design == null) return "Схема недоступна: проверь файлы и моды.";
+        return placeAt(player,designKey,design,marker,origin);
+    }
+
+    private static String placeAt(ServerPlayer player, String id,
+                                  KingdomDesignEngine.Design design,
+                                  BlockPos marker, BlockPos origin) {
+        if (!player.serverLevel().hasChunkAt(marker)
+                || !KingdomConstructionMarkers.isMarker(player.serverLevel(),marker)
+                || player.distanceToSqr(marker.getX()+.5,marker.getY()+.5,marker.getZ()+.5)>144)
+            return "Подойди к своему чертёжному столу (до 12 блоков).";
         var db = KingdomConstructionData.get(player.getServer());
         String dimension = player.level().dimension().location().toString();
         if (db.atMarker(dimension, marker.getX(), marker.getY(), marker.getZ()) != null)
@@ -54,7 +74,7 @@ public final class KingdomSiteBuilder {
         int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
         int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
         for (var cell : design.blocks()) {
-            BlockPos target = marker.offset(2 + cell.x(), cell.y(), 2 + cell.z());
+            BlockPos target = origin.offset(cell.x(), cell.y(), cell.z());
             minX = Math.min(minX, target.getX()); maxX = Math.max(maxX, target.getX());
             minY = Math.min(minY, target.getY()); maxY = Math.max(maxY, target.getY());
             minZ = Math.min(minZ, target.getZ()); maxZ = Math.max(maxZ, target.getZ());
@@ -67,7 +87,7 @@ public final class KingdomSiteBuilder {
             return "Схема прежнего проекта недоступна: сначала восстанови файлы стройки.";
         }
         for (var cell : design.blocks()) {
-            BlockPos target = marker.offset(2 + cell.x(), cell.y(), 2 + cell.z());
+            BlockPos target = origin.offset(cell.x(), cell.y(), cell.z());
             if (target.getY() < player.serverLevel().getMinBuildHeight()
                     || target.getY() >= player.serverLevel().getMaxBuildHeight())
                 return "Здание выходит за высоту мира.";
@@ -91,7 +111,7 @@ public final class KingdomSiteBuilder {
 
         String designKey = id;
         var project = db.add(player.getUUID(), dimension, designKey,
-            marker.getX() + 2, marker.getY(), marker.getZ() + 2);
+            origin.getX(),origin.getY(),origin.getZ(),marker);
         if (blueprintSlot >= 0) {
             player.getInventory().getItem(blueprintSlot).shrink(1);
             player.getInventory().setChanged();
@@ -125,7 +145,7 @@ public final class KingdomSiteBuilder {
             return "Нет прав на стройку: попроси владельца пригласить тебя в бригаду.";
         if (!project.dimension().equals(player.level().dimension().location().toString()))
             return "Стройка в другом измерении.";
-        BlockPos marker = new BlockPos(project.x() - 2, project.y(), project.z() - 2);
+        BlockPos marker = KingdomConstructionData.get(player.getServer()).marker(project);
         if (!KingdomConstructionMarkers.isMarker(player.serverLevel(), marker))
             return "Чертёжный стол или кафедра удалены.";
         if (player.distanceToSqr(marker.getX() + .5, marker.getY(), marker.getZ() + .5) > 144)

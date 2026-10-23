@@ -66,7 +66,7 @@ public final class KingdomConstructionWork {
         if (!project.dimension().equals(level.dimension().location().toString()))
             return new Step(Result.UNLOADED, next.target(), next.material());
 
-        BlockPos marker = new BlockPos(project.x() - 2, project.y(), project.z() - 2);
+        BlockPos marker = KingdomConstructionData.get(server).marker(project);
         if (!KingdomConstructionMarkers.isMarker(level, marker))
             return new Step(Result.NO_MARKER, next.target(), next.material());
         BlockPos target = next.target();

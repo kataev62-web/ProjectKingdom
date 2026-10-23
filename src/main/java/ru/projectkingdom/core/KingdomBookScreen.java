@@ -11,8 +11,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import ru.projectkingdom.network.KingdomNetwork;
-import ru.projectkingdom.network.OpenLandMapFromBookPacket;
-import ru.projectkingdom.network.OpenCityExpansionMapPacket;
+import ru.projectkingdom.network.OpenKingdomMapsFromBookPacket;
 
 public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBookMenu> {
     private static final ResourceLocation BOOK_TEXTURE =
@@ -28,8 +27,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
     private static final int SUCCESS = 0xFF476A35;
 
     private BookModel.Section selected = BookModel.Section.PLAYER;
-    private AbstractButton landMapButton;
-    private AbstractButton expansionMapButton;
+    private AbstractButton worldAtlasButton;
 
     public KingdomBookScreen(KingdomBookMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -40,31 +38,19 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
     @Override
     protected void init() {
         super.init();
-        var rightPage = KingdomBookLayout.rightPage();
-        landMapButton = new AbstractButton(leftPos + rightPage.x() + 12,
-                topPos + rightPage.y() + 113, rightPage.width() - 24, 20,
-                Component.literal("Открыть карту земель")) {
+        var leftPage = KingdomBookLayout.leftPage();
+        worldAtlasButton = new AbstractButton(leftPos + leftPage.x() + 10,
+                topPos + leftPage.y() + 130, leftPage.width() - 20, 20,
+                Component.literal("Карты Kingdom")) {
             @Override public void onPress() {
-                KingdomNetwork.CHANNEL.sendToServer(new OpenLandMapFromBookPacket());
+                KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsFromBookPacket());
             }
             @Override protected void updateWidgetNarration(NarrationElementOutput narration) {
                 defaultButtonNarrationText(narration);
             }
         };
-        landMapButton.visible = selected == BookModel.Section.WORLD || selected == BookModel.Section.STATE;
-        addRenderableWidget(landMapButton);
-        expansionMapButton = new AbstractButton(leftPos + rightPage.x() + 12,
-                topPos + rightPage.y() + 138, rightPage.width() - 24, 19,
-                Component.literal("Границы города")) {
-            @Override public void onPress() {
-                KingdomNetwork.CHANNEL.sendToServer(new OpenCityExpansionMapPacket());
-            }
-            @Override protected void updateWidgetNarration(NarrationElementOutput narration) {
-                defaultButtonNarrationText(narration);
-            }
-        };
-        expansionMapButton.visible = selected == BookModel.Section.STATE;
-        addRenderableWidget(expansionMapButton);
+        worldAtlasButton.visible = selected == BookModel.Section.WORLD || selected == BookModel.Section.STATE;
+        addRenderableWidget(worldAtlasButton);
         var bounds = KingdomBookLayout.tabs();
         var sections = BookModel.Section.values();
         for (int index = 0; index < sections.length; index++) {
@@ -105,7 +91,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
                 centerText(graphics, playerName(), center, y + 23, INK);
                 centerText(graphics, "● ПЕРСОНАЖ АКТИВЕН", center, y + 37, SUCCESS);
                 divider(graphics, page, y + 54);
-                var social = menu.social();
+                var social=menu.social();
                 wrapped(graphics, "Ранг: "+social.rankName(), page, y + 63);
                 label(graphics, "ЛИЧНЫЕ ВЛАДЕНИЯ", page.x()+10, y + 91);
                 wrapped(graphics, social.enterprises()+" предпр. / "+social.hiredWorkers()
@@ -152,14 +138,14 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
                     "Банк, кошелёк и имущество персонажа.");
             case STATE -> {
                 label(graphics, "ТЕРРИТОРИИ И ГРАНИЦЫ", x, y);
-                wrapped(graphics, "Карта городов, участков и свободной земли.", page, y + 19);
+                wrapped(graphics, "Все карты находятся в меню Kingdom: города, государства, предприятия и земли.", page, y + 19);
                 divider(graphics, page, y + 61);
                 wrapped(graphics, "Сделки оформляются только в ратуше.", page, y + 70);
             }
             case DYNASTY -> placeholderRight(graphics, page, center, y, "История рода и наследники");
             case WORLD -> {
                 label(graphics, "ЗЕМЕЛЬНАЯ КАРТА", x, y);
-                wrapped(graphics, "Посмотрите занятые и свободные участки рядом с вами.", page, y + 19);
+                wrapped(graphics, "Общий графический атлас, местоположение игрока и карты владений.", page, y + 19);
                 divider(graphics, page, y + 61);
                 wrapped(graphics, "Границы синхронизируются с сервером.", page, y + 70);
             }
@@ -268,8 +254,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         @Override
         public void onPress() {
             selected = section;
-            if (landMapButton != null) landMapButton.visible = section == BookModel.Section.WORLD || section == BookModel.Section.STATE;
-            if (expansionMapButton != null) expansionMapButton.visible = section == BookModel.Section.STATE;
+            if (worldAtlasButton != null) worldAtlasButton.visible = section == BookModel.Section.WORLD || section == BookModel.Section.STATE;
         }
 
         @Override

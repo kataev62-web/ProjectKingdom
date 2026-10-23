@@ -48,6 +48,11 @@ public final class KingdomTerritories extends SavedData {
     public String role(ServerLevel level,BlockPos pos) {
         Node node=nodes.get(nodeKey(level,pos));return node==null?"не назначено":node.role();
     }
+    public UUID protectedStorageOwner(ServerLevel level, BlockPos pos) {
+        Node node=nodes.get(nodeKey(level,pos));
+        return node != null && ("raw".equals(node.role()) || "finished".equals(node.role()))
+                ? node.owner() : null;
+    }
     private static KingdomTerritories load(CompoundTag tag) {
         KingdomTerritories data=new KingdomTerritories();
         ListTag cs=tag.getList("Claims",Tag.TAG_COMPOUND);

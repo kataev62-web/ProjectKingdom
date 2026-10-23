@@ -19,6 +19,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
     private final ServerPlayer viewer;
     private final SimpleContainer grid;
     private int centerX, centerZ;
+    private long lastRefresh;
     private int selectedX, selectedZ;
     private static final long[] PRICE_CHOICES = {25, 50, 100, 250, 500, 1000, 2500, 5000, 10000};
     private int salePriceIndex = 4;
@@ -49,6 +50,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
         return KingdomCivicsData.get(viewer.getServer()).plot(viewer.serverLevel(),new BlockPos(x<<4,64,z<<4));
     }
     private void redraw() {
+        lastRefresh = viewer.serverLevel().getGameTime();
         grid.clearContent();
         var db=KingdomCivicsData.get(viewer.getServer());
         var own=db.townOf(viewer.getUUID());
@@ -69,7 +71,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
         item(47,Items.COMPASS,"↓ Сдвинуть карту на юг");
         item(48,Items.ARROW,"→ Сдвинуть карту на восток");
         item(49,Items.MAP,"Выбран чанк: "+selectedX+", "+selectedZ+" | ЛКМ по квадрату для выбора");
-        item(50,Items.GOLD_NUGGET,"Оформить покупку в ратуше — 100 медных (только мэр)");
+        item(50,Items.WRITABLE_BOOK,"Новые земли: Книга Kingdom → Государство → Границы города");
         db.clearExpiredLease(dimension(),selectedX,selectedZ,System.currentTimeMillis());
         var debt=db.leaseDebt(dimension(),selectedX,selectedZ);
         item(17,Items.WRITABLE_BOOK,debt==null?"Арендной задолженности нет":
@@ -92,12 +94,24 @@ public final class KingdomLandMapMenu extends ChestMenu {
         item(35,Items.PAPER,"Цена аренды: "+PRICE_CHOICES[leasePriceIndex]+" медных / 7 суток | изменить");
         item(38,Items.EMERALD,"Выставить свой участок на продажу: "+PRICE_CHOICES[salePriceIndex]+" медных");
         item(39,Items.BARRIER,"Снять объявление о продаже");
+        var selectedPlot=plot(selectedX,selectedZ);
+        var sellerTown=selectedPlot==null?null:db.townById(selectedPlot.town());
+        boolean municipal=sale!=null&&sellerTown!=null&&sale.seller().equals(sellerTown.mayor());
         item(40,Items.GOLD_BLOCK,sale==null?"Нет объявления о продаже":
+                municipal?"Забронировать землю города: "+sale.priceCopper()+" медных, оплата в местной ратуше":
                 "Купить у владельца: "+sale.priceCopper()+" медных (наличными в банке)");
         item(27,Items.IRON_PICKAXE,"Работник рядом: выдать/отозвать право строить и ломать");
         item(37,Items.OAK_DOOR,"Работник рядом: выдать/отозвать право взаимодействовать");
-        item(53,Items.BARRIER,"Закрыть карту");
-        broadcastChanges();
+        item(53,Items.BARRIER,"К картам Kingdom");
+        super.broadcastChanges();
+    }
+    @Override public void broadcastChanges() {
+        if (viewer != null && !viewer.level().isClientSide
+                && viewer.serverLevel().getGameTime() - lastRefresh >= 40) {
+            redraw();
+            return;
+        }
+        super.broadcastChanges();
     }
     private void message(String s) {viewer.sendSystemMessage(Component.literal("[Kingdom Земля] "+s));}
     /** A land map is a catalogue, not a remote checkout. Transactions require a real town hall. */
@@ -114,25 +128,10 @@ public final class KingdomLandMapMenu extends ChestMenu {
         message("Для оформления сделки приди в построенную ратушу (не дальше 16 блоков).");
         return false;
     }
+    /** City growth is exclusively authorized through the treasury-backed founder map. */
     private void purchase() {
-        if(!atTownHall())return;
-        var db=KingdomCivicsData.get(viewer.getServer());
-        var town=db.townOf(viewer.getUUID());
-        if(town==null||!town.mayor().equals(viewer.getUUID())){message("Покупать городскую землю может только мэр");return;}
-        if(plot(selectedX,selectedZ)!=null){message("Участок уже зарегистрирован");return;}
-        BlockPos at=new BlockPos(selectedX<<4,64,selectedZ<<4);
-        var old=KingdomTerritories.get(viewer.getServer());
-        var oldOwner=old.owner(viewer.serverLevel(),at);
-        if(oldOwner!=null&&!oldOwner.equals(viewer.getUUID())){message("Чужой участок в старом реестре");return;}
-        if(KingdomCurrency.balance(viewer)<100){message("Для покупки нужно 100 медных в денежных мешках");return;}
-        // Debit first; compensate on any failed registration. A claimed plot cannot be bought twice.
-        if(!KingdomCurrency.debit(viewer,100)){message("Оплата не прошла");return;}
-        if(!old.claim(viewer.serverLevel(),at,viewer.getUUID()) || !db.claim(viewer.getUUID(),dimension(),selectedX,selectedZ)) {
-            KingdomCurrency.credit(viewer,100);
-            message("Не удалось оформить участок; деньги возвращены");return;
-        }
-        viewer.getInventory().setChanged();
-        message("Куплен чанк "+selectedX+", "+selectedZ+" за 100 медных. Монеты списаны из кошелька.");
+        message("Присоединение новых чанков: Книга Kingdom → Государство → Границы города. "
+                + "Оформление через городскую казну в собственной ратуше.");
     }
     private void leaseAction() {
         if(!atTownHall())return;
@@ -230,9 +229,18 @@ public final class KingdomLandMapMenu extends ChestMenu {
             message(db.cancelSale(viewer.getUUID(),dimension(),selectedX,selectedZ)
                     ?"Объявление о продаже снято":"Нет твоего объявления");
         } else {
-            message(KingdomBankData.get(viewer.getServer()).payLandSaleCash(viewer,dimension(),selectedX,selectedZ)
-                    ?"Покупка зарегистрирована; наличные переданы в банк продавца"
-                    :"Покупка отклонена: приди к банковской стойке с кошельком и проверь объявление");
+            var land=plot(selectedX,selectedZ);
+            var city=land==null?null:db.townById(land.town());
+            var listing=db.saleOffer(dimension(),selectedX,selectedZ);
+            if(listing!=null&&city!=null&&listing.seller().equals(city.mayor())){
+                message(KingdomLandReservations.get(viewer.getServer()).reserve(viewer,dimension(),selectedX,selectedZ)
+                    ?"Земля забронирована на 24 часа. Приди в ратушу города «"+city.name()+"» и оплати участок там."
+                    :"Бронь отклонена: участок не продаётся или уже забронирован.");
+            } else {
+                message(KingdomBankData.get(viewer.getServer()).payLandSaleCash(viewer,dimension(),selectedX,selectedZ)
+                    ?"Покупка оформлена, монеты помещены в кассу банка."
+                    :"Покупка отклонена: приди к банковской стойке с кошельком и проверь объявление.");
+            }
         }
     }
     /** Face-to-face property sale: seller receives physical coins, bank balances remain untouched. */
@@ -243,6 +251,12 @@ public final class KingdomLandMapMenu extends ChestMenu {
             message("Участок не продаётся или сделка недоступна");return;
         }
         var offer=db.saleOffer(dimension(),selectedX,selectedZ);
+        var land=plot(selectedX,selectedZ);
+        var city=land==null?null:db.townById(land.town());
+        if(city!=null&&offer.seller().equals(city.mayor())){
+            message("Землю города сначала бронируют через карту, затем оплачивают в его ратуше.");
+            return;
+        }
         ServerPlayer seller=viewer.getServer().getPlayerList().getPlayer(offer.seller());
         if(seller==null||seller.level()!=viewer.level()||seller.distanceToSqr(viewer)>64) {
             message("Продавец должен находиться рядом (8 блоков)");return;
@@ -316,7 +330,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
             case 50 -> purchase();
             case 51 -> leaseAction();
             case 52 -> {centerX=viewer.blockPosition().getX()>>4;centerZ=viewer.blockPosition().getZ()>>4;}
-            case 53 -> {viewer.closeContainer();return;}
+            case 53 -> {KingdomMainMenu.openMaps(viewer);return;}
             default -> {return;}
         }
         redraw();

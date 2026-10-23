@@ -1,6 +1,8 @@
 package ru.projectkingdom.enterprise;
 
 import java.util.UUID;
+import java.util.List;
+import java.util.ArrayList;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -10,6 +12,15 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.inventory.AbstractContainerMenu;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.Container;
+import net.minecraft.core.Direction;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.level.storage.LevelResource;
+import ru.projectkingdom.npc.KingdomCurrency;
+import ru.projectkingdom.npc.KingdomSimpleTradeMenu;
+import ru.projectkingdom.npc.SharedTradeNoticeBoards;
+import ru.projectkingdom.npc.SimpleTradeNoticeBoard;
 import net.minecraftforge.network.NetworkHooks;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomEnterprisePayrollData;
@@ -18,37 +29,122 @@ import ru.projectkingdom.npc.KingdomMainMenu;
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,OPEN_ARCHITECT=120,OPEN_PROJECTS=121;
+    public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180;
+    public record ShopOffer(UUID id,String itemId,long price,long stock) {}
+    private final List<ShopOffer> publicOffers;
+    private final int applications;
+    private final String firstApplicant;
+    private final boolean applied;
     private final Inventory inventory;private final BlockPos corePos;private final UUID enterpriseId;private final EnterpriseKind kind;
     private final String enterpriseName;private final UUID owner;private final long cash;private final int workers;private final long debt;
     private final String cashboxState,rawState,finishedState;private final boolean manager;
 
     public EnterpriseCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),EnterpriseKind.byId(buffer.readUtf(24)),buffer.readUtf(48),
-                buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(32),buffer.readUtf(32),buffer.readUtf(32),buffer.readBoolean());
+                buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(32),buffer.readUtf(32),buffer.readUtf(32),buffer.readBoolean(),
+                readOffers(buffer),buffer.readVarInt(),buffer.readUtf(32),buffer.readBoolean());
     }
     private EnterpriseCoreMenu(int id,Inventory inventory,BlockPos pos,UUID enterprise,EnterpriseKind kind,String name,UUID owner,
-                               long cash,int workers,long debt,String cashbox,String raw,String finished,boolean manager){
+                               long cash,int workers,long debt,String cashbox,String raw,String finished,boolean manager,
+                               List<ShopOffer> offers,int applications,String firstApplicant,boolean applied){
         super(KingdomEnterpriseRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=pos;this.enterpriseId=enterprise;this.kind=kind;
         this.enterpriseName=name;this.owner=owner;this.cash=cash;this.workers=workers;this.debt=debt;
         this.cashboxState=cashbox;this.rawState=raw;this.finishedState=finished;this.manager=manager;
+        this.publicOffers=List.copyOf(offers);this.applications=applications;this.firstApplicant=firstApplicant;this.applied=applied;
+    }
+    private static List<ShopOffer> readOffers(FriendlyByteBuf buffer) {
+        int size=Math.min(4,Math.max(0,buffer.readVarInt()));
+        List<ShopOffer> rows=new ArrayList<>();
+        for(int i=0;i<size;i++)
+            rows.add(new ShopOffer(buffer.readUUID(),buffer.readUtf(160),buffer.readLong(),buffer.readLong()));
+        return List.copyOf(rows);
+    }
+    private static List<ShopOffer> shopOffers(ServerPlayer player,KingdomEnterpriseData data,UUID enterprise) {
+        List<ShopOffer> result=new ArrayList<>();
+        if(data.unresolved(enterprise))return List.of();
+        for(var offer:data.offers()) {
+            if(!enterprise.equals(offer.seller()))continue;
+            long stock=data.stock(player.serverLevel(),offer);
+            if(stock>0 && offer.unitPrice()>0)result.add(new ShopOffer(offer.id(),offer.itemId(),offer.unitPrice(),stock));
+            if(result.size()>=4)break;
+        }
+        return List.copyOf(result);
     }
     public static void open(ServerPlayer player,EnterpriseCoreBlockEntity core){
-        if(core==null||!core.bound())return;var data=KingdomEnterpriseData.get(player.getServer());var firm=data.find(core.enterpriseId());if(firm==null)return;
-        var payroll=KingdomEnterprisePayrollData.get(player.getServer());int workers=(int)payroll.all().stream().filter(e->e.enterprise().equals(firm.id())&&e.active()).count();
-        long debt=payroll.all().stream().filter(e->e.enterprise().equals(firm.id())).mapToLong(e->e.owed()).reduce(0,(a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b);
-        String cashbox=status(player,data,firm.id(),EnterpriseBindingRole.CASHBOX),raw=status(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE),finished=status(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
+        if(core==null||!core.bound())return;
+        var data=KingdomEnterpriseData.get(player.getServer());
+        var firm=data.find(core.enterpriseId());if(firm==null)return;
         boolean manager=data.mayManage(player.getUUID(),firm.id());
+        int workers=0;long debt=0;
+        String cashbox="MISSING",raw="MISSING",finished="MISSING";
+        if(manager){
+            var payroll=KingdomEnterprisePayrollData.get(player.getServer());
+            workers=(int)payroll.all().stream().filter(e->e.enterprise().equals(firm.id())&&e.active()).count();
+            debt=payroll.all().stream().filter(e->e.enterprise().equals(firm.id())).mapToLong(e->e.owed()).reduce(0,(a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b);
+            cashbox=status(player,data,firm.id(),EnterpriseBindingRole.CASHBOX);
+            raw=status(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE);
+            finished=status(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
+        }
+        var applications=KingdomEnterpriseApplications.get(player.getServer());
+        var pending=manager?applications.applications(firm.id()):List.<KingdomEnterpriseApplications.Application>of();
+        int applicationCount=pending.size();
+        String firstApplicant=pending.isEmpty()?"":pending.get(0).name();
+        boolean applied=!manager && applications.pending(firm.id(),player.getUUID());
+        List<ShopOffer> offers=manager?List.of():shopOffers(player,data,firm.id());
+        long visibleCash=manager?firm.cash():0;
+        final int workerCount=workers, count=applicationCount;
+        final long visibleDebt=debt;
+        final String cashState=cashbox,rawState=raw,finishedState=finished,applicant=firstApplicant;
         NetworkHooks.openScreen(player,new MenuProvider(){
             @Override public Component getDisplayName(){return Component.literal(firm.name());}
-            @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){return new EnterpriseCoreMenu(id,inv,core.getBlockPos(),firm.id(),core.kind(),firm.name(),firm.owner(),firm.cash(),workers,debt,cashbox,raw,finished,manager);}
-        },buffer->{buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(firm.id());buffer.writeUtf(core.kind().id());buffer.writeUtf(firm.name(),48);buffer.writeUUID(firm.owner());buffer.writeLong(firm.cash());buffer.writeInt(workers);buffer.writeLong(debt);buffer.writeUtf(cashbox);buffer.writeUtf(raw);buffer.writeUtf(finished);buffer.writeBoolean(manager);});
+            @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
+                return new EnterpriseCoreMenu(id,inv,core.getBlockPos(),firm.id(),core.kind(),firm.name(),
+                    firm.owner(),visibleCash,workerCount,visibleDebt,cashState,rawState,finishedState,manager,
+                    offers,count,applicant,applied);
+            }
+        },buffer->{
+            buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(firm.id());
+            buffer.writeUtf(core.kind().id());buffer.writeUtf(firm.name(),48);buffer.writeUUID(firm.owner());
+            buffer.writeLong(visibleCash);buffer.writeInt(workerCount);buffer.writeLong(visibleDebt);
+            buffer.writeUtf(cashState);buffer.writeUtf(rawState);buffer.writeUtf(finishedState);buffer.writeBoolean(manager);
+            buffer.writeVarInt(offers.size());
+            for(var offer:offers){
+                buffer.writeUUID(offer.id());buffer.writeUtf(offer.itemId(),160);
+                buffer.writeLong(offer.price());buffer.writeLong(offer.stock());
+            }
+            buffer.writeVarInt(count);buffer.writeUtf(applicant,32);buffer.writeBoolean(applied);
+        });
     }
     private static String status(ServerPlayer player,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){return EnterpriseAccessService.snapshot(player.serverLevel(),data,firm,role).status().name();}
     public UUID enterpriseId(){return enterpriseId;}public EnterpriseKind kind(){return kind;}public String enterpriseName(){return enterpriseName;}
     public UUID owner(){return owner;}public long cash(){return cash;}public int workers(){return workers;}public long debt(){return debt;}
     public String cashboxState(){return cashboxState;}public String rawState(){return rawState;}public String finishedState(){return finishedState;}public boolean manager(){return manager;}
+    public List<ShopOffer> publicOffers(){return publicOffers;}
+    public int applications(){return applications;}
+    public String firstApplicant(){return firstApplicant;}
+    public boolean applied(){return applied;}
     @Override public boolean clickMenuButton(Player player,int action){
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
+        if(action==APPLY_JOB && !data.mayManage(server.getUUID(),enterpriseId)) {
+            boolean ok=KingdomEnterpriseApplications.get(server.getServer()).request(server.getServer(),
+                    enterpriseId,server.getUUID(),server.getScoreboardName());
+            server.sendSystemMessage(Component.literal(ok?"Заявка на работу отправлена владельцу.":"Заявка уже отправлена или приём заявок закрыт."));
+            return ok;
+        }
+        if(action>=BUY_FIRST && action<=BUY_LAST && !data.mayManage(server.getUUID(),enterpriseId)) {
+            int index=action-BUY_FIRST;
+            if(index>=publicOffers.size())return false;
+            boolean ok=data.buyAsVisitor(server,enterpriseId,publicOffers.get(index).id());
+            server.sendSystemMessage(Component.literal(ok?"Куплен 1 предмет. Монеты списаны из кошелька.":"Покупка отклонена: проверь товар, деньги, место и расстояние."));
+            return ok;
+        }
+        if(action==SELL_HELD && !data.mayManage(server.getUUID(),enterpriseId))return openSellNotice(server,data);
+        if(action==ACCEPT_FIRST && data.mayManage(server.getUUID(),enterpriseId)) {
+            boolean ok=KingdomEnterpriseApplications.get(server.getServer())
+                .acceptFirst(server.getServer(),server.getUUID(),enterpriseId,10);
+            server.sendSystemMessage(Component.literal(ok?"Заявитель принят на работу: 10 медных в игровые сутки.":"Новых заявок нет или приём невозможен."));
+            return ok;
+        }
         if(kind==EnterpriseKind.CONSTRUCTION && manager && action==OPEN_ARCHITECT) {
             KingdomMainMenu.openArchitect(server);return true;
         }
@@ -62,6 +158,50 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             case BIND_RAW->EnterpriseAccessService.begin(server,enterpriseId,EnterpriseBindingRole.RAW_STORAGE);
             case BIND_FINISHED->EnterpriseAccessService.begin(server,enterpriseId,EnterpriseBindingRole.FINISHED_STORAGE);
             default->false;};
+    }
+    private boolean openSellNotice(ServerPlayer player,KingdomEnterpriseData data) {
+        var counter=data.counter(enterpriseId);
+        if(counter==null || !counter.dimension().equals(player.level().dimension().location().toString())
+                || counter.pos().distSqr(player.blockPosition())>64
+                || !data.atCounter(player,enterpriseId)){
+            player.sendSystemMessage(Component.literal("Для продажи подойди к кассе предприятия с товаром в руке."));
+            return false;
+        }
+        if(!(player.serverLevel().getBlockEntity(counter.pos()) instanceof Container cashbox))return false;
+        // Never choose an arbitrary neighbouring chest for client-facing exchange.
+        var bound=data.storageBinding(enterpriseId,EnterpriseBindingRole.RAW_STORAGE);
+        if(bound==null || !bound.dimension().equals(counter.dimension())
+                || bound.pos().distSqr(counter.pos())>4)return false;
+        var access=EnterpriseAccessService.snapshot(player.serverLevel(),data,enterpriseId,
+                EnterpriseBindingRole.RAW_STORAGE);
+        if(access.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                || access.container()==cashbox)return false;
+        try {
+            var path=player.getServer().getWorldPath(LevelResource.ROOT)
+                .resolve("data").resolve("kingdom_trade_notices.dat");
+            var board=SharedTradeNoticeBoards.get(path);
+            var notices=board.offers(enterpriseId,SimpleTradeNoticeBoard.Side.BUY);
+            var held=player.getMainHandItem();
+            if(held.isEmpty()){player.sendSystemMessage(Component.literal("Держи продаваемый товар в руке."));return false;}
+            var itemId=BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+            var match=notices.stream().filter(n->n.itemId().equals(itemId)).findFirst();
+            if(match.isEmpty()){
+                player.sendSystemMessage(Component.literal("У предприятия нет заявки на покупку этого товара."));
+                return false;
+            }
+            var warehouse=access.container();
+            boolean opened=KingdomSimpleTradeMenu.openForNotice(player,board,match.get().id(),
+                enterpriseId,warehouse,cashbox,KingdomCurrency.COPPER.get(),
+                () -> data.atCounter(player,enterpriseId)
+                    && player.serverLevel().getBlockEntity(counter.pos())==cashbox
+                    && EnterpriseAccessService.snapshot(player.serverLevel(),data,enterpriseId,
+                        EnterpriseBindingRole.RAW_STORAGE).container()==warehouse);
+            if(!opened)player.sendSystemMessage(Component.literal("Заявка на закупку недоступна."));
+            return opened;
+        } catch(java.io.IOException | IllegalArgumentException error){
+            player.sendSystemMessage(Component.literal("Ошибка чтения торговых заявок."));
+            return false;
+        }
     }
     @Override public ItemStack quickMoveStack(Player player,int slot){return ItemStack.EMPTY;}
     @Override public boolean stillValid(Player player){

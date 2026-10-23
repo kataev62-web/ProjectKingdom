@@ -26,6 +26,8 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     private final Set<Long> planned = new HashSet<>();
     private int centerX, centerZ;
     private java.util.UUID cityId;
+    private long lastRefresh;
+    private Set<Long> confirmedPlan;
 
     private KingdomCityExpansionMapMenu(int id, Inventory playerInventory, ServerPlayer player, SimpleContainer grid) {
         super(MenuType.GENERIC_9x6, id, playerInventory, grid, 6);
@@ -118,6 +120,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         savePlan();
     }
     private void refresh() {
+        lastRefresh = viewer.serverLevel().getGameTime();
         inventory.clearContent();
         var data = KingdomCivicsData.get(viewer.getServer());
         var town = data.townOf(viewer.getUUID());
@@ -146,15 +149,27 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(48, Items.ARROW, "На восток");
         put(49, Items.MAP, "Город: " + town.name() + " | Чанков в плане: " + planned.size());
         put(44, Items.GOLD_NUGGET, "Оценка покупки: " + (100L * planned.size()) + " медных | 100 за чанк");
+        put(43, Items.GOLD_BLOCK, confirmedPlan == null
+                ? "Купить свободные земли через карту (оплата из обеспеченной казны)"
+                : "ПОДТВЕРДИТЬ ВЫКУП: повторное нажатие");
         put(50, Items.WRITABLE_BOOK, "Проверить план и средства городской казны");
         put(51, Items.BARRIER, "Очистить план");
         put(52, Items.COMPASS, "К позиции игрока");
-        put(53, Items.OAK_DOOR, "Закрыть карту");
-        broadcastChanges();
+        put(53, Items.OAK_DOOR, "К картам Kingdom");
+        super.broadcastChanges();
+    }
+    @Override public void broadcastChanges() {
+        if (viewer != null && !viewer.level().isClientSide
+                && viewer.serverLevel().getGameTime() - lastRefresh >= 40) {
+            refresh();
+            return;
+        }
+        super.broadcastChanges();
     }
     @Override public void clicked(int slot, int button, ClickType click, Player player) {
         if (player != viewer || viewer.level().isClientSide || click != ClickType.PICKUP
                 || button != 0 || slot < 0 || slot >= 54) return;
+        if (slot != 43) confirmedPlan = null;
         int row = slot / 9, col = slot % 9;
         if (row < 4 && col >= 1 && col <= 7) {
             if (!founder()) {
@@ -195,11 +210,52 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
                 case 47 -> centerZ += 4;
                 case 48 -> centerX += 7;
                 case 50 -> { checkQuote(); return; }
+                case 43 -> { purchasePlan(); return; }
                 case 51 -> planned.clear();
                 case 52 -> { centerX = viewer.chunkPosition().x; centerZ = viewer.chunkPosition().z; }
-                case 53 -> { viewer.closeContainer(); return; }
+                case 53 -> { KingdomMainMenu.openMaps(viewer); return; }
                 default -> { return; }
             }
+        }
+        pruneInvalid();
+        refresh();
+    }
+    private void purchasePlan() {
+        if (!founder() || cityId == null) return;
+        pruneInvalid();
+        if (planned.isEmpty()) {
+            confirmedPlan = null;
+            viewer.sendSystemMessage(Component.literal("[Kingdom] План пуст."));
+            refresh();
+            return;
+        }
+        if (confirmedPlan == null || !confirmedPlan.equals(planned)) {
+            confirmedPlan = Set.copyOf(planned);
+            checkQuote();
+            viewer.sendSystemMessage(Component.literal(
+                    "[Kingdom] Для покупки выбранных чанков из казны нажми золотой блок ещё раз."));
+            refresh();
+            return;
+        }
+        // The transaction rechecks authoritative claims, the world border,
+        // town hall, founder and treasury on the server.
+        confirmedPlan = null;
+        var result = KingdomCityExpansionPurchase.purchase(viewer);
+        String status = switch (result) {
+            case PURCHASED -> "Территория присоединена, средства списаны из городской казны.";
+            case NOT_FOUNDER -> "Покупка доступна только основателю города.";
+            case NOT_AT_TOWN_HALL -> "Участок оформляется через карту города.";
+            case INVALID_PLAN -> "План пуст, несмежен или больше не актуален.";
+            case LAND_CONFLICT -> "Один из участков занят или находится за границей мира.";
+            case INSUFFICIENT_FUNDS -> "В казне недостаточно обеспеченных монет.";
+            case LEDGER_ERROR -> "Платёж не удалось зарегистрировать.";
+            case RECONCILIATION_REQUIRED -> "Обнаружено расхождение реестров. Требуется проверка администрации сервера.";
+        };
+        viewer.sendSystemMessage(Component.literal("[Kingdom] " + status));
+        if (result == KingdomCityExpansionPurchase.Result.PURCHASED) {
+            planned.clear();
+            for (var cell : KingdomExpansionPlans.get(viewer.getServer()).snapshot(cityId))
+                if (cell.dimension().equals(dimension())) planned.add(key(cell.x(),cell.z()));
         }
         pruneInvalid();
         refresh();

@@ -211,7 +211,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
@@ -864,7 +864,8 @@ public final class KingdomNpcMod {
                             || KingdomNpcDuty.mayExecute(w.job, w.order,
                                 w.autonomousIntent, KingdomNpcWorkday.employed(server, w))) {
                         executed |= NpcFieldWork.tick(level,resident,w)
-                            | KingdomNpcWorkshop.tick(level,resident,w);
+                            | KingdomNpcWorkshop.tick(level,resident,w)
+                            | KingdomTfcQuernWork.tick(level,resident,w);
                     }
                 }
             }

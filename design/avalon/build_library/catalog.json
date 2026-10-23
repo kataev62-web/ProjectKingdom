@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "project": "Project Kingdom",
+  "location": "Avalon",
+  "target_minecraft": "Java 1.20.1 Forge",
+  "last_reviewed": "2026-10-23",
+  "source_binary_count_in_repository": 2,
+  "warning": "One GDMC dock original plus one converted derivative are under review. None are accepted until in-client QA. Other candidates remain links only.",
+  "candidates": [
+    {
+      "id": "stubbs_medieval_bundle",
+      "type": [
+        "housing",
+        "guild",
+        "castle_reference"
+      ],
+      "title": "Stubbs Medieval Building Bundle (80+)",
+      "author": "Stubbs1 and Tom",
+      "url": "https://www.planetminecraft.com/project/medieval-nordic-house-bundle-free-to-use/",
+      "published_version": "1.19+ / legacy 1.16.4+",
+      "priority": 1,
+      "licensing": "Author explicitly permits use of builds with credit; separate public repository re-distribution of source files is not yet confirmed.",
+      "credit": "Stubbs1 (and Tom): https://www.planetminecraft.com/project/medieval-nordic-house-bundle-free-to-use/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "INT yes; TEM no",
+      "status": "needs_permission",
+      "next": "Obtain individual INT/TEM schematic, inspect block palette, request explicit permission to mirror binaries."
+    },
+    {
+      "id": "anticlimax_18",
+      "type": [
+        "housing",
+        "tavern",
+        "dock",
+        "farm",
+        "forest",
+        "gate"
+      ],
+      "title": "Medieval Build Bundle 18+ Structures",
+      "author": "AntiClimax",
+      "url": "https://www.planetminecraft.com/project/medieval-build-bundle-amp-pack-18-structures/",
+      "published_version": "not stated",
+      "priority": 1,
+      "licensing": "Use in worlds/maps/servers declared; redistribution of file on GitHub not established.",
+      "credit": "AntiClimax: https://www.planetminecraft.com/project/medieval-build-bundle-amp-pack-18-structures/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "yes",
+      "status": "needs_permission",
+      "next": "Prioritize dock, fishery, logger, farmer, tavern and gate; request mirroring permission."
+    },
+    {
+      "id": "wet_bundle",
+      "type": [
+        "housing",
+        "facade_modules",
+        "decor"
+      ],
+      "title": "Medieval Build Bundle",
+      "author": "Wet",
+      "url": "https://www.planetminecraft.com/project/medieval-build-bundle-4285671/",
+      "published_version": "circa 2019",
+      "priority": 2,
+      "licensing": "Author allows use with credit; re-publication of archive not separately confirmed.",
+      "credit": "Wet: https://www.planetminecraft.com/project/medieval-build-bundle-4285671/",
+      "compatibility": "may_require_legacy_conversion",
+      "interiors": "mostly no",
+      "status": "needs_permission",
+      "next": "Do not attempt to paste huge one-piece bundle in game; split in staging world and inspect as small assets."
+    },
+    {
+      "id": "krtq_arena_40",
+      "type": [
+        "arena"
+      ],
+      "title": "Medieval Arena / Tiny Colosseum",
+      "author": "KRTQ",
+      "url": "https://www.planetminecraft.com/project/arena-medieval-arena-tiny-coloseum-schematic-1-20-1-40x40-blocks/",
+      "published_version": "1.20.1",
+      "dimensions": "40x40 horizontal",
+      "priority": 1,
+      "licensing": "No explicit redistribution permission found.",
+      "credit": "KRTQ: https://www.planetminecraft.com/project/arena-medieval-arena-tiny-coloseum-schematic-1-20-1-40x40-blocks/",
+      "compatibility": "version_declared_not_tested",
+      "interiors": "unknown",
+      "status": "needs_permission",
+      "next": "Check entrances, seating, roof silhouette, block palette and official license."
+    },
+    {
+      "id": "thenewempire_pier",
+      "type": [
+        "port",
+        "dock"
+      ],
+      "title": "Medieval Pier / Port / Dock",
+      "author": "TheNewEmpire / ScriptX / IndexOutOfMJ",
+      "url": "https://www.planetminecraft.com/project/medieval-pier/",
+      "published_version": "1.18.x",
+      "priority": 1,
+      "licensing": "No permission to mirror confirmed.",
+      "credit": "TheNewEmpire: https://www.planetminecraft.com/project/medieval-pier/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "outdoor structure",
+      "status": "needs_permission",
+      "next": "Verify link works (2026 user complaint); adapt shoreline elevation and river width."
+    },
+    {
+      "id": "bendeeee_windmill",
+      "type": [
+        "farm",
+        "mill"
+      ],
+      "title": "Medieval Windmill v2",
+      "author": "Bendeeee",
+      "url": "https://www.planetminecraft.com/project/medieval-windmill-v2/",
+      "published_version": "not stated",
+      "dimensions": "17x32x19 as reported by author",
+      "priority": 2,
+      "licensing": "No public mirroring permission found.",
+      "credit": "Bendeeee: https://www.planetminecraft.com/project/medieval-windmill-v2/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "unknown",
+      "status": "needs_permission",
+      "next": "Inspect windmill blades and room for Create powertrain."
+    },
+    {
+      "id": "absolute_townhall",
+      "type": [
+        "town_hall",
+        "admin"
+      ],
+      "title": "Medieval Town Hall",
+      "author": "Abs0lute-",
+      "url": "https://www.planetminecraft.com/project/medieval-town-hall-6885509/",
+      "published_version": "not stated",
+      "priority": 2,
+      "licensing": "No public mirroring permission found.",
+      "credit": "Abs0lute-: https://www.planetminecraft.com/project/medieval-town-hall-6885509/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "yes (author claims)",
+      "status": "needs_permission",
+      "next": "Check ground footprint, council chamber, separate civic building entrance."
+    },
+    {
+      "id": "nequ_bohemian_castle",
+      "type": [
+        "castle",
+        "reference_only"
+      ],
+      "title": "Bohemian Medieval Castle",
+      "author": "Nequ",
+      "url": "https://www.planetminecraft.com/project/castle-6808690/",
+      "published_version": "not stated; likely newer than 1.20",
+      "priority": 3,
+      "licensing": "Author permits use on own server in comment; file republication not established.",
+      "credit": "Nequ: https://www.planetminecraft.com/project/castle-6808690/",
+      "compatibility": "known_problem_for_1_20_user_report",
+      "interiors": "yes",
+      "status": "candidate",
+      "next": "Reference only: known 1.20 import failure report, display entities and custom textures may be costly."
+    },
+    {
+      "id": "seegras_medieval_baroque_town",
+      "type": [
+        "urban_layout",
+        "housing",
+        "merchant_shops"
+      ],
+      "title": "Medieval/Baroque Town",
+      "author": "Seegras",
+      "url": "https://www.planetminecraft.com/project/medievalbaroque-town/",
+      "published_version": "2015; conversion required",
+      "priority": 2,
+      "licensing": "CC BY-SA stated on author publication; preserve attribution and share-alike for derivative work; cathedral excluded by creator for copyright reasons.",
+      "credit": "Seegras: https://www.planetminecraft.com/project/medievalbaroque-town/",
+      "compatibility": "requires_legacy_conversion_and_test",
+      "interiors": "many furnished houses with shops",
+      "status": "candidate",
+      "next": "Get original schematic, confirm file permissions and inspect legacy format; DO NOT paste entire town into Avalon."
+    },
+    {
+      "id": "arcturusphoenix_castle_complex",
+      "type": [
+        "castle",
+        "fortification"
+      ],
+      "title": "Small Deserted Medieval Castle Complex #1",
+      "author": "ArcturusPhoenix",
+      "url": "https://www.planetminecraft.com/project/small-deserted-medieval-castle-complex-1-by-arcturusphoenix/",
+      "published_version": "1.16.5 - 1.20.x (author statement)",
+      "priority": 2,
+      "licensing": "Author states Creative Commons Attribution 3.0; attribution required. Verify downloaded archive and enclosed terms.",
+      "credit": "ArcturusPhoenix: https://www.planetminecraft.com/project/small-deserted-medieval-castle-complex-1-by-arcturusphoenix/",
+      "compatibility": "author_declares_1_20_not_tested",
+      "interiors": "unknown",
+      "status": "candidate",
+      "next": "Obtain file from authors' download page and verify NBT/size; castle may suit a satellite fortress, not Avalon citadel."
+    },
+    {
+      "id": "gdmc_dock_middle_legacy",
+      "type": [
+        "dock",
+        "port",
+        "modular_component"
+      ],
+      "title": "GDMC middle dock segment",
+      "author": "GDMC contributors (williamcwi/GDMC)",
+      "url": "https://github.com/williamcwi/GDMC/blob/master/schematics/dock/dock_middle.schematic",
+      "published_version": "legacy numeric block IDs",
+      "dimensions_xyz": [
+        20,
+        8,
+        9
+      ],
+      "non_air": 333,
+      "priority": 3,
+      "licensing": "Apache-2.0 upstream repository; license included with review fixture.",
+      "credit": "GDMC https://github.com/williamcwi/GDMC",
+      "compatibility": "fails_1_20_1_preflight_due_to_legacy_ids",
+      "interiors": "outdoor dock",
+      "status": "file_received",
+      "github_path": "design/avalon/build_library/schematics/review/gdmc_dock_middle_legacy.schematic",
+      "sha256": "ac570af9955a7ca8ebb5a056d8e8a7b74ce368e821a8b14477246787c83b68ca",
+      "next": "Test converted review .schem in Forge 1.20.1 staging world, view at player eye-level, verify fence/stair orientations and pier alignment; only then consider approval for Avalon.",
+      "converted_review_path": "design/avalon/build_library/schematics/review/gdmc_dock_middle_converted_1_20_1.schem",
+      "converted_format": "Sponge v2",
+      "converted_data_version": 3465,
+      "converted_sha256": "0bdf041242ad4fe712d4e1fdee3e8724e08835d725d81569228c913c6f815cbe",
+      "converted_palette_size": 30,
+      "converted_status": "NBT_validated_not_in_game_tested"
+    }
+  ]
+}

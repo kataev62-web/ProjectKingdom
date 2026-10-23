@@ -100,8 +100,8 @@ public final class KingdomEnterpriseData extends SavedData {
 
     public static KingdomEnterpriseData get(MinecraftServer server) {
         KingdomEnterpriseData data = server.overworld().getDataStorage().computeIfAbsent(KingdomEnterpriseData::load, KingdomEnterpriseData::new, KEY);
-        data.socialRuntimeServer = server;
         data.connectJournal(server);
+        data.socialRuntimeServer=server;
         return data;
     }
     public Collection<Enterprise> all() { return Collections.unmodifiableCollection(firms.values()); }
@@ -134,9 +134,8 @@ public final class KingdomEnterpriseData extends SavedData {
     public Enterprise create(UUID owner, String name, EnterpriseKind kind) {
         if(owner==null || name==null || name.isBlank() || name.length()>48 || ownedAll(owner).size()>=MAX_BUSINESSES)return null;
         if(kind==null)return null;
-        // Player firms have tier-specific limits; server-owned NPC firms retain the global hard cap.
         if(socialRuntimeServer!=null && socialRuntimeServer.getPlayerList().getPlayer(owner)!=null
-                && !ru.projectkingdom.social.KingdomSocialPolicy.canOpenEnterprise(
+                &&!ru.projectkingdom.social.KingdomSocialPolicy.canOpenEnterprise(
                     ru.projectkingdom.social.KingdomSocialData.get(socialRuntimeServer).rank(owner),
                     ownedAll(owner).size()))return null;
         Enterprise firm=new Enterprise(UUID.randomUUID(),owner,name,0);
@@ -217,17 +216,19 @@ public final class KingdomEnterpriseData extends SavedData {
         Enterprise firm=firms.get(enterprise);EnterpriseCoreBinding core=cores.get(enterprise);
         if(firm==null||core==null||!core.active()||!mayManage(actor.getUUID(),enterprise)||amount<=0||amount>1_000_000
                 ||firm.cash()>Long.MAX_VALUE-amount)return false;
-        if(EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX).status()
-                !=EnterpriseAccessService.Status.BOUND_AVAILABLE)return false;
-        if(!KingdomCurrency.debit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||!KingdomPhysicalCash.deposit(actor,cash.container(),amount))return false;
         firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));setDirty();return true;
     }
     public boolean withdrawAtCore(ServerPlayer actor,UUID enterprise,long amount){
         Enterprise firm=firms.get(enterprise);EnterpriseCoreBinding core=cores.get(enterprise);
         if(firm==null||core==null||!core.active()||!mayManage(actor.getUUID(),enterprise)||amount<=0||amount>1_000_000
                 ||firm.cash()<amount)return false;
-        if(EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX).status()
-                !=EnterpriseAccessService.Status.BOUND_AVAILABLE||!KingdomCurrency.credit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.withdraw(actor,cash.container(),amount))return false;
         firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));setDirty();return true;
     }
     public Counter counter(UUID id) { return counters.get(id); }
@@ -268,14 +269,19 @@ public final class KingdomEnterpriseData extends SavedData {
     public boolean deposit(ServerPlayer actor,long amount) {
         Enterprise firm=owned(actor.getUUID());
         if(firm==null || !atCounter(actor,firm.id()) || amount<=0 || amount>1000000 || firm.cash()>Long.MAX_VALUE-amount)return false;
-        if(KingdomCurrency.balance(actor)<amount || !KingdomCurrency.debit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,firm.id(),EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||!KingdomPhysicalCash.deposit(actor,cash.container(),amount))return false;
         firms.put(firm.id(),new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));
         actor.getInventory().setChanged();setDirty();return true;
     }
     public boolean withdraw(ServerPlayer actor,long amount) {
         Enterprise firm=owned(actor.getUUID());
         if(firm==null || !atCounter(actor,firm.id()) || amount<=0 || amount>1000000 || firm.cash()<amount)return false;
-        if(!KingdomCurrency.credit(actor,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,firm.id(),EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.withdraw(actor,cash.container(),amount))return false;
         firms.put(firm.id(),new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         actor.getInventory().setChanged();setDirty();return true;
     }
@@ -285,7 +291,10 @@ public final class KingdomEnterpriseData extends SavedData {
     boolean payVerifiedWage(ServerPlayer employee,UUID firmId,long amount) {
         Enterprise firm=firms.get(firmId);
         if(firm==null || !atCounter(employee,firmId) || amount<1 || amount>10000 || firm.cash()<amount)return false;
-        if(!KingdomCurrency.credit(employee,amount))return false;
+        var cash=EnterpriseAccessService.snapshot(employee.serverLevel(),this,firmId,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.withdraw(employee,cash.container(),amount))return false;
         firms.put(firmId,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         employee.getInventory().setChanged();setDirty();return true;
     }
@@ -301,6 +310,11 @@ public final class KingdomEnterpriseData extends SavedData {
         var entity=level.getEntity(npcId);
         if(!(entity instanceof net.minecraft.world.entity.npc.Villager npc) || !npc.isAlive()
                 || npc.distanceToSqr(desk.pos().getX()+0.5,desk.pos().getY()+0.5,desk.pos().getZ()+0.5)>9)return false;
+        var cash=EnterpriseAccessService.snapshot(level,this,business,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||cash.position().distSqr(desk.pos())>9
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+                ||!KingdomPhysicalCash.takeForNpc(cash.container(),amount))return false;
         firms.put(business,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         setDirty();return true;
     }
@@ -440,6 +454,78 @@ public final class KingdomEnterpriseData extends SavedData {
                 || !atCounter(buyer,offer.seller()))return false;
         return purchase(buyer.serverLevel(),purchaser.id(),offer,count,false);
     }
+    /**
+     * Customer-facing, single-item purchase. The server owns the published offer,
+     * physical stock, wallet debit and delivery; the client only selects an ID.
+     * Inventory space and purse balance are checked before any mutation.
+     */
+    public boolean buyAsVisitor(ServerPlayer visitor, UUID sellerId, UUID offerId) {
+        if(visitor==null || sellerId==null || offerId==null)return false;
+        Offer offer=offers.get(offerId);
+        Enterprise vendor=firms.get(sellerId);
+        if(offer==null || vendor==null || !sellerId.equals(offer.seller())
+                || vendor.owner().equals(visitor.getUUID()) || unresolved(sellerId)
+                || offer.unitPrice()<1 || offer.unitPrice()>1_000_000
+                || vendor.cash()>Long.MAX_VALUE-offer.unitPrice())return false;
+        ServerLevel level=visitor.serverLevel();
+        var core=cores.get(sellerId);
+        if(core==null || !core.active()
+                || !level.dimension().location().toString().equals(core.dimension())
+                || !level.hasChunkAt(BlockPos.of(core.packedPos()))
+                || BlockPos.of(core.packedPos()).distSqr(visitor.blockPosition())>64
+                || !(level.getBlockEntity(BlockPos.of(core.packedPos()))
+                     instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity present)
+                || !sellerId.equals(present.enterpriseId()))return false;
+        Container source=inventoryForOffer(level,offer);
+        if(source==null || KingdomCurrency.balance(visitor)<offer.unitPrice())return false;
+        ResourceLocation itemId=ResourceLocation.tryParse(offer.itemId());
+        if(itemId==null)return false;
+        int stockSlot=-1;
+        ItemStack delivery=ItemStack.EMPTY;
+        for(int i=0;i<source.getContainerSize();i++) {
+            ItemStack stack=source.getItem(i);
+            if(!stack.isEmpty() && itemId.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()))
+                    && source.canTakeItem(source,i,stack)) {
+                stockSlot=i;
+                delivery=stack.copy();delivery.setCount(1);break;
+            }
+        }
+        if(stockSlot<0)return false;
+        // Do not rely on partial Inventory.add operations: reserve one main-inventory
+        // slot that can accept the exact stack and its NBT metadata.
+        int destination=-1;
+        var inventory=visitor.getInventory();
+        for(int i=0;i<36;i++){
+            var stack=inventory.getItem(i);
+            if(!stack.isEmpty() && ItemStack.isSameItemSameTags(stack,delivery)
+                    && stack.getCount()<Math.min(stack.getMaxStackSize(),inventory.getMaxStackSize())){
+                destination=i;break;
+            }
+        }
+        if(destination<0)for(int i=0;i<36;i++) {
+            if(inventory.getItem(i).isEmpty()){destination=i;break;}
+        }
+        if(destination<0)return false;
+        // Validate the stock before taking money, not after the cash is deposited.
+        ItemStack from=source.getItem(stockSlot);
+        ItemStack originalSlot=inventory.getItem(destination);
+        if(from.isEmpty() || !ItemStack.isSameItemSameTags(from,delivery)
+                || (!originalSlot.isEmpty() &&
+                    (!ItemStack.isSameItemSameTags(originalSlot,delivery)
+                    || originalSlot.getCount()>=originalSlot.getMaxStackSize())))return false;
+        var cash=EnterpriseAccessService.snapshot(level,this,sellerId,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE || cash.container()==source
+                || !KingdomPhysicalCash.deposit(visitor,cash.container(),offer.unitPrice()))return false;
+        from.shrink(1);
+        if(originalSlot.isEmpty())inventory.setItem(destination,delivery.copy());
+        else originalSlot.grow(1);
+        source.setChanged();
+        inventory.setChanged();
+        firms.put(vendor.id(),new Enterprise(vendor.id(),vendor.owner(),vendor.name(),
+                vendor.cash()+offer.unitPrice()));
+        setDirty();
+        return true;
+    }
     /** Authorised adjacent-counter pickup by a real physically present, contracted NPC.
      * This transfers goods directly between two nearby physical counters. For distant
      * parties a separate courier escrow/delivery protocol is necessary.
@@ -476,6 +562,15 @@ public final class KingdomEnterpriseData extends SavedData {
         if(unresolved(vendor.id()) || unresolved(purchaser.id()))return false;
         Container from=inventoryForOffer(level,offer),to=inventory(level,purchaser.id());
         if(from==null||to==null||from==to||(npc&&to.getContainerSize()<=9))return false;
+        var buyerCash=EnterpriseAccessService.snapshot(level,this,buyerFirm,EnterpriseBindingRole.CASHBOX);
+        var sellerCash=EnterpriseAccessService.snapshot(level,this,vendor.id(),EnterpriseBindingRole.CASHBOX);
+        if(buyerCash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||sellerCash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE)return false;
+        Container coinsFrom=buyerCash.container(),coinsTo=sellerCash.container();
+        if(coinsFrom==null||coinsTo==null||coinsFrom==coinsTo
+                ||coinsFrom==from||coinsFrom==to||coinsTo==from||coinsTo==to
+                ||KingdomPhysicalCash.value(coinsFrom)<purchaser.cash()
+                ||!KingdomPhysicalCash.canMove(coinsFrom,coinsTo,total))return false;
         List<ItemStack> source=new ArrayList<>(),dest=new ArrayList<>();
         for(int i=0;i<from.getContainerSize();i++)source.add(from.getItem(i).copy());
         for(int i=0;i<to.getContainerSize();i++)dest.add(to.getItem(i).copy());
@@ -514,6 +609,13 @@ public final class KingdomEnterpriseData extends SavedData {
         trades.put(id,new Trade(id,offer.id(),purchaser.id(),vendor.id(),count,total,TradeState.PENDING));setDirty();
         // An unflushed chunk and SavedData are NOT an atomic commit. Remain quarantined
         // after apparent success; an operator must reconcile durable world state.
+        // Physical coins must move first, between the actual independent cashboxes.
+        if(!KingdomPhysicalCash.move(coinsFrom,coinsTo,total)) {
+            trades.put(id,new Trade(id,offer.id(),purchaser.id(),vendor.id(),count,total,
+                TradeState.NEEDS_RECONCILIATION));
+            setDirty();
+            return false;
+        }
         for(int i=0;i<source.size();i++)from.setItem(i,source.get(i));
         for(int i=0;i<dest.size();i++)to.setItem(i,dest.get(i));
         from.setChanged();to.setChanged();

@@ -12,12 +12,16 @@ final class KingdomSocialPromotionWiringTest {
     @Test void actionUsesLiveServerSideValidationNotClientRank() throws Exception {
         String packet=source("administration/AdministrativeActionPacket.java");
         assertTrue(packet.contains("SOCIAL_PROMOTE"));
+        assertTrue(packet.contains("PAY_RESERVED_LAND=204"));
+        assertTrue(packet.contains("SOCIAL_PROMOTE=220"));
         assertTrue(packet.contains("menu.social().level()"));
         assertTrue(packet.contains("menu.stillValid(sender)"));
         assertTrue(packet.contains("KingdomSocialPromotionService.promote(sender,packet.townId)"));
         String service=source("social/KingdomSocialPromotionService.java");
         assertTrue(service.contains("preview(player,townId)"));
-        assertTrue(service.contains("KingdomCurrency.debit(player,amount)"));
+        assertTrue(service.contains("KingdomPhysicalCash.deposit(player,vault,amount)"));
+        assertTrue(service.contains("KingdomPhysicalCash.townVault(player,townId"));
+        assertTrue(service.contains("KingdomPhysicalCash.withdraw(player,vault,amount)"));
         assertTrue(service.contains("civics.depositTownTo(townId,player.getUUID(),amount)"));
         assertTrue(service.contains("KingdomSocialData.get(server).grantVerified"));
         assertTrue(service.contains("KingdomReputationData.get(server).score(townId,person)"));

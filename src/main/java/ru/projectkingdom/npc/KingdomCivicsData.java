@@ -45,21 +45,20 @@ public final class KingdomCivicsData extends SavedData {
         Town town=towns.get(p.town());
         return titled!=null?titled:(town==null?null:town.mayor());
     }
-    /** Registers a personal title only after an externally verified, paid land sale. */
-    /** Only explicit personal titles, not mayoral stewardship over public plots. */
     public Map<UUID,Long> purchasedPlotOwnerCounts() {
         Map<UUID,Long> counts=new LinkedHashMap<>();
-        for(UUID holder:plotOwners.values())counts.merge(holder,1L,Long::sum);
+        for(UUID owner:plotOwners.values())counts.merge(owner,1L,Long::sum);
         return Collections.unmodifiableMap(counts);
     }
+    /** Registers a personal title only after an externally verified, paid land sale. */
     public boolean registerPaidSale(UUID seller,UUID buyer,String dimension,int x,int z) {
         String k=key(dimension,x,z); Plot p=plots.get(k);
         if(p==null||seller==null||buyer==null||seller.equals(buyer)||!seller.equals(plotOwner(dimension,x,z))
                 ||p.tenant()!=null||leases.containsKey(k)||!socialMayBuy(buyer))return false;
-        long paid=sales.containsKey(k)?sales.get(k).priceCopper():1;
+        long price=sales.containsKey(k)?sales.get(k).priceCopper():1;
         plotOwners.put(k,buyer); offers.remove(k); sales.remove(k);clearWorkers(k);setDirty();
         if(runtimeServer!=null)ru.projectkingdom.social.KingdomReputationEvents.landPurchased(
-                runtimeServer,buyer,p.town(),paid);
+                runtimeServer,buyer,p.town(),price);
         return true;
     }
     /** Server-side land sale listings. Payment is always physical cash at a town hall or bank counter. */
@@ -85,7 +84,7 @@ public final class KingdomCivicsData extends SavedData {
     }
     private boolean socialMayBuy(UUID buyer) {
         if(buyer==null)return false;
-        if(runtimeServer==null)return true; // isolated data fixture; production uses get(server)
+        if(runtimeServer==null)return true; // test fixture; server code uses get(server)
         long personalPlots=plotOwners.values().stream().filter(buyer::equals).count();
         return ru.projectkingdom.social.KingdomSocialPolicy.canPurchasePlot(
                 ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(buyer),personalPlots);
@@ -322,17 +321,16 @@ public final class KingdomCivicsData extends SavedData {
     public Plot plot(ServerLevel level,BlockPos pos) { return plots.get(key(dim(level),pos.getX()>>4,pos.getZ()>>4)); }
     public Town foundTown(UUID mayor,String name) {
         if(mayor==null || townOf(mayor)!=null || name==null || name.isBlank() || name.length()>48)return null;
-        // A founder cannot create a second settlement even after delegating its mayoral office.
-        boolean alreadyFounded=towns.values().stream().anyMatch(t->t.mayor().equals(mayor));
-        if(runtimeServer!=null) {
+        boolean founded=towns.values().stream().anyMatch(t->mayor.equals(t.mayor()));
+        if(runtimeServer!=null){
             KingdomAdministrationData admin=KingdomAdministrationData.get(runtimeServer);
-            alreadyFounded|=towns.values().stream().anyMatch(t->mayor.equals(admin.founder(t.id())));
+            founded|=towns.values().stream().anyMatch(t->mayor.equals(admin.founder(t.id())));
             if(!ru.projectkingdom.social.KingdomSocialPolicy.canFoundSettlement(
-                    ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(mayor),alreadyFounded))return null;
-        } else if(alreadyFounded)return null;
+                    ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(mayor),founded))return null;
+        }else if(founded)return null;
         Town t=new Town(UUID.randomUUID(),name,mayor,null,0);
         towns.put(t.id(),t);memberships.put(mayor,t.id());setDirty();
-        if(runtimeServer!=null) {
+        if(runtimeServer!=null){
             KingdomAdministrationData.get(runtimeServer).ensureFounder(t.id(),mayor);
             ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).preserveAtLeast(
                     mayor,ru.projectkingdom.social.KingdomSocialRank.SETTLEMENT_FOUNDER);
@@ -400,6 +398,18 @@ public final class KingdomCivicsData extends SavedData {
         plots.put(k,new Plot(p.dimension(),p.x(),p.z(),p.town(),p.tenant(),p.zone(),allow));setDirty();return true;
     }
     /** Atomic town treasury transaction: caller must debit a real inventory or other backing asset first. */
+    /** Municipal land revenue: credit only after coins physically entered the city's
+     * registered treasury vault. NOT an API for issuing money or player deposits. */
+    public boolean creditTownLandRevenue(UUID city,long amount) {
+        Town town=towns.get(city);
+        if(town==null||runtimeServer==null||amount<=0||amount>1_000_000
+                ||town.treasury()>Long.MAX_VALUE-amount)return false;
+        var admin=KingdomAdministrationData.get(runtimeServer);
+        if(!admin.depositTreasuryReserve(city,amount))return false;
+        towns.put(city,new Town(town.id(),town.name(),town.mayor(),town.nation(),
+                town.treasury()+amount));
+        setDirty();return true;
+    }
     public boolean depositTown(UUID actor,long amount) {
         Town t=townOf(actor);
         return t!=null&&depositTownTo(t.id(),actor,amount);
