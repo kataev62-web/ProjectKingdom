@@ -1,0 +1,231 @@
+{
+  "project": "Project Kingdom",
+  "target": "Minecraft Forge 1.20.1",
+  "asset_version": 1,
+  "source": "original procedural block/voxel models, concept-guided",
+  "scale": "16 model units = 1 Minecraft block",
+  "npc": [
+    {
+      "id": "farmer",
+      "name_ru": "Фермер",
+      "gender": "male",
+      "cuboids": 49,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -11.8,
+          0,
+          -6.5
+        ],
+        "max": [
+          8.13,
+          38,
+          6.5
+        ]
+      }
+    },
+    {
+      "id": "blacksmith",
+      "name_ru": "Кузнец",
+      "gender": "male",
+      "cuboids": 47,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -12.45,
+          0,
+          -5.5
+        ],
+        "max": [
+          8.25,
+          32.75,
+          4.55
+        ]
+      }
+    },
+    {
+      "id": "merchant",
+      "name_ru": "Торговец",
+      "gender": "male",
+      "cuboids": 49,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -8.13,
+          0,
+          -6.5
+        ],
+        "max": [
+          8.13,
+          39.8,
+          8.75
+        ]
+      }
+    },
+    {
+      "id": "town_guard",
+      "name_ru": "Городской стражник",
+      "gender": "male",
+      "cuboids": 45,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right",
+        "equipment_left"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -10.25,
+          0,
+          -5.63
+        ],
+        "max": [
+          12.9,
+          42.1,
+          4.7
+        ]
+      }
+    },
+    {
+      "id": "hunter",
+      "name_ru": "Охотник",
+      "gender": "male",
+      "cuboids": 57,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_left"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -8.13,
+          0,
+          -4.95
+        ],
+        "max": [
+          10,
+          33.65,
+          7.8
+        ]
+      }
+    },
+    {
+      "id": "healer",
+      "name_ru": "Лекарь",
+      "gender": "female",
+      "cuboids": 56,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -8.13,
+          0,
+          -5.3
+        ],
+        "max": [
+          9.9,
+          33.65,
+          5.25
+        ]
+      }
+    },
+    {
+      "id": "priest",
+      "name_ru": "Жрец",
+      "gender": "male",
+      "cuboids": 49,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right",
+        "equipment_left"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -11.35,
+          0,
+          -6
+        ],
+        "max": [
+          9.5,
+          42.5,
+          5.25
+        ]
+      }
+    },
+    {
+      "id": "weaver",
+      "name_ru": "Ткачиха",
+      "gender": "female",
+      "cuboids": 54,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left",
+        "equipment_right"
+      ],
+      "bounds_pixels": {
+        "min": [
+          -8.13,
+          0,
+          -6.35
+        ],
+        "max": [
+          9.4,
+          33.5,
+          5.2
+        ]
+      }
+    }
+  ]
+}
