@@ -180,6 +180,9 @@ public final class KingdomBankData extends SavedData {
         UUID bank=bankTown(payer);
         var physical=KingdomPhysicalCash.townVault(payer,bank,AdministrativeBindingRole.BANK_VAULT);
         if(physical==null)return false;
+        var financial=KingdomAdministrationData.get(payer.getServer());
+        if(!covered(KingdomPhysicalCash.value(physical),financial.bankReserve(bank),
+                financial.treasuryReserve(bank)))return false;
         var civics=KingdomCivicsData.get(payer.getServer());
         long now=System.currentTimeMillis();
         civics.clearExpiredLease(dimension,x,z,now);
@@ -219,6 +222,9 @@ public final class KingdomBankData extends SavedData {
         UUID bank=bankTown(payer);
         var physical=KingdomPhysicalCash.townVault(payer,bank,AdministrativeBindingRole.BANK_VAULT);
         if(physical==null)return false;
+        var financial=KingdomAdministrationData.get(payer.getServer());
+        if(!covered(KingdomPhysicalCash.value(physical),financial.bankReserve(bank),
+                financial.treasuryReserve(bank)))return false;
         var civics=KingdomCivicsData.get(payer.getServer());
         civics.clearExpiredLease(dimension,x,z,System.currentTimeMillis());
         if(!civics.canPayLeaseDebt(payer.getUUID(),dimension,x,z,amount))return false;
@@ -247,6 +253,9 @@ public final class KingdomBankData extends SavedData {
         UUID bank=bankTown(buyer);
         var physical=KingdomPhysicalCash.townVault(buyer,bank,AdministrativeBindingRole.BANK_VAULT);
         if(physical==null)return false;
+        var financial=KingdomAdministrationData.get(payer.getServer());
+        if(!covered(KingdomPhysicalCash.value(physical),financial.bankReserve(bank),
+                financial.treasuryReserve(bank)))return false;
         var civics=KingdomCivicsData.get(buyer.getServer());
         if(!civics.canBuySale(buyer.getUUID(),dimension,x,z))return false;
         var offer=civics.saleOffer(dimension,x,z);
