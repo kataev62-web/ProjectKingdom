@@ -100,6 +100,14 @@ public final class KingdomNpcMod {
         var project = data.atMarker(level.dimension().location().toString(),
             marker.getX(), marker.getY(), marker.getZ());
         ItemStack held = player.getItemInHand(event.getHand());
+        // The construction enterprise core remains an enterprise first:
+        // ordinary right-click opens its existing management UI. The menu's
+        // Architect button launches the draft workflow using this core.
+        if (level.getBlockState(marker).is(
+                ru.projectkingdom.enterprise.KingdomEnterpriseRegistry.CONSTRUCTION.get())
+                && !held.is(KingdomConstructionRegistry.BUILDERS_HAMMER.get())
+                && !held.is(KingdomConstructionRegistry.BUILDING_BLUEPRINT.get()))
+            return;
         // A block held in the hand is a normal placement attempt, not a menu click.
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) return;
 
