@@ -30,7 +30,7 @@ public final class KingdomConstructionDiagnostics {
                 level = candidate; break;
             }
         if (level == null) return List.of();
-        BlockPos marker = new BlockPos(site.x()-2, site.y(), site.z()-2);
+        BlockPos marker = KingdomConstructionData.get(server).marker(site);
         Container depot = level.hasChunkAt(marker) ? supplies(level, marker) : null;
         Map<Item,Integer> needed = new LinkedHashMap<>();
         int progress = KingdomConstructionData.get(server).progress(site.id());
