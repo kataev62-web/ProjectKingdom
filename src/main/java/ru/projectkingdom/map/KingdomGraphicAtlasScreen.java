@@ -5,6 +5,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import ru.projectkingdom.network.GraphicAtlasRequestPacket;
+import ru.projectkingdom.network.OpenCityPlanFromAtlasPacket;
 import ru.projectkingdom.network.KingdomNetwork;
 
 /**
@@ -71,8 +72,11 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 button -> pan(0,1)).bounds(side + 72, y + 49, 32, 18).build());
         addRenderableWidget(Button.builder(Component.literal("→"),
                 button -> pan(1,0)).bounds(side + 108, y + 49, 32, 18).build());
+        addRenderableWidget(Button.builder(Component.literal("План города"),
+                button -> KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()))
+                .bounds(side, top + panelHeight - 28, 83, 18).build());
         addRenderableWidget(Button.builder(Component.literal("Закрыть"),
-                button -> onClose()).bounds(side, top + panelHeight - 28, 142, 18).build());
+                button -> onClose()).bounds(side + 86, top + panelHeight - 28, 56, 18).build());
         if (requestId == 0) resetCenter();
         else request();
     }
