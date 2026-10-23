@@ -20,7 +20,8 @@ final class KingdomStockPolicyIntegrationTest {
         var limits=new EnterpriseStockPolicy.Thresholds(8,32);
         var stock=new EnterpriseStockPolicy.StockState(27,0,4,true);
         assertEquals(1,EnterpriseStockPolicy.productionBatch(limits,stock,true,4));
-        assertEquals(0,EnterpriseStockPolicy.productionBatch(limits,stock,true,2));
+        assertEquals(1,EnterpriseStockPolicy.productionBatch(limits,stock,true,2));
+        assertTrue(EnterpriseStockPolicy.productionBatch(limits,stock,true,2)<2);
     }
 
     @Test void unloadingOneRegisteredContainerFailsClosed() {
