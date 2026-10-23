@@ -134,7 +134,8 @@ public final class KingdomNpcMenu extends ChestMenu {
                 : "РЕЦЕПТ "+plan.output()+" | ЛКМ: записать заново | ПКМ: цена "+plan.salePrice()+" мед./шт.");
         icon(10, Items.BOOK, "Профессия: " + profession(w.job));
         icon(11, Items.CLOCK, "Возраст: " + w.ageYears + " лет | Пол: " + gender(w.gender));
-        icon(12, Items.BREAD, "Сытость: " + w.hunger + "/100");
+        icon(12, Items.BREAD, "Сытость: " + w.hunger + "/100 | "
+            + KingdomNpcNutrition.summary(w));
         long wagesOwed=KingdomEnterprisePayrollData.get(viewer.getServer()).totalDue(viewer.getServer(),w.entityId);
         long purse=w.wagePurse.stream().mapToLong(stack->KingdomCurrency.value(stack)*stack.getCount()).sum();
         icon(13, KingdomCurrency.COPPER.get(), "Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse);
@@ -154,7 +155,8 @@ public final class KingdomNpcMenu extends ChestMenu {
             icon(24, Items.SUNFLOWER, "СВОБОДНАЯ ЖИЗНЬ");
             icon(25, Items.GOLD_NUGGET, "+1 к дневной зарплате");
         }
-        icon(18, Items.BREAD, "ПОКОРМИТЬ: потратить 1 хлеб");
+        icon(18, Items.BREAD, "ЛКМ: дать свежую еду TFC из руки | ПКМ работодателя: "
+            + (w.rationsEnabled?"отключить":"включить")+" питание со склада");
         icon(26, KingdomCurrency.COPPER.get(), "ВНЕСТИ 1 медную из кошелька на зарплатный счёт");
     }
 
@@ -188,7 +190,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         // Never let players take the icons; all mutations are validated server-side.
         if (viewer.level().isClientSide || player != viewer) return;
         if (slotId < 0 || slotId >= 27 || type != ClickType.PICKUP
-                || (button != 0 && !(button==1 && (slotId==9||slotId==15)))) return;
+                || (button != 0 && !(button==1 && (slotId==9||slotId==15||slotId==18)))) return;
         KingdomNpcData db = KingdomNpcData.get(viewer.getServer());
         KingdomNpcData.Worker w = worker();
         if (!nearby(w)) { viewer.closeContainer(); return; }
@@ -314,11 +316,30 @@ public final class KingdomNpcMenu extends ChestMenu {
                 }
             }
             case 18 -> {
-                if (consume(Items.BREAD)) {
-                    w.hunger = NpcLife.feed(w.hunger, 1);
-                    info("Житель накормлен.");
-                    changed = true;
-                } else info("Для кормления нужен хлеб в инвентаре.");
+                if(button==1){
+                    if(!owner||w.employer==null){
+                        info("Питание со склада включает только работодатель.");
+                    }else{
+                        w.rationsEnabled=!w.rationsEnabled;
+                        info(w.rationsEnabled?"Выдача свежего питания из назначенного склада включена."
+                            :"Автоматическая выдача питания отключена.");
+                        changed=true;
+                    }
+                    break;
+                }
+                ItemStack held=viewer.getMainHandItem();
+                var meal=KingdomNpcNutrition.inspect(held);
+                if(meal!=null){
+                    held.shrink(1);
+                    viewer.getInventory().setChanged();
+                    KingdomNpcNutrition.eat(w,meal);
+                    info("Житель съел настоящую еду. "+KingdomNpcNutrition.summary(w));
+                    changed=true;
+                }else if(!net.minecraftforge.fml.ModList.get().isLoaded("tfc")
+                        && consume(Items.BREAD)){
+                    w.hunger=NpcLife.feed(w.hunger,1);changed=true;
+                    info("Житель накормлен хлебом.");
+                }else info("Держи в основной руке свежую съедобную еду TFC.");
             }
             case 26 -> {
                 if (db.balance(viewer.getUUID())<Long.MAX_VALUE && KingdomCurrency.debit(viewer,1)) {
