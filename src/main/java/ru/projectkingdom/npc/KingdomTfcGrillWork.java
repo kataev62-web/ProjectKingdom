@@ -83,7 +83,7 @@ public final class KingdomTfcGrillWork {
         var firms = KingdomEnterpriseData.get(level.getServer());
         for (var contract : KingdomEnterprisePayrollData.get(level.getServer()).all()) {
             if (!contract.active() || !contract.worker().equals(worker.entityId)
-                    || !KingdomProfessionWorkRules.crafting(worker.job, firms.kind(contract.enterprise()))
+                    || !KingdomProfessionWorkRules.grill(worker.job, firms.kind(contract.enterprise()))
                     || firms.kind(contract.enterprise()) != EnterpriseKind.BAKERY
                     || (!worker.workplaceId.isBlank()
                         && !worker.workplaceId.equals(contract.enterprise().toString()))) continue;
@@ -171,6 +171,7 @@ public final class KingdomTfcGrillWork {
         if (!isGrill(level,w) || !initialize() || w.employer==null || !w.hasSource
             || !w.hasDestination || !KingdomNpcDuty.autonomousOrder(w.order)
             || !NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)
+            || !"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)
             || !w.dimension.equals(level.dimension().location().toString())
             || !bakery(level,w)) return false;
 
