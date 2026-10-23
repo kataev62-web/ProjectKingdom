@@ -103,6 +103,14 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     }
     private void request() {
         if (minecraft == null || minecraft.player == null) return;
+        // Never display an old country's territory under newly panned coordinates.
+        if (snapshot != null && (snapshot.centerX() != centerX || snapshot.centerZ() != centerZ
+                || snapshot.scale() != KingdomGraphicAtlasData.SCALES[scaleIndex]
+                || snapshot.layer() != layer)) {
+            snapshot = null;
+            selectedCol = -1;
+            selectedRow = -1;
+        }
         requestId++;
         KingdomNetwork.CHANNEL.sendToServer(new GraphicAtlasRequestPacket(
                 requestId, centerX, centerZ,
