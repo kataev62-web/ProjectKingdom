@@ -40,7 +40,9 @@ public final class KingdomNpcWorkshop {
         var e=enterprises.owned(owner.getUUID());
         if(e==null)return "Предприятие не выбрано.";
         var core=enterprises.core(e.id());
-        if(enterprises.kind(e.id())!=EnterpriseKind.SMITHY||core==null||!core.active())return "Кузнечное производство требует установленного активного ядра кузницы.";
+        if(!KingdomProfessionWorkRules.crafting(w.job,enterprises.kind(e.id()))
+                ||core==null||!core.active()||core.kind()!=enterprises.kind(e.id()))
+            return "Профессия не подходит к выбранному предприятию или его ядро неактивно.";
         ServerLevel level=owner.serverLevel();
         if(!w.dimension.equals(level.dimension().location().toString()))return "Работник в другом измерении.";
         var desk=new BlockPos(w.workX,w.workY,w.workZ);
@@ -207,9 +209,10 @@ public final class KingdomNpcWorkshop {
         var firm=KingdomEnterpriseData.get(level.getServer()).find(p.enterprise());
         var contract=KingdomEnterprisePayrollData.get(level.getServer()).contract(p.enterprise(),w.entityId);
         var enterprises=KingdomEnterpriseData.get(level.getServer());var core=enterprises.core(p.enterprise());
-        if(firm==null||enterprises.kind(p.enterprise())!=EnterpriseKind.SMITHY||core==null||!core.active()
+        if(firm==null||!KingdomProfessionWorkRules.crafting(w.job,enterprises.kind(p.enterprise()))
+                ||core==null||!core.active()||core.kind()!=enterprises.kind(p.enterprise())
                 ||!firm.owner().equals(w.employer) || contract==null || !contract.active()
-                ||w.contractPaused||!KingdomNpcDuty.autonomousOrder(w.order)||!"smith".equals(w.job)
+                ||w.contractPaused||!KingdomNpcDuty.autonomousOrder(w.order)
                 ||!NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)
                 ||!w.dimension.equals(level.dimension().location().toString())||!w.hasWorkstation
                 ||!w.hasSource||!w.hasDestination){data.clear(w.entityId);return false;}
