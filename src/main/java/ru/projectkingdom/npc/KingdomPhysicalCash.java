@@ -34,8 +34,7 @@ public final class KingdomPhysicalCash {
         BlockPos pos=BlockPos.of(binding.packedPos());
         if(!level.hasChunkAt(pos))return null;
         // This vault was previously bound at its actual city service by an authorised clerk.
-        var entity=level.getBlockEntity(pos);
-        return entity instanceof Container c?c:null;
+        return KingdomContainerAccess.resolve(level,pos);
     }
 
     public static long value(Container vault) {
