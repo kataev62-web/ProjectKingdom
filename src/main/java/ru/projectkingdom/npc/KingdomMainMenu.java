@@ -25,6 +25,8 @@ public final class KingdomMainMenu extends ChestMenu {
     private final ServerPlayer viewer;
     private final Page page;
     private final java.util.UUID siteId;
+    /** Server-owned origin of the construction-company core that opened this menu. */
+    private final BlockPos architectAnchor;
     private String marketItem="minecraft:charcoal";
     private int marketCount=20;
     private int marketQuote=0;
@@ -32,12 +34,14 @@ public final class KingdomMainMenu extends ChestMenu {
     private int materialsPage=0;
     // Server-bound slot identities: never let live market ordering change the clicked offer.
     private final java.util.Map<Integer,java.util.UUID> tradeSlots=new java.util.HashMap<>();
-    private KingdomMainMenu(int id, Inventory inventory, ServerPlayer player, Page page, SimpleContainer content, java.util.UUID siteId) {
+    private KingdomMainMenu(int id, Inventory inventory, ServerPlayer player, Page page, SimpleContainer content, java.util.UUID siteId, BlockPos architectAnchor) {
         super(MenuType.GENERIC_9x3, id, inventory, content, 3);
-        this.content=content; this.viewer=player; this.page=page; this.siteId=siteId; draw();
+        this.content=content; this.viewer=player; this.page=page; this.siteId=siteId;
+        this.architectAnchor=architectAnchor == null ? null : architectAnchor.immutable();
+        draw();
     }
-    private static KingdomMainMenu make(int id, Inventory inventory, ServerPlayer player, Page page,java.util.UUID siteId) {
-        return new KingdomMainMenu(id, inventory, player, page, new SimpleContainer(27),siteId);
+    private static KingdomMainMenu make(int id, Inventory inventory, ServerPlayer player, Page page,java.util.UUID siteId, BlockPos architectAnchor) {
+        return new KingdomMainMenu(id, inventory, player, page, new SimpleContainer(27),siteId,architectAnchor);
     }
     public static void open(ServerPlayer player) { show(player,Page.HOME); }
     public static void openMaps(ServerPlayer player) { show(player,Page.MAPS); }
@@ -49,6 +53,14 @@ public final class KingdomMainMenu extends ChestMenu {
     public static void openLandOffice(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.LAND_OFFICE); }
     public static void openOrders(ServerPlayer player) { show(player,Page.ORDERS); }
     public static void openArchitect(ServerPlayer player) { show(player,Page.BUILD); }
+    /** Opened from the company core: reuse that existing block; no second lectern. */
+    public static void openArchitect(ServerPlayer player, BlockPos office) {
+        if (office == null || !KingdomArchitectSiteAccess.mayUse(player,office)) {
+            player.sendSystemMessage(Component.literal("[Архитектор] Строительная контора недоступна или нет прав."));
+            return;
+        }
+        show(player,Page.BUILD,null,office);
+    }
     public static void openProjects(ServerPlayer player) { show(player,Page.PROJECTS); }
     public static void openSite(ServerPlayer player,java.util.UUID id) { show(player,Page.SITE,id); }
     private static void openAdministrativeOrExplain(ServerPlayer player,AdministrativeKind kind){
@@ -77,9 +89,12 @@ public final class KingdomMainMenu extends ChestMenu {
         }
         if(selected==null)return false;AdministrativeCoreMenu.open(player,selected);return true;
     }
-    private static void show(ServerPlayer player,Page page) {show(player,page,null);}
+    private static void show(ServerPlayer player,Page page) {show(player,page,null,null);}
     private static void show(ServerPlayer player,Page page,java.util.UUID siteId) {
-        player.openMenu(new SimpleMenuProvider((id,inv,p)->make(id,inv,player,page,siteId),
+        show(player,page,siteId,null);
+    }
+    private static void show(ServerPlayer player,Page page,java.util.UUID siteId,BlockPos office) {
+        player.openMenu(new SimpleMenuProvider((id,inv,p)->make(id,inv,player,page,siteId,office),
             Component.literal("Project Kingdom / "+switch(page){
                 case HOME -> "Управление"; case MAPS -> "Карты королевства"; case BUILD -> "Архитектор";
                 case PROJECTS -> "Проекты"; case ARMY -> "Армия";
@@ -369,7 +384,7 @@ public final class KingdomMainMenu extends ChestMenu {
     }
     private void say(String message) {viewer.sendSystemMessage(Component.literal("[Project Kingdom] "+message));}
     private void place(KingdomBuildingTypes.Type type) {
-        KingdomArchitectSessions.beginBuiltin(viewer,type);
+        KingdomArchitectSessions.beginBuiltin(viewer,type,architectAnchor);
     }
     private java.util.List<ServerPlayer> nearbyPlayers() {
         return viewer.serverLevel().players().stream()
@@ -553,7 +568,7 @@ public final class KingdomMainMenu extends ChestMenu {
                         if(slot>=15&&slot<=21) {
                             var items=KingdomSchematicLibrary.available(viewer.getServer());
                             int idx=schematicPage*7+slot-15;
-                            if(idx<items.size())KingdomArchitectSessions.beginSchematic(viewer,items.get(idx));
+                            if(idx<items.size())KingdomArchitectSessions.beginSchematic(viewer,items.get(idx),architectAnchor);
                         }
                     }
                 }
