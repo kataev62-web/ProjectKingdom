@@ -10,7 +10,6 @@ import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -100,11 +99,17 @@ public final class KingdomSchematicLibrary {
                 try { Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE); }
                 catch (java.nio.file.AtomicMoveNotSupportedException e) {
                     Files.move(temporary, target);
+                } catch (java.nio.file.FileAlreadyExistsException ignored) {
+                    // Another import won the race: validate the exact same hash below.
                 }
             } finally {
                 Files.deleteIfExists(temporary);
             }
         }
+        validateFile(target);
+        if (!hash.equals(hexSha256(Files.readAllBytes(target))))
+            throw new IOException("Frozen schematic was modified");
+        readDesign(target, name);
         return PREFIX + name + ":" + hash;
     }
 
@@ -121,6 +126,7 @@ public final class KingdomSchematicLibrary {
             Path source = folder(server).resolve(".snapshots").resolve(parts[2] + ".schem");
             try {
                 validateFile(source);
+                if (!parts[2].equals(hexSha256(Files.readAllBytes(source)))) return null;
                 var design = readDesign(source, parts[1]);
                 cache.put(key, design);
                 return design;
