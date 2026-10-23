@@ -881,25 +881,40 @@ public final class KingdomNpcMod {
                         if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
                             npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
                         else npc.getNavigation().stop();
-                    } else if ("wander".equals(w.order) && w.hasHome
-                            && ("SEEK_SHELTER".equals(w.autonomousIntent)
-                                || "REST".equals(w.autonomousIntent))) {
-                        // Follow autonomous shelter/rest intent without changing player orders.
-                        // This only navigates an already loaded resident; no teleportation.
-                        if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
-                            npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
-                        else npc.getNavigation().stop();
-                    } else if ("work".equals(w.order) && "smith".equals(w.job)
-                            && w.hasWorkstation && w.employer != null
-                            && !w.contractPaused
-                            && "CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)) {
-                        // The workshop itself owns the actual recipe, stock and payroll.
-                        // Here we only route the worker to the registered station.
-                        BlockPos station = new BlockPos(w.workX, w.workY, w.workZ);
-                        if (level.hasChunkAt(station)
-                                && KingdomTerritories.get(server).canUse(level, station, w.employer)
-                                && npc.distanceToSqr(w.workX + 0.5, w.workY, w.workZ + 0.5) > 6.25)
-                            npc.getNavigation().moveTo(w.workX + 0.5, w.workY, w.workZ + 0.5, 0.8);
+                    } else if (KingdomNpcDuty.autonomousOrder(w.order)) {
+                        // Shared Millenaire-style route for every job.
+                        // Real profession handlers take over close to the work site.
+                        boolean needsHome = "SEEK_SHELTER".equals(w.autonomousIntent)
+                            || "REST".equals(w.autonomousIntent)
+                            || "EAT".equals(w.autonomousIntent);
+                        if (needsHome && w.hasHome) {
+                            BlockPos home = new BlockPos(w.homeX, w.homeY, w.homeZ);
+                            if (level.hasChunkAt(home)) {
+                                if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
+                                    npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
+                                else npc.getNavigation().stop();
+                            }
+                        } else if (w.employer != null && !w.contractPaused
+                                && ("CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)
+                                    || "ON_DUTY".equals(w.autonomousIntent))) {
+                            BlockPos site = KingdomNpcWorkday.site(server, level, w);
+                            if (site != null) {
+                                var kind = KingdomNpcDuty.kind(w.job);
+                                // Builders, gatherers and workshops already have local movement.
+                                double handoff = switch (kind) {
+                                    case CONSTRUCTION -> 48.0 * 48.0;
+                                    case FIELD, WORKSHOP, DELIVERY -> 10.0 * 10.0;
+                                    case SERVICE -> 4.0;
+                                    default -> 4.0;
+                                };
+                                if (npc.distanceToSqr(site.getX() + 0.5, site.getY(),
+                                        site.getZ() + 0.5) > handoff)
+                                    npc.getNavigation().moveTo(site.getX() + 0.5,
+                                        site.getY(), site.getZ() + 0.5, 0.8);
+                                else if (kind == KingdomNpcDuty.Kind.SERVICE)
+                                    npc.getNavigation().stop();
+                            }
+                        }
                     } else if ("follow".equals(w.order) && w.employer != null) {
                         ServerPlayer owner = server.getPlayerList().getPlayer(w.employer);
                         if (owner != null && owner.level() == level && npc.distanceToSqr(owner) > 9)
