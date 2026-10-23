@@ -78,22 +78,6 @@ public final class KingdomNpcMod {
         event.setCanceled(true);
     }
     /**
-     * Handheld entry point: keep vanilla maps and terrain rendering intact.
-     * Sneak + use a blank or filled map to open the live Kingdom territory atlas.
-     * Vanilla held-map pixels are NOT recolored; the server menu supplies claims.
-     */
-    @SubscribeEvent public void openAtlasFromMap(PlayerInteractEvent.RightClickItem event) {
-        if (!(event.getEntity() instanceof ServerPlayer player)) return;
-        if (!player.isShiftKeyDown()
-                || !(event.getItemStack().is(Items.MAP) || event.getItemStack().is(Items.FILLED_MAP)))
-            return;
-        KingdomNetwork.CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(() -> player),
-                new ru.projectkingdom.network.OpenGraphicAtlasPacket());
-        event.setCancellationResult(InteractionResult.SUCCESS);
-        event.setCanceled(true);
-    }
-
-    /**
      * Ancient-Warfare-style construction control:
      * drafting table/legacy lectern -> choose blueprint; crafted hammer ->
      * one fully verified and physically paid placement; blueprint -> preview.
