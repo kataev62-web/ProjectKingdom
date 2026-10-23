@@ -25,6 +25,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private Button joinButton,landPayButton;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
+        if(menu.kind()==AdministrativeKind.TREASURY || menu.kind()==AdministrativeKind.BANK)
+            selected=AdministrativeMenuLayout.Tab.FINANCE;
     }
     @Override protected void init(){
         super.init();
