@@ -1012,7 +1012,10 @@ public final class KingdomNpcMod {
                                     // Workshop can visit its payroll counter up to 32 blocks
                                     // from the station; do not fight its own pathfinding.
                                     case WORKSHOP -> 40.0 * 40.0;
-                                    case FIELD, DELIVERY -> 10.0 * 10.0;
+                                    // Farmer decides which of multiple assigned plots needs attention.
+                                    // Generic commute must not override crop/warehouse navigation.
+                                    case FIELD -> "farmer".equals(w.job) ? Double.MAX_VALUE : 10.0 * 10.0;
+                                    case DELIVERY -> 10.0 * 10.0;
                                     case SERVICE -> 4.0;
                                     default -> 4.0;
                                 };
