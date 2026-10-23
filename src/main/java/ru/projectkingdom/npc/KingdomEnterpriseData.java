@@ -49,7 +49,7 @@ public final class KingdomEnterpriseData extends SavedData {
     public enum ClosureStatus {
         CLOSED, NO_PERMISSION, NOT_FOUND, NO_CORE, NOT_AT_CORE,
         CASH_REMAINING, TRADE_NOT_SETTLED, STAFF_DEBT, ACTIVE_BUILD,
-        STORAGE_UNLOADED, STORAGE_NOT_EMPTY, OLD_COUNTER_NOT_EMPTY
+        STORAGE_UNLOADED, STORAGE_NOT_EMPTY, OLD_COUNTER_NOT_EMPTY, NOTICE_BOARD_ERROR
     }
     public static String closeMessage(ClosureStatus status){
         return switch(status){
@@ -65,6 +65,7 @@ public final class KingdomEnterpriseData extends SavedData {
             case STORAGE_UNLOADED->"Не удалось проверить один из складов или старую кассу. Прогрузите чанки и откройте блок снова.";
             case STORAGE_NOT_EMPTY->"В складах или кассе остались предметы. Заберите всё в свой инвентарь.";
             case OLD_COUNTER_NOT_EMPTY->"В старой кассе-прилавке остались предметы. Заберите их.";
+            case NOTICE_BOARD_ERROR->"Не удалось удалить объявления предприятия из городского рынка. Проверьте целостность торговой доски.";
         };
     }
     /**
@@ -116,6 +117,15 @@ public final class KingdomEnterpriseData extends SavedData {
             if(counterInventory!=null&&!counterInventory.isEmpty())
                 return ClosureStatus.OLD_COUNTER_NOT_EMPTY;
         }
+        // Cancel the information-only market announcements before closing.
+        // A failed persistent write leaves the business active and tradeable.
+        try {
+            var board=SharedTradeNoticeBoards.get(player.getServer().getWorldPath(LevelResource.ROOT)
+                .resolve("data").resolve("kingdom_trade_notices.dat"));
+            for(var side:SimpleTradeNoticeBoard.Side.values())
+                for(var notice:board.offers(business,side))
+                    if(!board.remove(notice.id()))return ClosureStatus.NOTICE_BOARD_ERROR;
+        }catch(IOException error){return ClosureStatus.NOTICE_BOARD_ERROR;}
         // All preconditions checked before mutating accounting records.
         for(var contract:contracts)
             if(!payroll.dismiss(player.getServer(),firm.owner(),business,contract.worker()))
