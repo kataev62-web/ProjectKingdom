@@ -31,7 +31,12 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     private int left, top, cell, gridX, gridY, gridWidth, gridHeight, panelWidth, panelHeight;
 
     public KingdomGraphicAtlasScreen() {
-        super(Component.literal("Атлас Project Kingdom"));
+        this(KingdomGraphicAtlasData.Layer.LAND);
+    }
+
+    public KingdomGraphicAtlasScreen(KingdomGraphicAtlasData.Layer initialLayer) {
+        super(Component.literal("Карты Project Kingdom"));
+        layer = initialLayer == null ? KingdomGraphicAtlasData.Layer.LAND : initialLayer;
     }
 
     @Override protected void init() {
