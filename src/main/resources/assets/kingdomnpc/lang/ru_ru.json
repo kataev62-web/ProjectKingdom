@@ -29,5 +29,9 @@
   "block.kingdomnpc.drafting_table": "Чертёжный стол",
   "item.kingdomnpc.drafting_table": "Чертёжный стол",
   "item.kingdomnpc.building_blueprint": "Строительный чертёж",
-  "item.kingdomnpc.builders_hammer": "Строительный молот"
+  "item.kingdomnpc.builders_hammer": "Строительный молот",
+  "block.kingdomnpc.managed_storage": "Складская ячейка",
+  "item.kingdomnpc.managed_storage": "Складская ячейка",
+  "block.kingdomnpc.demand_board": "Доска потребностей",
+  "item.kingdomnpc.demand_board": "Доска потребностей"
 }
