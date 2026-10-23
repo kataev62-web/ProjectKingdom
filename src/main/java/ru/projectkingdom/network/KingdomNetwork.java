@@ -33,5 +33,7 @@ public final class KingdomNetwork {
                 GraphicAtlasResponsePacket::decode,GraphicAtlasResponsePacket::handle);
         CHANNEL.registerMessage(8,OpenGraphicAtlasPacket.class,OpenGraphicAtlasPacket::encode,
                 OpenGraphicAtlasPacket::decode,OpenGraphicAtlasPacket::handle);
+        CHANNEL.registerMessage(9,OpenCityPlanFromAtlasPacket.class,OpenCityPlanFromAtlasPacket::encode,
+                OpenCityPlanFromAtlasPacket::decode,OpenCityPlanFromAtlasPacket::handle);
     }
 }
