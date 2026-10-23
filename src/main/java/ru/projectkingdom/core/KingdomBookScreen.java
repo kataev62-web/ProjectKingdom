@@ -147,7 +147,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
 
     private void drawPageHeading(GuiGraphics graphics, KingdomBookLayout.Rect page, String text) {
         int center = page.x() + page.width() / 2;
-        centerText(graphics, text.toUpperCase(java.util.Locale.ROOT), center, page.y() + 5, BURGUNDY_DARK);
+        centerText(graphics, text, center, page.y() + 5, BURGUNDY_DARK);
         graphics.fill(page.x() + 9, page.y() + 18, page.right() - 8, page.y() + 19, LINE);
         graphics.fill(center - 14, page.y() + 17, center + 14, page.y() + 19, BURGUNDY);
     }
