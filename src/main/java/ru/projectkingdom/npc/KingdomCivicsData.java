@@ -46,6 +46,12 @@ public final class KingdomCivicsData extends SavedData {
         return titled!=null?titled:(town==null?null:town.mayor());
     }
     /** Registers a personal title only after an externally verified, paid land sale. */
+    /** Only explicit personal titles, not mayoral stewardship over public plots. */
+    public Map<UUID,Long> purchasedPlotOwnerCounts() {
+        Map<UUID,Long> counts=new LinkedHashMap<>();
+        for(UUID holder:plotOwners.values())counts.merge(holder,1L,Long::sum);
+        return Collections.unmodifiableMap(counts);
+    }
     public boolean registerPaidSale(UUID seller,UUID buyer,String dimension,int x,int z) {
         String k=key(dimension,x,z); Plot p=plots.get(k);
         if(p==null||seller==null||buyer==null||seller.equals(buyer)||!seller.equals(plotOwner(dimension,x,z))
