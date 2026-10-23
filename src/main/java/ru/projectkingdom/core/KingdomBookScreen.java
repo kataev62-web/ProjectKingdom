@@ -13,6 +13,7 @@ import net.minecraft.world.item.Items;
 import ru.projectkingdom.network.KingdomNetwork;
 import ru.projectkingdom.network.OpenLandMapFromBookPacket;
 import ru.projectkingdom.network.OpenCityExpansionMapPacket;
+import ru.projectkingdom.network.OpenWorldAtlasPacket;
 
 public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBookMenu> {
     private static final ResourceLocation BOOK_TEXTURE =
@@ -30,6 +31,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
     private BookModel.Section selected = BookModel.Section.PLAYER;
     private AbstractButton landMapButton;
     private AbstractButton expansionMapButton;
+    private AbstractButton worldAtlasButton;
 
     public KingdomBookScreen(KingdomBookMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -40,6 +42,19 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
     @Override
     protected void init() {
         super.init();
+        var leftPage = KingdomBookLayout.leftPage();
+        worldAtlasButton = new AbstractButton(leftPos + leftPage.x() + 10,
+                topPos + leftPage.y() + 130, leftPage.width() - 20, 20,
+                Component.literal("Атлас мира")) {
+            @Override public void onPress() {
+                KingdomNetwork.CHANNEL.sendToServer(new OpenWorldAtlasPacket());
+            }
+            @Override protected void updateWidgetNarration(NarrationElementOutput narration) {
+                defaultButtonNarrationText(narration);
+            }
+        };
+        worldAtlasButton.visible = selected == BookModel.Section.WORLD || selected == BookModel.Section.STATE;
+        addRenderableWidget(worldAtlasButton);
         var rightPage = KingdomBookLayout.rightPage();
         landMapButton = new AbstractButton(leftPos + rightPage.x() + 12,
                 topPos + rightPage.y() + 113, rightPage.width() - 24, 20,
@@ -264,6 +279,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
             selected = section;
             if (landMapButton != null) landMapButton.visible = section == BookModel.Section.WORLD || section == BookModel.Section.STATE;
             if (expansionMapButton != null) expansionMapButton.visible = section == BookModel.Section.STATE;
+            if (worldAtlasButton != null) worldAtlasButton.visible = section == BookModel.Section.WORLD || section == BookModel.Section.STATE;
         }
 
         @Override
