@@ -54,6 +54,8 @@ public final class KingdomSiteBuilder {
                 || !KingdomConstructionMarkers.isMarker(player.serverLevel(),marker)
                 || player.distanceToSqr(marker.getX()+.5,marker.getY()+.5,marker.getZ()+.5)>144)
             return "Подойди к своему чертёжному столу (до 12 блоков).";
+        if (!KingdomArchitectSiteAccess.mayUse(player,marker))
+            return "Нет прав на строительную контору или отсутствует чертёжный стол.";
         var db = KingdomConstructionData.get(player.getServer());
         String dimension = player.level().dimension().location().toString();
         if (db.atMarker(dimension, marker.getX(), marker.getY(), marker.getZ()) != null)
