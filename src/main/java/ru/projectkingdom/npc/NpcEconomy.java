@@ -16,9 +16,8 @@ public final class NpcEconomy {
 
     public static String normalizeJob(String job) {
         String value = job.toLowerCase(java.util.Locale.ROOT);
-        return switch (value) {
-            case "farmer", "smith", "miner", "lumberjack", "merchant", "guard", "builder", "courier", "warehouse", "free" -> value;
-            default -> throw new IllegalArgumentException("Unknown job: " + job);
-        };
+        if (!KingdomProfessionRegistry.known(value))
+            throw new IllegalArgumentException("Unknown job: " + job);
+        return value;
     }
 }
