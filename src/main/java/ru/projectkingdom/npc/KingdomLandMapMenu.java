@@ -102,7 +102,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
                 "Купить у владельца: "+sale.priceCopper()+" медных (наличными в банке)");
         item(27,Items.IRON_PICKAXE,"Работник рядом: выдать/отозвать право строить и ломать");
         item(37,Items.OAK_DOOR,"Работник рядом: выдать/отозвать право взаимодействовать");
-        item(53,Items.BARRIER,"Закрыть карту");
+        item(53,Items.BARRIER,"К картам Kingdom");
         super.broadcastChanges();
     }
     @Override public void broadcastChanges() {
@@ -330,7 +330,7 @@ public final class KingdomLandMapMenu extends ChestMenu {
             case 50 -> purchase();
             case 51 -> leaseAction();
             case 52 -> {centerX=viewer.blockPosition().getX()>>4;centerZ=viewer.blockPosition().getZ()>>4;}
-            case 53 -> {viewer.closeContainer();return;}
+            case 53 -> {KingdomMainMenu.openMaps(viewer);return;}
             default -> {return;}
         }
         redraw();
