@@ -239,7 +239,11 @@ public final class KingdomTfcGrillWork {
 
         // Only start from a vacant slot, so an NPC never takes a player's unrelated items.
         int slot=-1;
-        for (int s=FIRST;s<=LAST;s++) if(machine.getStackInSlot(s).isEmpty()){slot=s;break;}
+        for (int s=FIRST;s<=LAST;s++)
+            if(machine.getStackInSlot(s).isEmpty()
+                    && !records.reservedByOther(w.entityId,w.dimension,pos.asLong(),s)){
+                slot=s;break;
+            }
         if(slot<0) return false;
         for(int i=0;i<raw.getContainerSize();i++) {
             ItemStack available=raw.getItem(i);
