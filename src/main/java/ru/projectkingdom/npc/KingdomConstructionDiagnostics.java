@@ -2,7 +2,6 @@ package ru.projectkingdom.npc;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
@@ -10,11 +9,51 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.UUID;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Read-only site diagnostics. Never consumes supplies or generates chunks. */
 public final class KingdomConstructionDiagnostics {
     private KingdomConstructionDiagnostics() {}
+    public record Material(Item item, int required, int available) {
+        public int missing() { return Math.max(0, required - available); }
+    }
+
+    /** Authoritative, read-only bill of materials for the Kingdom icon UI. */
+    public static List<Material> materials(MinecraftServer server, KingdomConstructionData.Project site) {
+        if (server == null || site == null) return List.of();
+        var design = KingdomConstructionPlans.resolve(server, site.design());
+        if (design == null) return List.of();
+        ServerLevel level = null;
+        for (var candidate : server.getAllLevels())
+            if (candidate.dimension().location().toString().equals(site.dimension())) {
+                level = candidate; break;
+            }
+        if (level == null) return List.of();
+        BlockPos marker = new BlockPos(site.x()-2, site.y(), site.z()-2);
+        Container depot = level.hasChunkAt(marker) ? supplies(level, marker) : null;
+        Map<Item,Integer> needed = new LinkedHashMap<>();
+        int progress = KingdomConstructionData.get(server).progress(site.id());
+        for (int i = progress; i < design.blocks().size(); i++) {
+            var cell = design.blocks().get(i);
+            net.minecraft.world.level.block.state.BlockState state;
+            try { state = KingdomBlockStateCodec.parse(cell.material()); }
+            catch (IllegalArgumentException invalid) { continue; }
+            if (!KingdomBlockStateCodec.buildable(state)) continue;
+            BlockPos target = new BlockPos(site.x()+cell.x(),site.y()+cell.y(),site.z()+cell.z());
+            if (level.hasChunkAt(target) && level.getBlockState(target).equals(state)) continue;
+            needed.merge(state.getBlock().asItem(), 1, Integer::sum);
+        }
+        Map<Item,Integer> stock = new LinkedHashMap<>();
+        if (depot != null) for (int i=0;i<depot.getContainerSize();i++) {
+            var stack=depot.getItem(i);
+            if (!stack.isEmpty()) stock.merge(stack.getItem(),stack.getCount(),Integer::sum);
+        }
+        List<Material> rows = new ArrayList<>();
+        for (var entry : needed.entrySet())
+            rows.add(new Material(entry.getKey(),entry.getValue(),stock.getOrDefault(entry.getKey(),0)));
+        return List.copyOf(rows);
+    }
     public static String nextStep(MinecraftServer server, KingdomConstructionData.Project site) {
         var design=KingdomConstructionPlans.resolve(server,site.design());
         if(design==null)return "Файл строительной схемы недоступен";
@@ -37,7 +76,11 @@ public final class KingdomConstructionDiagnostics {
         try {state=KingdomBlockStateCodec.parse(cell.material());}
         catch(IllegalArgumentException error){return "Неизвестный блок: "+cell.material();}
         if(level.getBlockState(target).equals(state))return "Ожидается подтверждение установленного блока";
-        if(!level.getBlockState(target).isAir())return "Убери препятствие: "+target.toShortString();
+        if (!level.getBlockState(target).isAir()
+                && !KingdomConstructionWork.canClearObstacle(level,target,level.getBlockState(target)))
+            return "Защищённый блок на площадке: "+target.toShortString();
+        if (!level.getBlockState(target).isAir())
+            return "Препятствие будет автоматически разобрано при установке следующего блока";
         Item item=state.getBlock().asItem();
         if(!KingdomBlockStateCodec.buildable(state))return "Нельзя строить из предмета: "+cell.material();
         int available=0;
@@ -57,36 +100,11 @@ public final class KingdomConstructionDiagnostics {
         return builder?"Материалы есть; строитель выполняет заказ":"Назначь строителя с договором; дневная смена, радиус 48 блоков";
     }
     public static String missingMaterials(MinecraftServer server, KingdomConstructionData.Project site) {
-        var design=KingdomConstructionPlans.resolve(server,site.design());
-        if(design==null)return "Файл строительной схемы недоступен";
-        var plan=design.blocks();
-        ServerLevel level=null;
-        for(var candidate:server.getAllLevels())if(candidate.dimension().location().toString().equals(site.dimension())){level=candidate;break;}
-        if(level==null)return "Измерение недоступно";
-        BlockPos marker=new BlockPos(site.x()-2,site.y(),site.z()-2);
-        Container depot=level.hasChunkAt(marker)?supplies(level,marker):null;
-        Map<Item,Integer> needed=new LinkedHashMap<>();
-        for(int i=KingdomConstructionData.get(server).progress(site.id());i<plan.size();i++) {
-            var cell=plan.get(i);
-            net.minecraft.world.level.block.state.BlockState state;
-            try {state=KingdomBlockStateCodec.parse(cell.material());}
-            catch(IllegalArgumentException error){return "Блок из схемы недоступен: "+cell.material();}
-            BlockPos target=new BlockPos(site.x()+cell.x(),site.y()+cell.y(),site.z()+cell.z());
-            if(level.hasChunkAt(target)&&level.getBlockState(target).equals(state))continue;
-            Item item=state.getBlock().asItem();
-            if(KingdomBlockStateCodec.buildable(state))needed.merge(item,1,Integer::sum);
-        }
-        if(depot!=null)for(int i=0;i<depot.getContainerSize();i++) {
-            var stack=depot.getItem(i);
-            if(!stack.isEmpty())needed.computeIfPresent(stack.getItem(),(item,count)->Math.max(0,count-stack.getCount()));
-        }
-        StringBuilder result=new StringBuilder();int types=0;
-        for(var entry:needed.entrySet())if(entry.getValue()>0) {
-            if(types++>=5){result.append("; ...");break;}
-            if(result.length()>0)result.append("; ");
-            result.append(BuiltInRegistries.ITEM.getKey(entry.getKey())).append(" ×").append(entry.getValue());
-        }
-        return result.length()==0?"Все материалы на складе":"Не хватает: "+result;
+        var rows=materials(server,site);
+        int missing=0;long count=0;
+        for (var row:rows) if (row.missing()>0) { missing++;count+=row.missing(); }
+        return missing==0?"Все материалы в соседнем складе":
+            "Недостаёт "+count+" блоков ("+missing+" видов). Открой «Материалы», чтобы увидеть названия и значки.";
     }
     private static Container supplies(ServerLevel level,BlockPos marker) {
         for(Direction direction:Direction.Plane.HORIZONTAL) {
