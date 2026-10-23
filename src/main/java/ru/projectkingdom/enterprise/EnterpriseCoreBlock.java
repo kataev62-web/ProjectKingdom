@@ -57,7 +57,17 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
         // only after verifying its previous loaded location is genuinely empty.
         data.reconcileMissingCore(server.getServer(), identity.enterprise());
         var activation=data.activateCore(player.getUUID(),identity.enterprise(),kind,server.dimension().location().toString(),pos.asLong());
-        if(activation!=EnterpriseActivation.ACTIVATED){reject(server,pos,player,stack,"Ядро не активировано: "+activation);return;}
+        if(activation!=EnterpriseActivation.ACTIVATED){
+            String reason=switch(activation){
+                case ALREADY_ACTIVE -> "Предыдущее ядро ещё числится установленным. Если блок удалён, прогрузи его старое место и поставь ядро снова.";
+                case FOREIGN_OWNER -> "Предприятие принадлежит другому игроку.";
+                case TYPE_MISMATCH -> "Тип ядра не совпадает с зарегистрированным предприятием.";
+                case INVALID_LOCATION -> "Здесь уже зарегистрировано другое ядро предприятия.";
+                case NOT_FOUND -> "Привязанное предприятие не найдено.";
+                case ACTIVATED -> "Ядро активировано.";
+            };
+            reject(server,pos,player,stack,reason);return;
+        }
         if(server.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core)core.bind(identity.enterprise(),identity.owner(),kind);
     }
 
