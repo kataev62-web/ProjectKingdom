@@ -22,6 +22,13 @@ import ru.projectkingdom.administration.KingdomAdministrationData;
 public final class KingdomBankData extends SavedData {
     private static final String KEY = "kingdom_bank_storage_v1";
     private final Map<UUID, Long> accounts = new LinkedHashMap<>();
+    /** Every backed account is payable from exactly one bank vault. */
+    private final Map<UUID, UUID> accountHomes = new LinkedHashMap<>();
+    private boolean payableAt(UUID account,UUID bank) {
+        if(account==null||bank==null)return false;
+        UUID home=accountHomes.get(account);
+        return home==null ? balance(account)==0 : home.equals(bank);
+    }
     private final Map<String, UUID> branches = new LinkedHashMap<>();
     private long vault = 0;
     private static String location(ServerLevel level, BlockPos pos) {
@@ -47,7 +54,7 @@ public final class KingdomBankData extends SavedData {
         long previous=balance(player.getUUID());
         UUID town=bankTown(player);
         // Old unbound lodestone branches cannot accept virtual deposits.
-        if(town==null)return false;
+        if(town==null||!payableAt(player.getUUID(),town))return false;
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         var admin=KingdomAdministrationData.get(player.getServer());
         if(vault==null||previous>Long.MAX_VALUE-amount||admin.bankReserve(town)>Long.MAX_VALUE-amount
@@ -55,12 +62,13 @@ public final class KingdomBankData extends SavedData {
         if(!admin.depositBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical deposit");
         accounts.put(player.getUUID(),previous+amount);
+        accountHomes.put(player.getUUID(),town);
         player.getInventory().setChanged();setDirty();return true;
     }
     public boolean withdraw(ServerPlayer player,long amount) {
         if(!atBranch(player)||amount<=0||amount>1_000_000||balance(player.getUUID())<amount)return false;
         UUID town=bankTown(player);
-        if(town==null)return false;
+        if(town==null||!payableAt(player.getUUID(),town))return false;
         var admin=KingdomAdministrationData.get(player.getServer());
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null||admin.bankReserve(town)<amount
@@ -89,6 +97,7 @@ public final class KingdomBankData extends SavedData {
         UUID recipient=renewal?contract.landlord():offer.landlord();
         long amount=renewal?contract.paidCopper():offer.priceCopper();
         long prior=balance(recipient);
+        if(!payableAt(recipient,bank))return false;
         if(amount<=0||amount>1_000_000
                 ||KingdomCurrency.balance(payer)<amount
                 ||prior>Long.MAX_VALUE-amount
@@ -105,6 +114,7 @@ public final class KingdomBankData extends SavedData {
         if(!KingdomAdministrationData.get(payer.getServer()).depositBankReserve(bank,amount))
             throw new IllegalStateException("Bank lease reserve update failed after payment");
         accounts.put(recipient,prior+amount);
+        accountHomes.put(recipient,bank);
         payer.getInventory().setChanged();setDirty();return true;
     }
     /** Settle an assessed rent debt using coins presented at a real bank branch.
@@ -122,6 +132,7 @@ public final class KingdomBankData extends SavedData {
         var debt=civics.leaseDebt(dimension,x,z);
         UUID landlord=debt.landlord();
         long previous=balance(landlord);
+        if(!payableAt(landlord,bank))return false;
         if(KingdomCurrency.balance(payer)<amount
                 ||previous>Long.MAX_VALUE-amount
                 ||KingdomAdministrationData.get(payer.getServer()).bankReserve(bank)>Long.MAX_VALUE-amount)return false;
@@ -134,6 +145,7 @@ public final class KingdomBankData extends SavedData {
         if(!KingdomAdministrationData.get(payer.getServer()).depositBankReserve(bank,amount))
             throw new IllegalStateException("Bank debt reserve update failed after payment");
         accounts.put(landlord,previous+amount);
+        accountHomes.put(landlord,bank);
         payer.getInventory().setChanged();setDirty();return true;
     }
     /** Buyer brings coins to a real bank counter. Seller receives a backed deposit receipt. */
@@ -151,6 +163,7 @@ public final class KingdomBankData extends SavedData {
         if(city!=null&&offer.seller().equals(city.mayor()))return false;
         UUID seller=offer.seller();long amount=offer.priceCopper();
         long previous=balance(seller);
+        if(!payableAt(seller,bank))return false;
         if(amount<=0||amount>1_000_000
                 ||KingdomCurrency.balance(buyer)<amount
                 ||previous>Long.MAX_VALUE-amount
@@ -164,6 +177,7 @@ public final class KingdomBankData extends SavedData {
         if(!KingdomAdministrationData.get(buyer.getServer()).depositBankReserve(bank,amount))
             throw new IllegalStateException("Bank land reserve update failed after payment");
         accounts.put(seller,previous+amount);
+        accountHomes.put(seller,bank);
         buyer.getInventory().setChanged();setDirty();return true;
     }
     /** A bank branch must actually exist within interaction distance. */
@@ -193,6 +207,11 @@ public final class KingdomBankData extends SavedData {
             CompoundTag row=list.getCompound(i);
             if(row.hasUUID("Owner"))data.accounts.put(row.getUUID("Owner"),Math.max(0,row.getLong("Amount")));
         }
+        for(Tag value:root.getList("AccountHomes",Tag.TAG_COMPOUND)) {
+            CompoundTag row=(CompoundTag)value;
+            if(row.hasUUID("Owner")&&row.hasUUID("Bank"))
+                data.accountHomes.put(row.getUUID("Owner"),row.getUUID("Bank"));
+        }
         if(root.contains("LegacyVault",Tag.TAG_LONG))data.vault=Math.max(0,root.getLong("LegacyVault"));
         else for(long amount:data.accounts.values())data.vault=Math.addExact(data.vault,amount);
         ListTag locations=root.getList("Branches",Tag.TAG_COMPOUND);
@@ -208,6 +227,11 @@ public final class KingdomBankData extends SavedData {
             CompoundTag row=new CompoundTag();row.putUUID("Owner",entry.getKey());row.putLong("Amount",entry.getValue());list.add(row);
         }
         root.put("Accounts",list);
+        ListTag homeTags=new ListTag();
+        for(var entry:accountHomes.entrySet()) {
+            CompoundTag row=new CompoundTag();row.putUUID("Owner",entry.getKey());row.putUUID("Bank",entry.getValue());homeTags.add(row);
+        }
+        root.put("AccountHomes",homeTags);
         ListTag locations=new ListTag();
         for(var entry:branches.entrySet()) {
             CompoundTag row=new CompoundTag();row.putString("Location",entry.getKey());row.putUUID("Owner",entry.getValue());locations.add(row);
