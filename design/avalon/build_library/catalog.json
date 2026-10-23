@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "project": "Project Kingdom",
+  "location": "Avalon",
+  "target_minecraft": "Java 1.20.1 Forge",
+  "last_reviewed": "2026-10-23",
+  "source_binary_count_in_repository": 0,
+  "warning": "Candidates are NOT downloaded schematics; file compatibility and redistribution rights not yet verified.",
+  "candidates": [
+    {
+      "id": "stubbs_medieval_bundle",
+      "type": [
+        "housing",
+        "guild",
+        "castle_reference"
+      ],
+      "title": "Stubbs Medieval Building Bundle (80+)",
+      "author": "Stubbs1 and Tom",
+      "url": "https://www.planetminecraft.com/project/medieval-nordic-house-bundle-free-to-use/",
+      "published_version": "1.19+ / legacy 1.16.4+",
+      "priority": 1,
+      "licensing": "Author explicitly permits use of builds with credit; separate public repository re-distribution of source files is not yet confirmed.",
+      "credit": "Stubbs1 (and Tom): https://www.planetminecraft.com/project/medieval-nordic-house-bundle-free-to-use/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "INT yes; TEM no",
+      "status": "needs_permission",
+      "next": "Obtain individual INT/TEM schematic, inspect block palette, request explicit permission to mirror binaries."
+    },
+    {
+      "id": "anticlimax_18",
+      "type": [
+        "housing",
+        "tavern",
+        "dock",
+        "farm",
+        "forest",
+        "gate"
+      ],
+      "title": "Medieval Build Bundle 18+ Structures",
+      "author": "AntiClimax",
+      "url": "https://www.planetminecraft.com/project/medieval-build-bundle-amp-pack-18-structures/",
+      "published_version": "not stated",
+      "priority": 1,
+      "licensing": "Use in worlds/maps/servers declared; redistribution of file on GitHub not established.",
+      "credit": "AntiClimax: https://www.planetminecraft.com/project/medieval-build-bundle-amp-pack-18-structures/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "yes",
+      "status": "needs_permission",
+      "next": "Prioritize dock, fishery, logger, farmer, tavern and gate; request mirroring permission."
+    },
+    {
+      "id": "wet_bundle",
+      "type": [
+        "housing",
+        "facade_modules",
+        "decor"
+      ],
+      "title": "Medieval Build Bundle",
+      "author": "Wet",
+      "url": "https://www.planetminecraft.com/project/medieval-build-bundle-4285671/",
+      "published_version": "circa 2019",
+      "priority": 2,
+      "licensing": "Author allows use with credit; re-publication of archive not separately confirmed.",
+      "credit": "Wet: https://www.planetminecraft.com/project/medieval-build-bundle-4285671/",
+      "compatibility": "may_require_legacy_conversion",
+      "interiors": "mostly no",
+      "status": "needs_permission",
+      "next": "Do not attempt to paste huge one-piece bundle in game; split in staging world and inspect as small assets."
+    },
+    {
+      "id": "krtq_arena_40",
+      "type": [
+        "arena"
+      ],
+      "title": "Medieval Arena / Tiny Colosseum",
+      "author": "KRTQ",
+      "url": "https://www.planetminecraft.com/project/arena-medieval-arena-tiny-coloseum-schematic-1-20-1-40x40-blocks/",
+      "published_version": "1.20.1",
+      "dimensions": "40x40 horizontal",
+      "priority": 1,
+      "licensing": "No explicit redistribution permission found.",
+      "credit": "KRTQ: https://www.planetminecraft.com/project/arena-medieval-arena-tiny-coloseum-schematic-1-20-1-40x40-blocks/",
+      "compatibility": "version_declared_not_tested",
+      "interiors": "unknown",
+      "status": "needs_permission",
+      "next": "Check entrances, seating, roof silhouette, block palette and official license."
+    },
+    {
+      "id": "thenewempire_pier",
+      "type": [
+        "port",
+        "dock"
+      ],
+      "title": "Medieval Pier / Port / Dock",
+      "author": "TheNewEmpire / ScriptX / IndexOutOfMJ",
+      "url": "https://www.planetminecraft.com/project/medieval-pier/",
+      "published_version": "1.18.x",
+      "priority": 1,
+      "licensing": "No permission to mirror confirmed.",
+      "credit": "TheNewEmpire: https://www.planetminecraft.com/project/medieval-pier/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "outdoor structure",
+      "status": "needs_permission",
+      "next": "Verify link works (2026 user complaint); adapt shoreline elevation and river width."
+    },
+    {
+      "id": "bendeeee_windmill",
+      "type": [
+        "farm",
+        "mill"
+      ],
+      "title": "Medieval Windmill v2",
+      "author": "Bendeeee",
+      "url": "https://www.planetminecraft.com/project/medieval-windmill-v2/",
+      "published_version": "not stated",
+      "dimensions": "17x32x19 as reported by author",
+      "priority": 2,
+      "licensing": "No public mirroring permission found.",
+      "credit": "Bendeeee: https://www.planetminecraft.com/project/medieval-windmill-v2/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "unknown",
+      "status": "needs_permission",
+      "next": "Inspect windmill blades and room for Create powertrain."
+    },
+    {
+      "id": "absolute_townhall",
+      "type": [
+        "town_hall",
+        "admin"
+      ],
+      "title": "Medieval Town Hall",
+      "author": "Abs0lute-",
+      "url": "https://www.planetminecraft.com/project/medieval-town-hall-6885509/",
+      "published_version": "not stated",
+      "priority": 2,
+      "licensing": "No public mirroring permission found.",
+      "credit": "Abs0lute-: https://www.planetminecraft.com/project/medieval-town-hall-6885509/",
+      "compatibility": "unknown_until_file_inspection",
+      "interiors": "yes (author claims)",
+      "status": "needs_permission",
+      "next": "Check ground footprint, council chamber, separate civic building entrance."
+    },
+    {
+      "id": "nequ_bohemian_castle",
+      "type": [
+        "castle",
+        "reference_only"
+      ],
+      "title": "Bohemian Medieval Castle",
+      "author": "Nequ",
+      "url": "https://www.planetminecraft.com/project/castle-6808690/",
+      "published_version": "not stated; likely newer than 1.20",
+      "priority": 3,
+      "licensing": "Author permits use on own server in comment; file republication not established.",
+      "credit": "Nequ: https://www.planetminecraft.com/project/castle-6808690/",
+      "compatibility": "known_problem_for_1_20_user_report",
+      "interiors": "yes",
+      "status": "candidate",
+      "next": "Reference only: known 1.20 import failure report, display entities and custom textures may be costly."
+    }
+  ]
+}
