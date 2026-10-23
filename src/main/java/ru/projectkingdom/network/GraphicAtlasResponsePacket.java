@@ -41,6 +41,14 @@ public record GraphicAtlasResponsePacket(KingdomGraphicAtlasData.Snapshot snapsh
             buf.writeByte(cell.terrain());
             buf.writeShort(cell.elevation());
         }
+        // Registry-based buildings and businesses are sparse and bounded.
+        buf.writeVarInt(view.markers().size());
+        for (var marker : view.markers()) {
+            buf.writeByte(marker.kind().ordinal());
+            buf.writeInt(marker.blockX());
+            buf.writeInt(marker.blockZ());
+            buf.writeUtf(marker.label(), 72);
+        }
     }
 
     public static GraphicAtlasResponsePacket decode(FriendlyByteBuf buf) {
@@ -74,8 +82,21 @@ public record GraphicAtlasResponsePacket(KingdomGraphicAtlasData.Snapshot snapsh
             cells.set(index, new KingdomGraphicAtlasData.Tile(claims, own, mixed, planned,
                     townColor, nationColor, businesses, town, nation, business, terrain, elevation));
         }
+        int markerCount = buf.readVarInt();
+        if (markerCount < 0 || markerCount > ru.projectkingdom.map.KingdomAtlasInfrastructure.MAX_MARKERS)
+            throw new IllegalArgumentException("Oversized infrastructure list");
+        List<ru.projectkingdom.map.KingdomAtlasInfrastructure.Marker> markers = new ArrayList<>(markerCount);
+        for (int i = 0; i < markerCount; i++) {
+            int kind = buf.readUnsignedByte();
+            if (kind >= ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.values().length)
+                throw new IllegalArgumentException("Invalid map infrastructure kind");
+            int px = buf.readInt(), pz = buf.readInt();
+            String label = buf.readUtf(72);
+            markers.add(new ru.projectkingdom.map.KingdomAtlasInfrastructure.Marker(
+                    ru.projectkingdom.map.KingdomAtlasInfrastructure.Kind.values()[kind], px, pz, label));
+        }
         return new GraphicAtlasResponsePacket(new KingdomGraphicAtlasData.Snapshot(
-                request, x, z, scale, KingdomGraphicAtlasData.Layer.values()[layerId], cells));
+                request, x, z, scale, KingdomGraphicAtlasData.Layer.values()[layerId], cells, markers));
     }
 
     public static void handle(GraphicAtlasResponsePacket packet, Supplier<NetworkEvent.Context> supplier) {
