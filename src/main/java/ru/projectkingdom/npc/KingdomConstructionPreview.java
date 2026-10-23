@@ -27,7 +27,8 @@ public final class KingdomConstructionPreview {
     public static int show(ServerPlayer player, KingdomConstructionData.Project site) {
         var server = player.getServer();
         var level = player.serverLevel();
-        if (server == null || site == null || !site.owner().equals(player.getUUID())
+        if (server == null || site == null
+                || !KingdomConstructionData.get(server).mayAssist(site.id(), player.getUUID())
                 || !site.dimension().equals(level.dimension().location().toString()))
             return 0;
         var design = KingdomConstructionPlans.resolve(server, site.design());
