@@ -82,6 +82,33 @@ public final class KingdomFarmWorker {
         }
         return false;
     }
+    /** Bring a real N/P/K supplement from RAW warehouse, never invent nutrients. */
+    private static boolean fertilize(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
+                                     BlockPos cropPos,BlockState crop) {
+        if(!storeNear(level,npc,cropPos)) {
+            npc.getNavigation().moveTo(cropPos.getX()+.5,cropPos.getY(),cropPos.getZ()+.5,.75);
+            return false;
+        }
+        for(ItemStack held:w.fieldInventory) {
+            if(!KingdomFarmNutrition.recognized(held))continue;
+            if(KingdomFarmNutrition.apply(level,cropPos,crop,held)){
+                w.fieldInventory.removeIf(ItemStack::isEmpty);
+                w.energy=Math.max(0,w.energy-1);
+                KingdomNpcData.get(level.getServer()).setDirty();
+                return true;
+            }
+        }
+        BlockPos store=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
+        if(!level.hasChunkAt(store)||!KingdomTerritories.get(level.getServer())
+                .usable(level,store,w.employer,"raw")
+                ||!(level.getBlockEntity(store) instanceof Container raw))return false;
+        if(!storeNear(level,npc,store)){
+            npc.getNavigation().moveTo(store.getX()+.5,store.getY(),store.getZ()+.5,.75);
+            return false;
+        }
+        return KingdomFarmNutrition.withdraw(level,cropPos,crop,raw,w);
+    }
+
     private static boolean cropMatches(BlockState state,KingdomFarmFieldData.Field field){
         return KingdomFarmFieldData.cropId(field.seedId()).equals(
             BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString())
@@ -160,10 +187,10 @@ public final class KingdomFarmWorker {
             return NpcFieldWork.deposit(level,npc,w);
         var land=KingdomTerritories.get(level.getServer());
         // At most 8 × 256 loaded crop cells per invocation (once per 40 ticks/NPC).
-        BlockPos harvestTarget=null,plantTarget=null;
-        BlockState harvestState=null,plantState=null;
+        BlockPos harvestTarget=null,plantTarget=null,nutritionTarget=null;
+        BlockState harvestState=null,plantState=null,nutritionState=null;
         KingdomFarmFieldData.Field harvestField=null,plantField=null;
-        double harvestDistance=Double.MAX_VALUE,plantDistance=Double.MAX_VALUE;
+        double harvestDistance=Double.MAX_VALUE,plantDistance=Double.MAX_VALUE,nutritionDistance=Double.MAX_VALUE;
         for(var field:planned) {
             ResourceLocation cropKey=ResourceLocation.tryParse(KingdomFarmFieldData.cropId(field.seedId()));
             if(cropKey==null||!BuiltInRegistries.BLOCK.containsKey(cropKey))continue;
@@ -177,6 +204,11 @@ public final class KingdomFarmWorker {
                 double distance= crop.distSqr(npc.blockPosition());
                 if(cropMatches(found,field)&&mature(found)&&distance<harvestDistance) {
                     harvestTarget=crop;harvestState=found;harvestField=field;harvestDistance=distance;
+                }else if(cropMatches(found,field) && !mature(found)
+                    && distance<nutritionDistance
+                    && KingdomFarmClimate.read(level,crop,found).primaryNutrient()>=0f
+                    && KingdomFarmClimate.read(level,crop,found).primaryNutrient()<0.35f){
+                    nutritionTarget=crop;nutritionState=found;nutritionDistance=distance;
                 }else if(found.isAir() && desired.canSurvive(level,crop)
                     && distance<plantDistance
                     && KingdomFarmClimate.read(level,crop,desired).suitable()){
@@ -207,6 +239,9 @@ public final class KingdomFarmWorker {
                 return false;
             return plant(level,w,plantTarget,plantField,plantState);
         }
+        if(nutritionTarget!=null && level.hasChunkAt(nutritionTarget)
+                && land.canUse(level,nutritionTarget,w.employer))
+            return fertilize(level,npc,w,nutritionTarget,nutritionState);
         return hasProduce(w,planned)&&NpcFieldWork.deposit(level,npc,w);
     }
 }
