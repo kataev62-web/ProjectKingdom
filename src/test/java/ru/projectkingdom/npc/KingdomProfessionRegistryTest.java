@@ -7,11 +7,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class KingdomProfessionRegistryTest {
     @Test void identifiersAreUniqueAndPersistedNamesRemainStable() {
         var professions = KingdomProfessionRegistry.all();
-        assertEquals(10, professions.size());
+        assertEquals(26, professions.size());
         assertEquals(professions.size(), new HashSet<>(professions.stream().map(KingdomProfessionRegistry.Profession::id).toList()).size());
         assertEquals("free", professions.get(0).id());
         assertEquals("farmer", KingdomProfessionRegistry.next("free"));
-        assertEquals("free", KingdomProfessionRegistry.next("courier"));
+        assertEquals("breeder", KingdomProfessionRegistry.next("courier"));
+        assertEquals("free", KingdomProfessionRegistry.next("innkeeper"));
         assertEquals("free", KingdomProfessionRegistry.next("unknown"));
     }
 
