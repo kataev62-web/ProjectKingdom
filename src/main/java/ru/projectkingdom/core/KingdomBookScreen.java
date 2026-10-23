@@ -45,9 +45,9 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         var leftPage = KingdomBookLayout.leftPage();
         worldAtlasButton = new AbstractButton(leftPos + leftPage.x() + 10,
                 topPos + leftPage.y() + 130, leftPage.width() - 20, 20,
-                Component.literal("Атлас мира")) {
+                Component.literal("Графическая карта")) {
             @Override public void onPress() {
-                KingdomNetwork.CHANNEL.sendToServer(new OpenWorldAtlasPacket());
+                ru.projectkingdom.map.KingdomGraphicAtlasClient.open();
             }
             @Override protected void updateWidgetNarration(NarrationElementOutput narration) {
                 defaultButtonNarrationText(narration);
