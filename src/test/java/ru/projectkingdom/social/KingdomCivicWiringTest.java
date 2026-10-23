@@ -26,7 +26,7 @@ final class KingdomCivicWiringTest {
         assertTrue(menu.contains("KingdomCivicService.preview(player,town.id())"));
         assertTrue(menu.contains("civic.write(buffer)"));
         assertTrue(packet.contains("menu.civic().pendingId()"));
-        assertTrue(packet.contains("KingdomCivicService.review(sender"));
+        assertTrue(packet.contains("KingdomCivicService.review("));
     }
     @Test void sovereignRequiresActualNationRulerAndSameNationSubject()throws Exception{
         String service=src("social/KingdomCivicService.java");

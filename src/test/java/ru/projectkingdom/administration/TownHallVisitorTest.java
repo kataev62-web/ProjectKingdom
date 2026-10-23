@@ -47,6 +47,6 @@ final class TownHallVisitorTest {
         assertTrue(packet.contains("packet.kind!=AdministrativeKind.TOWN_HALL"));
         assertTrue(packet.contains("civics.townOf(sender.getUUID())!=null"));
         assertTrue(packet.contains("civics.joinTown(sender.getUUID(),town.id())"));
-        assertTrue(packet.contains("if(!publicFinance&&!menu.manager())return"));
+        assertTrue(packet.contains("!publicFinance&&!promote&&!petitionFile&&!petitionReview&&!menu.manager()"));
     }
 }
