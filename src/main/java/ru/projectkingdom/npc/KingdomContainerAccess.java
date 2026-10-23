@@ -67,6 +67,7 @@ public final class KingdomContainerAccess {
         }
         @Override public void setItem(int slot,ItemStack stack){
             if(slot<0||slot>=handler.getSlots())return;
+            if(ItemStack.matches(handler.getStackInSlot(slot),stack))return;
             if(!stack.isEmpty() && (!handler.isItemValid(slot,stack)
                     ||stack.getCount()>handler.getSlotLimit(slot)))return;
             handler.setStackInSlot(slot,stack.copy());entity.setChanged();
