@@ -5,6 +5,8 @@ import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 import ru.projectkingdom.npc.KingdomCivicsData;
+import ru.projectkingdom.npc.KingdomTaxData;
+import net.minecraft.network.chat.Component;
 
 public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,String field,String value) {
     public static String validatedText(String input){
@@ -31,7 +33,27 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
             var sender=context.getSender();String field=validatedField(packet.field);
             if(sender==null||packet.kind==null||field==null
                     ||!(sender.containerMenu instanceof AdministrativeCoreMenu menu)||!packet.townId.equals(menu.townId())
-                    ||packet.kind!=menu.kind()||!menu.manager()||!menu.stillValid(sender))return;
+                    ||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
+            if(field.equals("pay_taxes")){
+                if(packet.kind!=AdministrativeKind.TREASURY)return;
+                var taxes=KingdomTaxData.get(sender.getServer());
+                long owed=taxes.owedToTown(sender.getServer(),sender.getUUID(),packet.townId);
+                String text=packet.value==null?"":packet.value.trim();
+                long amount;
+                if(text.equals("all"))amount=owed;
+                else {
+                    if(!text.matches("[0-9]{1,7}")){
+                        sender.sendSystemMessage(Component.literal("[Казначейство] Укажите число медных монет от 1 до суммы долга."));
+                        return;
+                    }
+                    try{amount=Long.parseLong(text);}catch(NumberFormatException ex){return;}
+                }
+                var result=taxes.payAtTreasury(sender,packet.townId,amount);
+                sender.sendSystemMessage(Component.literal("[Казначейство] "+KingdomTaxData.paymentMessage(result)));
+                if(result==KingdomTaxData.PaymentResult.SUCCESS)sender.closeContainer();
+                return;
+            }
+            if(!menu.manager())return;
             if(field.equals("appoint_role")||field.equals("revoke_role")||field.equals("appoint_mayor")){
                 if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
                 String command=validatedCommandValue(packet.value);if(command==null)return;
