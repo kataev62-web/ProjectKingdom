@@ -45,7 +45,10 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                         UUID target=UUID.fromString(command.substring(0,separator));MunicipalRole role=MunicipalRole.valueOf(command.substring(separator+1));
                         if(role==MunicipalRole.MAYOR)return;
                         KingdomAdministrationData data=KingdomAdministrationData.get(sender.getServer());
-                        if(field.equals("appoint_role")&&civics.isMember(packet.townId,target))changed=data.appoint(packet.townId,sender.getUUID(),town.mayor(),target,role);
+                        if(field.equals("appoint_role")&&civics.isMember(packet.townId,target)
+                                 &&ru.projectkingdom.social.KingdomSocialPolicy.mayHoldAdministrativeOffice(
+                                     ru.projectkingdom.social.KingdomSocialData.get(sender.getServer()).rank(target)))
+                             changed=data.appoint(packet.townId,sender.getUUID(),town.mayor(),target,role);
                         else if(field.equals("revoke_role"))changed=data.revoke(packet.townId,sender.getUUID(),town.mayor(),target,role);
                     }catch(IllegalArgumentException ignored){}
                 }

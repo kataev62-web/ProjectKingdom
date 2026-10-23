@@ -24,6 +24,15 @@ public final class KingdomCivicsData extends SavedData {
     public record Town(UUID id, String name, UUID mayor, UUID nation, long treasury) {}
     public record Nation(UUID id, String name, UUID ruler, long treasury) {}
     public record Plot(String dimension, int x, int z, UUID town, UUID tenant, Zone zone, boolean publicUse) {}
+    /** Stored alongside town balances and city plots for a single authoritative city commit. */
+    public record ExpansionReceipt(UUID id,UUID townId,long copper,String dimension,int chunks) {}
+    private final Map<UUID,ExpansionReceipt> expansionReceipts = new LinkedHashMap<>();
+    public ExpansionReceipt expansionReceipt(UUID id){return expansionReceipts.get(id);}
+    public Collection<ExpansionReceipt> expansionReceipts(UUID townId){
+        List<ExpansionReceipt> result=new ArrayList<>();
+        for(var receipt:expansionReceipts.values())if(receipt.townId().equals(townId))result.add(receipt);
+        return List.copyOf(result);
+    }
     private final Map<UUID,Town> towns = new LinkedHashMap<>();
     private final Map<UUID,Nation> nations = new LinkedHashMap<>();
     private final Map<String,Plot> plots = new LinkedHashMap<>();
@@ -40,7 +49,7 @@ public final class KingdomCivicsData extends SavedData {
     public boolean registerPaidSale(UUID seller,UUID buyer,String dimension,int x,int z) {
         String k=key(dimension,x,z); Plot p=plots.get(k);
         if(p==null||seller==null||buyer==null||seller.equals(buyer)||!seller.equals(plotOwner(dimension,x,z))
-                ||p.tenant()!=null||leases.containsKey(k))return false;
+                ||p.tenant()!=null||leases.containsKey(k)||!socialMayBuy(buyer))return false;
         plotOwners.put(k,buyer); offers.remove(k); sales.remove(k);clearWorkers(k);setDirty();return true;
     }
     /** Server-side land sale listings. Payment is always physical cash at a town hall or bank counter. */
@@ -62,7 +71,14 @@ public final class KingdomCivicsData extends SavedData {
         String k=key(dimension,x,z);SaleOffer o=sales.get(k);Plot p=plots.get(k);
         return buyer!=null&&o!=null&&p!=null&&!buyer.equals(o.seller())
                 &&o.seller().equals(plotOwner(dimension,x,z))
-                &&p.tenant()==null&&!leases.containsKey(k);
+                &&p.tenant()==null&&!leases.containsKey(k)&&socialMayBuy(buyer);
+    }
+    private boolean socialMayBuy(UUID buyer) {
+        if(buyer==null)return false;
+        if(runtimeServer==null)return true; // isolated data fixture; production uses get(server)
+        long personalPlots=plotOwners.values().stream().filter(buyer::equals).count();
+        return ru.projectkingdom.social.KingdomSocialPolicy.canPurchasePlot(
+                ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(buyer),personalPlots);
     }
     public boolean completeSale(UUID buyer,String dimension,int x,int z) {
         if(!canBuySale(buyer,dimension,x,z))return false;
@@ -268,7 +284,9 @@ public final class KingdomCivicsData extends SavedData {
         Town town=towns.get(townId);if(town==null||runtimeServer==null||replacement==null||!isMember(townId,replacement))return false;
         KingdomAdministrationData administration=KingdomAdministrationData.get(runtimeServer);
         if(!AdministrativePermissionService.mayPerformFounderOnly(actor,administration.founder(townId)))return false;
-        if(replacement.equals(town.mayor()))return false;
+        if(replacement.equals(town.mayor()) ||
+                !ru.projectkingdom.social.KingdomSocialPolicy.mayHoldAdministrativeOffice(
+                    ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(replacement)))return false;
         towns.put(town.id(),new Town(town.id(),town.name(),replacement,town.nation(),town.treasury()));
         administration.appoint(townId,actor,town.mayor(),replacement,MunicipalRole.MAYOR);setDirty();return true;
     }
@@ -294,7 +312,22 @@ public final class KingdomCivicsData extends SavedData {
     public Plot plot(ServerLevel level,BlockPos pos) { return plots.get(key(dim(level),pos.getX()>>4,pos.getZ()>>4)); }
     public Town foundTown(UUID mayor,String name) {
         if(mayor==null || townOf(mayor)!=null || name==null || name.isBlank() || name.length()>48)return null;
-        Town t=new Town(UUID.randomUUID(),name,mayor,null,0);towns.put(t.id(),t);memberships.put(mayor,t.id());setDirty();return t;
+        // A founder cannot create a second settlement even after delegating its mayoral office.
+        boolean alreadyFounded=towns.values().stream().anyMatch(t->t.mayor().equals(mayor));
+        if(runtimeServer!=null) {
+            KingdomAdministrationData admin=KingdomAdministrationData.get(runtimeServer);
+            alreadyFounded|=towns.values().stream().anyMatch(t->mayor.equals(admin.founder(t.id())));
+            if(!ru.projectkingdom.social.KingdomSocialPolicy.canFoundSettlement(
+                    ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).rank(mayor),alreadyFounded))return null;
+        } else if(alreadyFounded)return null;
+        Town t=new Town(UUID.randomUUID(),name,mayor,null,0);
+        towns.put(t.id(),t);memberships.put(mayor,t.id());setDirty();
+        if(runtimeServer!=null) {
+            KingdomAdministrationData.get(runtimeServer).ensureFounder(t.id(),mayor);
+            ru.projectkingdom.social.KingdomSocialData.get(runtimeServer).preserveAtLeast(
+                    mayor,ru.projectkingdom.social.KingdomSocialRank.SETTLEMENT_FOUNDER);
+        }
+        return t;
     }
     public boolean joinTown(UUID player,UUID townId) {
         if(player==null||memberships.containsKey(player)||!towns.containsKey(townId))return false;
@@ -318,6 +351,28 @@ public final class KingdomCivicsData extends SavedData {
         Plot existing=plots.get(k);
         if(existing!=null)return existing.town().equals(t.id()); // repeated claim is not a conflict
         plots.put(k,new Plot(dimension,chunkX,chunkZ,t.id(),null,Zone.PUBLIC,false));setDirty();return true;
+    }
+    /**
+     * Commits the city treasury balance and ALL territory plots into one SavedData.
+     * The matching treasury reserve debit must have succeeded before this call.
+     * Never call from the client thread or without authenticated founder checks.
+     */
+    boolean commitPaidExpansion(UUID receiptId, UUID cityId, String dimension,
+                                Collection<KingdomExpansionPlans.Cell> cells, long amount) {
+        if(receiptId==null||cityId==null||dimension==null||cells==null
+                ||expansionReceipts.containsKey(receiptId))return false;
+        Town town=towns.get(cityId);
+        if(town==null)return false;
+        var quote=KingdomExpansionQuote.evaluate(cityId,dimension,cells,mapPlots(dimension),town.treasury());
+        if(quote.status()!=KingdomExpansionQuote.Status.READY||quote.price()!=amount)return false;
+        // All preconditions checked before changing either plots or the balance.
+        for(var cell:cells) {
+            String plotKey=key(cell.dimension(),cell.x(),cell.z());
+            plots.put(plotKey,new Plot(cell.dimension(),cell.x(),cell.z(),cityId,null,Zone.PUBLIC,false));
+        }
+        towns.put(cityId,new Town(town.id(),town.name(),town.mayor(),town.nation(),town.treasury()-amount));
+        expansionReceipts.put(receiptId,new ExpansionReceipt(receiptId,cityId,amount,dimension,cells.size()));
+        setDirty();return true;
     }
     public boolean zone(UUID mayor,String dimension,int chunkX,int chunkZ,Zone zone) {
         String k=key(dimension,chunkX,chunkZ);Plot p=plots.get(k);Town t=p==null?null:towns.get(p.town());
@@ -478,6 +533,14 @@ public final class KingdomCivicsData extends SavedData {
             if(r.hasUUID("Tenant")&&r.hasUUID("Landlord")&&r.getLong("Copper")>0)
                 d.leaseDebts.put(k,new LeaseDebt(r.getUUID("Tenant"),r.getUUID("Landlord"),r.getLong("Copper"),r.getLong("AssessedAt")));
         }
+        ListTag receipts=root.getList("ExpansionReceipts",Tag.TAG_COMPOUND);
+        for(int i=0;i<receipts.size();i++){
+            CompoundTag row=receipts.getCompound(i);
+            if(!row.hasUUID("Id")||!row.hasUUID("Town")||row.getLong("Copper")<=0)continue;
+            var receipt=new ExpansionReceipt(row.getUUID("Id"),row.getUUID("Town"),
+                    row.getLong("Copper"),row.getString("Dimension"),row.getInt("Chunks"));
+            d.expansionReceipts.putIfAbsent(receipt.id(),receipt);
+        }
         return d;
     }
     @Override public CompoundTag save(CompoundTag root) {
@@ -507,6 +570,14 @@ public final class KingdomCivicsData extends SavedData {
             r.putUUID("Tenant",e.getValue().tenant());r.putUUID("Landlord",e.getValue().landlord());
             r.putLong("Copper",e.getValue().copper());r.putLong("AssessedAt",e.getValue().assessedAt());debts.add(r);
         }root.put("LeaseDebts",debts);
+        ListTag receipts=new ListTag();
+        for(ExpansionReceipt receipt:expansionReceipts.values()){
+            CompoundTag row=new CompoundTag();row.putUUID("Id",receipt.id());
+            row.putUUID("Town",receipt.townId());row.putLong("Copper",receipt.copper());
+            row.putString("Dimension",receipt.dimension());row.putInt("Chunks",receipt.chunks());
+            receipts.add(row);
+        }
+        root.put("ExpansionReceipts",receipts);
         return root;
     }
 }

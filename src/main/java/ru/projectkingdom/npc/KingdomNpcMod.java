@@ -288,6 +288,7 @@ public final class KingdomNpcMod {
     @SubscribeEvent
     public void commands(RegisterCommandsEvent event) {
         KingdomExpansionCommands.register(event);
+        ru.projectkingdom.social.KingdomSocialCommands.register(event);
         var root = Commands.literal("knpc");
         root.then(Commands.literal("talk")
             .then(Commands.argument("id", IntegerArgumentType.integer(1))
@@ -639,6 +640,12 @@ public final class KingdomNpcMod {
             if(w==null || w.employer!=null || !NpcIdentity.canHire(w.ageYears)) {reply(src,"NPC unavailable for hire (must be adult)");return 0;}
             if(KingdomEnterpriseData.get(src.getServer()).owned(p.getUUID())==null){
                 reply(src,"Сначала зарегистрируй предприятие и кассу для зарплаты NPC.");return 0;
+            }
+            long hired=KingdomNpcData.get(src.getServer()).workers.values().stream()
+                    .filter(worker->p.getUUID().equals(worker.employer)).count();
+            if(!ru.projectkingdom.social.KingdomSocialPolicy.canHirePersonalWorker(
+                    ru.projectkingdom.social.KingdomSocialData.get(src.getServer()).rank(p.getUUID()),hired)){
+                reply(src,"Лимит личных работников для текущего социального статуса исчерпан.");return 0;
             }
             w.employer=p.getUUID(); w.lastPaidDay=src.getServer().overworld().getDayTime()/TICKS_PER_DAY;
             w.unpaidDays=0; w.contractPaused=false;
