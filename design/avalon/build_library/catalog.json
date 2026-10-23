@@ -157,6 +157,43 @@
       "interiors": "yes",
       "status": "candidate",
       "next": "Reference only: known 1.20 import failure report, display entities and custom textures may be costly."
+    },
+    {
+      "id": "seegras_medieval_baroque_town",
+      "type": [
+        "urban_layout",
+        "housing",
+        "merchant_shops"
+      ],
+      "title": "Medieval/Baroque Town",
+      "author": "Seegras",
+      "url": "https://www.planetminecraft.com/project/medievalbaroque-town/",
+      "published_version": "2015; conversion required",
+      "priority": 2,
+      "licensing": "CC BY-SA stated on author publication; preserve attribution and share-alike for derivative work; cathedral excluded by creator for copyright reasons.",
+      "credit": "Seegras: https://www.planetminecraft.com/project/medievalbaroque-town/",
+      "compatibility": "requires_legacy_conversion_and_test",
+      "interiors": "many furnished houses with shops",
+      "status": "candidate",
+      "next": "Get original schematic, confirm file permissions and inspect legacy format; DO NOT paste entire town into Avalon."
+    },
+    {
+      "id": "arcturusphoenix_castle_complex",
+      "type": [
+        "castle",
+        "fortification"
+      ],
+      "title": "Small Deserted Medieval Castle Complex #1",
+      "author": "ArcturusPhoenix",
+      "url": "https://www.planetminecraft.com/project/small-deserted-medieval-castle-complex-1-by-arcturusphoenix/",
+      "published_version": "1.16.5 - 1.20.x (author statement)",
+      "priority": 2,
+      "licensing": "Author states Creative Commons Attribution 3.0; attribution required. Verify downloaded archive and enclosed terms.",
+      "credit": "ArcturusPhoenix: https://www.planetminecraft.com/project/small-deserted-medieval-castle-complex-1-by-arcturusphoenix/",
+      "compatibility": "author_declares_1_20_not_tested",
+      "interiors": "unknown",
+      "status": "candidate",
+      "next": "Obtain file from authors' download page and verify NBT/size; castle may suit a satellite fortress, not Avalon citadel."
     }
   ]
 }
