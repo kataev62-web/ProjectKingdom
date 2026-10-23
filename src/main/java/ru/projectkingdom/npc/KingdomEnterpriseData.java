@@ -125,6 +125,8 @@ public final class KingdomEnterpriseData extends SavedData {
         offers.values().removeIf(offer->business.equals(offer.seller()));
         selections.entrySet().removeIf(entry->business.equals(entry.getValue()));
         cashiers.remove(business);
+        ru.projectkingdom.enterprise.KingdomEnterpriseApplications.get(player.getServer())
+            .cancelForClosedEnterprise(business);
         counters.remove(business);
         storageBindings.remove(business);
         cores.remove(business);
