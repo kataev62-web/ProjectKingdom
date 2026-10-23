@@ -25,26 +25,36 @@ public final class KingdomArchitectSessions {
     public static void cancel(UUID player) { ACTIVE.remove(player); }
 
     public static void beginBuiltin(ServerPlayer player, KingdomBuildingTypes.Type type) {
-        if (type != null) begin(player,type.name());
+        beginBuiltin(player,type,null);
+    }
+    public static void beginBuiltin(ServerPlayer player, KingdomBuildingTypes.Type type, BlockPos office) {
+        if (type != null) begin(player,type.name(),office);
     }
 
     public static void beginSchematic(ServerPlayer player,String name) {
+        beginSchematic(player,name,null);
+    }
+    public static void beginSchematic(ServerPlayer player,String name, BlockPos office) {
         if (!KingdomSchematicLibrary.validName(name)) {
             tell(player,"Неверное название схемы.");return;
         }
         try {
             // Snapshotting here freezes the file for preview AND later build.
-            begin(player,KingdomSchematicLibrary.freeze(player.getServer(),name));
+            begin(player,KingdomSchematicLibrary.freeze(player.getServer(),name),office);
         } catch (IOException | IllegalArgumentException ex) {
             tell(player,"Нельзя открыть схему: "+ex.getMessage());
         }
     }
 
-    private static void begin(ServerPlayer player,String design) {
+    private static void begin(ServerPlayer player,String design,BlockPos office) {
         if (player.getServer()==null)return;
-        BlockPos marker=KingdomSiteBuilder.findLectern(player);
+        // An enterprise menu remembers the actual core it was opened from.
+        // Free-standing drafting tables keep the old nearby-search behavior.
+        BlockPos marker=office!=null ? office : KingdomSiteBuilder.findLectern(player);
         if (marker==null || !KingdomConstructionMarkers.isMarker(player.serverLevel(),marker)){
-            tell(player,"Сначала поставь рядом чертёжный стол или кафедру.");return;
+            tell(player,office!=null
+                ?"Блок строительной конторы больше не доступен."
+                :"Подойди к строительной конторе или чертёжному столу.");return;
         }
         if (!KingdomArchitectSiteAccess.mayUse(player,marker)) {
             tell(player,"Нет прав пользоваться этой строительной конторой.");return;
