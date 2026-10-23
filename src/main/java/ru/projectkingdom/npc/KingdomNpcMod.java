@@ -874,6 +874,14 @@ public final class KingdomNpcMod {
                         if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
                             npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
                         else npc.getNavigation().stop();
+                    } else if ("wander".equals(w.order) && w.hasHome
+                            && ("SEEK_SHELTER".equals(w.autonomousIntent)
+                                || "REST".equals(w.autonomousIntent))) {
+                        // Follow autonomous shelter/rest intent without changing player orders.
+                        // This only navigates an already loaded resident; no teleportation.
+                        if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
+                            npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
+                        else npc.getNavigation().stop();
                     } else if ("follow".equals(w.order) && w.employer != null) {
                         ServerPlayer owner = server.getPlayerList().getPlayer(w.employer);
                         if (owner != null && owner.level() == level && npc.distanceToSqr(owner) > 9)
