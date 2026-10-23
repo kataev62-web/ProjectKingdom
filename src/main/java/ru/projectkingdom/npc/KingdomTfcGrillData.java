@@ -24,7 +24,7 @@ public final class KingdomTfcGrillData extends SavedData {
     public Job get(UUID worker) { return jobs.get(worker); }
     public void put(Job job) { jobs.put(job.worker(), job); setDirty(); }
     public void remove(UUID worker) { if (jobs.remove(worker) != null) setDirty(); }
-    private static KingdomTfcGrillData load(CompoundTag root) {
+    static KingdomTfcGrillData load(CompoundTag root) {
         var data = new KingdomTfcGrillData();
         for (Tag raw : root.getList("Jobs", Tag.TAG_COMPOUND)) {
             CompoundTag t = (CompoundTag) raw;
