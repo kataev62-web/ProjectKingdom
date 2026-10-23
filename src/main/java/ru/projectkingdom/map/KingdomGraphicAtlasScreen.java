@@ -120,17 +120,49 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         if (ticks % 40 == 0) request();
     }
 
+    private static int mix(int left, int right, int percentage) {
+        int inv = 100 - percentage;
+        int r = ((((left >> 16) & 255) * inv) + (((right >> 16) & 255) * percentage)) / 100;
+        int g = ((((left >> 8) & 255) * inv) + (((right >> 8) & 255) * percentage)) / 100;
+        int b = (((left & 255) * inv) + ((right & 255) * percentage)) / 100;
+        return 0xFF000000 | (r << 16) | (g << 8) | b;
+    }
+
+    /** Terrain colors are read from real loaded TFC / Minecraft surface blocks. */
+    private static int surfaceColor(KingdomGraphicAtlasData.Tile tile) {
+        var types = KingdomAtlasTerrain.Type.values();
+        int idx = tile.terrain();
+        KingdomAtlasTerrain.Type type = idx >= 0 && idx < types.length
+                ? types[idx] : KingdomAtlasTerrain.Type.UNKNOWN;
+        int base = switch(type) {
+            case UNKNOWN -> 0xFFE2D6B9;
+            case PLAIN -> 0xFFC1CF96;
+            case FOREST -> 0xFF719763;
+            case WATER -> 0xFF82B5C2;
+            case MOUNTAIN -> 0xFFA3A298;
+            case ROAD -> 0xFFB39468;
+        };
+        // Simple hillshade: coarse elevation, not invented relief geometry.
+        if (type == KingdomAtlasTerrain.Type.MOUNTAIN) {
+            int shade = Math.max(0, Math.min(26, tile.elevation() / 5));
+            return mix(base, 0xFF4E5048, shade);
+        }
+        return base;
+    }
+
     private static int territoryColor(KingdomGraphicAtlasData.Tile tile,
                                       KingdomGraphicAtlasData.Layer layer) {
-        if (tile.planned() && layer == KingdomGraphicAtlasData.Layer.LAND) return PLAN;
-        if (tile.claims() == 0) return FREE;
-        if (tile.mixed()) return 0xFFC08A6B;
-        if (layer == KingdomGraphicAtlasData.Layer.ENTERPRISES) return 0xFFB4B4A3;
-        if (layer == KingdomGraphicAtlasData.Layer.LAND && tile.own()) return OWN;
+        int base = surfaceColor(tile);
+        if (tile.planned() && layer == KingdomGraphicAtlasData.Layer.LAND)
+            return mix(base, PLAN, 66);
+        if (tile.claims() == 0) return base;
+        if (tile.mixed()) return mix(base, 0xFFC08A6B, 70);
+        if (layer == KingdomGraphicAtlasData.Layer.ENTERPRISES) return mix(base, 0xFF9D9E88, 24);
+        if (layer == KingdomGraphicAtlasData.Layer.LAND && tile.own()) return mix(base, OWN, 65);
         int seed = layer == KingdomGraphicAtlasData.Layer.POLITICAL
                     && !tile.nation().isEmpty() ? tile.nationColor() : tile.townColor();
         int paletteIndex = Math.floorMod(seed, TOWN_PALETTE.length);
-        return TOWN_PALETTE[paletteIndex];
+        return mix(base, TOWN_PALETTE[paletteIndex], 66);
     }
 
     @Override public void render(GuiGraphics gui, int mouseX, int mouseY, float partialTick) {
@@ -180,8 +212,17 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                     + col * snapshot.scale();
             int z = centerZ - (KingdomGraphicAtlasData.ROWS / 2) * snapshot.scale()
                     + row * snapshot.scale();
-            gui.renderTooltip(font, Component.literal("Чанк " + x + ", " + z + " — " +
-                    (tile.town().isEmpty() ? "свободно" : tile.town())), mouseX, mouseY);
+            String terrain = switch (KingdomAtlasTerrain.Type.values()[tile.terrain()]) {
+                case UNKNOWN -> "местность не загружена";
+                case PLAIN -> "равнина";
+                case FOREST -> "лес";
+                case WATER -> "вода";
+                case MOUNTAIN -> "горы";
+                case ROAD -> "дорога";
+            };
+            gui.renderTooltip(font, Component.literal("Чанк " + x + ", " + z
+                    + " | " + terrain + " | " + (tile.town().isEmpty() ? "свободно" : tile.town())),
+                    mouseX, mouseY);
         }
     }
 
