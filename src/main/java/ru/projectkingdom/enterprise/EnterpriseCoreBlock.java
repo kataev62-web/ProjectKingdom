@@ -24,6 +24,7 @@ import net.minecraft.world.level.storage.loot.LootParams;
 import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomTerritories;
+import ru.projectkingdom.npc.KingdomCivicsData;
 
 /** Shared secure core block parameterized by one private enterprise type. */
 public final class EnterpriseCoreBlock extends Block implements EntityBlock {
@@ -43,7 +44,7 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
         EnterpriseCoreItemData.Bound bound=EnterpriseCoreItemData.read(stack);
         UUIDHolder identity;
         if(bound==null){
-            if(!KingdomTerritories.get(server.getServer()).canUse(server,pos,player.getUUID())){
+            if(!canPlaceBusiness(server,pos,player.getUUID())){
                 reject(server,pos,player,stack,"Сначала зарегистрируйте свою территорию.");return;
             }
             var firm=data.create(player.getUUID(),kind.defaultPrefix()+" "+(data.ownedAll(player.getUUID()).size()+1),kind);
@@ -69,6 +70,13 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
             reject(server,pos,player,stack,reason);return;
         }
         if(server.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core)core.bind(identity.enterprise(),identity.owner(),kind);
+    }
+
+    private static boolean canPlaceBusiness(ServerLevel level,BlockPos pos,java.util.UUID owner){
+        if(KingdomTerritories.get(level.getServer()).canUse(level,pos,owner))return true;
+        var civic=KingdomCivicsData.get(level.getServer());
+        return owner!=null&&owner.equals(civic.plotOwner(
+            level.dimension().location().toString(),pos.getX()>>4,pos.getZ()>>4));
     }
 
     private void reject(ServerLevel level,BlockPos pos,ServerPlayer player,ItemStack placed,String reason){
