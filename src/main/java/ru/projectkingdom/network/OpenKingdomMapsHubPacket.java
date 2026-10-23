@@ -5,7 +5,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraftforge.network.NetworkEvent;
 import ru.projectkingdom.npc.KingdomMainMenu;
 
-/** Return from a graphical Kingdom atlas into the unified maps hub. */
+/** Return from the native Kingdom atlas to the main Kingdom management menu. */
 public final class OpenKingdomMapsHubPacket {
     public static void encode(OpenKingdomMapsHubPacket packet, FriendlyByteBuf buf) {}
     public static OpenKingdomMapsHubPacket decode(FriendlyByteBuf buf) {
@@ -17,7 +17,7 @@ public final class OpenKingdomMapsHubPacket {
         ctx.enqueueWork(() -> {
             var sender = ctx.getSender();
             if (sender == null || sender.getServer() == null) return;
-            KingdomMainMenu.openMaps(sender);
+            KingdomMainMenu.open(sender);
         });
         ctx.setPacketHandled(true);
     }
