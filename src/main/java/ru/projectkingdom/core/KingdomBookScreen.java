@@ -12,6 +12,7 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import ru.projectkingdom.network.KingdomNetwork;
 import ru.projectkingdom.network.OpenLandMapFromBookPacket;
+import ru.projectkingdom.network.OpenCityExpansionMapPacket;
 
 public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBookMenu> {
     private static final ResourceLocation BOOK_TEXTURE =
@@ -28,6 +29,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
 
     private BookModel.Section selected = BookModel.Section.PLAYER;
     private AbstractButton landMapButton;
+    private AbstractButton expansionMapButton;
 
     public KingdomBookScreen(KingdomBookMenu menu, Inventory inventory, Component title) {
         super(menu, inventory, title);
@@ -51,6 +53,18 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         };
         landMapButton.visible = selected == BookModel.Section.WORLD || selected == BookModel.Section.STATE;
         addRenderableWidget(landMapButton);
+        expansionMapButton = new AbstractButton(leftPos + rightPage.x() + 12,
+                topPos + rightPage.y() + 138, rightPage.width() - 24, 19,
+                Component.literal("Границы города")) {
+            @Override public void onPress() {
+                KingdomNetwork.CHANNEL.sendToServer(new OpenCityExpansionMapPacket());
+            }
+            @Override protected void updateWidgetNarration(NarrationElementOutput narration) {
+                defaultButtonNarrationText(narration);
+            }
+        };
+        expansionMapButton.visible = selected == BookModel.Section.STATE;
+        addRenderableWidget(expansionMapButton);
         var bounds = KingdomBookLayout.tabs();
         var sections = BookModel.Section.values();
         for (int index = 0; index < sections.length; index++) {
@@ -249,6 +263,7 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         public void onPress() {
             selected = section;
             if (landMapButton != null) landMapButton.visible = section == BookModel.Section.WORLD || section == BookModel.Section.STATE;
+            if (expansionMapButton != null) expansionMapButton.visible = section == BookModel.Section.STATE;
         }
 
         @Override
