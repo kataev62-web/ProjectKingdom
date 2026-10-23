@@ -20,7 +20,7 @@ import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Menu-driven management; all changes are verified on the server. */
 public final class KingdomMainMenu extends ChestMenu {
-    private enum Page { HOME, BUILD, PROJECTS, ARMY, TERRITORY, PEOPLE, CIVICS, WALLET, PAYMENTS, PAYROLL, ENTERPRISE, BANK, SITE, WAREHOUSE, ORDERS }
+    private enum Page { HOME, BUILD, PROJECTS, ARMY, TERRITORY, PEOPLE, CIVICS, WALLET, PAYMENTS, PAYROLL, ENTERPRISE, BANK, SITE, MATERIALS, WAREHOUSE, ORDERS }
     private final SimpleContainer content;
     private final ServerPlayer viewer;
     private final Page page;
@@ -29,6 +29,7 @@ public final class KingdomMainMenu extends ChestMenu {
     private int marketCount=20;
     private int marketQuote=0;
     private int schematicPage=0;
+    private int materialsPage=0;
     // Server-bound slot identities: never let live market ordering change the clicked offer.
     private final java.util.Map<Integer,java.util.UUID> tradeSlots=new java.util.HashMap<>();
     private KingdomMainMenu(int id, Inventory inventory, ServerPlayer player, Page page, SimpleContainer content, java.util.UUID siteId) {
@@ -80,11 +81,18 @@ public final class KingdomMainMenu extends ChestMenu {
             Component.literal("Project Kingdom / "+switch(page){
                 case HOME -> "Управление"; case BUILD -> "Архитектор";
                 case PROJECTS -> "Проекты"; case ARMY -> "Армия";
-                case TERRITORY -> "Территории"; case PEOPLE -> "Жители"; case CIVICS -> "Города и нации"; case WALLET -> "Кошелёк"; case PAYMENTS -> "Платежи"; case PAYROLL -> "Зарплаты"; case ENTERPRISE -> "Предприятие"; case BANK -> "Банк"; case SITE -> "Строительная площадка"; case WAREHOUSE -> "Заказ доставки"; case ORDERS -> "Мои доставки";
+                case TERRITORY -> "Территории"; case PEOPLE -> "Жители"; case CIVICS -> "Города и нации"; case WALLET -> "Кошелёк"; case PAYMENTS -> "Платежи"; case PAYROLL -> "Зарплаты"; case ENTERPRISE -> "Предприятие"; case BANK -> "Банк"; case SITE -> "Строительная площадка"; case MATERIALS -> "Материалы для стройки"; case WAREHOUSE -> "Заказ доставки"; case ORDERS -> "Мои доставки";
             })));
     }
     private void icon(int slot, Item item, String name) {
         ItemStack stack=new ItemStack(item);stack.setHoverName(Component.literal(name));content.setItem(slot,stack);
+    }
+    private void materialIcon(int slot, KingdomConstructionDiagnostics.Material material) {
+        ItemStack stack=new ItemStack(material.item());
+        stack.setHoverName(Component.empty().append(material.item().getDescription())
+            .append(Component.literal(" | Требуется: "+material.required()
+                +" | На складе: "+material.available()+" | Не хватает: "+material.missing())));
+        content.setItem(slot,stack);
     }
     private void draw() {
         content.clearContent();
@@ -249,9 +257,9 @@ public final class KingdomMainMenu extends ChestMenu {
                             ?(project.status()==KingdomConstructionData.Status.PLANNED?"Начать строительство NPC":"Приостановить строительство NPC")
                             :"Запускать и останавливать стройку может только владелец");
                         icon(14,Items.CHEST,"Склад материалов рядом со столом; NPC-строитель с договором работает по дневному расписанию");
-                        icon(15,Items.WRITABLE_BOOK,"Смета: "+KingdomConstructionPlans.bill(design));
+                        icon(15,Items.WRITABLE_BOOK,"Материалы: открыть список со значками и количеством");
                         icon(16,Items.COMPASS,"Состояние: "+KingdomConstructionDiagnostics.nextStep(viewer.getServer(),project));
-                        icon(17,Items.HOPPER,KingdomConstructionDiagnostics.missingMaterials(viewer.getServer(),project));
+                        icon(17,Items.HOPPER,KingdomConstructionDiagnostics.missingMaterials(viewer.getServer(),project)+" — нажми для подробностей");
                         int helpers=sites.assistants(project.id()).size();
                         if(project.owner().equals(viewer.getUUID())) {
                             var nearby=nearbyPlayers().stream().min(
@@ -266,6 +274,22 @@ public final class KingdomMainMenu extends ChestMenu {
                         icon(19,Items.PAPER,"Бригада: "+helpers+"/8. Приглашение не даёт права менять владельца или распоряжаться проектом.");
                         icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),"ПКМ по столу / кафедре для управления. Молот — строить, чертёж — подсветка");
                     }
+                }
+            }
+            case MATERIALS -> {
+                var projects=KingdomConstructionData.get(viewer.getServer());
+                var project=projects.find(siteId);
+                if(project!=null && projects.mayAssist(siteId,viewer.getUUID())) {
+                    var rows=KingdomConstructionDiagnostics.materials(viewer.getServer(),project);
+                    int pages=Math.max(1,(rows.size()+17)/18);
+                    if(materialsPage>=pages)materialsPage=pages-1;
+                    for(int i=0;i<18 && materialsPage*18+i<rows.size();i++)
+                        materialIcon(i,rows.get(materialsPage*18+i));
+                    icon(20,Items.BOOK,"Материалы: "+rows.size()+" видов. Наведи курсор на значок для названия и количества.");
+                    icon(21,Items.ARROW,"Предыдущая страница");
+                    icon(22,Items.ARROW,"Следующая страница ("+(materialsPage+1)+"/"+pages+")");
+                    icon(23,Items.HOPPER,KingdomConstructionDiagnostics.missingMaterials(viewer.getServer(),project));
+                    icon(24,Items.CHEST,"Материалы берутся только из настоящего сундука или бочки рядом с чертёжным столом.");
                 }
             }
             case PROJECTS -> {
@@ -320,7 +344,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(15,Items.BOOK,"Работа, склады, зарплата и профессии — в меню жителя");
             }
         }
-        if(page!=Page.HOME)icon(26,Items.ARROW,"Назад в главное меню");
+        if(page!=Page.HOME)icon(26,Items.ARROW,page==Page.MATERIALS?"Назад к строительству":"Назад в главное меню");
         broadcastChanges();
     }
     private void say(String message) {viewer.sendSystemMessage(Component.literal("[Project Kingdom] "+message));}
@@ -365,7 +389,7 @@ public final class KingdomMainMenu extends ChestMenu {
     }
     @Override public void clicked(int slot,int button,ClickType type,Player player) {
         if(player!=viewer || viewer.level().isClientSide || type!=ClickType.PICKUP || (button!=0 && !(page==Page.PAYROLL && button==1) && !(page==Page.ENTERPRISE && button==1)) || slot<0 || slot>=27)return;
-        if(page!=Page.HOME && slot==26){show(viewer,Page.HOME);return;}
+        if(page!=Page.HOME && slot==26){if(page==Page.MATERIALS)show(viewer,Page.SITE,siteId);else show(viewer,Page.HOME);return;}
         switch(page){
             case HOME -> {switch(slot){
                 case 10 -> show(viewer,Page.BUILD);
@@ -503,6 +527,10 @@ public final class KingdomMainMenu extends ChestMenu {
             case SITE -> {
                 var db=KingdomConstructionData.get(viewer.getServer());
                 var project=db.find(siteId);
+                if((slot==15 || slot==17) && project!=null && db.mayAssist(siteId,viewer.getUUID())) {
+                    show(viewer,Page.MATERIALS,siteId);
+                    break;
+                }
                 if(slot==13) {
                     boolean start=project!=null && project.status()==KingdomConstructionData.Status.PLANNED;
                     say(db.order(siteId,viewer.getUUID(),start)
@@ -520,6 +548,13 @@ public final class KingdomMainMenu extends ChestMenu {
                     } else say("Пусть помощник подойдёт к тебе на расстояние до 8 блоков.");
                     draw();
                 }
+            }
+            case MATERIALS -> {
+                var project=KingdomConstructionData.get(viewer.getServer()).find(siteId);
+                if(project==null || !KingdomConstructionData.get(viewer.getServer()).mayAssist(siteId,viewer.getUUID())) break;
+                int pages=Math.max(1,(KingdomConstructionDiagnostics.materials(viewer.getServer(),project).size()+17)/18);
+                if(slot==21){materialsPage=(materialsPage+pages-1)%pages;draw();}
+                if(slot==22){materialsPage=(materialsPage+1)%pages;draw();}
             }
             case PROJECTS -> {if(slot>=0&&slot<18){
                 int i=0;
