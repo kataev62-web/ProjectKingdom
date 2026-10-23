@@ -4,6 +4,9 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
@@ -81,12 +84,24 @@ public final class EnterpriseAccessService {
                 && !owner.equals(managed.owner()))return Status.STORAGE_OWNER_MISMATCH;
         return KingdomContainerAccess.resolve(level,pos)==null ? Status.INVALID_CONTAINER : Status.BOUND_AVAILABLE;
     }
+    /** Both halves of a double chest are a single private inventory/role. */
+    private static boolean samePhysicalStorage(ServerLevel level,BlockPos first,BlockPos second){
+        if(first.equals(second))return true;
+        if(first.distManhattan(second)!=1 || !level.hasChunkAt(first)||!level.hasChunkAt(second))
+            return false;
+        var a=level.getBlockState(first);
+        var b=level.getBlockState(second);
+        return a.getBlock() instanceof ChestBlock && b.is(a.getBlock())
+                && a.getValue(ChestBlock.TYPE)!=ChestType.SINGLE
+                && b.getValue(ChestBlock.TYPE)!=ChestType.SINGLE
+                && a.getValue(ChestBlock.FACING)==b.getValue(ChestBlock.FACING);
+    }
     private static boolean assignedElsewhere(KingdomEnterpriseData data,UUID enterprise,EnterpriseBindingRole role,
                                                ServerLevel level,BlockPos pos){
         String dim=level.dimension().location().toString();
         for(var other:data.all())for(var type:EnterpriseBindingRole.values()){
             var bound=data.storageBinding(other.id(),type);
-            if(bound!=null && dim.equals(bound.dimension()) && pos.equals(bound.pos())
+            if(bound!=null && dim.equals(bound.dimension()) && samePhysicalStorage(level,pos,bound.pos()))
                     && (!enterprise.equals(other.id()) || role!=type))return true;
         }
         return false;
