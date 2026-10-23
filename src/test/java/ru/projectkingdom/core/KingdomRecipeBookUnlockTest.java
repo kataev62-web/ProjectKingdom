@@ -15,11 +15,12 @@ final class KingdomRecipeBookUnlockTest {
         List<String> ids=List.of(
                 "wallet",
                 "farm_core","mine_core","lumber_core","smithy_core","bakery_core","pottery_core","construction_core","courier_core",
-                "town_hall_core","treasury_core","bank_core","central_warehouse_core","city_market_core","land_office_core","court_core","prison_core","guard_administration_core");
+                "town_hall_core","treasury_core","bank_core","central_warehouse_core","city_market_core","land_office_core","court_core","prison_core","guard_administration_core",
+                "managed_storage","demand_board","drafting_table","building_blueprint","builders_hammer");
         for(String id:ids){
             assertTrue(Files.isRegularFile(Path.of("src/main/resources/data/kingdomnpc/recipes/"+id+".json")),id+" recipe is missing");
             assertTrue(json.contains("kingdomnpc:"+id),id+" is not unlocked in the recipe book");
         }
-        assertEquals(18,ids.stream().distinct().count());
+        assertEquals(23,ids.stream().distinct().count());
     }
 }
