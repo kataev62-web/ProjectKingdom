@@ -11,19 +11,19 @@ import ru.projectkingdom.npc.KingdomCivicsData;
 /** Municipal awards and citizen petitions. All authority is validated at the server boundary. */
 public final class KingdomCivicService {
     public record Snapshot(int reputation,int socialLevel,String bestHonor,
-                           String petitionLine,UUID pendingId,String pendingLine,boolean council) {
-        public static Snapshot empty(){return new Snapshot(0,1,"Нет","Нет",null,"Нет",false);}
+                           String petitionLine,UUID pendingId,String pendingLine,boolean council,boolean sovereign) {
+        public static Snapshot empty(){return new Snapshot(0,1,"Нет","Нет",null,"Нет",false,false);}
         public void write(FriendlyByteBuf out) {
             out.writeVarInt(reputation);out.writeVarInt(socialLevel);
             out.writeUtf(bestHonor,64);out.writeUtf(petitionLine,96);
             out.writeBoolean(pendingId!=null);if(pendingId!=null)out.writeUUID(pendingId);
-            out.writeUtf(pendingLine,96);out.writeBoolean(council);
+            out.writeUtf(pendingLine,96);out.writeBoolean(council);out.writeBoolean(sovereign);
         }
         public static Snapshot read(FriendlyByteBuf in) {
             int reputation=in.readVarInt(),rank=in.readVarInt();
             String honor=in.readUtf(64),petition=in.readUtf(96);
             UUID pending=in.readBoolean()?in.readUUID():null;
-            return new Snapshot(reputation,rank,honor,petition,pending,in.readUtf(96),in.readBoolean());
+            return new Snapshot(reputation,rank,honor,petition,pending,in.readUtf(96),in.readBoolean(),in.readBoolean());
         }
     }
     private KingdomCivicService(){}
@@ -54,13 +54,15 @@ public final class KingdomCivicService {
         var mine=petitions.forMember(townId,person,1);
         String myLine=mine.isEmpty()?"Нет":mine.get(0).topic().russian()+" — "+status(mine.get(0).status());
         boolean council=mayCouncil(player,townId);
+        boolean sovereign=realm!=null&&town.nation()!=null
+                &&town.nation().equals(realm.id())&&person.equals(realm.ruler());
         var queue=council?petitions.pending(townId,KingdomCitizenPetitionsData.MAX_ACTIVE_PER_TOWN).stream()
                 .filter(p->!person.equals(p.petitioner())).limit(1).toList()
                 :List.<KingdomCitizenPetitionsData.Petition>of();
         UUID pending=queue.isEmpty()?null:queue.get(0).id();
         String pendingLine=queue.isEmpty()?"Обращений нет":queue.get(0).topic().russian()
                 +" | "+queue.get(0).petitioner().toString().substring(0,8);
-        return new Snapshot(reputation,rank.level(),honor,myLine,pending,pendingLine,council);
+        return new Snapshot(reputation,rank.level(),honor,myLine,pending,pendingLine,council,sovereign);
     }
     public static String status(KingdomCitizenPetitionsData.Status status) {
         return switch(status) {

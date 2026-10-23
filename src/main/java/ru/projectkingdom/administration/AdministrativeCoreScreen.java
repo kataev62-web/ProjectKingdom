@@ -124,11 +124,17 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
         if(promoteSocial!=null)promoteSocial.visible=selected==AdministrativeMenuLayout.Tab.SOCIAL;
-        if(civicToggle!=null)civicToggle.visible=selected==AdministrativeMenuLayout.Tab.CIVIC&&menu.civic().council();
-        boolean citizen=selected==AdministrativeMenuLayout.Tab.CIVIC&&(!councilMode||!menu.civic().council());
-        boolean council=selected==AdministrativeMenuLayout.Tab.CIVIC&&councilMode&&menu.civic().council();
+        if(civicToggle!=null)civicToggle.visible=selected==AdministrativeMenuLayout.Tab.CIVIC
+                &&(menu.civic().council()||menu.civic().sovereign());
+        boolean adminPage=selected==AdministrativeMenuLayout.Tab.CIVIC&&councilMode
+                &&(menu.civic().council()||menu.civic().sovereign());
+        boolean citizen=selected==AdministrativeMenuLayout.Tab.CIVIC&&!adminPage;
         for(AbstractWidget widget:civicCitizenControls)widget.visible=citizen;
-        for(AbstractWidget widget:civicCouncilControls)widget.visible=council;
+        for(int i=0;i<civicCouncilControls.size();i++){
+            // 0-1 council decisions, 2 recipient UUID, 3-5 municipal honors, 6 realm order.
+            civicCouncilControls.get(i).visible=adminPage&&(i==2 ||
+                    (i==6?menu.civic().sovereign():menu.civic().council()));
+        }
         // The current server preview prevents a second decision against the next, unseen request.
         for(int i=0;i<civicCouncilControls.size()&&i<2;i++)
             civicCouncilControls.get(i).active=menu.civic().pendingId()!=null;
@@ -189,12 +195,17 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     }
     private void renderCivic(GuiGraphics g){
         var civic=menu.civic();
-        if(councilMode&&civic.council()){
-            line(g,"Городской совет",58,88,INK);
-            line(g,"Новое обращение: "+civic.pendingLine(),58,109,MUTED);
-            line(g,"Принять / отклонить — запись решения, без расходов.",58,120,MUTED);
+        if(councilMode&&(civic.council()||civic.sovereign())){
+            line(g,civic.council()?"Городской совет":"Государственные награды",58,88,INK);
+            if(civic.council()) {
+                line(g,"Новое обращение: "+civic.pendingLine(),58,109,MUTED);
+                line(g,"Решения не создают денег и построек.",58,120,MUTED);
+            }else{
+                line(g,"Орден вручает только действующий правитель.",58,109,MUTED);
+                line(g,"Действуют требования к заслугам.",58,120,MUTED);
+            }
             line(g,"Наградить гражданина (UUID):",58,144,INK);
-            line(g,"Награды выдаются по подтверждённым заслугам.",58,201,MUTED);
+            line(g,"Награды — только за подтверждённые заслуги.",58,201,MUTED);
         }else{
             line(g,"Ваше общественное положение",58,88,INK);
             line(g,"Репутация: "+civic.reputation()+" | Уровень: "+civic.socialLevel(),58,109,MUTED);

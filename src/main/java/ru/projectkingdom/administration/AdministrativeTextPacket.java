@@ -31,7 +31,11 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
             var sender=context.getSender();String field=validatedField(packet.field);
             if(sender==null||packet.kind==null||field==null
                     ||!(sender.containerMenu instanceof AdministrativeCoreMenu menu)||!packet.townId.equals(menu.townId())
-                    ||packet.kind!=menu.kind()||!menu.manager()||!menu.stillValid(sender))return;
+                    ||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
+            // A lawful sovereign may grant a national order from their own nation's town hall,
+            // without acquiring municipal mayor powers. Service revalidates sovereign identity.
+            boolean realmAward=field.equals("realm_award")&&packet.kind==AdministrativeKind.TOWN_HALL;
+            if(!menu.manager()&&!realmAward)return;
             if(field.equals("appoint_role")||field.equals("revoke_role")||field.equals("appoint_mayor")){
                 if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
                 String command=validatedCommandValue(packet.value);if(command==null)return;

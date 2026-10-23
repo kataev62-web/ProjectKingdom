@@ -105,7 +105,11 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
                 centerText(graphics, playerName(), center, y + 23, INK);
                 centerText(graphics, "● ПЕРСОНАЖ АКТИВЕН", center, y + 37, SUCCESS);
                 divider(graphics, page, y + 54);
-                wrapped(graphics, "Эта книга навсегда связана с вашим персонажем.", page, y + 64);
+                var social = menu.social();
+                wrapped(graphics, "Ранг: "+social.rankName(), page, y + 63);
+                label(graphics, "ЛИЧНЫЕ ВЛАДЕНИЯ", page.x()+10, y + 91);
+                wrapped(graphics, social.enterprises()+" предпр. / "+social.hiredWorkers()
+                        +" работников / "+social.ownedPlots()+" участков", page, y + 105);
             }
             case BANK -> {
                 centerText(graphics, "ЛИЧНЫЙ СЧЁТ", center, y + 24, INK);
@@ -132,13 +136,15 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
 
         switch (selected) {
             case PLAYER -> {
-                label(graphics, "ВЛАДЕЛЕЦ", x, y);
-                centerText(graphics, playerName(), center, y + 16, INK);
-                divider(graphics, page, y + 31);
-                label(graphics, "СТАТУС КНИГИ", x, y + 43);
-                graphics.drawString(font, KingdomFonts.readable("Выдана"), x, y + 58, SUCCESS, false);
-                label(graphics, "СЛЕДУЮЩИЕ ГЛАВЫ", x, y + 82);
-                wrapped(graphics, "Профессия, титул и репутация будут подключены позже.", page, y + 96);
+                var social=menu.social();
+                label(graphics, "ГОРОД", x, y);
+                wrapped(graphics, social.city(), page, y + 13);
+                divider(graphics, page, y + 41);
+                label(graphics, "РЕПУТАЦИЯ", x, y + 48);
+                wrapped(graphics, social.cityReputation()+" — "+social.standing(), page, y + 61);
+                label(graphics, "ПРИЗНАНИЕ", x, y + 87);
+                wrapped(graphics, "Город: "+social.civicHonor(), page, y + 99);
+                wrapped(graphics, social.nationalHonor(), page, y + 116);
             }
             case BANK -> renderAmount(graphics, page, y, "БАЛАНС", menu.bankBalance(),
                     "Пополнение через лаунчер будет подключено после выбора провайдера.");
