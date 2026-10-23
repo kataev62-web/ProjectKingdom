@@ -50,22 +50,20 @@ public final class KingdomGraphicAtlasScreen extends Screen {
 
     /** Large, icon-driven MineColonies-like layout, with a compact fallback. */
     @Override protected void init() {
-        navWidth=width<520?98:width<800?124:146;
-        inspectorWidth=width<520?0:width<800?142:178;
-        int available=(width-navWidth-inspectorWidth-38)/KingdomGraphicAtlasData.COLUMNS;
-        cell=Math.max(5,Math.min(15,Math.min(available,
-                Math.max(5,(height-64)/KingdomGraphicAtlasData.ROWS))));
-        gridWidth=cell*KingdomGraphicAtlasData.COLUMNS;
-        gridHeight=cell*KingdomGraphicAtlasData.ROWS;
-        panelWidth=navWidth+gridWidth+inspectorWidth+22;
-        panelHeight=Math.min(height-8,Math.max(
-                gridHeight+55,inspectorWidth>0?286:228));
-        left=Math.max(0,(width-panelWidth)/2);
-        top=Math.max(0,(height-panelHeight)/2);
-        gridX=left+navWidth+8;
-        gridY=top+26;
-        int navX=left+6, navButtonWidth=navWidth-12;
-        boolean compact=panelHeight<276||navWidth<112;
+        var layout=KingdomAtlasLayout.calculate(Math.max(240,width),Math.max(210,height));
+        navWidth=layout.navWidth();
+        inspectorWidth=layout.inspectorWidth();
+        cell=layout.cell();
+        gridWidth=layout.mapWidth();
+        gridHeight=layout.mapHeight();
+        panelWidth=layout.panelWidth();
+        panelHeight=layout.panelHeight();
+        left=layout.left();
+        top=layout.top();
+        gridX=layout.gridX();
+        gridY=layout.gridY();
+        int navX=left+6,navButtonWidth=navWidth-12;
+        boolean compact=layout.compact();
         KingdomGraphicAtlasData.Layer[] layers=KingdomGraphicAtlasData.Layer.values();
         String[] labels=compact
                 ? new String[]{"Мир","Нации","Фирмы","Здания"}
@@ -368,7 +366,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         int x=gridX+gridWidth+7;
         int w=inspectorWidth-10;
         int bottom=top+panelHeight-48;
-        gui.fill(x-3,top+27,x+w+3,bottom+2,0xFFE0D1B2);
+        gui.fill(x-3,top+27,x+w+3,bottom+2,0x28FFF0C8);
         gui.drawString(font,Component.literal("СВЕДЕНИЯ"),x,top+33,INK,false);
         gui.fill(x,top+46,x+w,top+47,0xFFA7906D);
 
