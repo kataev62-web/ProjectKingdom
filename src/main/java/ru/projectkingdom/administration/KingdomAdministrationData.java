@@ -21,12 +21,13 @@ import ru.projectkingdom.npc.KingdomCivicsData;
 
 public final class KingdomAdministrationData extends SavedData {
     private static final String KEY="kingdom_administration_v1";
-    public static final int DATA_VERSION=3;
+    public static final int DATA_VERSION=4;
     public static final int MAX_LOG_ENTRIES=500;
 
     public record LogEntry(UUID actor, MunicipalRole role, String action, long gameTime) {}
     public record BoundContainer(AdministrativeBindingRole role,String dimension,long packedPos) {}
     public record WarrantEntry(UUID target,UUID caseId,String reason,long issuedAt) {}
+    public record ExpansionDebit(UUID id,UUID townId,long copper,boolean refunded) {}
 
     private final Map<UUID,UUID> founders=new LinkedHashMap<>();
     private final Map<UUID,Map<UUID,EnumSet<MunicipalRole>>> roles=new LinkedHashMap<>();
@@ -36,6 +37,7 @@ public final class KingdomAdministrationData extends SavedData {
     private final Map<UUID,Long> bankReserves=new LinkedHashMap<>();
     private final Map<UUID,Long> treasuryReserves=new LinkedHashMap<>();
     private final Map<UUID,Long> historicalTreasuries=new LinkedHashMap<>();
+    private final Map<UUID,ExpansionDebit> expansionDebits=new LinkedHashMap<>();
     private final Map<UUID,LinkedHashMap<UUID,JusticeCase>> justiceCases=new LinkedHashMap<>();
     private final Map<UUID,LinkedHashMap<UUID,PrisonRecord>> prisonRecords=new LinkedHashMap<>();
     private final Map<UUID,LinkedHashMap<UUID,GuardRecord>> guardRecords=new LinkedHashMap<>();
@@ -142,6 +144,30 @@ public final class KingdomAdministrationData extends SavedData {
     }
     public long bankReserve(UUID townId){return bankReserves.getOrDefault(townId,0L);}
     public long treasuryReserve(UUID townId){return treasuryReserves.getOrDefault(townId,0L);}
+    public ExpansionDebit expansionDebit(UUID id){return expansionDebits.get(id);}
+    public List<ExpansionDebit> expansionDebits(UUID townId){
+        List<ExpansionDebit> result=new ArrayList<>();
+        for(ExpansionDebit value:expansionDebits.values())if(value.townId().equals(townId))result.add(value);
+        return List.copyOf(result);
+    }
+    /** Idempotent debit of actual treasury backing; never debit one transaction twice. */
+    public boolean debitExpansion(UUID townId,UUID transactionId,long copper){
+        if(townId==null||transactionId==null||copper<=0||copper>25600)return false;
+        ExpansionDebit prior=expansionDebits.get(transactionId);
+        if(prior!=null)return !prior.refunded()&&prior.townId().equals(townId)&&prior.copper()==copper;
+        if(!subtractReserve(treasuryReserves,townId,copper))return false;
+        expansionDebits.put(transactionId,new ExpansionDebit(transactionId,townId,copper,false));
+        setDirty();return true;
+    }
+    /** Compensation only for a payment whose city purchase did NOT commit. */
+    public boolean refundExpansion(UUID transactionId){
+        ExpansionDebit debit=expansionDebits.get(transactionId);
+        if(debit==null)return false;
+        if(debit.refunded())return true;
+        if(!addReserve(treasuryReserves,debit.townId(),debit.copper()))return false;
+        expansionDebits.put(transactionId,new ExpansionDebit(debit.id(),debit.townId(),debit.copper(),true));
+        setDirty();return true;
+    }
     public long historicalTreasuryLiability(UUID townId){return historicalTreasuries.getOrDefault(townId,0L);}
     public boolean ensureHistoricalTreasury(UUID townId,long amount){
         if(townId==null||amount<0||historicalTreasuries.containsKey(townId))return false;
@@ -263,6 +289,14 @@ public final class KingdomAdministrationData extends SavedData {
             data.treasuryReserves.put(town,Math.max(0,row.getLong("TreasuryReserve")));
             data.historicalTreasuries.put(town,Math.max(0,row.getLong("HistoricalTreasury")));
         }
+        ListTag expansionList=root.getList("ExpansionDebits",Tag.TAG_COMPOUND);
+        for(int i=0;i<expansionList.size();i++){
+            CompoundTag row=expansionList.getCompound(i);
+            if(!row.hasUUID("Id")||!row.hasUUID("Town")||row.getLong("Copper")<=0)continue;
+            var debit=new ExpansionDebit(row.getUUID("Id"),row.getUUID("Town"),
+                    row.getLong("Copper"),row.getBoolean("Refunded"));
+            data.expansionDebits.putIfAbsent(debit.id(),debit);
+        }
         ListTag cases=root.getList("JusticeCases",Tag.TAG_COMPOUND);for(int i=0;i<cases.size();i++){
             CompoundTag row=cases.getCompound(i);if(!row.hasUUID("Id")||!row.hasUUID("Town")||!row.hasUUID("Complainant")||!row.hasUUID("Defendant"))continue;
             try{JusticeCase value=new JusticeCase(row.getUUID("Id"),row.getUUID("Town"),row.getUUID("Complainant"),row.getUUID("Defendant"),row.hasUUID("Judge")?row.getUUID("Judge"):null,
@@ -313,6 +347,12 @@ public final class KingdomAdministrationData extends SavedData {
             CompoundTag row=new CompoundTag();row.putUUID("Town",town);row.putLong("BankReserve",bankReserve(town));
             row.putLong("TreasuryReserve",treasuryReserve(town));row.putLong("HistoricalTreasury",historicalTreasuryLiability(town));financeList.add(row);
         }root.put("Finance",financeList);
+        ListTag expansionList=new ListTag();
+        for(ExpansionDebit value:expansionDebits.values()){
+            CompoundTag row=new CompoundTag();row.putUUID("Id",value.id());row.putUUID("Town",value.townId());
+            row.putLong("Copper",value.copper());row.putBoolean("Refunded",value.refunded());expansionList.add(row);
+        }
+        root.put("ExpansionDebits",expansionList);
         ListTag cases=new ListTag();for(var town:justiceCases.entrySet())for(JusticeCase value:town.getValue().values()){
             CompoundTag row=new CompoundTag();row.putUUID("Id",value.id());row.putUUID("Town",value.townId());row.putUUID("Complainant",value.complainant());row.putUUID("Defendant",value.defendant());
             if(value.judge()!=null)row.putUUID("Judge",value.judge());row.putString("Status",value.status().name());row.putString("Summary",value.summary());row.putString("Decision",value.decision());
