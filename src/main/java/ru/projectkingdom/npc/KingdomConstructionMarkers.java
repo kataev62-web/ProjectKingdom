@@ -14,6 +14,10 @@ public final class KingdomConstructionMarkers {
     public static boolean isMarker(ServerLevel level, BlockPos pos) {
         if (!level.hasChunkAt(pos)) return false;
         var state = level.getBlockState(pos);
-        return state.is(Blocks.LECTERN) || state.is(KingdomConstructionRegistry.DRAFTING_TABLE.get());
+        return state.is(Blocks.LECTERN)
+            || state.is(KingdomConstructionRegistry.DRAFTING_TABLE.get())
+            || (state.is(ru.projectkingdom.enterprise.KingdomEnterpriseRegistry.CONSTRUCTION.get())
+                && level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core
+                && core.bound() && core.kind()==ru.projectkingdom.enterprise.EnterpriseKind.CONSTRUCTION);
     }
 }
