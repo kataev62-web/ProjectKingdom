@@ -47,5 +47,7 @@ public final class KingdomNetwork {
                 OpenKingdomMapsHubPacket::decode,OpenKingdomMapsHubPacket::handle);
         CHANNEL.registerMessage(30,SelectHeldMapDestinationPacket.class,SelectHeldMapDestinationPacket::encode,
                 SelectHeldMapDestinationPacket::decode,SelectHeldMapDestinationPacket::handle);
+        CHANNEL.registerMessage(31,OpenLandMapFromAtlasPacket.class,OpenLandMapFromAtlasPacket::encode,
+                OpenLandMapFromAtlasPacket::decode,OpenLandMapFromAtlasPacket::handle);
     }
 }
