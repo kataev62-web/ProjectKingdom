@@ -92,6 +92,8 @@ public final class KingdomNpcMod {
         var project = data.atMarker(level.dimension().location().toString(),
             marker.getX(), marker.getY(), marker.getZ());
         ItemStack held = player.getItemInHand(event.getHand());
+        // A block held in the hand is a normal placement attempt, not a menu click.
+        if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) return;
 
         if (held.is(KingdomConstructionRegistry.BUILDERS_HAMMER.get())) {
             if (project == null) {
@@ -217,12 +219,20 @@ public final class KingdomNpcMod {
     @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
+        if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
+            AdministrativeAccessService.cancel(player.getUUID());
+            return;
+        }
         var status=AdministrativeAccessService.complete(player,player.serverLevel(),event.getPos());
         player.sendSystemMessage(Component.literal("[Project Kingdom] Привязка городской службы: "+status));
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
     @SubscribeEvent public void bindEnterpriseContainer(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!EnterpriseAccessService.hasSession(player.getUUID()))return;
+        if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
+            EnterpriseAccessService.cancel(player.getUUID());
+            return;
+        }
         var status=EnterpriseAccessService.complete(player,player.serverLevel(),event.getPos());
         player.sendSystemMessage(Component.literal("[Project Kingdom] Привязка предприятия: "+status));
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
@@ -231,6 +241,10 @@ public final class KingdomNpcMod {
         if (!(event.getEntity() instanceof ServerPlayer p)) return;
         BindRequest request=BINDING.get(p.getUUID());
         if(request==null)return;
+        if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
+            BINDING.remove(p.getUUID());
+            return;
+        }
         if (!request.dimension().equals(p.level().dimension().location().toString())) {
             BINDING.remove(p.getUUID());return;
         }
