@@ -222,7 +222,12 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(12,Items.BARREL,"Склад: 13x15, 1 этаж");
                 icon(13,Items.ANVIL,"Кузница: 11x13, 1 этаж");
                 icon(14,Items.BREWING_STAND,"Таверна: 13x15, 2 этажа");
-                icon(22,Items.LECTERN,"Поставь кафедру на своей земле, встань рядом и выбери здание. Затем ПКМ по кафедре.");
+                icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),
+                    "Чертёжный стол + 1 строительный чертёж. Выбери здание: чертёж израсходуется после проверки участка.");
+                icon(23,KingdomConstructionRegistry.BUILDERS_HAMMER.get(),
+                    "Строительный молот: ПКМ по столу проекта = один реальный блок из соседнего сундука.");
+                icon(24,KingdomConstructionRegistry.BUILDING_BLUEPRINT.get(),
+                    "Чертёж: ПКМ по столу действующей стройки подсветит следующий блок.");
             }
             case SITE -> {
                 var project=KingdomConstructionData.get(viewer.getServer()).find(siteId);
@@ -234,11 +239,11 @@ public final class KingdomMainMenu extends ChestMenu {
                         icon(10,Items.BRICKS,type.title+" — "+project.status());
                         icon(11,Items.CLOCK,"Готово: "+progress+" из "+design.blocks().size()+" блоков");
                         icon(13,Items.IRON_PICKAXE,project.status()==KingdomConstructionData.Status.PLANNED?"Начать строительство NPC":"Приостановить строительство NPC");
-                        icon(14,Items.CHEST,"Материалы: сундук или бочка вплотную к кафедре; нужен NPC builder с приказом Работать");
+                        icon(14,Items.CHEST,"Склад материалов рядом со столом; NPC-строитель с договором работает по дневному расписанию");
                         icon(15,Items.WRITABLE_BOOK,"Смета: "+design.bill());
                         icon(16,Items.COMPASS,"Состояние: "+KingdomConstructionDiagnostics.nextStep(viewer.getServer(),project));
                         icon(17,Items.HOPPER,KingdomConstructionDiagnostics.missingMaterials(viewer.getServer(),project));
-                        icon(22,Items.LECTERN,"ПКМ по строительной кафедре для управления");
+                        icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),"ПКМ по столу / кафедре для управления. Молот — строить, чертёж — подсветка");
                     }
                 }
             }
