@@ -97,8 +97,8 @@ public final class KingdomGraphicAtlasData {
                 KingdomAdministrationData.get(player.getServer()).founder(ownTown.id()))) {
             planned = KingdomExpansionPlans.get(player.getServer()).snapshot(ownTown.id());
         }
-        var terrain = KingdomAtlasTerrain.sampleLoaded(player.serverLevel(),
-                centerX, centerZ, scale);
+        var terrain = KingdomAtlasTerrainCache.get(player.getServer())
+                .view(player.serverLevel(), centerX, centerZ, scale);
         return project(requestId, centerX, centerZ, scale, layer, dimension,
                 ownId, civic, businesses, planned, terrain);
     }
