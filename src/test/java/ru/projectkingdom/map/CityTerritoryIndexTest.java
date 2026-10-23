@@ -42,4 +42,20 @@ class CityTerritoryIndexTest {
         assertEquals(CityTerritoryIndex.ClaimResult.NOT_ADJACENT,
             index.claim(city, founder, new CityTerritoryIndex.ChunkKey("minecraft:the_nether", 1, 0)));
     }
+
+    @Test void exportReplaysClaimsInSafeAdjacencyOrder() {
+        var index = new CityTerritoryIndex();
+        var founder = UUID.randomUUID(); var city = UUID.randomUUID();
+        assertTrue(index.registerCity(new CityTerritoryIndex.City(city, founder), at(0, 0)));
+        assertEquals(CityTerritoryIndex.ClaimResult.CLAIMED, index.claim(city, founder, at(1, 0)));
+        assertEquals(CityTerritoryIndex.ClaimResult.CLAIMED, index.claim(city, founder, at(1, 1)));
+        assertEquals(CityTerritoryIndex.ClaimResult.CLAIMED, index.claim(city, founder, at(0, 1)));
+        var copy = new CityTerritoryIndex();
+        var snapshot = index.exportCities().get(0);
+        assertTrue(copy.registerCity(snapshot.city(), snapshot.origin()));
+        for (var key : snapshot.additionalClaims()) {
+            assertEquals(CityTerritoryIndex.ClaimResult.CLAIMED, copy.claim(city, founder, key));
+        }
+        assertEquals(index.claimedChunks(city).size(), copy.claimedChunks(city).size());
+    }
 }
