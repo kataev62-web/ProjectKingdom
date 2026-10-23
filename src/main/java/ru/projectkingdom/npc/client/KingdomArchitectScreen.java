@@ -22,7 +22,6 @@ public final class KingdomArchitectScreen extends Screen {
 
     private String error = "";
     private int left, top, panelWidth, panelHeight;
-    private boolean didHide;
 
     private enum Icon {
         FORWARD, BACK, LEFT, RIGHT, UP, DOWN, ROTATE, EYE, CONFIRM, CANCEL
@@ -86,7 +85,6 @@ public final class KingdomArchitectScreen extends Screen {
         final int actionHeight = 16;
         button(center - size - gap - size / 2, footY, size, actionHeight, Icon.EYE,
                 "Осмотреть модель в мире; F8 возвращает кнопки", () -> {
-                    didHide = true;
                     minecraft.setScreen(null);
                 });
         button(center - size / 2, footY, size, actionHeight, Icon.CONFIRM,
@@ -131,14 +129,24 @@ public final class KingdomArchitectScreen extends Screen {
         var view = KingdomArchitectClient.current();
         centered(gui, "АРХИТЕКТОР", 4, INK);
         if (view != null) {
-            centered(gui, view.packet.title(), 14, SOFT);
+            centered(gui, view.pending ? "Проверка..." : view.packet.title(),
+                    14, view.pending ? 0xFFFFD18A : SOFT);
             centered(gui, "X " + view.origin.getX() + "  Y " + view.origin.getY(), 25, INK);
             centered(gui, "Z " + view.origin.getZ() + "   " + view.rotation * 90 + "°", 34, SOFT);
-            if (view.pending) centered(gui, "Проверка...", panelHeight - 31, 0xFFFFD18A);
         }
         if (!error.isBlank()) {
-            // Compact first line; the full reason is also in the server chat.
-            centered(gui, error, panelHeight - 31, 0xFFFF9999);
+            // Errors appear beside the panel, never over the movement controls.
+            // The full message is also sent to the Minecraft chat.
+            int available = Math.max(0, left - 8);
+            if (available > 30) {
+                int messageWidth = Math.min(available, font.width(error) + 12);
+                int messageX = left - messageWidth - 4;
+                int messageY = top + panelHeight - 18;
+                gui.fill(messageX, messageY, messageX + messageWidth,
+                        messageY + 17, 0xC07B2929);
+                gui.drawString(font, font.plainSubstrByWidth(error, messageWidth - 8),
+                        messageX + 4, messageY + 4, 0xFFFFE1D6, false);
+            }
         }
         super.render(gui, mouseX, mouseY, partialTick);
     }
@@ -147,7 +155,6 @@ public final class KingdomArchitectScreen extends Screen {
 
     @Override public void onClose() {
         // ESC hides controls but does not cancel the ghost or the server session.
-        didHide = true;
         minecraft.setScreen(null);
     }
 
