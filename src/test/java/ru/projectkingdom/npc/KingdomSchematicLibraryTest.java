@@ -17,6 +17,7 @@ class KingdomSchematicLibraryTest {
     @TempDir Path directory;
 
     @BeforeAll static void bootstrapMinecraftRegistries() {
+        net.minecraft.SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
     }
 
