@@ -19,7 +19,7 @@ public final class KingdomNpcBuilder {
         for (var site : sites.all()) {
             if (site.status() != KingdomConstructionData.Status.WAITING_MATERIALS
                     && site.status() != KingdomConstructionData.Status.BUILDING) continue;
-            if (KingdomBuildingTypes.type(site.design()) == null) continue;
+            if (KingdomConstructionPlans.resolve(server, site.design()) == null) continue;
 
             ServerLevel level = null;
             for (ServerLevel candidate : server.getAllLevels()) {
