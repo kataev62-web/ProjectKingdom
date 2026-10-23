@@ -715,7 +715,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     }
 
     @Override public boolean keyPressed(int key,int scan,int modifiers){
-        if(super.keyPressed(key,scan,modifiers))return true;
+        // Pan/zoom shortcuts precede vanilla focus navigation; Tab and
+        // Enter still work on our normal accessible Minecraft buttons.
         switch(key){
             case GLFW.GLFW_KEY_LEFT -> pan(-1,0);
             case GLFW.GLFW_KEY_RIGHT -> pan(1,0);
@@ -724,8 +725,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             case GLFW.GLFW_KEY_EQUAL, GLFW.GLFW_KEY_KP_ADD -> zoom(-1);
             case GLFW.GLFW_KEY_MINUS, GLFW.GLFW_KEY_KP_SUBTRACT -> zoom(1);
             case GLFW.GLFW_KEY_HOME -> resetCenter();
-            case GLFW.GLFW_KEY_ENTER -> planSelectedRoute();
-            default -> {return false;}
+            default -> {return super.keyPressed(key,scan,modifiers);}
         }
         return true;
     }
