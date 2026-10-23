@@ -53,10 +53,10 @@ public final class KingdomEnterpriseData extends SavedData {
     }
     public static String closeMessage(ClosureStatus status){
         return switch(status){
-            case CLOSED->"Предприятие закрыто. Работники освобождены, объявления сняты, лимит освободился. Блок возвращён без привязки и может создать новое предприятие.";
+            case CLOSED->"Предприятие закрыто. Работники освобождены, объявления сняты, лимит освободился. Можно установить новое ядро предприятия.";
             case NO_PERMISSION->"Закрыть предприятие может только его владелец.";
             case NOT_FOUND->"Это предприятие уже закрыто или удалено.";
-            case NO_CORE->"Блок предприятия не активен; установите его заново.";
+            case NO_CORE->"Блок предприятия ещё установлен или занят. Для действующего ядра используйте кнопку в его настройках.";
             case NOT_AT_CORE->"Откройте свой блок предприятия и оставайтесь рядом.";
             case CASH_REMAINING->"В кассе есть учтённые деньги. Сначала снимите их через вкладку «Касса».";
             case TRADE_NOT_SETTLED->"Есть незавершённые торговые операции или недоступен журнал сделок. Закрытие запрещено до сверки.";
@@ -75,18 +75,36 @@ public final class KingdomEnterpriseData extends SavedData {
      * as an UNBOUND item so it can create a fresh registered enterprise.
      */
     public ClosureStatus closeBusiness(ServerPlayer player,UUID business,BlockPos pos){
-        if(player==null||business==null||pos==null)return ClosureStatus.NOT_FOUND;
+        if(player==null||business==null)return ClosureStatus.NOT_FOUND;
         Enterprise firm=firms.get(business);
         if(firm==null)return ClosureStatus.NOT_FOUND;
         if(!firm.owner().equals(player.getUUID()))return ClosureStatus.NO_PERMISSION;
         EnterpriseCoreBinding binding=cores.get(business);
-        if(binding==null||!binding.active())return ClosureStatus.NO_CORE;
+        boolean blockPresent=pos!=null;
         ServerLevel level=player.serverLevel();
-        if(!binding.dimension().equals(level.dimension().location().toString())
-                ||binding.packedPos()!=pos.asLong()||pos.distSqr(player.blockPosition())>64
-                ||!level.hasChunkAt(pos)
-                ||!(level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core)
-                ||!core.bound()||!business.equals(core.enterpriseId()))return ClosureStatus.NOT_AT_CORE;
+        if(blockPresent){
+            if(binding==null||!binding.active())return ClosureStatus.NO_CORE;
+            if(!binding.dimension().equals(level.dimension().location().toString())
+                    ||binding.packedPos()!=pos.asLong()||pos.distSqr(player.blockPosition())>64
+                    ||!level.hasChunkAt(pos)
+                    ||!(level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core)
+                    ||!core.bound()||!business.equals(core.enterpriseId()))return ClosureStatus.NOT_AT_CORE;
+        }else{
+            // No remote closure of an installed core. A previously removed core
+            // can be deregistered from the player's main enterprise menu.
+            if(binding!=null){
+                if(binding.active())return ClosureStatus.NO_CORE;
+                ServerLevel former=null;
+                for(var candidate:player.getServer().getAllLevels())
+                    if(candidate.dimension().location().toString().equals(binding.dimension()))
+                        former=candidate;
+                if(former==null||!former.hasChunkAt(BlockPos.of(binding.packedPos())))
+                    return ClosureStatus.STORAGE_UNLOADED;
+                var located=former.getBlockEntity(BlockPos.of(binding.packedPos()));
+                if(located instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity old
+                        && old.bound()&&business.equals(old.enterpriseId()))return ClosureStatus.NO_CORE;
+            }
+        }
         if(firm.cash()!=0)return ClosureStatus.CASH_REMAINING;
         if(unresolved(business))return ClosureStatus.TRADE_NOT_SETTLED;
         var payroll=KingdomEnterprisePayrollData.get(player.getServer());
@@ -99,7 +117,13 @@ public final class KingdomEnterpriseData extends SavedData {
                 if(updated.active())contracts.add(updated);
             }
         }
-        if(KindIsConstructionAndHasSite(level,business,pos))return ClosureStatus.ACTIVE_BUILD;
+        if(binding!=null && kind(business)==EnterpriseKind.CONSTRUCTION){
+            var marker=BlockPos.of(binding.packedPos());
+            for(var oldLevel:player.getServer().getAllLevels())
+                if(oldLevel.dimension().location().toString().equals(binding.dimension())
+                        && KindIsConstructionAndHasSite(oldLevel,business,marker))
+                    return ClosureStatus.ACTIVE_BUILD;
+        }
         for(EnterpriseBindingRole role:EnterpriseBindingRole.values()){
             var bindingSlot=storageBinding(business,role);
             if(bindingSlot==null)continue;
@@ -143,13 +167,17 @@ public final class KingdomEnterpriseData extends SavedData {
         kinds.remove(business);
         firms.remove(business);
         setDirty();
-        // Remove old core without any bound identity, then return an unbound item.
-        var item=level.getBlockState(pos).getBlock().asItem();
-        level.removeBlock(pos,false);
-        var fresh=new ItemStack(item);
-        if(!player.getInventory().add(fresh)&&!fresh.isEmpty())
-            net.minecraft.world.level.block.Block.popResource(level,pos,fresh);
-        player.getInventory().setChanged();
+        if(blockPresent){
+            // Remove active core and return one fresh unbound core to the owner.
+            var item=level.getBlockState(pos).getBlock().asItem();
+            level.removeBlock(pos,false);
+            var fresh=new ItemStack(item);
+            if(!player.getInventory().add(fresh)&&!fresh.isEmpty())
+                net.minecraft.world.level.block.Block.popResource(level,pos,fresh);
+            player.getInventory().setChanged();
+        }
+        // If core was dismantled earlier, the original bound item becomes
+        // reusable thanks to EnterpriseCoreBlock's closed-ID migration.
         return ClosureStatus.CLOSED;
     }
     private boolean KindIsConstructionAndHasSite(ServerLevel level,UUID firm,BlockPos pos){
