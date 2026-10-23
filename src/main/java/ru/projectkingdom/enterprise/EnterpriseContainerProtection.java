@@ -17,6 +17,7 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomNpcMod;
+import ru.projectkingdom.npc.KingdomTerritories;
 
 /**
  * Server-side player protection for ordinary containers enrolled as enterprise
@@ -37,7 +38,7 @@ public final class EnterpriseContainerProtection {
     private static UUID directOwner(ServerLevel level, BlockPos pos, KingdomEnterpriseData data) {
         if (!level.hasChunkAt(pos)) return null;
         String dimension = level.dimension().location().toString();
-        UUID found = null;
+        UUID found = KingdomTerritories.get(level.getServer()).protectedStorageOwner(level, pos);
         for (var enterprise : data.all()) {
             boolean enrolled = false;
             var legacy = data.counter(enterprise.id());
