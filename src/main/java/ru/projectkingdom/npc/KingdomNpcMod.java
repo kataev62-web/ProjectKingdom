@@ -792,41 +792,38 @@ public final class KingdomNpcMod {
             if(citizenTown!=null)taxes.assess(server,resident,citizenTown.id());
         }
         for (var w : db.all()) {
-            boolean authorized=false;
-            if(w.employer != null && w.hasWorkstation) {
-                for(ServerLevel workLevel : server.getAllLevels()) {
-                    if(workLevel.dimension().location().toString().equals(w.dimension)) {
-                        authorized=KingdomTerritories.get(server).canUse(workLevel,
-                            new BlockPos(w.workX,w.workY,w.workZ), w.employer);
-                        break;
-                    }
+            // One workday scheduler for every profession, never a smith-only route.
+            // Assignment and contract are validated against actual registered state.
+            boolean activeContract = KingdomNpcWorkday.employed(server, w);
+            boolean assignment = false;
+            for (ServerLevel workLevel : server.getAllLevels()) {
+                if (workLevel.dimension().location().toString().equals(w.dimension)) {
+                    assignment = KingdomNpcWorkday.hasAssignment(server, workLevel, w);
+                    break;
                 }
             }
-            // Millenaire-inspired needs and day/night goal selection. Respect explicit
-            // player orders; goals only annotate intent and guide autonomous movement.
             long timeOfDay = server.overworld().getDayTime() % TICKS_PER_DAY;
             boolean daytime = timeOfDay >= 0 && timeOfDay < 12000;
             var goal = KingdomNpcGoalSelector.choose(new KingdomNpcGoalSelector.Context(
-                w.employer != null, !w.contractPaused && authorized,
-                (("smith".equals(w.job) && w.hasWorkstation && w.hasSource
-                    && w.hasDestination
-                    && KingdomNpcWorkshopData.get(server).plan(w.entityId) != null)
-                    || (("farmer".equals(w.job) || "miner".equals(w.job)
-                        || "lumberjack".equals(w.job)) && w.hasSource && w.hasDestination)),
+                w.employer != null, activeContract, assignment,
                 daytime, w.hasHome, w.hunger, w.energy));
             var intent = switch (goal) {
                 case EAT -> NpcAutonomyPlanner.Intention.EAT;
                 case REST -> NpcAutonomyPlanner.Intention.REST;
                 case RETURN_HOME -> NpcAutonomyPlanner.Intention.SEEK_SHELTER;
-                case WORK -> NpcAutonomyPlanner.Intention.CONTINUE_ASSIGNED_JOB;
-                case IDLE -> NpcAutonomyPlanner.plan(new NpcAutonomyPlanner.Snapshot(
-                    w.employer != null,w.contractPaused,w.hunger,w.energy,w.safety,
-                    w.hasHome,w.hasWorkstation,w.hasSource,w.hasDestination,authorized,
-                    KingdomNpcWorkshopData.get(server).plan(w.entityId)!=null));
+                case WORK -> KingdomNpcDuty.hasPhysicalExecutor(w.job)
+                    ? NpcAutonomyPlanner.Intention.CONTINUE_ASSIGNED_JOB
+                    : NpcAutonomyPlanner.Intention.ON_DUTY;
+                case IDLE -> w.employer == null
+                    ? NpcAutonomyPlanner.Intention.FIND_WORK
+                    : (!activeContract || !assignment)
+                        ? NpcAutonomyPlanner.Intention.REPORT_BLOCKED
+                        : NpcAutonomyPlanner.Intention.IDLE;
             };
-            if(w.safety < 25) intent = NpcAutonomyPlanner.Intention.SEEK_SHELTER;
-            if(!w.autonomousIntent.equals(intent.name())) {
-                w.autonomousIntent=intent.name();changed=true;
+            if (w.safety < 25) intent = NpcAutonomyPlanner.Intention.SEEK_SHELTER;
+            if (!w.autonomousIntent.equals(intent.name())) {
+                w.autonomousIntent = intent.name();
+                changed = true;
             }
             if (NpcIdentity.advance(w,day)) changed=true;
             long lifeDays = NpcSimulation.elapsed(day,w.lastLifeDay);
