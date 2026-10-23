@@ -35,7 +35,9 @@ public final class KingdomCourierDispatch {
                 if(!"courier".equals(w.job) || w.contractPaused || w.ageYears < 18
                         || !w.cargo.isEmpty() || w.cartCargoCount>0 || w.cartCargoOrder!=null
                         || busy.contains(w.entityId)
-                        || !o.dimension.equals(w.dimension) || !"stay".equals(w.order)) continue;
+                        || !o.dimension.equals(w.dimension)
+                        || !KingdomNpcDuty.mayExecute(w.job, w.order, w.autonomousIntent,
+                            KingdomNpcWorkday.employed(server, w))) continue;
                 var entity=level.getEntity(w.entityId);
                 if(!(entity instanceof Villager villager) || !villager.isAlive())continue;
                 double distance=villager.distanceToSqr(o.source.getX()+0.5,
@@ -53,7 +55,7 @@ public final class KingdomCourierDispatch {
         for(var w:npcData.all()) {
             if(!"courier".equals(w.order) || !w.cargo.isEmpty() || w.cartCargoCount>0 || w.cartCargoOrder!=null
                         || busy.contains(w.entityId))continue;
-            w.order="stay";
+            w.order="wander"; // Return to the shared daily schedule after completing an order.
             npcData.setDirty();
         }
         return assigned;
