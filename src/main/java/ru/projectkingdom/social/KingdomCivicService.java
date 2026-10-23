@@ -42,6 +42,8 @@ public final class KingdomCivicService {
         var server=player.getServer();
         var civics=KingdomCivicsData.get(server);
         if(!civics.isMember(townId,player.getUUID()))return Snapshot.empty();
+        var town=civics.townById(townId);
+        if(town==null)return Snapshot.empty();
         UUID person=player.getUUID();
         int reputation=KingdomReputationData.get(server).score(townId,person);
         var rank=KingdomSocialData.get(server).rank(person);
