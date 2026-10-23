@@ -17,8 +17,9 @@ class KingdomArchitectBuiltinCatalogTest {
             var blueprint=KingdomBuildingTypes.design(kind);
             assertFalse(blueprint.blocks().isEmpty(),kind.name());
             for(int turns=0;turns<4;turns++){
+                final int angle=turns;
                 var rotated=assertDoesNotThrow(
-                    ()->KingdomArchitectDesignRotation.rotate(blueprint,turns),
+                    ()->KingdomArchitectDesignRotation.rotate(blueprint,angle),
                     "Preview rejected "+kind.name()+" turn="+turns);
                 assertFalse(rotated.blocks().isEmpty(),kind.name());
                 assertTrue(rotated.width()<=48 && rotated.length()<=48 && rotated.height()<=48,kind.name());
