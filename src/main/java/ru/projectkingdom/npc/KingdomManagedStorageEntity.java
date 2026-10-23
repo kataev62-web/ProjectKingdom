@@ -69,6 +69,8 @@ public final class KingdomManagedStorageEntity extends BlockEntity implements Co
         if (key == null || owner == null) return;
         if (KingdomStorageRuntime.ENROLLMENT.restore(key, owner)) registeredLocation = key;
     }
+    /** Used by financial binding checks: unavailable storage must never receive a ledger credit. */
+    public boolean readyForTransactions() { return canAutomate(); }
     private boolean canAutomate() {
         var key = locationKey();
         // A valid owner is necessary, but not sufficient: this also checks the active trade lock.
