@@ -107,6 +107,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(47, Items.COMPASS, "На юг");
         put(48, Items.ARROW, "На восток");
         put(49, Items.MAP, "Город: " + town.name() + " | Чанков в плане: " + planned.size());
+        put(44, Items.GOLD_NUGGET, "Оценка покупки: " + (100L * planned.size()) + " медных | 100 за чанк");
         put(50, Items.WRITABLE_BOOK, "План не даёт права собственности. Покупка только в ратуше.");
         put(51, Items.BARRIER, "Очистить план");
         put(52, Items.COMPASS, "К позиции игрока");
