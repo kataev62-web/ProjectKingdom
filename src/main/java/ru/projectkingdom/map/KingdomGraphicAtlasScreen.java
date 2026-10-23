@@ -132,7 +132,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             selectedRow = -1;
             selectedMarker = null;
             route = null;
-            destinationChunkX = destinationChunkZ = null;
+            // Keep the chosen goal across automatic recentering while walking.
         }
         requestId++;
         KingdomNetwork.CHANNEL.sendToServer(new GraphicAtlasRequestPacket(
@@ -328,8 +328,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         } else {
             shortText(gui, "Нажмите на область", sx, infoY + 12);
         }
-        gui.drawString(font, font.plainSubstrByWidth(routeHint(), 142),
-                sx, top + panelHeight - 44, INK, false);
+        gui.drawString(font, font.plainSubstrByWidth(routeHint(), gridWidth - 12),
+                gridX + 4, gridY + gridHeight + 8, INK, false);
         super.render(gui, mouseX, mouseY, partialTick);
         if (snapshot != null && mouseX >= gridX && mouseX < gridX + gridWidth
                 && mouseY >= gridY && mouseY < gridY + gridHeight) {
