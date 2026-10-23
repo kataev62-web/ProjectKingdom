@@ -5,6 +5,7 @@ import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import ru.projectkingdom.network.GraphicAtlasRequestPacket;
+import ru.projectkingdom.network.SelectHeldMapDestinationPacket;
 import ru.projectkingdom.network.OpenCityPlanFromAtlasPacket;
 import ru.projectkingdom.network.OpenKingdomMapsHubPacket;
 import ru.projectkingdom.network.KingdomNetwork;
@@ -180,6 +181,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             destinationChunkZ = centerZ - (KingdomGraphicAtlasData.ROWS/2)*scale
                     + selectedRow*scale + scale/2;
         } else return;
+        KingdomNetwork.CHANNEL.sendToServer(new SelectHeldMapDestinationPacket(
+                destinationChunkX, destinationChunkZ));
         recomputeRoute();
     }
 
