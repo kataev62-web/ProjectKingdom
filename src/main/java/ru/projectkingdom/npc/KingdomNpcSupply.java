@@ -17,6 +17,25 @@ public final class KingdomNpcSupply {
     private KingdomNpcSupply() {}
     private static final String COAL="minecraft:charcoal";
     private static final int TARGET=20;
+    private static final EnterpriseStockPolicy.Thresholds COAL_LIMITS=new EnterpriseStockPolicy.Thresholds(8,TARGET);
+    /** -1 is unknown physical stock: refuse the purchase rather than assuming an empty chest. */
+    private static int charcoalNeed(ServerLevel level,KingdomNpcData.Worker w,BlockPos work){
+        var p=KingdomNpcWorkshopData.get(level.getServer()).plan(w.entityId);
+        if(p!=null){
+            var stock=KingdomEnterpriseStock.inspect(level,p.enterprise(),COAL,
+                    ru.projectkingdom.enterprise.EnterpriseBindingRole.RAW_STORAGE,
+                    new BlockPos(w.sourceX,w.sourceY,w.sourceZ));
+            return stock.complete()?EnterpriseStockPolicy.reorderQuantity(COAL_LIMITS,stock.state(0)):-1;
+        }
+        if(!level.hasChunkAt(work)||!(level.getBlockEntity(work) instanceof Container chest))return -1;
+        int physical=0;
+        for(int i=0;i<chest.getContainerSize();i++){
+            ItemStack stack=chest.getItem(i);
+            if(!stack.isEmpty()&&COAL.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()))
+                physical+=stack.getCount();
+        }
+        return EnterpriseStockPolicy.reorderQuantity(COAL_LIMITS,physical,0);
+    }
     /** Delivery fee is only a quote; no coins are debited until a safe checkout exists. */
     private static final long DELIVERY_FEE=10;
     /** Only an exact set of real coins can leave the enterprise cashbox. */
@@ -87,6 +106,7 @@ public final class KingdomNpcSupply {
     /** The worker pays at the counter, not remotely from the workshop. */
     private static boolean buyAtCounter(ServerLevel level, KingdomNpcData.Worker worker, BlockPos desk, BlockPos work) {
         if(!KingdomWarehouseMarket.get(level.getServer()).isDesk(level,desk))return false;
+        if(charcoalNeed(level,worker,work)<worker.supplyCount)return false;
         if(!level.hasChunkAt(work) || !(level.getBlockEntity(work) instanceof Container))return false;
         if(!KingdomTerritories.get(level.getServer()).canUse(level,work,worker.employer))return false;
         List<KingdomWarehouseMarket.Quote> offers=KingdomWarehouseMarket.get(level.getServer()).search(level,worker.supplyItem,worker.supplyCount);
@@ -184,18 +204,12 @@ public final class KingdomNpcSupply {
                 worker.supplyStatus="WAITING_DELIVERY";return true;
             }
             if(now<worker.supplyNextAttempt || npc.distanceToSqr(work.getX()+0.5,work.getY(),work.getZ()+0.5)>100)return false;
-            // Only inspect real stock; do not request coal if the forge has sufficient charcoal.
-            BlockEntity be=level.getBlockEntity(work);
-            if(!(be instanceof Container stock))return false;
-            int available=0;
-            for(int i=0;i<stock.getContainerSize();i++) {
-                ItemStack stack=stock.getItem(i);
-                if(!stack.isEmpty() && COAL.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()))available+=stack.getCount();
-            }
-            if(available>=TARGET){worker.supplyNextAttempt=now+1200;return true;}
+            // Shared physical count includes enterprise storage and shipments already ordered.
+            int needed=charcoalNeed(level,worker,work);
+            if(needed<=0){worker.supplyNextAttempt=now+1200;return needed==0;}
             BlockPos desk=KingdomWarehouseMarket.get(level.getServer()).nearestDesk(level,npc.blockPosition(),128);
             if(desk==null){worker.supplyNextAttempt=now+1200;worker.supplyStatus="NO_WAREHOUSE";return true;}
-            worker.supplyItem=COAL;worker.supplyCount=TARGET-available;
+            worker.supplyItem=COAL;worker.supplyCount=needed;
             worker.supplyDeskX=desk.getX();worker.supplyDeskY=desk.getY();worker.supplyDeskZ=desk.getZ();
             worker.supplyStatus="WALKING_TO_WAREHOUSE";return true;
         }

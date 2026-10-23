@@ -24,7 +24,18 @@ public final class KingdomNpcWorkshopData extends SavedData {
             this(worker,enterprise,recipe,output,grid,low,high,duration,10);
         }
     }
-    public record Progress(UUID worker, long readyAt, String recipe, boolean running) {}
+    public record Progress(UUID worker,long readyAt,String recipe,boolean running,int expectedYield){}
+    /** Reserve unfinished batches across workers at this firm. */
+    public int reservedProduction(UUID enterprise,String item,UUID excludingWorker){
+        long sum=0;
+        for(var e:progress.entrySet()){
+            if(e.getKey().equals(excludingWorker))continue;
+            Plan p=plans.get(e.getKey());Progress stage=e.getValue();
+            if(p!=null&&stage.running()&&p.enterprise().equals(enterprise)&&p.output().equals(item))
+                sum+=stage.expectedYield();
+        }
+        return (int)Math.min(sum,Integer.MAX_VALUE);
+    }
     private final Map<UUID,Plan> plans=new LinkedHashMap<>();
     private final Map<UUID,Progress> progress=new LinkedHashMap<>();
     private final Map<UUID,Boolean> enabled=new LinkedHashMap<>();
@@ -57,8 +68,9 @@ public final class KingdomNpcWorkshopData extends SavedData {
                 low,high,p.duration(),p.salePrice()));
         progress.remove(worker);enabled.put(worker,false);setDirty();return true;
     }
-    void start(UUID worker,String recipe,long readyAt){
-        progress.put(worker,new Progress(worker,readyAt,recipe,true));setDirty();
+    void start(UUID worker,String recipe,long readyAt,int expectedYield){
+        if(expectedYield<=0)throw new IllegalArgumentException("expectedYield");
+        progress.put(worker,new Progress(worker,readyAt,recipe,true,expectedYield));setDirty();
     }
     void clear(UUID worker){if(progress.remove(worker)!=null)setDirty();}
     /** Existing worker and job identity are never inferred from an untrusted NBT plan. */
@@ -82,7 +94,7 @@ public final class KingdomNpcWorkshopData extends SavedData {
             if(!t.hasUUID("Worker"))continue;
             UUID id=t.getUUID("Worker");var p=d.plans.get(id);
             if(p!=null && p.recipe().equals(t.getString("Recipe")))
-                d.progress.put(id,new Progress(id,Math.max(0,t.getLong("Ready")),p.recipe(),true));
+                d.progress.put(id,new Progress(id,Math.max(0,t.getLong("Ready")),p.recipe(),true,t.contains("Yield",Tag.TAG_INT)?Math.max(1,t.getInt("Yield")):p.high()));
         }
         return d;
     }
@@ -98,7 +110,7 @@ public final class KingdomNpcWorkshopData extends SavedData {
         }root.put("Plans",records);
         records=new ListTag();for(Progress p:progress.values()){
             var t=new CompoundTag();t.putUUID("Worker",p.worker());t.putLong("Ready",p.readyAt());
-            t.putString("Recipe",p.recipe());records.add(t);
+            t.putString("Recipe",p.recipe());t.putInt("Yield",p.expectedYield());records.add(t);
         }root.put("Progress",records);return root;
     }
 }

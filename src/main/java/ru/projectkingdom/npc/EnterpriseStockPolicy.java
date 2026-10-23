@@ -21,11 +21,28 @@ public final class EnterpriseStockPolicy {
         if (!nextProduction(limits, physicalStock, wasRunning)) return 0;
         return (int)Math.min((long)recipeBatch, (long)limits.maximum() - physicalStock);
     }
-    /** Open demand only below minimum; subtract already committed incoming shipments. */
+    /** Consistent source for production, purchasing and in-flight reservations. */
+    public record StockState(int physical,int incoming,int inProduction,boolean complete){
+        public StockState{
+            if(physical<0||incoming<0||inProduction<0)throw new IllegalArgumentException("stock state");
+        }
+        public int committedTotal(){return (int)Math.min(Integer.MAX_VALUE,(long)physical+incoming+inProduction);}
+    }
+    public static boolean nextProduction(Thresholds p,StockState state,boolean running){
+        return state!=null&&state.complete()&&nextProduction(p,state.committedTotal(),running);
+    }
+    public static int productionBatch(Thresholds p,StockState state,boolean running,int batch){
+        return state!=null&&state.complete()?productionBatch(p,state.committedTotal(),running,batch):0;
+    }
+    public static int reorderQuantity(Thresholds p,StockState state){
+        if(state==null||!state.complete())return 0;
+        return reorderQuantity(p,(int)Math.min(Integer.MAX_VALUE,(long)state.physical()+state.inProduction()),state.incoming());
+    }
+    /** Open demand at/below minimum; subtract already committed incoming shipments. */
     public static int reorderQuantity(Thresholds limits, int physicalStock, int committedIncoming) {
         if (limits == null || physicalStock < 0 || committedIncoming < 0) throw new IllegalArgumentException("stock");
         long available = (long)physicalStock + committedIncoming;
-        if (physicalStock >= limits.minimum() || available >= limits.maximum()) return 0;
+        if (physicalStock > limits.minimum() || limits.minimum() == 0 || available >= limits.maximum()) return 0;
         return (int)(limits.maximum() - available);
     }
 }

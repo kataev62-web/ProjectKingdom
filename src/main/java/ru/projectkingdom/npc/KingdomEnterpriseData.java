@@ -198,6 +198,12 @@ public final class KingdomEnterpriseData extends SavedData {
     public StorageBinding storageBinding(UUID enterprise,EnterpriseBindingRole role){
         return storageBindings.getOrDefault(enterprise,new EnumMap<>(EnterpriseBindingRole.class)).get(role);
     }
+    /** Prevent legacy worker chests being attributed to another firm's warehouse. */
+    public boolean storageClaimedByOther(UUID enterprise,String dimension,BlockPos pos){
+        for(var roles:storageBindings.values())for(StorageBinding s:roles.values())
+            if(!s.enterprise().equals(enterprise)&&s.dimension().equals(dimension)&&s.pos().equals(pos))return true;
+        return false;
+    }
     public boolean bindStorage(UUID actor,UUID enterprise,EnterpriseBindingRole role,String dimension,BlockPos pos){
         if(!mayManage(actor,enterprise)||role==null||dimension==null||dimension.isBlank()||pos==null)return false;
         for(var byRole:storageBindings.values())for(StorageBinding other:byRole.values())

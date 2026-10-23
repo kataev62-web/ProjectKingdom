@@ -242,12 +242,17 @@ public final class KingdomNpcWorkshop {
         if(npc.distanceToSqr(station.getX()+0.5,station.getY()+0.5,station.getZ()+0.5)>6.25){
             npc.getNavigation().moveTo(station.getX()+0.5,station.getY(),station.getZ()+0.5,0.75);return false;
         }
-        int stocked=count(finished,p.output());
-        if(stocked>=p.high()){data.setEnabled(w.entityId,false);data.clear(w.entityId);return false;}
-        if(!data.enabled(w.entityId)){
-            if(stocked>p.low())return false;
-            data.setEnabled(w.entityId,true);
+        var stock=KingdomEnterpriseStock.inspect(level,p.enterprise(),p.output(),
+                ru.projectkingdom.enterprise.EnterpriseBindingRole.FINISHED_STORAGE,
+                new BlockPos(w.destX,w.destY,w.destZ));
+        var limits=new EnterpriseStockPolicy.Thresholds(p.low(),p.high());
+        var state=stock.state(data.reservedProduction(p.enterprise(),p.output(),w.entityId));
+        if(!state.complete()){data.clear(w.entityId);return false;}
+        if(!EnterpriseStockPolicy.nextProduction(limits,state,data.enabled(w.entityId))){
+            if(state.committedTotal()>=p.high())data.setEnabled(w.entityId,false);
+            data.clear(w.entityId);return false;
         }
+        data.setEnabled(w.entityId,true);
         if(!refill(raw,p.grid())){
             data.clear(w.entityId);
             // The owner must fund their real company and make an offer available locally.
@@ -259,9 +264,9 @@ public final class KingdomNpcWorkshop {
         if(recipe==null||!p.recipe().equals(recipe.getId().toString())){data.clear(w.entityId);return false;}
         ItemStack product=recipe.assemble(grid,level.registryAccess());
         if(product.isEmpty()||money(product)||!p.output().equals(BuiltInRegistries.ITEM.getKey(product.getItem()).toString())
-                ||stocked>p.high()-product.getCount()){data.clear(w.entityId);return false;}
+                ||EnterpriseStockPolicy.productionBatch(limits,state,true,product.getCount())<product.getCount()){data.clear(w.entityId);return false;}
         long now=level.getGameTime();var stage=data.progress(w.entityId);
-        if(stage==null){data.start(w.entityId,p.recipe(),now+p.duration());return false;}
+        if(stage==null){data.start(w.entityId,p.recipe(),now+p.duration(),product.getCount());return false;}
         if(now<stage.readyAt())return false;
         if(!complete(level,raw,finished,p)){data.clear(w.entityId);return false;}
         // Advertisement names real, loaded workshop storage; no goods or money appear here.
@@ -285,7 +290,11 @@ public final class KingdomNpcWorkshop {
         for(String item:p.grid()){
             if(item.isBlank())continue;
             int needed=0;for(String slot:p.grid())if(item.equals(slot))needed++;
-            if(count(raw,item)>=Math.max(needed,4))continue;
+            int desired=Math.max(needed,4);
+            var shared=KingdomEnterpriseStock.inspect(level,p.enterprise(),item,
+                    ru.projectkingdom.enterprise.EnterpriseBindingRole.RAW_STORAGE,
+                    new BlockPos(w.sourceX,w.sourceY,w.sourceZ));
+            if(!shared.complete()||(long)shared.physical()+shared.incoming()>=desired)continue;
             for(var offer:businesses.offers()){
                 if(!offer.itemId().equals(item)||offer.seller().equals(p.enterprise()))continue;
                 var sellerDesk=businesses.counter(offer.seller());
