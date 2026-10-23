@@ -27,7 +27,8 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     private final List<Button> buyButtons=new ArrayList<>();
     private Button sellButton,applyButton,acceptButton;
     private final List<Button> storageButtons=new ArrayList<>(),cashButtons=new ArrayList<>(),constructionButtons=new ArrayList<>();
-    private EditBox rename;private Button renameButton;
+    private EditBox rename;private Button renameButton,closeButton;
+    private boolean closureArmed;
     public EnterpriseCoreScreen(EnterpriseCoreMenu menu,Inventory inventory,Component title){super(menu,inventory,KingdomFonts.readable(title));imageWidth=EnterpriseMenuLayout.WIDTH;imageHeight=EnterpriseMenuLayout.HEIGHT;}
     @Override protected void init(){
         super.init();
@@ -44,6 +45,12 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
         renameButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Сохранить"),b->KingdomNetwork.CHANNEL.sendToServer(new RenameEnterprisePacket(menu.enterpriseId(),rename.getValue()))).bounds(leftPos+264,topPos+94,44,20).build());
+        closeButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Закрыть предприятие"),b->{
+            if(minecraft==null||minecraft.gameMode==null)return;
+            minecraft.gameMode.handleInventoryButtonClick(menu.containerId,EnterpriseCoreMenu.CLOSE_BUSINESS);
+            closureArmed=true;
+            closeButton.setMessage(KingdomFonts.readable("Подтвердить закрытие"));
+        }).bounds(leftPos+68,topPos+157,240,20).build());
         updateVisibility();
     }
     private void initVisitor(){
@@ -76,7 +83,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         for(Button b:storageButtons)b.visible=selected==EnterpriseMenuLayout.Tab.STORAGE&&menu.manager();for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();
         for(Button b:constructionButtons)b.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION
             &&menu.kind()==EnterpriseKind.CONSTRUCTION&&menu.manager();
-        boolean settings=selected==EnterpriseMenuLayout.Tab.SETTINGS&&menu.manager();if(rename!=null)rename.setVisible(settings);if(renameButton!=null)renameButton.visible=settings;}
+        boolean settings=selected==EnterpriseMenuLayout.Tab.SETTINGS&&menu.manager();if(rename!=null)rename.setVisible(settings);if(renameButton!=null)renameButton.visible=settings;if(closeButton!=null)closeButton.visible=settings;}
     private static Item tabIcon(EnterpriseMenuLayout.Tab tab){return switch(tab){case INFO->Items.BOOK;case WORKERS->Items.VILLAGER_SPAWN_EGG;case PRODUCTION->Items.IRON_PICKAXE;case STORAGE->Items.CHEST;case CASH->Items.GOLD_INGOT;case ORDERS->Items.PAPER;case SETTINGS->Items.COMPARATOR;};}
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){g.fill(leftPos+34,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);g.fill(leftPos+39,topPos+9,leftPos+imageWidth-9,topPos+imageHeight-9,PARCHMENT);g.fill(leftPos+51,topPos+42,leftPos+imageWidth-20,topPos+43,EDGE);}
     @Override protected void renderLabels(GuiGraphics g,int mouseX,int mouseY){
@@ -103,7 +110,11 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
             case STORAGE->{line(g,"Касса: "+menu.cashboxState(),54,84);line(g,"Сырьё: "+menu.rawState(),54,101);line(g,"Продукция: "+menu.finishedState(),54,118);}
             case CASH->{line(g,"Физически обеспеченная касса: "+menu.cash()+" мед.",54,88);line(g,"Операции доступны владельцу у загруженного ядра.",54,108);}
             case ORDERS->{line(g,"Только реальные сохранённые заявки и поставки.",54,90);line(g,"Удалённое создание товаров отключено.",54,108);}
-            case SETTINGS->{line(g,menu.manager()?"Новое название (до 48 символов):":"Управление доступно только владельцу.",54,80);}
+            case SETTINGS->{
+                line(g,menu.manager()?"Новое название (до 48 символов):":"Управление доступно только владельцу.",54,80);
+                line(g,"Закрытие возможно после вывода денег и товаров",54,134);
+                line(g,"и погашения зарплаты. Нажмите дважды.",54,146);
+            }
         }
     }
     private void renderVisitor(GuiGraphics g){
