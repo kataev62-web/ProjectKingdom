@@ -283,15 +283,22 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         renderBackground(gui);
         gui.fill(left, top, left + panelWidth, top + panelHeight, 0xFF39291B);
         gui.fill(left + 2, top + 2, left + panelWidth - 2, top + panelHeight - 2, 0xFFEAE0C8);
+        // Guild-style navigation column and parchment map frame.
+        gui.fill(left + 3,top + 3,left + navWidth + 3,top + panelHeight - 3,0xFF493A2A);
+        gui.fill(left + 5,top + 5,left + navWidth + 1,top + panelHeight - 5,0xFF6B553B);
         gui.fill(gridX - 2, gridY - 2, gridX + gridWidth + 2, gridY + gridHeight + 2, INK);
-        gui.drawString(font, Component.literal("ATLAS  •  PROJECT KINGDOM"), left + 10, top + 9, INK, false);
+        gui.drawString(font, Component.literal("KINGDOM  |  КАРТЫ"),
+                gridX, top + 8, INK, false);
+        // Make the currently selected category obvious at a glance.
+        gui.fill(left + 3,top + 27 + layer.ordinal() * 19,
+                left + 6,top + 44 + layer.ordinal() * 19,0xFFFFD784);
         if (minecraft != null && minecraft.player != null) {
             gui.drawString(font, Component.literal("Вы: X " + minecraft.player.blockPosition().getX()
                     + "  Z " + minecraft.player.blockPosition().getZ()),
                     gridX, top + panelHeight - 17, INK, false);
         }
-        gui.drawString(font, Component.literal("1 клетка = " + KingdomGraphicAtlasData.SCALES[scaleIndex] + " чанков"),
-                gridX + gridWidth - 148, top + panelHeight - 17, MUTED, false);
+        gui.drawString(font, Component.literal("Масштаб: " + KingdomGraphicAtlasData.SCALES[scaleIndex] + " ч/кл"),
+                gridX + Math.max(0,gridWidth - 100), top + panelHeight - 17, MUTED, false);
         if (snapshot != null) {
             renderTiles(gui);
             renderSurveyedRoads(gui);
@@ -303,47 +310,9 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         // independently of the slower terrain/territory snapshot refresh.
         renderPlayerMarker(gui);
 
-        int sx = gridX + gridWidth + 11;
-        int sy = gridY + 78;
-        gui.drawString(font, Component.literal("Маршрут / местность"), sx, sy, INK, false);
-        // Compact two-column legend keeps the owner inspector visible even
-        // on 240px Minecraft GUI height at higher interface scaling.
-        gui.fill(sx, sy + 14, sx + 8, sy + 22, OWN);
-        gui.drawString(font, Component.literal("Свой"), sx + 10, sy + 14, MUTED, false);
-        gui.fill(sx + 76, sy + 14, sx + 84, sy + 22, 0xFFC18D55);
-        gui.drawString(font, Component.literal("Чужой"), sx + 86, sy + 14, MUTED, false);
-        gui.fill(sx, sy + 27, sx + 8, sy + 35, PLAN);
-        gui.drawString(font, Component.literal("План"), sx + 10, sy + 27, MUTED, false);
-        gui.fill(sx + 76, sy + 27, sx + 84, sy + 35, FREE);
-        gui.drawString(font, Component.literal("Свободно"), sx + 86, sy + 27, MUTED, false);
-
-        int infoY = sy + 46;
-        gui.drawString(font, Component.literal(selectedMarker == null
-                ? "Выбранный участок:" : "Объект на карте:"), sx, infoY, INK, false);
-        if (selectedMarker != null) {
-            shortText(gui, selectedMarker.label(), sx, infoY + 12);
-            shortText(gui, selectedMarker.kind().name(), sx, infoY + 24);
-            shortText(gui, "X " + selectedMarker.blockX() + " Z " + selectedMarker.blockZ(),
-                    sx, infoY + 36);
-        } else if (snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
-            var tile = snapshot.tile(selectedCol, selectedRow);
-            shortText(gui, tile.town().isEmpty() ? "Свободная земля" : tile.town(), sx, infoY + 12);
-            String terrain = switch (KingdomAtlasTerrain.Type.values()[tile.terrain()]) {
-                case UNKNOWN -> "Рельеф не исследован";
-                case PLAIN -> "Равнина";
-                case FOREST -> "Лес";
-                case WATER -> "Вода";
-                case MOUNTAIN -> "Горы";
-                case ROAD -> "Дорога";
-            };
-            shortText(gui, tile.nation().isEmpty() ? terrain : tile.nation(), sx, infoY + 24);
-            if (tile.enterprises() > 0) shortText(gui,
-                    tile.business() + " (" + tile.enterprises() + ")", sx, infoY + 36);
-        } else {
-            shortText(gui, "Нажмите на область", sx, infoY + 12);
-        }
-        gui.drawString(font, font.plainSubstrByWidth(routeHint(), gridWidth - 12),
-                gridX + 4, gridY + gridHeight + 8, INK, false);
+        renderKingdomInspector(gui);
+        gui.drawString(font, font.plainSubstrByWidth(routeHint(), gridWidth - 4),
+                gridX + 2, gridY + gridHeight + 8, INK, false);
         super.render(gui, mouseX, mouseY, partialTick);
         if (snapshot != null && mouseX >= gridX && mouseX < gridX + gridWidth
                 && mouseY >= gridY && mouseY < gridY + gridHeight) {
@@ -372,6 +341,78 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                         mouseX, mouseY);
             }
         }
+    }
+
+    /** Right information panel, shared by all map tabs (no separate chest menus). */
+    private void renderKingdomInspector(GuiGraphics gui) {
+        if (inspectorWidth <= 0) {
+            if (snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
+                var tile = snapshot.tile(selectedCol,selectedRow);
+                gui.drawString(font,font.plainSubstrByWidth(
+                        tile.town().isBlank() ? "Свободная земля" : tile.town(),
+                        gridWidth - 4),gridX + 2,top + panelHeight - 29,INK,false);
+            }
+            return;
+        }
+        int x=gridX+gridWidth+7;
+        int w=inspectorWidth-10;
+        int bottom=top+panelHeight-48;
+        gui.fill(x-3,top+27,x+w+3,bottom+2,0xFFE0D1B2);
+        gui.drawString(font,Component.literal("СВЕДЕНИЯ"),x,top+33,INK,false);
+        gui.fill(x,top+46,x+w,top+47,0xFFA7906D);
+
+        int y=top+53;
+        if(selectedMarker != null) {
+            shortInfo(gui,selectedMarker.label(),x,y,w,INK);
+            shortInfo(gui,markerTypeName(selectedMarker.kind()),x,y+13,w,MUTED);
+            shortInfo(gui,"X "+selectedMarker.blockX(),x,y+27,w,MUTED);
+            shortInfo(gui,"Z "+selectedMarker.blockZ(),x,y+40,w,MUTED);
+        } else if(snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
+            var tile=snapshot.tile(selectedCol,selectedRow);
+            shortInfo(gui,tile.town().isEmpty()?"Свободный участок":tile.town(),x,y,w,INK);
+            if(!tile.nation().isEmpty())
+                shortInfo(gui,tile.nation(),x,y+13,w,MUTED);
+            String terrain=switch(KingdomAtlasTerrain.Type.values()[tile.terrain()]){
+                case UNKNOWN -> "Не исследовано";
+                case PLAIN -> "Равнина";
+                case FOREST -> "Лес";
+                case WATER -> "Вода";
+                case MOUNTAIN -> "Горы";
+                case ROAD -> "Дорога";
+            };
+            shortInfo(gui,terrain,x,y+27,w,MUTED);
+            if(tile.enterprises()>0)
+                shortInfo(gui,"Предприятий: "+tile.enterprises(),x,y+40,w,INK);
+        } else {
+            shortInfo(gui,"Выберите область",x,y,w,MUTED);
+            shortInfo(gui,"или здание",x,y+13,w,MUTED);
+        }
+
+        int legendY=Math.min(bottom-46,top+127);
+        if (legendY > y+45) {
+            gui.drawString(font,Component.literal("УСЛОВНЫЕ ЗНАКИ"),x,legendY,INK,false);
+            legendItem(gui,x,legendY+12,OWN,"Своя земля",w);
+            legendItem(gui,x,legendY+24,0xFFC18D55,"Чужая земля",w);
+            legendItem(gui,x,legendY+36,PLAN,"План расширения",w);
+        }
+    }
+
+    private void shortInfo(GuiGraphics gui,String value,int x,int y,int maxWidth,int color){
+        gui.drawString(font,font.plainSubstrByWidth(value,Math.max(12,maxWidth)),x,y,color,false);
+    }
+    private void legendItem(GuiGraphics gui,int x,int y,int color,String name,int w){
+        gui.fill(x,y,x+7,y+7,color);
+        shortInfo(gui,name,x+10,y,w-10,MUTED);
+    }
+    private static String markerTypeName(KingdomAtlasInfrastructure.Kind kind){
+        return switch(kind){
+            case BUILDING -> "Здание";
+            case TOWN_HALL -> "Ратуша";
+            case ADMINISTRATION -> "Администрация";
+            case ENTERPRISE -> "Предприятие";
+            case ROAD -> "Дорога";
+            case BRIDGE -> "Мост";
+        };
     }
 
     /** Each marker has real world coordinates provided by server registries. */
