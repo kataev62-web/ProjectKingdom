@@ -58,6 +58,11 @@ public final class KingdomNpcMod {
         MinecraftForge.EVENT_BUS.register(this);
     }
 
+    // Farmer field selection is bound to a specific owned farm and right-clicked soil.
+    @SubscribeEvent public void chooseFarmCorner(PlayerInteractEvent.RightClickBlock event) {
+        KingdomFarmSelection.select(event);
+    }
+
     // One-click binding: after choosing a button in NPC menu, right-click a real chest.
     private static final Map<UUID, BindRequest> BINDING = new ConcurrentHashMap<>();
     private record BindRequest(int npcId, String role, String dimension) {}
@@ -219,7 +224,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
