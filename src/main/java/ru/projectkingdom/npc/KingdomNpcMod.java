@@ -69,13 +69,6 @@ public final class KingdomNpcMod {
         BINDING.put(p.getUUID(), new BindRequest(id,role,p.level().dimension().location().toString()));
         p.sendSystemMessage(Component.literal("[Королевство] Нажми ПКМ по "+(role.equals("workstation")?"рабочей станции":"нужному складу")+" на своей территории."));
     }
-    /** Keep the actual in-hand Kingdom map updated every 40 ticks. */
-    @SubscribeEvent public void kingdomHeldMapTick(TickEvent.PlayerTickEvent event) {
-        if (event.phase != TickEvent.Phase.END
-                || !(event.player instanceof ServerPlayer player)) return;
-        ru.projectkingdom.map.KingdomHeldMapService.tick(player);
-    }
-
     /** Shift + right click with a compass opens the entire kingdom UI without chat commands. */
     @SubscribeEvent public void openKingdomMenu(PlayerInteractEvent.RightClickItem event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) return;
