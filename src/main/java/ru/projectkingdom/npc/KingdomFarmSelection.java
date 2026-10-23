@@ -1,0 +1,60 @@
+package ru.projectkingdom.npc;
+
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraftforge.event.entity.player.PlayerInteractEvent;
+
+/**
+ * Two-corner selection. Shift + empty hand + right-click soil twice.
+ * State is transient, expires after 2 minutes and never bypasses claim checks.
+ */
+public final class KingdomFarmSelection {
+    private KingdomFarmSelection() {}
+    private static final long TIMEOUT=2400L;
+    private record Pending(UUID farm,String dimension,BlockPos first,long until) {}
+    private static final Map<UUID,Pending> PENDING=new ConcurrentHashMap<>();
+    public static boolean begin(ServerPlayer player,UUID farm){
+        if(!KingdomFarmFieldData.allowed(player,farm))return false;
+        PENDING.put(player.getUUID(),new Pending(farm,
+            player.serverLevel().dimension().location().toString(),null,
+            player.serverLevel().getGameTime()+TIMEOUT));
+        player.sendSystemMessage(Component.literal("[Ферма] Выделение поля: Shift + ПКМ пустой рукой по ПОЧВЕ первого и второго углов. Максимум 16×16, обе точки на одной высоте."));
+        return true;
+    }
+    public static void cancel(UUID user){PENDING.remove(user);}
+    public static boolean select(PlayerInteractEvent.RightClickBlock event){
+        if(!(event.getEntity() instanceof ServerPlayer p)
+            || event.getHand()!=InteractionHand.MAIN_HAND
+            || !p.isShiftKeyDown() || !p.getMainHandItem().isEmpty())return false;
+        Pending pending=PENDING.get(p.getUUID());
+        if(pending==null)return false;
+        if(p.serverLevel().getGameTime()>pending.until()
+            || !p.serverLevel().dimension().location().toString().equals(pending.dimension())
+            || !KingdomFarmFieldData.allowed(p,pending.farm())){
+            PENDING.remove(p.getUUID());return false;
+        }
+        BlockPos soil=event.getPos();
+        if(!p.serverLevel().hasChunkAt(soil))return false;
+        if(!KingdomTerritories.get(p.getServer()).canUse(p.serverLevel(),soil,p.getUUID())){
+            p.sendSystemMessage(Component.literal("[Ферма] Земля должна принадлежать владельцу фермы."));
+        }else if(pending.first()==null){
+            PENDING.put(p.getUUID(),new Pending(pending.farm(),pending.dimension(),soil.immutable(),pending.until()));
+            p.sendSystemMessage(Component.literal("[Ферма] Первый угол: "+soil.toShortString()+". Отметь второй угол."));
+        }else {
+            boolean ok=KingdomFarmFieldData.get(p.getServer()).create(p,pending.farm(),pending.first(),soil);
+            if(ok)PENDING.remove(p.getUUID());
+            p.sendSystemMessage(Component.literal(ok
+                ? "[Ферма] Поле зарегистрировано. Открой ферму → Производство → Поля и семена; назначь культуру."
+                : "[Ферма] Нельзя добавить: размер до 16×16, одна высота, нет пересечений, до 8 полей, вся земля собственная."));
+        }
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        event.setCanceled(true);
+        return true;
+    }
+}
