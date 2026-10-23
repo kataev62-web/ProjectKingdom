@@ -118,20 +118,11 @@ public final class KingdomNpcMod {
                 player.sendSystemMessage(Component.literal("[Строительство] Этот чертёж принадлежит другому владельцу."));
             } else {
                 var step = KingdomConstructionWork.next(player.getServer(), project);
-                if (step.target() == null) {
-                    player.sendSystemMessage(Component.literal("[Строительство] " + step.result().message()));
-                } else if (level.hasChunkAt(step.target())) {
-                    var target = step.target();
-                    // Visible next-block hint without spawning entities or placing fake blocks.
-                    level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
-                        target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5,
-                        12, 0.4, 0.4, 0.4, 0.02);
-                    player.sendSystemMessage(Component.literal("[Чертёж] Следующий блок: "
-                        + step.material() + ", координаты " + target.toShortString()
-                        + ". Полный список материалов — в меню стройки."));
-                } else {
-                    player.sendSystemMessage(Component.literal("[Чертёж] Следующий блок вне загруженных чанков."));
-                }
+                int count = KingdomConstructionPreview.show(player, project);
+                player.sendSystemMessage(Component.literal("[Чертёж] 3D-контур: "+count
+                    +" недостроенных блоков (точки из частиц, до 144 за просмотр). "
+                    + (step.target() == null ? step.result().message()
+                        : "Следующий: "+step.material()+", "+step.target().toShortString())));
             }
         } else if (project != null) {
             if (project.owner().equals(player.getUUID()))
@@ -216,7 +207,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
