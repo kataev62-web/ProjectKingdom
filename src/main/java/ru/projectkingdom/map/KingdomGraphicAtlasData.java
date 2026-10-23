@@ -46,11 +46,19 @@ public final class KingdomGraphicAtlasData {
                 && terrain == KingdomAtlasTerrain.Type.UNKNOWN.ordinal(); }
     }
     public record Snapshot(int requestId, int centerX, int centerZ, int scale,
-                           Layer layer, List<Tile> tiles) {
+                           Layer layer, List<Tile> tiles,
+                           List<KingdomAtlasInfrastructure.Marker> markers) {
+        /** Backward compatible constructor for empty infrastructure viewports. */
+        public Snapshot(int requestId, int centerX, int centerZ, int scale,
+                        Layer layer, List<Tile> tiles) {
+            this(requestId, centerX, centerZ, scale, layer, tiles, List.of());
+        }
         public Snapshot {
-            if (!supportedScale(scale) || tiles.size() != MAX_CELLS)
+            if (!supportedScale(scale) || layer == null || tiles == null || tiles.size() != MAX_CELLS
+                    || markers == null || markers.size() > KingdomAtlasInfrastructure.MAX_MARKERS)
                 throw new IllegalArgumentException("Invalid graphic atlas dimensions");
             tiles = List.copyOf(tiles);
+            markers = List.copyOf(markers);
         }
         public Tile tile(int column, int row) { return tiles.get(row * COLUMNS + column); }
     }
@@ -99,8 +107,11 @@ public final class KingdomGraphicAtlasData {
         }
         var terrain = KingdomAtlasTerrainCache.get(player.getServer())
                 .view(player.serverLevel(), centerX, centerZ, scale);
-        return project(requestId, centerX, centerZ, scale, layer, dimension,
+        var projected = project(requestId, centerX, centerZ, scale, layer, dimension,
                 ownId, civic, businesses, planned, terrain);
+        var markers = KingdomAtlasInfrastructure.forPlayer(player, centerX, centerZ, scale);
+        return new Snapshot(projected.requestId(), projected.centerX(), projected.centerZ(),
+                projected.scale(), projected.layer(), projected.tiles(), markers);
     }
 
     /** Pure projection for tests; does not load world chunks or expose ore. */
