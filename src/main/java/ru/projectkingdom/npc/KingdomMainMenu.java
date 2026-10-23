@@ -119,6 +119,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(12,Items.EMERALD,"Карта предприятий: действующие мастерские, фермы и торговля");
                 icon(13,Items.COMPASS,"Городские границы: план расширения и выкуп из казны");
                 icon(14,Items.MAP,"Земельные участки: собственность и разрешённые сделки");
+                icon(15,Items.BRICKS,"Инфраструктура: ратуши, здания, дороги, мосты и предприятия");
                 icon(22,Items.PAPER,"Все карты открываются только в интерфейсе Kingdom");
                 icon(23,Items.BOOK,"Масштаб, перемещение, маркер игрока — в графическом атласе");
             }
@@ -429,6 +430,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     case 12 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.ENTERPRISES);
                     case 13 -> KingdomCityExpansionMapMenu.open(viewer);
                     case 14 -> KingdomLandMapMenu.open(viewer);
+                    case 15 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.INFRASTRUCTURE);
                     default -> { }
                 }
             }
