@@ -129,6 +129,14 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             addRenderableWidget(Button.builder(Component.literal("Меню"),
                     button -> KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsHubPacket()))
                     .bounds(navX,top + 6,navButtonWidth,17).build());
+            // Even on compact GUIs, municipal planning and individual parcels
+            // stay reachable from the same atlas without a second chest page.
+            addRenderableWidget(Button.builder(Component.literal("Город"),
+                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()))
+                    .bounds(gridX + gridWidth - 101,top + 5,49,17).build());
+            addRenderableWidget(Button.builder(Component.literal("Участки"),
+                    button -> KingdomNetwork.CHANNEL.sendToServer(new OpenLandMapFromAtlasPacket()))
+                    .bounds(gridX + gridWidth - 50,top + 5,50,17).build());
         }
         if (requestId == 0) resetCenter();
         else request();
@@ -308,7 +316,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gui.fill(left + 3,top + 3,left + navWidth + 3,top + panelHeight - 3,0xFF493A2A);
         gui.fill(left + 5,top + 5,left + navWidth + 1,top + panelHeight - 5,0xFF6B553B);
         gui.fill(gridX - 2, gridY - 2, gridX + gridWidth + 2, gridY + gridHeight + 2, INK);
-        gui.drawString(font, Component.literal("KINGDOM  |  КАРТЫ"),
+        gui.drawString(font, Component.literal(inspectorWidth > 0 ? "KINGDOM  |  КАРТЫ" : "KINGDOM"),
                 gridX, top + 8, INK, false);
         // Make the currently selected category obvious at a glance.
         int activeTop = panelHeight < 218 ? top + 26 + (layer.ordinal() / 2) * 17
