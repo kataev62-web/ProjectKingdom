@@ -68,9 +68,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         int navX=left+6,navButtonWidth=navWidth-12;
         boolean compact=layout.compact();
         KingdomGraphicAtlasData.Layer[] layers=KingdomGraphicAtlasData.Layer.values();
-        String[] labels=compact
-                ? new String[]{"Мир","Нации","Фирмы","Здания"}
-                : new String[]{"Местность","Государства","Предприятия","Стройки"};
+        // Full labels become tooltips on compact 2x2 icon tabs.
+        String[] labels={"Местность","Государства","Предприятия","Стройки"};
         Item[] icons={Items.FILLED_MAP,Items.BLUE_BANNER,Items.EMERALD,Items.BRICKS};
         int half=(navButtonWidth-4)/2;
         for(int i=0;i<layers.length;i++){
