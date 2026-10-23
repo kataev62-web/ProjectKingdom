@@ -155,7 +155,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(50, Items.WRITABLE_BOOK, "Проверить план и средства городской казны");
         put(51, Items.BARRIER, "Очистить план");
         put(52, Items.COMPASS, "К позиции игрока");
-        put(53, Items.OAK_DOOR, "Закрыть карту");
+        put(53, Items.OAK_DOOR, "К картам Kingdom");
         super.broadcastChanges();
     }
     @Override public void broadcastChanges() {
@@ -213,7 +213,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
                 case 43 -> { purchasePlan(); return; }
                 case 51 -> planned.clear();
                 case 52 -> { centerX = viewer.chunkPosition().x; centerZ = viewer.chunkPosition().z; }
-                case 53 -> { viewer.closeContainer(); return; }
+                case 53 -> { KingdomMainMenu.openMaps(viewer); return; }
                 default -> { return; }
             }
         }
