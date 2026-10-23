@@ -13,6 +13,10 @@ class KingdomTfcGrillDataTest {
         var batch = new KingdomTfcGrillData.Job(worker, "minecraft:overworld", 123L, 4,
             "tfc:food/raw_beef", "tfc:food/cooked_beef");
         data.put(batch);
+        UUID other = UUID.fromString("00000000-0000-0000-0000-000000000055");
+        assertTrue(data.reservedByOther(other, "minecraft:overworld", 123L, 4));
+        assertFalse(data.reservedByOther(worker, "minecraft:overworld", 123L, 4));
+        assertFalse(data.reservedByOther(other, "minecraft:overworld", 123L, 5));
         CompoundTag saved = data.save(new CompoundTag());
         KingdomTfcGrillData loaded = KingdomTfcGrillData.load(saved);
         assertEquals(batch, loaded.get(worker));
