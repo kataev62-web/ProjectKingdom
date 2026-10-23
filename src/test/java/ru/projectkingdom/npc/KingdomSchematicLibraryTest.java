@@ -100,6 +100,10 @@ class KingdomSchematicLibraryTest {
         assertFalse(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:water")));
         assertFalse(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:bedrock")));
         assertFalse(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:stone_slab[type=double]")));
+        assertFalse(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:oak_door[half=lower]")));
+        assertFalse(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:red_bed")));
+        assertFalse(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:sand")));
+        assertFalse(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:tall_grass")));
         assertTrue(KingdomBlockStateCodec.buildable(KingdomBlockStateCodec.parse("minecraft:spruce_log[axis=z]")));
     }
 
