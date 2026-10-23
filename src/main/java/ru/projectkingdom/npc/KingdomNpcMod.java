@@ -50,6 +50,7 @@ public final class KingdomNpcMod {
         KingdomBookRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomEconomyRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomEnterpriseRegistry.register();
+        KingdomConstructionRegistry.register();
         KingdomAdministrationRegistry.register();
         KingdomNetwork.register();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
@@ -75,19 +76,71 @@ public final class KingdomNpcMod {
         event.setCancellationResult(InteractionResult.SUCCESS);
         event.setCanceled(true);
     }
+    /**
+     * Ancient-Warfare-style construction control:
+     * drafting table/legacy lectern -> choose blueprint; crafted hammer ->
+     * one fully verified and physically paid placement; blueprint -> preview.
+     */
     @SubscribeEvent public void architectLectern(PlayerInteractEvent.RightClickBlock event) {
-        if(!(event.getEntity() instanceof ServerPlayer p))return;
-        if(!p.serverLevel().getBlockState(event.getPos()).is(net.minecraft.world.level.block.Blocks.LECTERN))return;
-        var data=KingdomConstructionData.get(p.getServer());
-        BlockPos pos=event.getPos();
-        var project=data.atMarker(p.level().dimension().location().toString(),pos.getX(),pos.getY(),pos.getZ());
-        if(project!=null) {
-            if(project.owner().equals(p.getUUID()))KingdomMainMenu.openSite(p,project.id());
-            else p.sendSystemMessage(Component.literal("[Project Kingdom] Это чужая строительная площадка."));
+        if (!(event.getEntity() instanceof ServerPlayer player)
+                || event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
+        ServerLevel level = player.serverLevel();
+        BlockPos marker = event.getPos();
+        if (!KingdomConstructionMarkers.isMarker(level, marker)) return;
+
+        var data = KingdomConstructionData.get(player.getServer());
+        var project = data.atMarker(level.dimension().location().toString(),
+            marker.getX(), marker.getY(), marker.getZ());
+        ItemStack held = player.getItemInHand(event.getHand());
+
+        if (held.is(KingdomConstructionRegistry.BUILDERS_HAMMER.get())) {
+            if (project == null) {
+                player.sendSystemMessage(Component.literal("[Строительство] Выбери здание на чертёжном столе и создай проект."));
+            } else if (!project.owner().equals(player.getUUID())) {
+                player.sendSystemMessage(Component.literal("[Строительство] Помогать молотом на этой стройке пока может только владелец проекта."));
+            } else {
+                var step = KingdomConstructionWork.placeNext(player.getServer(), level, project);
+                var progress = data.progress(project.id());
+                var type = KingdomBuildingTypes.type(project.design());
+                int total = type == null ? 0 : KingdomBuildingTypes.design(type).blocks().size();
+                player.sendSystemMessage(Component.literal("[Строительство] " + step.result().message()
+                    + " — " + progress + "/" + total
+                    + (step.target() == null ? "" : " (" + step.target().toShortString() + ")")));
+                if (step.result() == KingdomConstructionWork.Result.PLACED && !player.isCreative()) {
+                    held.hurtAndBreak(1, player, broken -> broken.broadcastBreakEvent(event.getHand()));
+                }
+            }
+        } else if (project != null
+                && held.is(KingdomConstructionRegistry.BUILDING_BLUEPRINT.get())) {
+            if (!project.owner().equals(player.getUUID())) {
+                player.sendSystemMessage(Component.literal("[Строительство] Этот чертёж принадлежит другому владельцу."));
+            } else {
+                var step = KingdomConstructionWork.next(player.getServer(), project);
+                if (step.target() == null) {
+                    player.sendSystemMessage(Component.literal("[Строительство] " + step.result().message()));
+                } else if (level.hasChunkAt(step.target())) {
+                    var target = step.target();
+                    // Visible next-block hint without spawning entities or placing fake blocks.
+                    level.sendParticles(net.minecraft.core.particles.ParticleTypes.END_ROD,
+                        target.getX() + 0.5, target.getY() + 0.5, target.getZ() + 0.5,
+                        12, 0.4, 0.4, 0.4, 0.02);
+                    player.sendSystemMessage(Component.literal("[Чертёж] Следующий блок: "
+                        + step.material() + ", координаты " + target.toShortString()
+                        + ". Полный список материалов — в меню стройки."));
+                } else {
+                    player.sendSystemMessage(Component.literal("[Чертёж] Следующий блок вне загруженных чанков."));
+                }
+            }
+        } else if (project != null) {
+            if (project.owner().equals(player.getUUID()))
+                KingdomMainMenu.openSite(player, project.id());
+            else
+                player.sendSystemMessage(Component.literal("[Строительство] Чужая строительная площадка."));
         } else {
-            KingdomMainMenu.openArchitect(p);
+            KingdomMainMenu.openArchitect(player);
         }
-        event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        event.setCanceled(true);
     }
     @SubscribeEvent public void bankCounter(PlayerInteractEvent.RightClickBlock event) {
         if(!(event.getEntity() instanceof ServerPlayer player))return;
