@@ -20,7 +20,7 @@ import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Menu-driven management; all changes are verified on the server. */
 public final class KingdomMainMenu extends ChestMenu {
-    private enum Page { HOME, MAPS, BUILD, PROJECTS, ARMY, TERRITORY, PEOPLE, CIVICS, WALLET, PAYMENTS, PAYROLL, ENTERPRISE, BANK, SITE, MATERIALS, WAREHOUSE, ORDERS }
+    private enum Page { HOME, BUILD, PROJECTS, ARMY, TERRITORY, PEOPLE, CIVICS, WALLET, PAYMENTS, PAYROLL, ENTERPRISE, BANK, SITE, MATERIALS, WAREHOUSE, ORDERS }
     private final SimpleContainer content;
     private final ServerPlayer viewer;
     private final Page page;
@@ -102,7 +102,7 @@ public final class KingdomMainMenu extends ChestMenu {
     private static void show(ServerPlayer player,Page page,java.util.UUID siteId,BlockPos office) {
         player.openMenu(new SimpleMenuProvider((id,inv,p)->make(id,inv,player,page,siteId,office),
             Component.literal("Project Kingdom / "+switch(page){
-                case HOME -> "Управление"; case MAPS -> "Карты королевства"; case BUILD -> "Архитектор";
+                case HOME -> "Управление"; case BUILD -> "Архитектор";
                 case PROJECTS -> "Проекты"; case ARMY -> "Армия";
                 case TERRITORY -> "Территории"; case PEOPLE -> "Жители"; case CIVICS -> "Города и нации"; case WALLET -> "Кошелёк"; case PAYMENTS -> "Платежи"; case PAYROLL -> "Зарплаты"; case ENTERPRISE -> "Предприятие"; case BANK -> "Банк"; case SITE -> "Строительная площадка"; case MATERIALS -> "Материалы для стройки"; case WAREHOUSE -> "Заказ доставки"; case ORDERS -> "Мои доставки";
             })));
@@ -133,17 +133,6 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(21,Items.FILLED_MAP,"Карты Kingdom: территория, политика, предприятия");
                 icon(22,KingdomCurrency.WALLET.get(),"Монеты и кошелёк");
                 icon(23,Items.EMERALD,"Моё предприятие и касса");
-            }
-            case MAPS -> {
-                icon(10,Items.FILLED_MAP,"Карта мира: реальный рельеф, границы и ваше местоположение");
-                icon(11,Items.BLUE_BANNER,"Политическая карта: города и государства");
-                icon(12,Items.EMERALD,"Карта предприятий: действующие мастерские, фермы и торговля");
-                icon(13,Items.COMPASS,"Городские границы: план расширения и выкуп из казны");
-                icon(14,Items.MAP,"Земельные участки: собственность и разрешённые сделки");
-                icon(15,Items.BRICKS,"Инфраструктура: ратуши, здания, дороги, мосты и предприятия");
-                icon(16,Items.COMPASS,"Навигатор Kingdom: маршрут и объекты на встроенной карте");
-                icon(22,Items.BOOK,"Вся картография и навигация — в собственном интерфейсе Kingdom");
-                icon(23,Items.BOOK,"Масштаб, перемещение, маркер игрока — в графическом атласе");
             }
             case WALLET -> {
                 var wallet=KingdomCurrency.wallet(viewer);
@@ -445,18 +434,6 @@ public final class KingdomMainMenu extends ChestMenu {
                 case 22 -> show(viewer,Page.WALLET);
                 case 23 -> {if(!openNearbyEnterprise()){say("Подойди к установленному блоку-ядру предприятия.");show(viewer,Page.ENTERPRISE);}}
             }}
-            case MAPS -> {
-                switch(slot) {
-                    case 10 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.LAND);
-                    case 11 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.POLITICAL);
-                    case 12 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.ENTERPRISES);
-                    case 13 -> KingdomCityExpansionMapMenu.open(viewer);
-                    case 14 -> KingdomLandMapMenu.open(viewer);
-                    case 15 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.INFRASTRUCTURE);
-                    case 16 -> openGraphicAtlas(ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.LAND);
-                    default -> { }
-                }
-            }
             case WALLET -> {
                 var wallet=KingdomCurrency.wallet(viewer);
                 if(wallet.isEmpty()){say("Сначала получи предмет Кошелёк");break;}
@@ -624,7 +601,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 int cx=pos.getX()>>4,cz=pos.getZ()>>4;
                 if(slot==10){var t=db.foundTown(viewer.getUUID(),"Город_"+viewer.getScoreboardName());say(t==null?"Ты уже состоишь в городе":"Основан город: "+t.name());draw();}
                 if(slot==11){var n=db.foundNation(viewer.getUUID(),"Королевство_"+viewer.getScoreboardName());say(n==null?"Нацию может основать мэр независимого города":"Основана нация: "+n.name());draw();}
-                if(slot==12){show(viewer,Page.MAPS);break;}
+                if(slot==12){openMaps(viewer);break;}
                 if(slot==13){var plot=db.plot(viewer.serverLevel(),pos);if(plot==null){say("Сначала закрепи участок в разделе Территории");break;}
                     var zones=KingdomCivicsData.Zone.values();var next=zones[(plot.zone().ordinal()+1)%zones.length];
                     say(db.zone(viewer.getUUID(),dim,cx,cz,next)?"Зона: "+next:"Нет прав мэра");draw();}
@@ -651,7 +628,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     say(db.setPublicUse(viewer.getUUID(),dim,cx,cz,!plot.publicUse())?"Общественный доступ: "+!plot.publicUse():"Нет прав мэра");draw();}
             }
             case TERRITORY -> {
-                if(slot==15 || slot==11) show(viewer,Page.MAPS);
+                if(slot==15 || slot==11) openMaps(viewer);
             }
             case ARMY -> {
                 if(slot==10){var u=KingdomArmyData.get(viewer.getServer()).create(viewer.getUUID(),"Отряд_"+(KingdomArmyData.get(viewer.getServer()).all().size()+1));say("Создан "+u.name());draw();}
