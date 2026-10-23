@@ -146,7 +146,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(48, Items.ARROW, "На восток");
         put(49, Items.MAP, "Город: " + town.name() + " | Чанков в плане: " + planned.size());
         put(44, Items.GOLD_NUGGET, "Оценка покупки: " + (100L * planned.size()) + " медных | 100 за чанк");
-        put(50, Items.WRITABLE_BOOK, "План не даёт права собственности. Покупка только в ратуше.");
+        put(50, Items.WRITABLE_BOOK, "Проверить план и средства городской казны");
         put(51, Items.BARRIER, "Очистить план");
         put(52, Items.COMPASS, "К позиции игрока");
         put(53, Items.OAK_DOOR, "Закрыть карту");
@@ -194,6 +194,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
                 case 46 -> centerZ -= 4;
                 case 47 -> centerZ += 4;
                 case 48 -> centerX += 7;
+                case 50 -> { checkQuote(); return; }
                 case 51 -> planned.clear();
                 case 52 -> { centerX = viewer.chunkPosition().x; centerZ = viewer.chunkPosition().z; }
                 case 53 -> { viewer.closeContainer(); return; }
@@ -201,6 +202,22 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
             }
         }
         pruneInvalid();
+        refresh();
+    }
+    private void checkQuote() {
+        if (!founder() || cityId == null) return;
+        pruneInvalid();
+        var db = KingdomCivicsData.get(viewer.getServer());
+        var town = db.townById(cityId);
+        if (town == null) return;
+        java.util.List<KingdomExpansionPlans.Cell> cells = new java.util.ArrayList<>();
+        for (long cell : planned) cells.add(new KingdomExpansionPlans.Cell(dimension(), x(cell), z(cell)));
+        var quote = KingdomExpansionQuote.evaluate(cityId, dimension(), cells,
+            db.mapPlots(dimension()), town.treasury());
+        viewer.sendSystemMessage(Component.literal("[Kingdom] План: " + quote.status()
+            + " | чанков: " + quote.chunks() + " | стоимость: " + quote.price()
+            + " медных | казна: " + town.treasury()));
+        viewer.sendSystemMessage(Component.literal("[Kingdom] Это предварительная проверка, оплата и присоединение не выполнены."));
         refresh();
     }
     @Override public boolean stillValid(Player player) {
