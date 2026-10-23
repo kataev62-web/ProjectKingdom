@@ -1,14 +1,24 @@
 package ru.projectkingdom.npc;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.Containers;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.EntityBlock;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
@@ -35,6 +45,45 @@ public final class KingdomManagedStorage {
         private StorageBlock() { super(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(3.0f)); }
         @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
             return new KingdomManagedStorageEntity(pos, state);
+        }
+
+        @Override public void setPlacedBy(Level level, BlockPos pos, BlockState state,
+                                          LivingEntity placer, ItemStack stack) {
+            super.setPlacedBy(level, pos, state, placer, stack);
+            if (level.isClientSide || !(placer instanceof ServerPlayer player)
+                    || !(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity storage)) return;
+            if (KingdomTerritories.get(player.getServer()).canUse(player.serverLevel(), pos, player.getUUID())) {
+                storage.bind(player.getUUID());
+            }
+        }
+
+        @Override public InteractionResult use(BlockState state, Level level, BlockPos pos, Player player,
+                                               InteractionHand hand, BlockHitResult hit) {
+            if (level.isClientSide) return InteractionResult.SUCCESS;
+            if (!(player instanceof ServerPlayer serverPlayer)
+                    || !(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity storage)) {
+                return InteractionResult.PASS;
+            }
+            if (storage.owner() == null && KingdomTerritories.get(serverPlayer.getServer())
+                    .canUse(serverPlayer.serverLevel(), pos, serverPlayer.getUUID())) {
+                storage.bind(serverPlayer.getUUID());
+            }
+            if (!storage.canOpen(serverPlayer)) {
+                serverPlayer.sendSystemMessage(Component.literal("[Project Kingdom] Это хранилище вам недоступно."));
+                return InteractionResult.CONSUME;
+            }
+            player.openMenu(storage);
+            return InteractionResult.CONSUME;
+        }
+
+        @Override public void onRemove(BlockState state, Level level, BlockPos pos,
+                                       BlockState replacement, boolean moved) {
+            if (!state.is(replacement.getBlock())) {
+                if (level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity storage) {
+                    Containers.dropContents(level, pos, storage);
+                }
+                super.onRemove(state, level, pos, replacement, moved);
+            }
         }
     }
 }
