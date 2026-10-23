@@ -29,7 +29,7 @@ public final class KingdomConstructionDiagnostics {
         if(level==null)return "Измерение недоступно";
         BlockPos marker=new BlockPos(site.x()-2,site.y(),site.z()-2);
         if(!level.hasChunkAt(marker))return "Прогрузи чанк строительной кафедры";
-        if(!level.getBlockState(marker).is(Blocks.LECTERN))return "Верни строительную кафедру";
+        if(!KingdomConstructionMarkers.isMarker(level,marker))return "Верни чертёжный стол или строительную кафедру";
         Container supplies=supplies(level,marker);
         if(supplies==null)return "Поставь сундук или бочку вплотную к кафедре";
         var cell=plan.get(index);
@@ -50,12 +50,14 @@ public final class KingdomConstructionDiagnostics {
         var workers=KingdomNpcData.get(server);
         for(var worker:workers.all()) {
             if(!site.owner().equals(worker.employer)||!site.dimension().equals(worker.dimension)
-                ||!"builder".equals(worker.job)||worker.contractPaused||!"work".equals(worker.order))continue;
+                ||!"builder".equals(worker.job)
+                ||!KingdomNpcDuty.mayExecute(worker.job,worker.order,
+                    worker.autonomousIntent,KingdomNpcWorkday.employed(server,worker)))continue;
             var entity=level.getEntity(worker.entityId);
             if(entity instanceof net.minecraft.world.entity.npc.Villager villager && villager.isAlive()
                 && villager.blockPosition().distSqr(marker)<=48*48){builder=true;break;}
         }
-        return builder?"Материалы есть; строитель выполняет заказ":"Назначь NPC-строителя с приказом Работать в радиусе 48 блоков";
+        return builder?"Материалы есть; строитель выполняет заказ":"Назначь строителя с договором; дневная смена, радиус 48 блоков";
     }
     public static String missingMaterials(MinecraftServer server, KingdomConstructionData.Project site) {
         var type=KingdomBuildingTypes.type(site.design());
