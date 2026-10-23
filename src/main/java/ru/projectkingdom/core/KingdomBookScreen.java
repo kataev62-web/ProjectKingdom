@@ -84,18 +84,21 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
     private void renderLeftPage(GuiGraphics graphics, KingdomBookLayout.Rect page) {
         int center = page.x() + page.width() / 2;
         int y = page.y() + 31;
-        graphics.renderItem(iconFor(selected), center - 8, y);
+        if(selected!=BookModel.Section.PLAYER)graphics.renderItem(iconFor(selected), center - 8, y);
 
         switch (selected) {
             case PLAYER -> {
-                centerText(graphics, playerName(), center, y + 23, INK);
-                centerText(graphics, "● ПЕРСОНАЖ АКТИВЕН", center, y + 37, SUCCESS);
-                divider(graphics, page, y + 54);
                 var social=menu.social();
-                wrapped(graphics, "Ранг: "+social.rankName(), page, y + 63);
-                label(graphics, "ЛИЧНЫЕ ВЛАДЕНИЯ", page.x()+10, y + 91);
-                wrapped(graphics, social.enterprises()+" предпр. / "+social.hiredWorkers()
-                        +" работников / "+social.ownedPlots()+" участков", page, y + 105);
+                // The very first book spread is a character identity card, not a finance tab.
+                graphics.renderItem(new ItemStack(Items.PLAYER_HEAD),page.x()+10,page.y()+28);
+                clippedLine(graphics,playerName(),page.x()+30,page.y()+33,page.width()-40,INK);
+                divider(graphics,page,page.y()+55);
+                label(graphics,"СОЦИАЛЬНЫЙ СТАТУС",page.x()+10,page.y()+62);
+                profileLines(graphics,social.rankName(),page.x()+10,page.y()+75,page.width()-20,2,INK);
+                label(graphics,"ДОЛЖНОСТЬ",page.x()+10,page.y()+102);
+                profileLines(graphics,social.officeSummary(),page.x()+10,page.y()+115,page.width()-20,2,INK);
+                label(graphics,"ТИТУЛ",page.x()+10,page.y()+142);
+                profileLines(graphics,social.legalTitle(),page.x()+10,page.y()+155,page.width()-20,2,INK);
             }
             case BANK -> {
                 centerText(graphics, "ЛИЧНЫЙ СЧЁТ", center, y + 24, INK);
@@ -123,14 +126,18 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         switch (selected) {
             case PLAYER -> {
                 var social=menu.social();
-                label(graphics, "ГОРОД", x, y);
-                wrapped(graphics, social.city(), page, y + 13);
-                divider(graphics, page, y + 41);
-                label(graphics, "РЕПУТАЦИЯ", x, y + 48);
-                wrapped(graphics, social.cityReputation()+" — "+social.standing(), page, y + 61);
-                label(graphics, "ПРИЗНАНИЕ", x, y + 87);
-                wrapped(graphics, "Город: "+social.civicHonor(), page, y + 99);
-                wrapped(graphics, social.nationalHonor(), page, y + 116);
+                label(graphics,"ГРАЖДАНСТВО",x,page.y()+27);
+                clippedLine(graphics,social.city(),x,page.y()+41,page.width()-20,INK);
+                clippedLine(graphics,social.nation(),x,page.y()+54,page.width()-20,INK_MUTED);
+                divider(graphics,page,page.y()+76);
+                label(graphics,"РЕПУТАЦИЯ",x,page.y()+82);
+                clippedLine(graphics,social.cityReputation()+" / 200",x,page.y()+95,page.width()-20,INK);
+                clippedLine(graphics,social.standing(),x,page.y()+107,page.width()-20,INK_MUTED);
+                label(graphics,"НАГРАДЫ",x,page.y()+122);
+                clippedLine(graphics,social.civicHonor(),x,page.y()+136,page.width()-20,INK);
+                clippedLine(graphics,social.nationalHonor(),x,page.y()+149,page.width()-20,INK_MUTED);
+                clippedLine(graphics,social.enterprises()+" предприятий · "+social.ownedPlots()+" участков",
+                        x,page.y()+165,page.width()-20,INK_MUTED);
             }
             case BANK -> renderAmount(graphics, page, y, "БАЛАНС", menu.bankBalance(),
                     "Пополнение через лаунчер будет подключено после выбора провайдера.");
@@ -150,6 +157,23 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
                 wrapped(graphics, "Границы синхронизируются с сервером.", page, y + 70);
             }
         }
+    }
+
+    /** One- or two-line identity fields are bounded to the actual Minecraft book page. */
+    private void profileLines(GuiGraphics graphics,String value,int x,int y,int maxWidth,int maxLines,int color) {
+        var lines=font.split(KingdomFonts.readable(value==null?"Нет":value),maxWidth);
+        int show=Math.min(lines.size(),maxLines);
+        for(int index=0;index<show;index++)
+            graphics.drawString(font,lines.get(index),x,y+index*10,color,false);
+    }
+
+    private void clippedLine(GuiGraphics graphics,String value,int x,int y,int maxWidth,int color) {
+        String printable=value==null?"Нет":value;
+        if(font.width(KingdomFonts.readable(printable))>maxWidth) {
+            int available=Math.max(0,maxWidth-font.width("…"));
+            printable=font.plainSubstrByWidth(printable,available)+"…";
+        }
+        graphics.drawString(font,KingdomFonts.readable(printable),x,y,color,false);
     }
 
     private void renderAmount(GuiGraphics graphics, KingdomBookLayout.Rect page, int y,
@@ -241,6 +265,16 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
+        // An inhabitant can hold several offices; show the complete server-known list on hover.
+        if(selected==BookModel.Section.PLAYER) {
+            var page=KingdomBookLayout.leftPage();
+            int minX=leftPos+page.x()+10, minY=topPos+page.y()+113;
+            if(mouseX>=minX&&mouseX<=minX+page.width()-20
+                    &&mouseY>=minY&&mouseY<=minY+26
+                    &&!"Нет".equals(menu.social().office())) {
+                graphics.renderTooltip(font,KingdomFonts.readable(menu.social().office()),mouseX,mouseY);
+            }
+        }
     }
 
     private final class SectionTab extends AbstractButton {

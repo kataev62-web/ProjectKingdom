@@ -29,7 +29,7 @@ final class KingdomSocialCrossSystemIntegrationTest {
             count++;
         }
         assertTrue(count>=15,"All existing atlas and architect packets must survive");
-        assertTrue(net.contains("PROTOCOL=\"2\""));
+        assertTrue(net.contains("PROTOCOL=\"3\""));
     }
     @Test void physicalTownVaultIsUsedWithoutBypassingNewTownReservation() throws Exception {
         var service=src("social/KingdomSocialPromotionService.java");

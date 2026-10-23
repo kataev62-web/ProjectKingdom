@@ -8,7 +8,7 @@ import ru.projectkingdom.administration.AdministrativeActionPacket;
 import ru.projectkingdom.administration.AdministrativeTextPacket;
 
 public final class KingdomNetwork {
-    private static final String PROTOCOL="2";
+    private static final String PROTOCOL="3";
     public static final SimpleChannel CHANNEL=NetworkRegistry.newSimpleChannel(
             new ResourceLocation(KingdomNpcMod.MOD_ID,"main"),()->PROTOCOL,PROTOCOL::equals,PROTOCOL::equals);
     private static boolean registered;
