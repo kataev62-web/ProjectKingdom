@@ -903,7 +903,10 @@ public final class KingdomNpcMod {
                                 // Builders, gatherers and workshops already have local movement.
                                 double handoff = switch (kind) {
                                     case CONSTRUCTION -> 48.0 * 48.0;
-                                    case FIELD, WORKSHOP, DELIVERY -> 10.0 * 10.0;
+                                    // Workshop can visit its payroll counter up to 32 blocks
+                                    // from the station; do not fight its own pathfinding.
+                                    case WORKSHOP -> 40.0 * 40.0;
+                                    case FIELD, DELIVERY -> 10.0 * 10.0;
                                     case SERVICE -> 4.0;
                                     default -> 4.0;
                                 };
