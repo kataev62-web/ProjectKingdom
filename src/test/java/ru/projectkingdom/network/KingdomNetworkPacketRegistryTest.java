@@ -21,6 +21,7 @@ class KingdomNetworkPacketRegistryTest {
             count++;
         }
         assertTrue(count>=15);
-        assertTrue(source.contains("private static final String PROTOCOL=\"3\""));
+        assertTrue(source.contains("private static final String PROTOCOL=\"4\""));
+        assertTrue(used.contains(22), "Missing Kingdom NPC appearance packet");
     }
 }

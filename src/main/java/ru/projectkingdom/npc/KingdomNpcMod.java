@@ -54,6 +54,7 @@ public final class KingdomNpcMod {
         KingdomConstructionRegistry.register();
         KingdomAdministrationRegistry.register();
         KingdomNetwork.register();
+        new KingdomNpcAppearanceSync();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
         MinecraftForge.EVENT_BUS.register(this);
     }
@@ -546,6 +547,22 @@ public final class KingdomNpcMod {
                 +" origin="+w.originMod+" workplace="+w.workplaceMod+":"+w.workplaceId);
             return 1;
         })));
+                root.then(Commands.literal("appearance").requires(source -> source.hasPermission(2))
+            .then(Commands.argument("id", IntegerArgumentType.integer(1))
+            .then(Commands.argument("style", StringArgumentType.word()).executes(ctx -> {
+                var src = ctx.getSource();
+                var worker = find(src, IntegerArgumentType.getInteger(ctx, "id"));
+                if (worker == null) return 0;
+                String style = StringArgumentType.getString(ctx, "style");
+                if (!KingdomNpcAppearanceCatalog.allowed(style)) {
+                    reply(src, "Внешность неизвестна. Используй auto или ID female_v11.");
+                    return 0;
+                }
+                worker.appearanceId = style;
+                KingdomNpcData.get(src.getServer()).setDirty();
+                reply(src, "NPC #" + worker.id + " appearance=" + style + " (для взрослых female)");
+                return 1;
+            }))));
         root.then(Commands.literal("gender").requires(src -> src.hasPermission(2))
             .then(Commands.argument("id",IntegerArgumentType.integer(1))
             .then(Commands.argument("value",StringArgumentType.word()).executes(ctx -> {

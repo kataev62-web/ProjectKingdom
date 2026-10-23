@@ -109,6 +109,7 @@ public final class KingdomNpcData extends SavedData {
 
         // Identity fields survive unloaded chunks and server restarts.
         public String gender = "unspecified";
+        public String appearanceId = "auto"; // Visual override; existing saves remain compatible.
         public int ageYears = 25;
         public long ageAnchorDay;
         public int ageDaysAccumulated = 0;
@@ -174,6 +175,7 @@ public final class KingdomNpcData extends SavedData {
             w.familyName = t.contains("FamilyName", Tag.TAG_STRING) ? t.getString("FamilyName") : "";
             w.lastLifeDay = t.contains("LastLifeDay", Tag.TAG_LONG) ? t.getLong("LastLifeDay") : w.lastPaidDay;
             w.personalStock = Math.max(0,t.getInt("PersonalStock"));
+            w.appearanceId = t.contains("AppearanceId", Tag.TAG_STRING) ? t.getString("AppearanceId") : "auto";
             w.gender = t.contains("Gender", Tag.TAG_STRING) ? NpcIdentity.gender(t.getString("Gender")) : "unspecified";
             w.ageYears = t.contains("AgeYears", Tag.TAG_INT) ? NpcIdentity.validAge(t.getInt("AgeYears")) : 25;
             w.ageAnchorDay = t.contains("AgeAnchorDay", Tag.TAG_LONG) ? t.getLong("AgeAnchorDay") : w.lastPaidDay;
@@ -238,7 +240,7 @@ public final class KingdomNpcData extends SavedData {
             t.putInt("Hunger",hunger);t.putInt("Energy",energy);t.putInt("Morale",morale);t.putInt("Safety",safety);
             t.putString("Settlement",settlement);t.putString("FamilyName",familyName);
             t.putLong("LastLifeDay",lastLifeDay);t.putInt("PersonalStock",personalStock);
-            t.putString("Gender", gender); t.putInt("AgeYears", ageYears);
+            t.putString("Gender", gender); t.putString("AppearanceId", appearanceId); t.putInt("AgeYears", ageYears);
             t.putLong("AgeAnchorDay", ageAnchorDay); t.putInt("AgeDaysAccumulated", ageDaysAccumulated);
             t.putString("OriginMod", originMod); t.putString("WorkplaceMod", workplaceMod);
             t.putString("WorkplaceId", workplaceId);
