@@ -24,6 +24,15 @@ public final class KingdomCivicsData extends SavedData {
     public record Town(UUID id, String name, UUID mayor, UUID nation, long treasury) {}
     public record Nation(UUID id, String name, UUID ruler, long treasury) {}
     public record Plot(String dimension, int x, int z, UUID town, UUID tenant, Zone zone, boolean publicUse) {}
+    /** Stored alongside town balances and city plots for a single authoritative city commit. */
+    public record ExpansionReceipt(UUID id,UUID townId,long copper,String dimension,int chunks) {}
+    private final Map<UUID,ExpansionReceipt> expansionReceipts = new LinkedHashMap<>();
+    public ExpansionReceipt expansionReceipt(UUID id){return expansionReceipts.get(id);}
+    public Collection<ExpansionReceipt> expansionReceipts(UUID townId){
+        List<ExpansionReceipt> result=new ArrayList<>();
+        for(var receipt:expansionReceipts.values())if(receipt.townId().equals(townId))result.add(receipt);
+        return List.copyOf(result);
+    }
     private final Map<UUID,Town> towns = new LinkedHashMap<>();
     private final Map<UUID,Nation> nations = new LinkedHashMap<>();
     private final Map<String,Plot> plots = new LinkedHashMap<>();
@@ -319,6 +328,28 @@ public final class KingdomCivicsData extends SavedData {
         if(existing!=null)return existing.town().equals(t.id()); // repeated claim is not a conflict
         plots.put(k,new Plot(dimension,chunkX,chunkZ,t.id(),null,Zone.PUBLIC,false));setDirty();return true;
     }
+    /**
+     * Commits the city treasury balance and ALL territory plots into one SavedData.
+     * The matching treasury reserve debit must have succeeded before this call.
+     * Never call from the client thread or without authenticated founder checks.
+     */
+    boolean commitPaidExpansion(UUID receiptId, UUID cityId, String dimension,
+                                Collection<KingdomExpansionPlans.Cell> cells, long amount) {
+        if(receiptId==null||cityId==null||dimension==null||cells==null
+                ||expansionReceipts.containsKey(receiptId))return false;
+        Town town=towns.get(cityId);
+        if(town==null)return false;
+        var quote=KingdomExpansionQuote.evaluate(cityId,dimension,cells,mapPlots(dimension),town.treasury());
+        if(quote.status()!=KingdomExpansionQuote.Status.READY||quote.price()!=amount)return false;
+        // All preconditions checked before changing either plots or the balance.
+        for(var cell:cells) {
+            String plotKey=key(cell.dimension(),cell.x(),cell.z());
+            plots.put(plotKey,new Plot(cell.dimension(),cell.x(),cell.z(),cityId,null,Zone.PUBLIC,false));
+        }
+        towns.put(cityId,new Town(town.id(),town.name(),town.mayor(),town.nation(),town.treasury()-amount));
+        expansionReceipts.put(receiptId,new ExpansionReceipt(receiptId,cityId,amount,dimension,cells.size()));
+        setDirty();return true;
+    }
     public boolean zone(UUID mayor,String dimension,int chunkX,int chunkZ,Zone zone) {
         String k=key(dimension,chunkX,chunkZ);Plot p=plots.get(k);Town t=p==null?null:towns.get(p.town());
         if(t==null||!t.mayor().equals(mayor)||zone==null)return false;
@@ -478,6 +509,14 @@ public final class KingdomCivicsData extends SavedData {
             if(r.hasUUID("Tenant")&&r.hasUUID("Landlord")&&r.getLong("Copper")>0)
                 d.leaseDebts.put(k,new LeaseDebt(r.getUUID("Tenant"),r.getUUID("Landlord"),r.getLong("Copper"),r.getLong("AssessedAt")));
         }
+        ListTag receipts=root.getList("ExpansionReceipts",Tag.TAG_COMPOUND);
+        for(int i=0;i<receipts.size();i++){
+            CompoundTag row=receipts.getCompound(i);
+            if(!row.hasUUID("Id")||!row.hasUUID("Town")||row.getLong("Copper")<=0)continue;
+            var receipt=new ExpansionReceipt(row.getUUID("Id"),row.getUUID("Town"),
+                    row.getLong("Copper"),row.getString("Dimension"),row.getInt("Chunks"));
+            d.expansionReceipts.putIfAbsent(receipt.id(),receipt);
+        }
         return d;
     }
     @Override public CompoundTag save(CompoundTag root) {
@@ -507,6 +546,14 @@ public final class KingdomCivicsData extends SavedData {
             r.putUUID("Tenant",e.getValue().tenant());r.putUUID("Landlord",e.getValue().landlord());
             r.putLong("Copper",e.getValue().copper());r.putLong("AssessedAt",e.getValue().assessedAt());debts.add(r);
         }root.put("LeaseDebts",debts);
+        ListTag receipts=new ListTag();
+        for(ExpansionReceipt receipt:expansionReceipts.values()){
+            CompoundTag row=new CompoundTag();row.putUUID("Id",receipt.id());
+            row.putUUID("Town",receipt.townId());row.putLong("Copper",receipt.copper());
+            row.putString("Dimension",receipt.dimension());row.putInt("Chunks",receipt.chunks());
+            receipts.add(row);
+        }
+        root.put("ExpansionReceipts",receipts);
         return root;
     }
 }
