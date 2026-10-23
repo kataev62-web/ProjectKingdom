@@ -9,9 +9,10 @@ import ru.projectkingdom.npc.KingdomBankData;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomCurrency;
 import ru.projectkingdom.npc.KingdomPhysicalCash;
+import ru.projectkingdom.npc.KingdomLandReservations;
 
 public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int action) {
-    public static final int JOIN_TOWN=100;
+    public static final int JOIN_TOWN=100,PAY_RESERVED_LAND=204,BIND_HALL_CASHBOX=115;
     public static final int BIND_TREASURY=110,BIND_BANK=111,BIND_WAREHOUSE=112,BIND_MARKET=113,BIND_PRISON_CELL=114;
     public static final int BANK_DEPOSIT_100=200,BANK_WITHDRAW_100=201,TREASURY_DEPOSIT_100=202,TREASURY_WITHDRAW_100=203;
     public static void encode(AdministrativeActionPacket packet,FriendlyByteBuf buffer){
@@ -36,6 +37,23 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                     sender.sendSystemMessage(Component.literal("Вы вступили в город «"+town.name()+"»!"));
                     sender.closeContainer(); // Force a fresh permission snapshot on next opening.
                 }
+                return;
+            }
+            if(packet.action==PAY_RESERVED_LAND) {
+                if(packet.kind!=AdministrativeKind.TOWN_HALL)return;
+                var result=KingdomLandReservations.get(sender.getServer()).payAtHall(sender,packet.townId);
+                String info=switch(result) {
+                    case BOUGHT -> "Участок приобретён; монеты внесены в городскую кассу.";
+                    case NOT_RESERVED -> "У вас нет действующей брони в этой ратуше.";
+                    case WRONG_TOWN -> "Обратитесь в ратушу города-владельца земли.";
+                    case EXPIRED -> "Срок бронирования истёк, оформите новое через карту.";
+                    case CHANGED_OFFER -> "Цена или владелец участка изменились; оплату отменено.";
+                    case NO_VAULT -> "Городская касса не привязана или не загружена.";
+                    case NO_CASH_OR_ROOM -> "Недостаточно монет или касса переполнена.";
+                    case NEEDS_REVIEW -> "Оплата требует сверки администрацией; повторять нельзя.";
+                };
+                sender.sendSystemMessage(Component.literal("[Ратуша] "+info));
+                if(result==KingdomLandReservations.Result.BOUGHT)sender.closeContainer();
                 return;
             }
             boolean publicFinance=(packet.kind==AdministrativeKind.BANK&&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100))
@@ -68,7 +86,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 }return;
             }
             AdministrativeBindingRole role=switch(packet.action){
-                case BIND_TREASURY->AdministrativeBindingRole.TREASURY_VAULT;
+                case BIND_TREASURY,BIND_HALL_CASHBOX->AdministrativeBindingRole.TREASURY_VAULT;
                 case BIND_BANK->AdministrativeBindingRole.BANK_VAULT;
                 case BIND_WAREHOUSE->AdministrativeBindingRole.WAREHOUSE_STORAGE;
                 case BIND_MARKET->AdministrativeBindingRole.MARKET_STORAGE;
