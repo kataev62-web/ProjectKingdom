@@ -518,3 +518,476 @@ public final class KingdomNpcMod {
         root.then(Commands.literal("gender").requires(src -> src.hasPermission(2))
             .then(Commands.argument("id",IntegerArgumentType.integer(1))
             .then(Commands.argument("value",StringArgumentType.word()).executes(ctx -> {
+                var src=ctx.getSource(); var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+                if(w==null)return 0;
+                try{w.gender=NpcIdentity.gender(StringArgumentType.getString(ctx,"value"));}
+                catch(IllegalArgumentException ex){reply(src,ex.getMessage());return 0;}
+                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Identity updated");return 1;
+            }))));
+        root.then(Commands.literal("age").requires(src -> src.hasPermission(2))
+            .then(Commands.argument("id",IntegerArgumentType.integer(1))
+            .then(Commands.argument("years",IntegerArgumentType.integer(0,120)).executes(ctx -> {
+                var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));if(w==null)return 0;
+                if(w.employer!=null && IntegerArgumentType.getInteger(ctx,"years")<18){reply(src,"End employment before changing to minor");return 0;}
+                w.ageYears=IntegerArgumentType.getInteger(ctx,"years");w.ageDaysAccumulated=0;
+                w.ageAnchorDay=src.getServer().overworld().getDayTime()/TICKS_PER_DAY;
+                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Age updated");return 1;
+            }))));
+        root.then(Commands.literal("workplace").requires(src -> src.hasPermission(2))
+            .then(Commands.argument("id",IntegerArgumentType.integer(1))
+            .then(Commands.argument("mod",StringArgumentType.word())
+            .then(Commands.argument("location",StringArgumentType.word()).executes(ctx -> {
+                var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));if(w==null)return 0;
+                String mod=StringArgumentType.getString(ctx,"mod");
+                if(!mod.equals("kingdomnpc") && !KingdomNpcIntegrations.installed(mod)){
+                    reply(src,"Integration mod not installed: "+mod);return 0;
+                }
+                w.workplaceMod=mod; w.workplaceId=StringArgumentType.getString(ctx,"location");
+                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Workplace reference stored (no external tasks executed)");return 1;
+            })))));
+        root.then(Commands.literal("order").then(Commands.argument("id", IntegerArgumentType.integer(1))
+            .then(Commands.argument("task", StringArgumentType.word()).suggests((c,b) -> {
+                for (String task: new String[]{"wander","stay","follow","work","home","haul"}) b.suggest(task);
+                return b.buildFuture();
+            }).executes(ctx -> {
+                var src = ctx.getSource(); var w = find(src,IntegerArgumentType.getInteger(ctx,"id"));
+                if (w==null || !canEdit(src,w)) { reply(src,"No permission or NPC missing"); return 0; }
+                String order;
+                try { order=NpcSimulation.normalizeOrder(StringArgumentType.getString(ctx,"task")); }
+                catch (IllegalArgumentException e) { reply(src,e.getMessage()); return 0; }
+                if (order.equals("work") && (w.employer==null || w.contractPaused)) {reply(src,"An active contract is required");return 0;}
+                if (order.equals("haul") && (!w.hasSource || !w.hasDestination)) {reply(src,"Link source and destination chests first");return 0;}
+                if (order.equals("home") && !w.hasHome) {reply(src,"Home not assigned");return 0;}
+                w.order=order; KingdomNpcData.get(src.getServer()).setDirty();
+                reply(src,"Order for #"+w.id+": "+order); return 1;
+            }))));
+        root.then(Commands.literal("sethome").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(ctx -> {
+            var src=ctx.getSource(); var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+            if (w==null || !canEdit(src,w)) {reply(src,"No permission");return 0;}
+            if (!w.dimension.equals(src.getLevel().dimension().location().toString())) {reply(src,"Wrong dimension");return 0;}
+            BlockPos pos=BlockPos.containing(src.getPosition());
+            w.homeX=pos.getX();w.homeY=pos.getY();w.homeZ=pos.getZ();w.hasHome=true;
+            KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Home saved for #"+w.id);return 1;
+        })));
+        root.then(Commands.literal("stock").then(Commands.argument("id",IntegerArgumentType.integer(1)).executes(ctx -> {
+            var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+            if (w==null){reply(src,"NPC not found");return 0;}
+            reply(src,"#"+w.id+" virtual stock="+w.produced+", workdays="+w.workUnits+", XP="+w.skillXp);
+            return 1;
+        })));
+        root.then(Commands.literal("needs").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(ctx -> {
+            var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+            if(w==null){reply(src,"NPC not found");return 0;}
+            reply(src,"#"+w.id+" hunger="+w.hunger+" energy="+w.energy+" morale="+w.morale+" safety="+w.safety
+                +" housing="+w.hasHome+" settlement="+w.settlement+" family="+w.familyName);
+            return 1;
+        })));
+        root.then(Commands.literal("settlement").then(Commands.argument("id", IntegerArgumentType.integer(1))
+            .then(Commands.argument("name", StringArgumentType.word()).executes(ctx -> {
+                var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+                if(w==null || !canEdit(src,w)){reply(src,"No permission");return 0;}
+                w.settlement=StringArgumentType.getString(ctx,"name");
+                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Settlement assigned: "+w.settlement);return 1;
+            }))));
+        root.then(Commands.literal("family").requires(src -> src.hasPermission(2))
+            .then(Commands.argument("id", IntegerArgumentType.integer(1))
+            .then(Commands.argument("surname", StringArgumentType.word()).executes(ctx -> {
+                var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+                if(w==null){reply(src,"NPC missing");return 0;}
+                w.familyName=StringArgumentType.getString(ctx,"surname");
+                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Family set: "+w.familyName);return 1;
+            }))));
+        root.then(Commands.literal("feed").then(Commands.argument("id",IntegerArgumentType.integer(1))
+            .then(Commands.argument("amount",IntegerArgumentType.integer(1,5)).executes(ctx -> {
+                var src=ctx.getSource();var p=player(src);var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+                if(w==null){reply(src,"NPC missing");return 0;}
+                int amount=IntegerArgumentType.getInteger(ctx,"amount");
+                if(p.getInventory().countItem(Items.BREAD)<amount){reply(src,"Not enough bread");return 0;}
+                int remaining=amount;
+                for(int slot=0;slot<p.getInventory().getContainerSize()&&remaining>0;slot++){
+                    ItemStack stack=p.getInventory().getItem(slot);
+                    if(stack.is(Items.BREAD)){int take=Math.min(remaining,stack.getCount());stack.shrink(take);remaining-=take;}
+                }
+                w.hunger=NpcLife.feed(w.hunger,amount);
+                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Fed NPC #"+w.id+" hunger="+w.hunger);return 1;
+            }))));
+        root.then(Commands.literal("list").executes(ctx -> {
+            var src = ctx.getSource();
+            var db = KingdomNpcData.get(src.getServer());
+            reply(src, "NPC count=" + db.workers.size());
+            for (var w : db.all()) reply(src, "#" + w.id + " " + w.name + " job=" + w.job + " employer=" + (w.employer == null ? "none" : w.employer) + " paused=" + w.contractPaused + " order=" + w.order);
+            return 1;
+        }));
+        root.then(Commands.literal("info").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(ctx -> {
+            var src = ctx.getSource(); var w = find(src, IntegerArgumentType.getInteger(ctx,"id"));
+            if (w == null) {reply(src,"NPC not found");return 0;}
+            reply(src, "#"+w.id+" gender="+w.gender+" age="+w.ageYears+" stage="+NpcIdentity.stage(w.ageYears)+" job="+w.job+" wage="+w.dailyWage+" copper/day; earned="+w.earned+"; missed="+w.unpaidDays+"; paused="+w.contractPaused+" order="+w.order);
+            return 1;
+        })));
+        root.then(Commands.literal("hire").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(ctx -> {
+            var src=ctx.getSource(); var p=player(src); var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+            if(w==null || w.employer!=null || !NpcIdentity.canHire(w.ageYears)) {reply(src,"NPC unavailable for hire (must be adult)");return 0;}
+            if(KingdomEnterpriseData.get(src.getServer()).owned(p.getUUID())==null){
+                reply(src,"Сначала зарегистрируй предприятие и кассу для зарплаты NPC.");return 0;
+            }
+            w.employer=p.getUUID(); w.lastPaidDay=src.getServer().overworld().getDayTime()/TICKS_PER_DAY;
+            w.unpaidDays=0; w.contractPaused=false;
+            KingdomNpcData.get(src.getServer()).setDirty(); reply(src,"NPC #"+w.id+" нанят. Зарплата начисляется как долг из бюджета предприятия.");return 1;
+        })));
+        root.then(Commands.literal("fire").then(Commands.argument("id", IntegerArgumentType.integer(1)).executes(ctx -> {
+            var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+            if(w==null||!canEdit(src,w)) {reply(src,"No permission or unknown NPC");return 0;}
+            w.employer=null;w.job="free";w.order="wander";w.contractPaused=false;w.unpaidDays=0;
+            KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Contract ended for #"+w.id);return 1;
+        })));
+        root.then(Commands.literal("job").then(Commands.argument("id",IntegerArgumentType.integer(1))
+            .then(Commands.argument("profession",StringArgumentType.word()).executes(ctx -> {
+                var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+                if(w==null||!canEdit(src,w)){reply(src,"No permission or unknown NPC");return 0;}
+                String job;
+                try {job=NpcEconomy.normalizeJob(StringArgumentType.getString(ctx,"profession"));}
+                catch(IllegalArgumentException ex){reply(src,ex.getMessage());return 0;}
+                w.job=job;KingdomNpcData.get(src.getServer()).setDirty();
+                for (ServerLevel level : src.getServer().getAllLevels()) {
+                    var e = level.getEntity(w.entityId);
+                    if (e instanceof Villager v) v.setVillagerData(v.getVillagerData().setProfession(profession(job)));
+                }
+                reply(src,"#"+w.id+" profession set to "+job);return 1;
+            }))));
+        root.then(Commands.literal("wage").then(Commands.argument("id",IntegerArgumentType.integer(1))
+            .then(Commands.argument("copper",IntegerArgumentType.integer(1,10000)).executes(ctx -> {
+                var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
+                if(w==null||!canEdit(src,w)){reply(src,"No permission or unknown NPC");return 0;}
+                w.dailyWage=IntegerArgumentType.getInteger(ctx,"copper");
+                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Wage updated");return 1;
+            }))));
+        // Old NPC payroll reserve is deprecated. The automatic payroll debit was disabled;
+        // no new wallet funds should be trapped inside its legacy account.
+        root.then(Commands.literal("deposit").then(Commands.argument("copper",IntegerArgumentType.integer(1,2304)).executes(ctx -> {
+            reply(ctx.getSource(),"Старый фонд зарплат закрыт для взносов. Используй кассу предприятия в меню.");
+            return 0;
+        })));
+        // Recover only already backed legacy deposits, at a physical bank branch.
+        root.then(Commands.literal("refund_legacy").then(Commands.argument("copper",IntegerArgumentType.integer(1,2304)).executes(ctx -> {
+            var src=ctx.getSource();var p=player(src);int amount=IntegerArgumentType.getInteger(ctx,"copper");
+            if(!KingdomBankData.get(src.getServer()).atBranch(p)){
+                reply(src,"Для возврата подойди к банковской стойке.");return 0;
+            }
+            KingdomNpcData legacy=KingdomNpcData.get(src.getServer());
+            long balance=legacy.balance(p.getUUID());
+            if(balance<amount){
+                reply(src,"Нет такого остатка старого фонда.");return 0;
+            }
+            if(!KingdomCurrency.credit(p,amount))return 0;
+            legacy.accounts.put(p.getUUID(),balance-amount);
+            legacy.setDirty();p.getInventory().setChanged();
+            reply(src,"Возвращено "+amount+" медных из старого фонда; остаток "+(balance-amount));return 1;
+        })));
+        root.then(Commands.literal("balance").executes(ctx -> {
+            var src=ctx.getSource();reply(src,"NPC payroll reserve="+KingdomNpcData.get(src.getServer()).balance(player(src).getUUID())+" copper");return 1;
+        }));
+        root.then(Commands.literal("claim").executes(ctx -> {
+            var p=player(ctx.getSource());
+            boolean ok=KingdomTerritories.get(p.getServer()).claim(p.serverLevel(),p.blockPosition(),p.getUUID());
+            reply(ctx.getSource(),ok?"Участок (текущий чанк 16x16) закреплён за вами.":"Этот участок принадлежит другому владельцу.");
+            return ok?1:0;
+        }));
+        root.then(Commands.literal("land").executes(ctx -> {
+            var p=player(ctx.getSource());
+            var owner=KingdomTerritories.get(p.getServer()).owner(p.serverLevel(),p.blockPosition());
+            var civics=KingdomCivicsData.get(p.getServer());
+            var plot=civics.plot(p.serverLevel(),p.blockPosition());
+            var town=civics.townOf(p.getUUID());
+            String legacy=owner==null?"нет":owner.equals(p.getUUID())?"твоя":"чужая";
+            String city=plot==null?"не зарегистрирован":(town!=null && plot.town().equals(town.id())?town.name():"другой город")+" / зона "+(plot==null?"нет":plot.zone());
+            reply(ctx.getSource(),"Чанк "+(p.blockPosition().getX()>>4)+","+(p.blockPosition().getZ()>>4)+"; старое владение: "+legacy+"; город: "+city);
+            return 1;
+        }));
+        event.getDispatcher().register(root);
+    }
+
+    /** Vanilla villager remains interactive; avoid opening its trade UI for tracked workers. */
+    @SubscribeEvent
+    public void interact(PlayerInteractEvent.EntityInteract event) {
+        if (!(event.getTarget() instanceof Villager npc) || !(event.getEntity() instanceof ServerPlayer p)) return;
+        var db=KingdomNpcData.get(p.getServer());
+        KingdomNpcData.Worker found=null;
+        for (var w:db.all()) if(w.entityId.equals(npc.getUUID())) {found=w;break;}
+        // Sneak + right-click an ordinary villager to enrol it in Kingdom NPC.
+        // Never overwrite existing contracts and never touch non-vanilla villagers.
+        if (found == null && p.isShiftKeyDown()) {
+            if (db.workers.size() >= MAX_NPCS) {
+                p.sendSystemMessage(Component.literal("[Королевство] Достигнут тестовый лимит NPC: " + MAX_NPCS));
+                event.setCancellationResult(InteractionResult.SUCCESS);
+                event.setCanceled(true);
+                return;
+            }
+            String name = npc.hasCustomName() ? npc.getCustomName().getString() : "Житель Королевства";
+            found = db.add(npc.getUUID(), name, p.level().dimension().location().toString(),
+                    p.serverLevel().getDayTime() / TICKS_PER_DAY);
+            npc.setPersistenceRequired();
+            npc.setCustomName(Component.literal(name + " #" + found.id));
+            npc.setCustomNameVisible(true);
+            p.sendSystemMessage(Component.literal("[Королевство] Житель принят в систему, №" + found.id));
+        }
+        if(found==null)return;
+        // A warehouse clerk is a physical access point, not a remote market terminal.
+        // The player and clerk must both be at a registered warehouse desk.
+        if("warehouse".equals(found.job) && !p.isShiftKeyDown()
+                && KingdomWarehouseMarket.get(p.getServer()).nearDesk(p.serverLevel(),p.blockPosition())
+                && KingdomWarehouseMarket.get(p.getServer()).nearDesk(p.serverLevel(),npc.blockPosition())) {
+            KingdomMainMenu.openWarehouse(p);
+            event.setCancellationResult(InteractionResult.SUCCESS);
+            event.setCanceled(true);
+            return;
+        }
+        // Freeze immediately, not after the next simulation update.
+        npc.getNavigation().stop();
+        npc.setNoAi(true);
+        event.setCancellationResult(InteractionResult.SUCCESS);
+        event.setCanceled(true);
+        final int npcId = found.id;
+        p.openMenu(new SimpleMenuProvider(
+            (windowId, inventory, user) -> new KingdomNpcMenu(windowId, inventory, p, npcId),
+            Component.literal("Житель Королевства №" + npcId)));
+
+    }
+
+    private static VillagerProfession profession(String job) {
+        return switch (job) {
+            case "farmer" -> VillagerProfession.FARMER;
+            case "smith" -> VillagerProfession.TOOLSMITH;
+            case "miner" -> VillagerProfession.MASON;
+            case "lumberjack" -> VillagerProfession.FLETCHER;
+            case "merchant" -> VillagerProfession.CARTOGRAPHER;
+            case "guard" -> VillagerProfession.ARMORER;
+            case "builder" -> VillagerProfession.MASON;
+            case "warehouse" -> VillagerProfession.CLERIC;
+            case "courier" -> VillagerProfession.LEATHERWORKER;
+            default -> VillagerProfession.NONE;
+        };
+    }
+
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase != TickEvent.Phase.END) return;
+        var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if (server == null) return;
+        // Payroll debt is accrued and collected by the worker at the treasury, never auto-paid.
+        // Physical AI decisions are refreshed each tick, independently of the economy.
+        // Vanilla villager goals otherwise re-start navigation immediately after STOP.
+        controlLoadedResidents(server);
+        if (server.getTickCount() % 10 == 0) KingdomNpcBuilder.tick(server);
+        // Revoke expired land access even when nobody opens the map or visits a bank.
+        if (server.getTickCount() % 1200 == 0)
+            KingdomCivicsData.get(server).expireDueLeases(System.currentTimeMillis());
+        if (server.getTickCount() % 100 == 0) KingdomCourierDispatch.tick(server);
+        if (server.getTickCount() % 20 == 0) {
+            KingdomNpcData current=KingdomNpcData.get(server);
+            for (var w : current.all()) if ("bake".equals(w.order)) {w.order="stay";current.setDirty();}
+            boolean moved=false;
+            for (var w : current.all()) {
+                if(!"haul".equals(w.order)) continue;
+                for(ServerLevel level:server.getAllLevels()) {
+                    if(!level.dimension().location().toString().equals(w.dimension))continue;
+                    var ent=level.getEntity(w.entityId);
+                    if(ent instanceof Villager npc && npc.isAlive()) {
+                        ItemStack before=w.cargo.copy();long delivered=w.deliveredItems;long baked=w.bakedBread;
+                        NpcLogistics.tick(level,npc,w);
+                        if(!ItemStack.matches(before,w.cargo)||delivered!=w.deliveredItems||baked!=w.bakedBread)moved=true;
+                    }
+                }
+            }
+            for (var w : current.all()) {
+                if(!"courier".equals(w.order))continue;
+                for(ServerLevel level:server.getAllLevels()) {
+                    if(!level.dimension().location().toString().equals(w.dimension))continue;
+                    var ent=level.getEntity(w.entityId);
+                    if(ent instanceof Villager npc && npc.isAlive())
+                        moved |= KingdomCourierService.tick(level,npc,w);
+                }
+            }
+            // Workers travel to the warehouse and request live quotes, without remote payments.
+            for (var w:current.all()) {
+                if(!"smith".equals(w.job) || KingdomNpcWorkshopData.get(server).plan(w.entityId)!=null)continue;
+                for(ServerLevel level:server.getAllLevels()) {
+                    if(!w.dimension.equals(level.dimension().location().toString()))continue;
+                    var entity=level.getEntity(w.entityId);
+                    if(entity instanceof Villager npc && npc.isAlive())
+                        moved |= KingdomNpcSupply.tick(level,npc,w);
+                }
+            }
+            if(moved)current.setDirty();
+        }
+        // Bounded physical work; each resident checks the nearby loaded area once per 40 ticks.
+        if(server.getTickCount() % 40 == 0) {
+            KingdomNpcData jobs=KingdomNpcData.get(server);
+            boolean executed=false;
+            for(var w:jobs.all()) for(ServerLevel level:server.getAllLevels()) {
+                if(!w.dimension.equals(level.dimension().location().toString()))continue;
+                var entity=level.getEntity(w.entityId);
+                if(entity instanceof Villager resident && resident.isAlive()) {
+                    // The physical adapters are shared by the workday scheduler.
+                    // Existing independent gatherers remain independent.
+                    if (w.employer == null
+                            || KingdomNpcDuty.mayExecute(w.job, w.order,
+                                w.autonomousIntent, KingdomNpcWorkday.employed(server, w))) {
+                        executed |= NpcFieldWork.tick(level,resident,w)
+                            | KingdomNpcWorkshop.tick(level,resident,w);
+                    }
+                }
+            }
+            if(executed)jobs.setDirty();
+        }
+        if (server.getTickCount() % 200 != 0) return;
+        KingdomNpcData db = KingdomNpcData.get(server);
+        long day = server.overworld().getDayTime() / TICKS_PER_DAY;
+        boolean changed = false;
+        // Economy v2: preserve existing wages as debts, never pay from legacy virtual accounts.
+        // Contract sync consumes no cash and reuses the NPC registry as the identity source.
+        KingdomEnterprisePayrollData.get(server).syncNpc(server,db);
+        // Also assess known residents: tax accrual must not depend only on opening a menu.
+        var towns=KingdomCivicsData.get(server);
+        var taxes=KingdomTaxData.get(server);
+        for(UUID resident:towns.residents()){
+            var citizenTown=towns.townOf(resident);
+            if(citizenTown!=null)taxes.assess(server,resident,citizenTown.id());
+        }
+        for (var w : db.all()) {
+            // One workday scheduler for every profession, never a smith-only route.
+            // Assignment and contract are validated against actual registered state.
+            boolean activeContract = KingdomNpcWorkday.employed(server, w);
+            boolean assignment = false;
+            for (ServerLevel workLevel : server.getAllLevels()) {
+                if (workLevel.dimension().location().toString().equals(w.dimension)) {
+                    assignment = KingdomNpcWorkday.hasAssignment(server, workLevel, w);
+                    break;
+                }
+            }
+            long timeOfDay = server.overworld().getDayTime() % TICKS_PER_DAY;
+            boolean daytime = timeOfDay >= 0 && timeOfDay < 12000;
+            var goal = KingdomNpcGoalSelector.choose(new KingdomNpcGoalSelector.Context(
+                w.employer != null, activeContract, assignment,
+                daytime, w.hasHome, w.hunger, w.energy));
+            var intent = switch (goal) {
+                case EAT -> NpcAutonomyPlanner.Intention.EAT;
+                case REST -> NpcAutonomyPlanner.Intention.REST;
+                case RETURN_HOME -> NpcAutonomyPlanner.Intention.SEEK_SHELTER;
+                case WORK -> KingdomNpcDuty.hasPhysicalExecutor(w.job)
+                    ? NpcAutonomyPlanner.Intention.CONTINUE_ASSIGNED_JOB
+                    : NpcAutonomyPlanner.Intention.ON_DUTY;
+                case IDLE -> w.employer == null
+                    ? NpcAutonomyPlanner.Intention.FIND_WORK
+                    : (!activeContract || !assignment)
+                        ? NpcAutonomyPlanner.Intention.REPORT_BLOCKED
+                        : NpcAutonomyPlanner.Intention.IDLE;
+            };
+            if (w.safety < 25) intent = NpcAutonomyPlanner.Intention.SEEK_SHELTER;
+            if (!w.autonomousIntent.equals(intent.name())) {
+                w.autonomousIntent = intent.name();
+                changed = true;
+            }
+            if (NpcIdentity.advance(w,day)) changed=true;
+            long lifeDays = NpcSimulation.elapsed(day,w.lastLifeDay);
+            if(lifeDays>0){
+                w.hunger=NpcLife.stepHunger(w.hunger,lifeDays);
+                boolean working="work".equals(w.order)&&w.employer!=null&&!w.contractPaused;
+                w.energy=NpcLife.stepEnergy(w.energy,lifeDays,working,w.hasHome);
+                w.morale=NpcLife.stepMorale(w.morale,w.hunger,w.energy,w.safety,!w.contractPaused,lifeDays);
+                w.lastLifeDay=day;changed=true;
+            }
+            long days = NpcSimulation.elapsed(day, w.lastWorkedDay);
+            if (days > 0) {
+                // Background work only with paid contract; explicitly virtual stock in alpha.
+                if ("work".equals(w.order) && w.employer!=null && NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)) {
+                    // Real production only: no fake goods, XP or material yield without a valid station recipe.
+                    // The TFC/Create production adapters must explicitly confirm completion before crediting output.
+                }
+                w.lastWorkedDay=day; changed=true;
+            }
+        }
+        if(changed)db.setDirty();
+    }
+    /** Server-authoritative movement controller; never modifies non-Kingdom villagers. */
+    private static void controlLoadedResidents(net.minecraft.server.MinecraftServer server) {
+        KingdomNpcData db = KingdomNpcData.get(server);
+        boolean pathUpdate = server.getTickCount() % 10 == 0;
+        for (var w : db.all()) {
+            for (ServerLevel level : server.getAllLevels()) {
+                if (!level.dimension().location().toString().equals(w.dimension)) continue;
+                var entity = level.getEntity(w.entityId);
+                if (!(entity instanceof Villager npc) || !npc.isAlive()) continue;
+                boolean talking = false;
+                for (ServerPlayer other : level.players()) {
+                    if (other.containerMenu instanceof KingdomNpcMenu menu
+                        && menu.isForNpc(w.id) && other.distanceToSqr(npc) <= 64) {
+                        talking = true;
+                        break;
+                    }
+                }
+                boolean stay = "stay".equals(w.order);
+                if (stay || talking) {
+                    if (!npc.isNoAi()) npc.setNoAi(true);
+                    npc.getNavigation().stop();
+                    var velocity = npc.getDeltaMovement();
+                    npc.setDeltaMovement(0, velocity.y, 0);
+                    npc.hurtMarked = true;
+                } else {
+                    // Restore vanilla goals, trading, wandering etc. after dialogue/STOP.
+                    if (npc.isNoAi()) npc.setNoAi(false);
+                    if (!pathUpdate) continue;
+                    if ("haul".equals(w.order)) {
+                        // Hauling path is managed by NpcLogistics (every second).
+                    } else if ("home".equals(w.order) && w.hasHome) {
+                        if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
+                            npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
+                        else npc.getNavigation().stop();
+                    } else if (KingdomNpcDuty.autonomousOrder(w.order)) {
+                        // Shared Millenaire-style route for every job.
+                        // Real profession handlers take over close to the work site.
+                        boolean needsHome = "SEEK_SHELTER".equals(w.autonomousIntent)
+                            || "REST".equals(w.autonomousIntent)
+                            || "EAT".equals(w.autonomousIntent);
+                        if (needsHome && w.hasHome) {
+                            BlockPos home = new BlockPos(w.homeX, w.homeY, w.homeZ);
+                            if (level.hasChunkAt(home)) {
+                                if (npc.distanceToSqr(w.homeX + 0.5, w.homeY, w.homeZ + 0.5) > 4)
+                                    npc.getNavigation().moveTo(w.homeX + 0.5, w.homeY, w.homeZ + 0.5, 0.8);
+                                else npc.getNavigation().stop();
+                            }
+                        } else if (w.employer != null && !w.contractPaused
+                                && ("CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)
+                                    || "ON_DUTY".equals(w.autonomousIntent))) {
+                            BlockPos site = KingdomNpcWorkday.site(server, level, w);
+                            if (site != null) {
+                                var kind = KingdomNpcDuty.kind(w.job);
+                                // Builders, gatherers and workshops already have local movement.
+                                double handoff = switch (kind) {
+                                    case CONSTRUCTION -> 48.0 * 48.0;
+                                    // Workshop can visit its payroll counter up to 32 blocks
+                                    // from the station; do not fight its own pathfinding.
+                                    case WORKSHOP -> 40.0 * 40.0;
+                                    case FIELD, DELIVERY -> 10.0 * 10.0;
+                                    case SERVICE -> 4.0;
+                                    default -> 4.0;
+                                };
+                                if (npc.distanceToSqr(site.getX() + 0.5, site.getY(),
+                                        site.getZ() + 0.5) > handoff)
+                                    npc.getNavigation().moveTo(site.getX() + 0.5,
+                                        site.getY(), site.getZ() + 0.5, 0.8);
+                                else if (kind == KingdomNpcDuty.Kind.SERVICE)
+                                    npc.getNavigation().stop();
+                            }
+                        }
+                    } else if ("follow".equals(w.order) && w.employer != null) {
+                        ServerPlayer owner = server.getPlayerList().getPlayer(w.employer);
+                        if (owner != null && owner.level() == level && npc.distanceToSqr(owner) > 9)
+                            npc.getNavigation().moveTo(owner, 0.9);
+                        else npc.getNavigation().stop();
+                    }
+                }
+            }
+        }
+    }
+
+}
