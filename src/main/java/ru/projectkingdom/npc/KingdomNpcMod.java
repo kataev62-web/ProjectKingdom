@@ -765,9 +765,15 @@ public final class KingdomNpcMod {
             for(var w:jobs.all()) for(ServerLevel level:server.getAllLevels()) {
                 if(!w.dimension.equals(level.dimension().location().toString()))continue;
                 var entity=level.getEntity(w.entityId);
-                if(entity instanceof Villager resident && resident.isAlive())
-                    executed |= NpcFieldWork.tick(level,resident,w)
-                            | KingdomNpcWorkshop.tick(level,resident,w);
+                if(entity instanceof Villager resident && resident.isAlive()) {
+                    // Autonomous employment respects the chosen goal; independent
+                    // field workers retain their existing free-work behavior.
+                    boolean employed = w.employer != null;
+                    boolean workShift = "CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent);
+                    if (!employed || workShift)
+                        executed |= NpcFieldWork.tick(level,resident,w)
+                                | KingdomNpcWorkshop.tick(level,resident,w);
+                }
             }
             if(executed)jobs.setDirty();
         }
