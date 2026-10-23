@@ -26,6 +26,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     private final Set<Long> planned = new HashSet<>();
     private int centerX, centerZ;
     private java.util.UUID cityId;
+    private long lastRefresh;
     private Set<Long> confirmedPlan;
 
     private KingdomCityExpansionMapMenu(int id, Inventory playerInventory, ServerPlayer player, SimpleContainer grid) {
@@ -119,6 +120,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         savePlan();
     }
     private void refresh() {
+        lastRefresh = viewer.serverLevel().getGameTime();
         inventory.clearContent();
         var data = KingdomCivicsData.get(viewer.getServer());
         var town = data.townOf(viewer.getUUID());
@@ -154,7 +156,15 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(51, Items.BARRIER, "Очистить план");
         put(52, Items.COMPASS, "К позиции игрока");
         put(53, Items.OAK_DOOR, "Закрыть карту");
-        broadcastChanges();
+        super.broadcastChanges();
+    }
+    @Override public void broadcastChanges() {
+        if (viewer != null && !viewer.level().isClientSide
+                && viewer.serverLevel().getGameTime() - lastRefresh >= 40) {
+            refresh();
+            return;
+        }
+        super.broadcastChanges();
     }
     @Override public void clicked(int slot, int button, ClickType click, Player player) {
         if (player != viewer || viewer.level().isClientSide || click != ClickType.PICKUP
