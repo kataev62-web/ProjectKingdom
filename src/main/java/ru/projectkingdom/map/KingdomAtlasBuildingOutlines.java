@@ -35,13 +35,25 @@ public final class KingdomAtlasBuildingOutlines {
         long maxChunkX=minChunkX+KingdomGraphicAtlasData.COLUMNS*(long)scale;
         long maxChunkZ=minChunkZ+KingdomGraphicAtlasData.ROWS*(long)scale;
         List<Source> sources=new ArrayList<>();
-        for (var project:KingdomConstructionData.get(server).all()) {
-            if (project.status()!=KingdomConstructionData.Status.COMPLETED
+        var candidates=new ArrayList<KingdomConstructionData.Project>();
+        for(var project:KingdomConstructionData.get(server).all()) {
+            if(project.status()!=KingdomConstructionData.Status.COMPLETED
                     || !dimension.equals(project.dimension()))continue;
             long originX=Math.floorDiv(project.x(),16), originZ=Math.floorDiv(project.z(),16);
-            // Designs may extend to surrounding chunks; broad coarse pre-filter.
-            if (originX < minChunkX-17 || originX >= maxChunkX+17
-                    || originZ < minChunkZ-17 || originZ >= maxChunkZ+17)continue;
+            // Designs may extend to neighboring chunks; broad pre-filter only.
+            if(originX<minChunkX-17 || originX>=maxChunkX+17
+                    || originZ<minChunkZ-17 || originZ>=maxChunkZ+17)continue;
+            candidates.add(project);
+        }
+        // Resolving large schematic geometry is much more expensive than
+        // filtering registry coordinates. Resolve only closest 96 candidates.
+        candidates.sort(Comparator.comparingLong(project->{
+            long dx=(long)project.x()-(long)cx*16L;
+            long dz=(long)project.z()-(long)cz*16L;
+            return dx*dx+dz*dz;
+        }));
+        for(int i=0;i<Math.min(candidates.size(),MAX_OUTLINES*2);i++){
+            var project=candidates.get(i);
             var design=KingdomConstructionPlans.resolve(server,project.design());
             if (design==null || design.blocks().isEmpty()
                     || design.blocks().size()>MAX_DESIGN_CELLS)continue;
