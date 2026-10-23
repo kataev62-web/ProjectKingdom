@@ -41,7 +41,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
 
     public EnterpriseCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),EnterpriseKind.byId(buffer.readUtf(24)),buffer.readUtf(48),
-                buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(32),buffer.readUtf(32),buffer.readUtf(32),buffer.readBoolean(),
+                buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(96),buffer.readUtf(96),buffer.readUtf(96),buffer.readBoolean(),
                 readOffers(buffer),buffer.readVarInt(),buffer.readUtf(32),buffer.readBoolean());
     }
     private EnterpriseCoreMenu(int id,Inventory inventory,BlockPos pos,UUID enterprise,EnterpriseKind kind,String name,UUID owner,
@@ -106,7 +106,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(firm.id());
             buffer.writeUtf(core.kind().id());buffer.writeUtf(firm.name(),48);buffer.writeUUID(firm.owner());
             buffer.writeLong(visibleCash);buffer.writeInt(workerCount);buffer.writeLong(visibleDebt);
-            buffer.writeUtf(cashState);buffer.writeUtf(rawState);buffer.writeUtf(finishedState);buffer.writeBoolean(manager);
+            buffer.writeUtf(cashState,96);buffer.writeUtf(rawState,96);buffer.writeUtf(finishedState,96);buffer.writeBoolean(manager);
             buffer.writeVarInt(offers.size());
             for(var offer:offers){
                 buffer.writeUUID(offer.id());buffer.writeUtf(offer.itemId(),160);
@@ -115,7 +115,10 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             buffer.writeVarInt(count);buffer.writeUtf(applicant,32);buffer.writeBoolean(applied);
         });
     }
-    private static String status(ServerPlayer player,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){return EnterpriseAccessService.snapshot(player.serverLevel(),data,firm,role).status().name();}
+    private static String status(ServerPlayer player,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){
+        return EnterpriseAccessService.display(
+            EnterpriseAccessService.snapshot(player.serverLevel(),data,firm,role).status());
+    }
     public UUID enterpriseId(){return enterpriseId;}public EnterpriseKind kind(){return kind;}public String enterpriseName(){return enterpriseName;}
     public UUID owner(){return owner;}public long cash(){return cash;}public int workers(){return workers;}public long debt(){return debt;}
     public String cashboxState(){return cashboxState;}public String rawState(){return rawState;}public String finishedState(){return finishedState;}public boolean manager(){return manager;}
@@ -152,12 +155,31 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             KingdomMainMenu.openProjects(server);return true;
         }
         return switch(action){
-            case DEPOSIT_100->data.depositAtCore(server,enterpriseId,100);
-            case WITHDRAW_100->data.withdrawAtCore(server,enterpriseId,100);
-            case BIND_CASHBOX->EnterpriseAccessService.begin(server,enterpriseId,EnterpriseBindingRole.CASHBOX);
-            case BIND_RAW->EnterpriseAccessService.begin(server,enterpriseId,EnterpriseBindingRole.RAW_STORAGE);
-            case BIND_FINISHED->EnterpriseAccessService.begin(server,enterpriseId,EnterpriseBindingRole.FINISHED_STORAGE);
+            case DEPOSIT_100->{
+                boolean ok=data.depositAtCore(server,enterpriseId,100);
+                server.sendSystemMessage(Component.literal(ok
+                        ?"В кассу внесено 100 медных в виде настоящих монет."
+                        :"Внести деньги не удалось. Привяжите кассу, проверьте место в сундуке и монеты в кошельке."));
+                yield ok;
+            }
+            case WITHDRAW_100->{
+                boolean ok=data.withdrawAtCore(server,enterpriseId,100);
+                server.sendSystemMessage(Component.literal(ok
+                        ?"Из кассы выдано 100 медных в кошелёк."
+                        :"Выдача невозможна: проверьте монеты в кассе, баланс и свободное место в кошельке."));
+                yield ok;
+            }
+            case BIND_CASHBOX->beginBinding(server,EnterpriseBindingRole.CASHBOX);
+            case BIND_RAW->beginBinding(server,EnterpriseBindingRole.RAW_STORAGE);
+            case BIND_FINISHED->beginBinding(server,EnterpriseBindingRole.FINISHED_STORAGE);
             default->false;};
+    }
+    private boolean beginBinding(ServerPlayer player,EnterpriseBindingRole role) {
+        boolean started=EnterpriseAccessService.begin(player,enterpriseId,role);
+        player.sendSystemMessage(Component.literal(started
+            ?"Привязка «"+role.title()+"»: подойдите не дальше 6 блоков и нажмите ПКМ по отдельному сундуку или складу Kingdom. Держите руку пустой."
+            :"Нет прав. Привязку может выполнять только владелец предприятия."));
+        return started;
     }
     private boolean openSellNotice(ServerPlayer player,KingdomEnterpriseData data) {
         var counter=data.counter(enterpriseId);
