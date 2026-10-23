@@ -3,12 +3,14 @@ package ru.projectkingdom.administration;
 import java.util.UUID;
 import java.util.function.Supplier;
 import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.chat.Component;
 import net.minecraftforge.network.NetworkEvent;
 import ru.projectkingdom.npc.KingdomBankData;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomCurrency;
 
 public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int action) {
+    public static final int JOIN_TOWN=100;
     public static final int BIND_TREASURY=110,BIND_BANK=111,BIND_WAREHOUSE=112,BIND_MARKET=113,BIND_PRISON_CELL=114;
     public static final int BANK_DEPOSIT_100=200,BANK_WITHDRAW_100=201,TREASURY_DEPOSIT_100=202,TREASURY_WITHDRAW_100=203;
     public static void encode(AdministrativeActionPacket packet,FriendlyByteBuf buffer){
@@ -22,6 +24,19 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
             var sender=context.getSender();
             if(sender==null||packet.kind==null||!(sender.containerMenu instanceof AdministrativeCoreMenu menu)
                     ||!packet.townId.equals(menu.townId())||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
+            if(packet.action==JOIN_TOWN){
+                // Joining is the ONLY public mutation through a town hall.
+                // The sender and target town are never supplied by the client.
+                if(packet.kind!=AdministrativeKind.TOWN_HALL)return;
+                var civics=KingdomCivicsData.get(sender.getServer());
+                var town=civics.townById(menu.townId());
+                if(town==null || civics.townOf(sender.getUUID())!=null)return;
+                if(civics.joinTown(sender.getUUID(),town.id())){
+                    sender.sendSystemMessage(Component.literal("Вы вступили в город «"+town.name()+"»!"));
+                    sender.closeContainer(); // Force a fresh permission snapshot on next opening.
+                }
+                return;
+            }
             boolean publicFinance=(packet.kind==AdministrativeKind.BANK&&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100))
                     ||(packet.kind==AdministrativeKind.TREASURY&&packet.action==TREASURY_DEPOSIT_100);
             if(!publicFinance&&!menu.manager())return;
