@@ -149,7 +149,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             return ok;
         }
         if(kind==EnterpriseKind.CONSTRUCTION && manager && action==OPEN_ARCHITECT) {
-            KingdomMainMenu.openArchitect(server);return true;
+            KingdomMainMenu.openArchitect(server,corePos);return true;
         }
         if(kind==EnterpriseKind.CONSTRUCTION && manager && action==OPEN_PROJECTS) {
             KingdomMainMenu.openProjects(server);return true;
