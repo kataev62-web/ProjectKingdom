@@ -1,0 +1,25 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "pattern": [
+    "III",
+    " S ",
+    " S "
+  ],
+  "key": {
+    "I": [
+      {
+        "tag": "forge:ingots/iron"
+      },
+      {
+        "tag": "forge:ingots/wrought_iron"
+      }
+    ],
+    "S": {
+      "item": "minecraft:stick"
+    }
+  },
+  "result": {
+    "item": "kingdomnpc:builders_hammer",
+    "count": 1
+  }
+}
