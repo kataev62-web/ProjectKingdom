@@ -11,6 +11,25 @@ class KingdomNpcNutritionAndFarmChoiceTest {
             "minecraft:overworld", 0);
     }
 
+    @Test void nutritionAndOwnerRationPermissionsSurviveWorldReload() {
+        var original=resident();
+        original.dietGrain=82;
+        original.dietFruit=15;
+        original.dietVegetables=60;
+        original.dietProtein=30;
+        original.dietDairy=5;
+        original.lastMealDay=9876;
+        original.rationsEnabled=true;
+        var copy=KingdomNpcData.Worker.load(original.save());
+        assertEquals(82,copy.dietGrain);
+        assertEquals(15,copy.dietFruit);
+        assertEquals(60,copy.dietVegetables);
+        assertEquals(30,copy.dietProtein);
+        assertEquals(5,copy.dietDairy);
+        assertEquals(9876,copy.lastMealDay);
+        assertTrue(copy.rationsEnabled);
+    }
+
     @Test void differentFoodGroupsAffectDietWithoutMintingItems() {
         var person=resident();person.hunger=45;
         var actualMeal=new KingdomNpcNutrition.Meal(4,new int[]{16,0,22,0,0});
