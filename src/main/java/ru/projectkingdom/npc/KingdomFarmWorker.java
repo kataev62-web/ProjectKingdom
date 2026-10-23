@@ -206,6 +206,7 @@ public final class KingdomFarmWorker {
             BlockState desired=BuiltInRegistries.BLOCK.get(cropKey).defaultBlockState();
             if(!KingdomTfcFieldRules.simpleCrop(KingdomFarmFieldData.cropId(field.seedId()),
                     desired.getBlock().getClass().getName()))continue;
+            boolean restingForRotation=KingdomFarmAutonomy.leaveForRotation(level,w,field);
             for(int x=field.minX();x<=field.maxX();x++)for(int z=field.minZ();z<=field.maxZ();z++){
                 BlockPos soil=new BlockPos(x,field.y(),z),crop=soil.above();
                 if(!level.hasChunkAt(crop)||!land.canUse(level,soil,KingdomNpcFarmOwner.workOwner(level,w)))continue;
@@ -218,7 +219,7 @@ public final class KingdomFarmWorker {
                     && KingdomFarmClimate.read(level,crop,found).primaryNutrient()>=0f
                     && KingdomFarmClimate.read(level,crop,found).primaryNutrient()<0.35f){
                     nutritionTarget=crop;nutritionState=found;nutritionDistance=distance;
-                }else if(found.isAir() && desired.canSurvive(level,crop)
+                }else if(!restingForRotation && found.isAir() && desired.canSurvive(level,crop)
                     && distance<plantDistance
                     && KingdomFarmClimate.read(level,crop,desired).suitable()){
                     plantTarget=crop;plantState=desired;plantField=field;plantDistance=distance;
