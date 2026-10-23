@@ -15,7 +15,8 @@ class GraphicAtlasProtocolTest {
         int position = (KingdomGraphicAtlasData.ROWS/2)*KingdomGraphicAtlasData.COLUMNS
                 + KingdomGraphicAtlasData.COLUMNS/2;
         tiles.set(position,new KingdomGraphicAtlasData.Tile(1,true,false,true,23,44,2,
-                "Авалон", "Держава", "Кузница"));
+                "Авалон", "Держава", "Кузница",
+                ru.projectkingdom.map.KingdomAtlasTerrain.Type.FOREST.ordinal(), 41));
         var original = new KingdomGraphicAtlasData.Snapshot(
                 42,-123,321,4,KingdomGraphicAtlasData.Layer.POLITICAL,tiles);
         var buffer = new FriendlyByteBuf(Unpooled.buffer());
@@ -25,6 +26,9 @@ class GraphicAtlasProtocolTest {
             assertEquals(original,copy);
             assertTrue(copy.tiles().get(0).empty());
             assertEquals("Авалон",copy.tiles().get(position).town());
+            assertEquals(41,copy.tiles().get(position).elevation());
+            assertEquals(ru.projectkingdom.map.KingdomAtlasTerrain.Type.FOREST.ordinal(),
+                    copy.tiles().get(position).terrain());
         } finally { buffer.release(); }
     }
 
