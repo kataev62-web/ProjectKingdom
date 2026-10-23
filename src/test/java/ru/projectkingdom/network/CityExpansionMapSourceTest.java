@@ -23,4 +23,14 @@ class CityExpansionMapSourceTest {
         assertFalse(source.contains("KingdomCurrency.debit("));
         assertFalse(source.contains(".claim("));
     }
+    @Test void persistentPlanHasBoundedStorageAndMapRevalidates() throws Exception {
+        String model = Files.readString(Path.of("src/main/java/ru/projectkingdom/npc/KingdomExpansionPlans.java"));
+        String menu = Files.readString(Path.of("src/main/java/ru/projectkingdom/npc/KingdomCityExpansionMapMenu.java"));
+        assertTrue(model.contains("extends SavedData"));
+        assertTrue(model.contains("cells.size() > 256"));
+        assertTrue(menu.contains("pruneInvalid()"));
+        assertTrue(menu.contains("plans.replace(cityId, merged)"));
+        assertFalse(menu.contains("KingdomCurrency.debit("));
+    }
 }
+
