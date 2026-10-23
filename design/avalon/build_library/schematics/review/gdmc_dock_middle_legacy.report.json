@@ -1,0 +1,47 @@
+{
+  "id": "gdmc_dock_middle_legacy",
+  "name": "GDMC dock middle module",
+  "role": "port modular pier segment",
+  "status": "file_received_preflight_only",
+  "original_author_project": "William C. W. I. Chu et al. / GDMC settlement generator",
+  "original_repository": "https://github.com/williamcwi/GDMC",
+  "original_file": "https://github.com/williamcwi/GDMC/blob/master/schematics/dock/dock_middle.schematic",
+  "license": "Apache-2.0 (upstream repository license; preserved separately)",
+  "license_file": "GDMC_APACHE-2.0_LICENSE.txt",
+  "git_blob_sha1": "66381e8c2723a911cb6d6ff30ab20b1defadfdd0",
+  "sha256": "ac570af9955a7ca8ebb5a056d8e8a7b74ce368e821a8b14477246787c83b68ca",
+  "compressed_bytes": 424,
+  "format": "Legacy MCEdit .schematic",
+  "dimensions_xyz": [
+    20,
+    8,
+    9
+  ],
+  "non_air_blocks": 333,
+  "legacy_numeric_ids_top20": {
+    "0": 1107,
+    "4": 6,
+    "5": 49,
+    "17": 24,
+    "50": 4,
+    "53": 9,
+    "85": 1,
+    "126": 164,
+    "135": 22,
+    "160": 8,
+    "164": 3,
+    "188": 43
+  },
+  "entities": 0,
+  "tile_entities": 0,
+  "version_check": "Legacy numeric IDs; not safe to paste into MC 1.20.1 without conversion.",
+  "visual_quality": "not tested (no in-client screenshots)",
+  "fit_to_avalon": "not approved; trial staging asset for modular port design",
+  "next": [
+    "Review Apache 2.0 attribution and original file",
+    "Convert legacy block ID and metadata to modern block states",
+    "Inspect preview from street level",
+    "Check anchoring to waterfront and road",
+    "Approve or reject independently"
+  ]
+}
