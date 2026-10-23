@@ -14,7 +14,9 @@ public final class KingdomNpcWorkday {
 
     /** Validate a live enterprise payroll contract, not merely an employer UUID. */
     public static boolean employed(MinecraftServer server, KingdomNpcData.Worker worker) {
-        if (worker.employer == null || worker.ageYears < 18 || worker.contractPaused) return false;
+        if (worker.contractPaused || worker.ageYears < 18) return false;
+        if (KingdomNpcFarmOwner.ownedFarm(server,worker)!=null) return true;
+        if (worker.employer == null) return false;
         var enterprises = KingdomEnterpriseData.get(server);
         for (var contract : KingdomEnterprisePayrollData.get(server).all()) {
             if (!contract.active() || !contract.worker().equals(worker.entityId)) continue;
@@ -54,7 +56,7 @@ public final class KingdomNpcWorkday {
     public static BlockPos site(MinecraftServer server, ServerLevel level,
                                 KingdomNpcData.Worker worker) {
         if (!level.dimension().location().toString().equals(worker.dimension)
-                || worker.employer == null) return null;
+                || KingdomNpcFarmOwner.workOwner(level,worker) == null) return null;
         var land = KingdomTerritories.get(server);
         var kind = KingdomNpcDuty.kind(worker.job);
         if ("farmer".equals(worker.job)) {
