@@ -28,6 +28,15 @@ final class KingdomCivicWiringTest {
         assertTrue(packet.contains("menu.civic().pendingId()"));
         assertTrue(packet.contains("KingdomCivicService.review(sender"));
     }
+    @Test void sovereignRequiresActualNationRulerAndSameNationSubject()throws Exception{
+        String service=src("social/KingdomCivicService.java");
+        String handler=src("administration/AdministrativeTextPacket.java");
+        assertTrue(handler.contains("realm_award"));
+        assertTrue(handler.contains("KingdomCivicService.awardRealm(sender"));
+        assertTrue(service.contains("realm.ruler()"));
+        assertTrue(service.contains("realm.id().equals(targetRealm.id())"));
+        assertTrue(service.contains("KingdomNationalHonorsData.get(server).grantVerified"));
+    }
     @Test void npcAcknowledgesHonorButDoesNotMintOrGrantOffices()throws Exception{
         String npc=src("npc/NpcDialogueService.java");
         assertTrue(npc.contains("KingdomCivicHonorsData.get(player.getServer())"));

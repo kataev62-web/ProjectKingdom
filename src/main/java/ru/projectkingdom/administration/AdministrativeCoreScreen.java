@@ -73,9 +73,12 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             civicTarget=addRenderableWidget(new EditBox(font,leftPos+58,topPos+153,250,17,
                     KingdomFonts.readable(Component.literal("UUID награждаемого"))));
             civicTarget.setMaxLength(36);civicCouncilControls.add(civicTarget);
-            addCivicHonor("За труд",ru.projectkingdom.social.KingdomCivicHonor.SERVICE,58,178);
-            addCivicHonor("Заслуги",ru.projectkingdom.social.KingdomCivicHonor.MERIT,150,178);
-            addCivicHonor("Почётный",ru.projectkingdom.social.KingdomCivicHonor.DISTINCTION,242,178);
+            addCivicHonor("Труд",ru.projectkingdom.social.KingdomCivicHonor.SERVICE,58,178);
+            addCivicHonor("Заслуги",ru.projectkingdom.social.KingdomCivicHonor.MERIT,126,178);
+            addCivicHonor("Почёт",ru.projectkingdom.social.KingdomCivicHonor.DISTINCTION,194,178);
+            civicCouncilControls.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Орден"),
+                    ignored->sendText("realm_award",civicTarget.getValue()))
+                    .bounds(leftPos+262,topPos+178,64,18).build()));
         }
         switch(menu.kind()){
             case TREASURY->{
@@ -108,7 +111,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private void addCivicHonor(String label,ru.projectkingdom.social.KingdomCivicHonor honor,int x,int y){
         Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(label),
                 ignored->sendText("honor_grant",civicTarget.getValue()+"|"+honor.name()))
-                .bounds(leftPos+x,topPos+y,83,18).build());
+                .bounds(leftPos+x,topPos+y,64,18).build());
         civicCouncilControls.add(button);
     }
     private void sendText(String field,String value){KingdomNetwork.CHANNEL.sendToServer(new AdministrativeTextPacket(menu.townId(),menu.kind(),field,value));}

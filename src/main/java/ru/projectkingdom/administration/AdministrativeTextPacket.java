@@ -56,6 +56,19 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                         field,sender.level().getGameTime());
                 return;
             }
+            if(field.equals("realm_award")){
+                if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
+                String raw=validatedCommandValue(packet.value);if(raw==null)return;
+                try {
+                    UUID target=UUID.fromString(raw);
+                    boolean ok=ru.projectkingdom.social.KingdomCivicService.awardRealm(sender,
+                            packet.townId,target);
+                    sender.sendSystemMessage(net.minecraft.network.chat.Component.literal(ok
+                        ?"[Project Kingdom] Государственный орден пожалован."
+                        :"[Project Kingdom] Орден недоступен: проверяются власть правителя, гражданство и заслуги."));
+                }catch(IllegalArgumentException ignored){}
+                return;
+            }
             if(field.equals("honor_grant")){
                 if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
                 String command=validatedCommandValue(packet.value);if(command==null)return;

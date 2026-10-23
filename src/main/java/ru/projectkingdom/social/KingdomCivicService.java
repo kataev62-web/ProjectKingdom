@@ -47,6 +47,9 @@ public final class KingdomCivicService {
         var rank=KingdomSocialData.get(server).rank(person);
         var honorary=KingdomCivicHonorsData.get(server).best(townId,person);
         String honor=honorary==null?"Нет":honorary.russian();
+        var realm=civics.nationOf(person);
+        if(realm!=null&&KingdomNationalHonorsData.get(server).award(realm.id(),person)!=null)
+            honor=(honorary==null?"":"Город: "+honor+"; ")+"Орден королевства";
         var petitions=KingdomCitizenPetitionsData.get(server);
         var mine=petitions.forMember(townId,person,1);
         String myLine=mine.isEmpty()?"Нет":mine.get(0).topic().russian()+" — "+status(mine.get(0).status());
@@ -65,6 +68,38 @@ public final class KingdomCivicService {
             case APPROVED->"одобрено";
             case REJECTED->"отклонено";
         };
+    }
+
+    /** Across all towns in a state; protects against a ruler awarding a new unknown resident. */
+    public static int nationStanding(net.minecraft.server.MinecraftServer server,UUID nation,UUID person){
+        if(server==null||nation==null||person==null)return 0;
+        int total=0;
+        for(var town:KingdomCivicsData.get(server).towns()){
+            if(!nation.equals(town.nation()))continue;
+            total=Math.min(200,total+KingdomReputationData.get(server).score(town.id(),person));
+            if(total==200)break;
+        }
+        return total;
+    }
+    public static boolean awardRealm(ServerPlayer actor,UUID townId,UUID recipient){
+        if(actor==null||townId==null||recipient==null)return false;
+        var server=actor.getServer();
+        var civics=KingdomCivicsData.get(server);
+        var office=civics.townById(townId);
+        if(office==null||office.nation()==null)return false;
+        var realm=civics.nationOf(actor.getUUID());
+        var targetRealm=civics.nationOf(recipient);
+        if(realm==null||targetRealm==null||!realm.id().equals(office.nation())
+                ||!realm.id().equals(targetRealm.id())||!actor.getUUID().equals(realm.ruler()))return false;
+        int rank=KingdomSocialData.get(server).rank(recipient).level();
+        int standing=nationStanding(server,realm.id(),recipient);
+        boolean ok=KingdomNationalHonorsData.get(server).grantVerified(realm.id(),
+                recipient,actor.getUUID(),rank,standing,
+                Math.max(0,server.overworld().getDayTime()/24000L));
+        if(!ok)return false;
+        KingdomAdministrationData.get(server).record(townId,actor.getUUID(),null,
+                "honor.realm",actor.level().getGameTime());
+        return true;
     }
 
     public static boolean file(ServerPlayer actor,UUID townId,KingdomCitizenPetitionsData.Topic topic){
