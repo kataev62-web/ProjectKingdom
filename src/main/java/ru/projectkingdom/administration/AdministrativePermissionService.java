@@ -23,6 +23,6 @@ public final class AdministrativePermissionService {
         };
     }
     public static boolean mayUsePublic(AdministrativeKind kind){
-        return kind==AdministrativeKind.TOWN_HALL || kind==AdministrativeKind.BANK || kind==AdministrativeKind.CITY_MARKET;
+        return kind==AdministrativeKind.TOWN_HALL || kind==AdministrativeKind.TREASURY || kind==AdministrativeKind.BANK || kind==AdministrativeKind.CITY_MARKET;
     }
 }
