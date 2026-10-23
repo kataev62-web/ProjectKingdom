@@ -99,11 +99,14 @@ public final class KingdomLandReservations extends SavedData {
                 ||!civics.canBuySale(buyer.getUUID(),res.dimension(),res.x(),res.z()))
             return Result.CHANGED_OFFER;
         var admin=KingdomAdministrationData.get(buyer.getServer());
-        Container vault=KingdomPhysicalCash.townVault(buyer,townId,AdministrativeBindingRole.TREASURY_VAULT);
+        Container vault=KingdomPhysicalCash.townVault(buyer,townId,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null)return Result.NO_VAULT;
+        long bankClaims=admin.bankReserve(townId),cityClaims=admin.treasuryReserve(townId);
         if(res.price()<1||res.price()>1_000_000
                 ||town.treasury()>Long.MAX_VALUE-res.price()
-                ||admin.treasuryReserve(townId)>Long.MAX_VALUE-res.price())
+                ||cityClaims>Long.MAX_VALUE-res.price()
+                ||bankClaims>Long.MAX_VALUE-cityClaims
+                ||KingdomPhysicalCash.value(vault)<bankClaims+cityClaims)
             return Result.NO_CASH_OR_ROOM;
         // Persist a review-required intent before touching the cash or title.
         mark(res,State.SETTLING);
