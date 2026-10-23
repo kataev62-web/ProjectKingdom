@@ -69,7 +69,7 @@ def inspect(blob):
     else: raw=blob
     if len(raw)>64_000_000: raise ValueError("Unpacked NBT over 64 MB")
     name,root=Reader(raw).root()
-    legacy=name.lower()=="schematic" or ("Blocks" in root and "Data" in root)
+    legacy=("Blocks" in root and "Data" in root)
     node=root.get("Schematic",root)
     dims={key:int(node.get(key,0)) for key in ("Width","Height","Length")}
     report={"format":"legacy" if legacy else "sponge","root":name,
