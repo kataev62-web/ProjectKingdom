@@ -29,6 +29,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     private KingdomGraphicAtlasData.Layer layer = KingdomGraphicAtlasData.Layer.LAND;
     private KingdomGraphicAtlasData.Snapshot snapshot;
     private int selectedCol = -1, selectedRow = -1;
+    private KingdomAtlasInfrastructure.Marker selectedMarker;
     private int left, top, cell, gridX, gridY, gridWidth, gridHeight, panelWidth, panelHeight;
 
     public KingdomGraphicAtlasScreen() {
@@ -57,13 +58,16 @@ public final class KingdomGraphicAtlasScreen extends Screen {
 
         addRenderableWidget(Button.builder(Component.literal("Земля"),
                 button -> setLayer(KingdomGraphicAtlasData.Layer.LAND))
-                .bounds(side, y, 45, 18).build());
+                .bounds(side, y, 34, 18).build());
         addRenderableWidget(Button.builder(Component.literal("Нации"),
                 button -> setLayer(KingdomGraphicAtlasData.Layer.POLITICAL))
-                .bounds(side + 47, y, 48, 18).build());
+                .bounds(side + 36, y, 34, 18).build());
         addRenderableWidget(Button.builder(Component.literal("Фирмы"),
                 button -> setLayer(KingdomGraphicAtlasData.Layer.ENTERPRISES))
-                .bounds(side + 97, y, 45, 18).build());
+                .bounds(side + 72, y, 34, 18).build());
+        addRenderableWidget(Button.builder(Component.literal("Объекты"),
+                button -> setLayer(KingdomGraphicAtlasData.Layer.INFRASTRUCTURE))
+                .bounds(side + 108, y, 34, 18).build());
 
         addRenderableWidget(Button.builder(Component.literal("−"),
                 button -> zoom(-1)).bounds(side, y + 24, 44, 18).build());
@@ -121,6 +125,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             snapshot = null;
             selectedCol = -1;
             selectedRow = -1;
+            selectedMarker = null;
         }
         requestId++;
         KingdomNetwork.CHANNEL.sendToServer(new GraphicAtlasRequestPacket(
@@ -187,7 +192,9 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             return mix(base, PLAN, 66);
         if (tile.claims() == 0) return base;
         if (tile.mixed()) return mix(base, 0xFFC08A6B, 70);
-        if (layer == KingdomGraphicAtlasData.Layer.ENTERPRISES) return mix(base, 0xFF9D9E88, 24);
+        if (layer == KingdomGraphicAtlasData.Layer.ENTERPRISES
+                || layer == KingdomGraphicAtlasData.Layer.INFRASTRUCTURE)
+            return mix(base, 0xFF9D9E88, 24);
         if (layer == KingdomGraphicAtlasData.Layer.LAND && tile.own()) return mix(base, OWN, 65);
         int seed = layer == KingdomGraphicAtlasData.Layer.POLITICAL
                     && !tile.nation().isEmpty() ? tile.nationColor() : tile.townColor();
@@ -208,8 +215,10 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         }
         gui.drawString(font, Component.literal("1 клетка = " + KingdomGraphicAtlasData.SCALES[scaleIndex] + " чанков"),
                 gridX + gridWidth - 148, top + panelHeight - 17, MUTED, false);
-        if (snapshot != null) renderTiles(gui);
-        else gui.fill(gridX, gridY, gridX + gridWidth, gridY + gridHeight, FREE);
+        if (snapshot != null) {
+            renderTiles(gui);
+            renderInfrastructureMarkers(gui);
+        } else gui.fill(gridX, gridY, gridX + gridWidth, gridY + gridHeight, FREE);
         // The position and heading of THIS player are rendered every frame,
         // independently of the slower terrain/territory snapshot refresh.
         renderPlayerMarker(gui);
@@ -229,8 +238,14 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gui.drawString(font, Component.literal("Свободно"), sx + 86, sy + 27, MUTED, false);
 
         int infoY = sy + 46;
-        gui.drawString(font, Component.literal("Выбранный участок:"), sx, infoY, INK, false);
-        if (snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
+        gui.drawString(font, Component.literal(selectedMarker == null
+                ? "Выбранный участок:" : "Объект на карте:"), sx, infoY, INK, false);
+        if (selectedMarker != null) {
+            shortText(gui, selectedMarker.label(), sx, infoY + 12);
+            shortText(gui, selectedMarker.kind().name(), sx, infoY + 24);
+            shortText(gui, "X " + selectedMarker.blockX() + " Z " + selectedMarker.blockZ(),
+                    sx, infoY + 36);
+        } else if (snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
             var tile = snapshot.tile(selectedCol, selectedRow);
             shortText(gui, tile.town().isEmpty() ? "Свободная земля" : tile.town(), sx, infoY + 12);
             String terrain = switch (KingdomAtlasTerrain.Type.values()[tile.terrain()]) {
@@ -264,10 +279,89 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 case MOUNTAIN -> "горы";
                 case ROAD -> "дорога";
             };
-            gui.renderTooltip(font, Component.literal("Чанк " + x + ", " + z
-                    + " | " + terrain + " | " + (tile.town().isEmpty() ? "свободно" : tile.town())),
-                    mouseX, mouseY);
+            var mark = infrastructureAt(mouseX, mouseY);
+            if (mark != null) {
+                gui.renderTooltip(font, Component.literal(
+                        mark.label() + " • X " + mark.blockX() + " Z " + mark.blockZ()),
+                        mouseX, mouseY);
+            } else {
+                gui.renderTooltip(font, Component.literal("Чанк " + x + ", " + z
+                        + " | " + terrain + " | " + (tile.town().isEmpty() ? "свободно" : tile.town())),
+                        mouseX, mouseY);
+            }
         }
+    }
+
+    /** Each marker has real world coordinates provided by server registries. */
+    private int markerScreenX(KingdomAtlasInfrastructure.Marker marker) {
+        long westChunk = (long)centerX - (KingdomGraphicAtlasData.COLUMNS / 2L)
+                * KingdomGraphicAtlasData.SCALES[scaleIndex];
+        double offset = (marker.blockX() / 16.0 - westChunk)
+                / KingdomGraphicAtlasData.SCALES[scaleIndex];
+        return gridX + (int)Math.round(offset * cell);
+    }
+
+    private int markerScreenY(KingdomAtlasInfrastructure.Marker marker) {
+        long northChunk = (long)centerZ - (KingdomGraphicAtlasData.ROWS / 2L)
+                * KingdomGraphicAtlasData.SCALES[scaleIndex];
+        double offset = (marker.blockZ() / 16.0 - northChunk)
+                / KingdomGraphicAtlasData.SCALES[scaleIndex];
+        return gridY + (int)Math.round(offset * cell);
+    }
+
+    private boolean markerVisible(KingdomAtlasInfrastructure.Marker marker) {
+        if (layer == KingdomGraphicAtlasData.Layer.POLITICAL)
+            return marker.kind() == KingdomAtlasInfrastructure.Kind.TOWN_HALL
+                    || marker.kind() == KingdomAtlasInfrastructure.Kind.ADMINISTRATION;
+        if (layer == KingdomGraphicAtlasData.Layer.ENTERPRISES)
+            return marker.kind() == KingdomAtlasInfrastructure.Kind.ENTERPRISE;
+        return true;
+    }
+
+    private int markerColor(KingdomAtlasInfrastructure.Marker marker) {
+        return switch (marker.kind()) {
+            case TOWN_HALL -> 0xFFFFE19A;
+            case ADMINISTRATION -> 0xFF67D6D6;
+            case ENTERPRISE -> 0xFFFAD447;
+            case BUILDING -> 0xFFF2F2ED;
+            case ROAD -> 0xFF9F6941;
+            case BRIDGE -> 0xFFB5D6E1;
+        };
+    }
+
+    private void renderInfrastructureMarkers(GuiGraphics gui) {
+        if (snapshot == null) return;
+        for (var mark : snapshot.markers()) {
+            if (!markerVisible(mark)) continue;
+            int px = markerScreenX(mark), py = markerScreenY(mark);
+            if (px < gridX + 3 || py < gridY + 3
+                    || px >= gridX + gridWidth - 3 || py >= gridY + gridHeight - 3) continue;
+            boolean chosen = mark.equals(selectedMarker);
+            int dark = 0xFF352819;
+            int tint = markerColor(mark);
+            gui.fill(px - 3, py - 3, px + 4, py + 4, dark);
+            gui.fill(px - 2, py - 2, px + 3, py + 3, tint);
+            if (chosen) {
+                gui.fill(px - 4, py - 4, px + 5, py - 3, 0xFFFFFFFF);
+                gui.fill(px - 4, py + 4, px + 5, py + 5, 0xFFFFFFFF);
+            }
+        }
+    }
+
+    private KingdomAtlasInfrastructure.Marker infrastructureAt(double mouseX, double mouseY) {
+        if (snapshot == null) return null;
+        KingdomAtlasInfrastructure.Marker closest = null;
+        double bestDistance = 36;
+        for (var mark : snapshot.markers()) {
+            if (!markerVisible(mark)) continue;
+            int px = markerScreenX(mark), py = markerScreenY(mark);
+            if (px < gridX + 3 || py < gridY + 3
+                    || px >= gridX + gridWidth - 3 || py >= gridY + gridHeight - 3) continue;
+            double dx = mouseX - px, dy = mouseY - py;
+            double d = dx * dx + dy * dy;
+            if (d < bestDistance) { bestDistance = d; closest = mark; }
+        }
+        return closest;
     }
 
     private void renderPlayerMarker(GuiGraphics gui) {
@@ -377,6 +471,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     @Override public boolean mouseClicked(double mx, double my, int button) {
         if (button == 0 && mx >= gridX && mx < gridX + gridWidth
                 && my >= gridY && my < gridY + gridHeight) {
+            selectedMarker = infrastructureAt(mx, my);
             selectedCol = ((int)mx - gridX) / cell;
             selectedRow = ((int)my - gridY) / cell;
             return true;
