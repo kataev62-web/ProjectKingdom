@@ -34,9 +34,10 @@ final class EconomyResourceTest {
     }
 
     @Test void readableComponentsUseMinecraftFallbackFontForCyrillic() {
-        assertNull(ru.projectkingdom.core.KingdomFonts.readable("Пекарня").getStyle().getFont(),
+        var defaultFont=new net.minecraft.resources.ResourceLocation("minecraft","default");
+        assertEquals(defaultFont,ru.projectkingdom.core.KingdomFonts.readable("Пекарня").getStyle().getFont(),
                 "Project Kingdom must not force the client-rejected custom font");
-        assertNull(ru.projectkingdom.core.KingdomFonts.readable(
+        assertEquals(defaultFont,ru.projectkingdom.core.KingdomFonts.readable(
                 net.minecraft.network.chat.Component.literal("Книга игрока")).getStyle().getFont());
     }
 
