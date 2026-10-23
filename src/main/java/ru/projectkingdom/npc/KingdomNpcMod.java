@@ -870,6 +870,9 @@ public final class KingdomNpcMod {
                 if(!w.dimension.equals(level.dimension().location().toString()))continue;
                 var entity=level.getEntity(w.entityId);
                 if(entity instanceof Villager resident && resident.isAlive()) {
+                    // Food is a REAL owned item: a hungry self-employed owner
+                    // can collect it even when its daily goal is EAT, not WORK.
+                    executed |= KingdomNpcFoodRoutine.tick(level,resident,w);
                     // The physical adapters are shared by the workday scheduler.
                     // Existing independent gatherers remain independent.
                     if ((w.employer == null && KingdomNpcFarmOwner.ownedFarm(server,w)==null)
@@ -995,7 +998,8 @@ public final class KingdomNpcMod {
                         // Real profession handlers take over close to the work site.
                         boolean needsHome = "SEEK_SHELTER".equals(w.autonomousIntent)
                             || "REST".equals(w.autonomousIntent)
-                            || "EAT".equals(w.autonomousIntent);
+                            || ("EAT".equals(w.autonomousIntent)
+                                && KingdomNpcFarmOwner.ownedFarm(server,w)==null);
                         if (needsHome && w.hasHome) {
                             BlockPos home = new BlockPos(w.homeX, w.homeY, w.homeZ);
                             if (level.hasChunkAt(home)) {
