@@ -55,7 +55,8 @@ public final class KingdomFarmAutonomy {
         int total=0;
         for(int i=0;i<chest.getContainerSize();i++){
             ItemStack in=chest.getItem(i);
-            if(!in.isEmpty() && item.equals(BuiltInRegistries.ITEM.getKey(in.getItem()).toString()))
+            if(!in.isEmpty() && !KingdomNpcNutrition.spoiled(in)
+                    && item.equals(BuiltInRegistries.ITEM.getKey(in.getItem()).toString()))
                 total+=in.getCount();
         }
         return total;
