@@ -40,7 +40,8 @@ public final class KingdomNpcWorkday {
             case FIELD -> worker.hasSource && worker.hasDestination;
             case WORKSHOP -> worker.hasSource && worker.hasDestination && worker.hasWorkstation
                 && (KingdomNpcWorkshopData.get(server).plan(worker.entityId) != null
-                    || KingdomTfcQuernWork.isQuern(level, worker));
+                    || KingdomTfcQuernWork.isQuern(level, worker)
+                    || KingdomTfcGrillWork.isGrill(level, worker));
             case CONSTRUCTION, SERVICE -> true;
         };
     }
