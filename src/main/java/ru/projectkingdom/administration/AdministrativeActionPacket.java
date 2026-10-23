@@ -56,8 +56,15 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 if(result==KingdomLandReservations.Result.BOUGHT)sender.closeContainer();
                 return;
             }
-            boolean publicFinance=(packet.kind==AdministrativeKind.BANK&&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100))
-                    ||(packet.kind==AdministrativeKind.TREASURY&&packet.action==TREASURY_DEPOSIT_100);
+            // All municipal cash is kept in the bank. Legacy cashbox actions
+            // are rejected even if an old client sends an explicit packet.
+            if(packet.action==BIND_HALL_CASHBOX||packet.action==BIND_TREASURY
+                    ||packet.action==TREASURY_DEPOSIT_100||packet.action==TREASURY_WITHDRAW_100){
+                sender.sendSystemMessage(Component.literal("[Казначейство] Отдельная касса упразднена. Налоги и сборы поступают в городской банк."));
+                return;
+            }
+            boolean publicFinance=packet.kind==AdministrativeKind.BANK
+                    &&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100);
             if(!publicFinance&&!menu.manager())return;
             if(packet.action==BANK_DEPOSIT_100){
                 boolean ok=KingdomBankData.get(sender.getServer()).deposit(sender,100);
@@ -73,32 +80,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                     :"[Банк] Снять не удалось: проверьте привязку сейфа, баланс счёта и реальные монеты в нём."));
                 return;
             }
-            if(packet.action==TREASURY_DEPOSIT_100){
-                var civics=KingdomCivicsData.get(sender.getServer());
-                var vault=KingdomPhysicalCash.townVault(sender,packet.townId,AdministrativeBindingRole.TREASURY_VAULT);
-                if(vault!=null && civics.isMember(packet.townId,sender.getUUID())
-                        &&KingdomPhysicalCash.deposit(sender,vault,100)){
-                    if(!civics.depositTownTo(packet.townId,sender.getUUID(),100)){
-                        if(!KingdomPhysicalCash.withdraw(sender,vault,100))
-                            throw new IllegalStateException("Treasury cash compensation failed");
-                    }
-                }return;
-            }
-            if(packet.action==TREASURY_WITHDRAW_100){
-                KingdomCivicsData civics=KingdomCivicsData.get(sender.getServer());
-                var admin=KingdomAdministrationData.get(sender.getServer());
-                var vault=KingdomPhysicalCash.townVault(sender,packet.townId,AdministrativeBindingRole.TREASURY_VAULT);
-                if(vault!=null && admin.treasuryReserve(packet.townId)>=100
-                        && KingdomPhysicalCash.value(vault)>=admin.treasuryReserve(packet.townId)
-                        &&KingdomPhysicalCash.withdraw(sender,vault,100)){
-                    if(!civics.withdrawTownAuthorized(packet.townId,sender.getUUID(),100)){
-                        if(!KingdomPhysicalCash.deposit(sender,vault,100))
-                            throw new IllegalStateException("Treasury cash compensation failed");
-                    }
-                }return;
-            }
             AdministrativeBindingRole role=switch(packet.action){
-                case BIND_TREASURY,BIND_HALL_CASHBOX->AdministrativeBindingRole.TREASURY_VAULT;
                 case BIND_BANK->AdministrativeBindingRole.BANK_VAULT;
                 case BIND_WAREHOUSE->AdministrativeBindingRole.WAREHOUSE_STORAGE;
                 case BIND_MARKET->AdministrativeBindingRole.MARKET_STORAGE;
