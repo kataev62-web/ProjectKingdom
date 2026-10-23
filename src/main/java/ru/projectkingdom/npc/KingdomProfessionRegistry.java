@@ -2,7 +2,6 @@ package ru.projectkingdom.npc;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Canonical NPC profession identifiers used by contracts, menus and work planners.
@@ -23,7 +22,24 @@ public final class KingdomProfessionRegistry {
         new Profession("guard", "Стражник", false),
         new Profession("builder", "Строитель", true),
         new Profession("warehouse", "Кладовщик", false),
-        new Profession("courier", "Курьер", false)
+        new Profession("courier", "Курьер", false),
+        // Stage 3 professions: share daily routines now; physical executors follow.
+        new Profession("breeder", "Животновод", true),
+        new Profession("hunter", "Охотник", true),
+        new Profession("fisher", "Рыбак", true),
+        new Profession("butcher", "Мясник", true),
+        new Profession("baker", "Пекарь", true),
+        new Profession("cook", "Повар", true),
+        new Profession("charcoal_burner", "Углежог", true),
+        new Profession("smelter", "Плавильщик", true),
+        new Profession("potter", "Гончар", true),
+        new Profession("tanner", "Кожевник", true),
+        new Profession("weaver", "Ткач", true),
+        new Profession("carpenter", "Плотник", true),
+        new Profession("mason", "Каменщик", true),
+        new Profession("medic", "Лекарь", false),
+        new Profession("priest", "Жрец", false),
+        new Profession("innkeeper", "Трактирщик", false)
     );
 
     private static final Map<String, Profession> BY_ID = PROFESSIONS.stream()
