@@ -44,13 +44,16 @@ public final class KingdomConstructionData extends SavedData {
         return null;
     }
     /** Reject overlapping building footprints, including paused or completed projects. */
-    public boolean overlaps(String dimension, int minX, int minY, int minZ,
+    public boolean overlaps(MinecraftServer server, String dimension, int minX, int minY, int minZ,
                             int maxX, int maxY, int maxZ) {
         for (Project existing : projects.values()) {
             if (existing.status() == Status.CANCELLED || !existing.dimension().equals(dimension)) continue;
-            var type = KingdomBuildingTypes.type(existing.design());
-            if (type == null) continue;
-            var blocks = KingdomBuildingTypes.design(type).blocks();
+            var design = KingdomConstructionPlans.resolve(server, existing.design());
+            // If a frozen schematic is missing, protect its registered origin;
+            // never silently let another project overwrite it.
+            if (design == null)
+                throw new IllegalStateException("Missing construction plan for project " + existing.id());
+            var blocks = design.blocks();
             if (blocks.isEmpty()) continue;
             int loX=Integer.MAX_VALUE, loY=Integer.MAX_VALUE, loZ=Integer.MAX_VALUE;
             int hiX=Integer.MIN_VALUE, hiY=Integer.MIN_VALUE, hiZ=Integer.MIN_VALUE;
