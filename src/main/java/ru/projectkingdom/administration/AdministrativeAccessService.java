@@ -13,7 +13,7 @@ import ru.projectkingdom.npc.KingdomManagedStorageEntity;
 public final class AdministrativeAccessService {
     public enum Status {
         BOUND, NO_SESSION, WRONG_DIMENSION, TOO_FAR, UNLOADED, FOREIGN_TOWN,
-        INVALID_TARGET, NO_PERMISSION, CORE_INACTIVE, ALREADY_BOUND, STORAGE_OWNER_MISMATCH
+        INVALID_TARGET, NO_PERMISSION, CORE_INACTIVE, ALREADY_BOUND, STORAGE_OWNER_MISMATCH, STORAGE_NOT_READY
     }
     private static final Map<UUID,AdministrativeBindingSession> SESSIONS=new ConcurrentHashMap<>();
     private AdministrativeAccessService(){}
@@ -42,6 +42,7 @@ public final class AdministrativeAccessService {
             case CORE_INACTIVE->"Эта городская служба больше не активна. Проверьте блок и откройте меню повторно.";
             case ALREADY_BOUND->"Касса уже назначена. Используйте прежний сундук; смена хранилища с деньгами запрещена ради сохранности монет.";
             case STORAGE_OWNER_MISMATCH->"Этот склад Kingdom принадлежит другому игроку. Выберите городской сундук.";
+            case STORAGE_NOT_READY->"Склад Kingdom ещё не активирован. Его должен поставить на своей земле владелец и открыть ПКМ. Можно использовать обычный сундук.";
         };
     }
     public static boolean begin(ServerPlayer player,UUID townId,AdministrativeKind kind,AdministrativeBindingRole role){
@@ -70,9 +71,10 @@ public final class AdministrativeAccessService {
         if(core==null||!core.dimension().equals(session.dimension())||core.packedPos()!=session.corePos())return Status.CORE_INACTIVE;
         if(session.role()!=AdministrativeBindingRole.PRISON_CELL
                 && KingdomContainerAccess.resolve(level,pos)==null)return Status.INVALID_TARGET;
-        if(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity managed
-                && managed.owner()!=null && !managed.owner().equals(player.getUUID()))
-            return Status.STORAGE_OWNER_MISMATCH;
+        if(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity managed) {
+            if(managed.owner()==null || !managed.readyForTransactions())return Status.STORAGE_NOT_READY;
+            if(!managed.owner().equals(player.getUUID()))return Status.STORAGE_OWNER_MISMATCH;
+        }
         if(session.role()==AdministrativeBindingRole.PRISON_CELL&&level.getBlockState(pos).isAir())return Status.INVALID_TARGET;
         // Idempotent: binding the same vault again is not an error.
         var previous=data.containerBindings(town.id(),session.role());
