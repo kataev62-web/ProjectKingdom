@@ -8,6 +8,7 @@ import net.minecraftforge.network.NetworkEvent;
 import ru.projectkingdom.npc.KingdomBankData;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomCurrency;
+import ru.projectkingdom.npc.KingdomPhysicalCash;
 
 public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int action) {
     public static final int JOIN_TOWN=100;
@@ -43,15 +44,27 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
             if(packet.action==BANK_DEPOSIT_100){KingdomBankData.get(sender.getServer()).deposit(sender,100);return;}
             if(packet.action==BANK_WITHDRAW_100){KingdomBankData.get(sender.getServer()).withdraw(sender,100);return;}
             if(packet.action==TREASURY_DEPOSIT_100){
-                if(KingdomCurrency.balance(sender)>=100&&KingdomCurrency.debit(sender,100)){
-                    if(!KingdomCivicsData.get(sender.getServer()).depositTownTo(packet.townId,sender.getUUID(),100)
-                            &&!KingdomCurrency.credit(sender,100))throw new IllegalStateException("Treasury deposit rollback failed");
+                var civics=KingdomCivicsData.get(sender.getServer());
+                var vault=KingdomPhysicalCash.townVault(sender,packet.townId,AdministrativeBindingRole.TREASURY_VAULT);
+                if(vault!=null && civics.isMember(packet.townId,sender.getUUID())
+                        &&KingdomPhysicalCash.deposit(sender,vault,100)){
+                    if(!civics.depositTownTo(packet.townId,sender.getUUID(),100)){
+                        if(!KingdomPhysicalCash.withdraw(sender,vault,100))
+                            throw new IllegalStateException("Treasury cash compensation failed");
+                    }
                 }return;
             }
             if(packet.action==TREASURY_WITHDRAW_100){
                 KingdomCivicsData civics=KingdomCivicsData.get(sender.getServer());
-                if(civics.withdrawTownAuthorized(packet.townId,sender.getUUID(),100)&&!KingdomCurrency.credit(sender,100)){
-                    if(!civics.refundTown(packet.townId,100))throw new IllegalStateException("Treasury withdrawal rollback failed");
+                var admin=KingdomAdministrationData.get(sender.getServer());
+                var vault=KingdomPhysicalCash.townVault(sender,packet.townId,AdministrativeBindingRole.TREASURY_VAULT);
+                if(vault!=null && admin.treasuryReserve(packet.townId)>=100
+                        && KingdomPhysicalCash.value(vault)>=admin.treasuryReserve(packet.townId)
+                        &&KingdomPhysicalCash.withdraw(sender,vault,100)){
+                    if(!civics.withdrawTownAuthorized(packet.townId,sender.getUUID(),100)){
+                        if(!KingdomPhysicalCash.deposit(sender,vault,100))
+                            throw new IllegalStateException("Treasury cash compensation failed");
+                    }
                 }return;
             }
             AdministrativeBindingRole role=switch(packet.action){
