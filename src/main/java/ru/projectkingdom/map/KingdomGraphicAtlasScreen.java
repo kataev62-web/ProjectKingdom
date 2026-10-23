@@ -189,27 +189,35 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         int sx = gridX + gridWidth + 11;
         int sy = gridY + 78;
         gui.drawString(font, Component.literal("Границы и владения"), sx, sy, INK, false);
-        gui.fill(sx, sy + 15, sx + 8, sy + 23, OWN);
-        gui.drawString(font, Component.literal("Ваш город"), sx + 12, sy + 15, MUTED, false);
-        gui.fill(sx, sy + 28, sx + 8, sy + 36, PLAN);
-        gui.drawString(font, Component.literal("План расширения"), sx + 12, sy + 28, MUTED, false);
-        gui.fill(sx, sy + 41, sx + 8, sy + 49, 0xFFC18D55);
-        gui.drawString(font, Component.literal("Другой город"), sx + 12, sy + 41, MUTED, false);
-        gui.fill(sx, sy + 54, sx + 8, sy + 62, FREE);
-        gui.drawString(font, Component.literal("Свободная земля"), sx + 12, sy + 54, MUTED, false);
+        // Compact two-column legend keeps the owner inspector visible even
+        // on 240px Minecraft GUI height at higher interface scaling.
+        gui.fill(sx, sy + 14, sx + 8, sy + 22, OWN);
+        gui.drawString(font, Component.literal("Свой"), sx + 10, sy + 14, MUTED, false);
+        gui.fill(sx + 76, sy + 14, sx + 84, sy + 22, 0xFFC18D55);
+        gui.drawString(font, Component.literal("Чужой"), sx + 86, sy + 14, MUTED, false);
+        gui.fill(sx, sy + 27, sx + 8, sy + 35, PLAN);
+        gui.drawString(font, Component.literal("План"), sx + 10, sy + 27, MUTED, false);
+        gui.fill(sx + 76, sy + 27, sx + 84, sy + 35, FREE);
+        gui.drawString(font, Component.literal("Свободно"), sx + 86, sy + 27, MUTED, false);
 
-        int infoY = sy + 72;
-        if (infoY + 48 < top + panelHeight - 30) {
-            gui.drawString(font, Component.literal("Участок:"), sx, infoY, INK, false);
+        int infoY = sy + 46;
+        gui.drawString(font, Component.literal("Выбранный участок:"), sx, infoY, INK, false);
         if (snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
             var tile = snapshot.tile(selectedCol, selectedRow);
-            shortText(gui, tile.town().isEmpty() ? "Свободный" : tile.town(), sx, infoY + 12);
-            if (!tile.nation().isEmpty()) shortText(gui, tile.nation(), sx, infoY + 24);
+            shortText(gui, tile.town().isEmpty() ? "Свободная земля" : tile.town(), sx, infoY + 12);
+            String terrain = switch (KingdomAtlasTerrain.Type.values()[tile.terrain()]) {
+                case UNKNOWN -> "Рельеф не исследован";
+                case PLAIN -> "Равнина";
+                case FOREST -> "Лес";
+                case WATER -> "Вода";
+                case MOUNTAIN -> "Горы";
+                case ROAD -> "Дорога";
+            };
+            shortText(gui, tile.nation().isEmpty() ? terrain : tile.nation(), sx, infoY + 24);
             if (tile.enterprises() > 0) shortText(gui,
                     tile.business() + " (" + tile.enterprises() + ")", sx, infoY + 36);
         } else {
-            shortText(gui, "Выберите клетку", sx, infoY + 12);
-        }
+            shortText(gui, "Нажмите на область", sx, infoY + 12);
         }
         super.render(gui, mouseX, mouseY, partialTick);
         if (snapshot != null && mouseX >= gridX && mouseX < gridX + gridWidth
