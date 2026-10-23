@@ -21,7 +21,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ParchmentIconButton> tabButtons=new ArrayList<>();
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
-    private EditBox roleTarget;
+    private EditBox roleTarget,taxAmount;
     private Button joinButton,landPayButton;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
@@ -60,14 +60,18 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     .bounds(leftPos+184,topPos+158,116,18).build());roleControls.add(mayor);
         }
         switch(menu.kind()){
-            case TOWN_HALL->{
-                if(menu.manager())addAction("Привязать кассу города",AdministrativeMenuLayout.Tab.CITIZENS,
-                        AdministrativeActionPacket.BIND_HALL_CASHBOX,58,180,248,true);
-            }
             case TREASURY->{
-                addAction("Внести 100",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.TREASURY_DEPOSIT_100,58,132,96,false);
-                addAction("Снять 100",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.TREASURY_WITHDRAW_100,162,132,96,true);
-                addAction("Привязать хранилище",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.BIND_TREASURY,78,158,190,true);
+                taxAmount=new EditBox(font,leftPos+136,topPos+122,145,18,
+                        KingdomFonts.readable("Сумма в медных"));
+                taxAmount.setMaxLength(7);
+                taxAmount.setFilter(value->value.matches("[0-9]*"));
+                taxAmount.setValue(Long.toString(Math.min(menu.taxDebt(),100)));
+                addRenderableWidget(taxAmount);
+                addAction("Оплатить весь долг",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.TAX_PAY_FULL,56,156,123,false);
+                Button part=addRenderableWidget(Button.builder(KingdomFonts.readable("Оплатить часть"),
+                        ignored->sendText("pay_taxes",taxAmount.getValue()))
+                        .bounds(leftPos+185,topPos+156,119,20).build());
+                actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,part,false));
             }
             case BANK->{
                 addAction("Внести 100",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.BANK_DEPOSIT_100,58,132,96,false);
@@ -97,6 +101,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private void updateVisibility(){
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
+        if(taxAmount!=null)taxAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
         if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
         if(landPayButton!=null)landPayButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS;
     }
@@ -130,9 +135,10 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     line(g,"Ваш счёт: "+menu.bankAccount()+" монет",58,90,MUTED);
                     line(g,"Физический резерв банка: "+menu.bankReserve(),58,108,MUTED);
                 }else if(menu.kind()==AdministrativeKind.TREASURY){
-                    line(g,"Баланс казны: "+menu.treasuryBalance()+" монет",58,82,MUTED);
-                    line(g,"Физический резерв: "+menu.treasuryReserve(),58,100,MUTED);
-                    line(g,"Историческое обязательство: "+menu.historicalTreasury(),58,118,MUTED);
+                    line(g,"Ваш долг городу: "+menu.taxDebt()+" медных",58,82,INK);
+                    line(g,"Монет в кошельке: "+menu.walletCoins()+" медных",58,102,MUTED);
+                    line(g,"Оплатить часть:",58,127,MUTED);
+                    line(g,"Все платежи поступают в городской банк.",58,188,MUTED);
                 }else placeholder(g,"Физические резервы и обязательства",90);
             }
             case STORAGE->placeholder(g,"Привязанные реальные контейнеры",90);
