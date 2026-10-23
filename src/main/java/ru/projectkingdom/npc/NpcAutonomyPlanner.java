@@ -4,7 +4,7 @@ package ru.projectkingdom.npc;
  * Execution requires explicit adapter to an existing real-world block/mod recipe. */
 public final class NpcAutonomyPlanner {
     private NpcAutonomyPlanner() {}
-    public enum Intention { REST, EAT, SEEK_SHELTER, FIND_WORK, REPORT_BLOCKED, CONTINUE_ASSIGNED_JOB, IDLE }
+    public enum Intention { REST, EAT, SEEK_SHELTER, FIND_WORK, REPORT_BLOCKED, CONTINUE_ASSIGNED_JOB, ON_DUTY, IDLE }
     public record Snapshot(boolean employed, boolean contractPaused, int hunger, int energy, int safety,
                            boolean hasHome, boolean hasWorkstation, boolean hasInput, boolean hasOutput,
                            boolean onAuthorizedLand, boolean realRecipeAdapter) {}
@@ -25,6 +25,7 @@ public final class NpcAutonomyPlanner {
             case FIND_WORK -> "Ищет работу и торговлю";
             case REPORT_BLOCKED -> "Работа заблокирована: проверь права, склады и технологию";
             case CONTINUE_ASSIGNED_JOB -> "Может приступать к настоящему процессу";
+            case ON_DUTY -> "На рабочем месте (действия профессии ещё не подключены)";
             case IDLE -> "Свободное время";
         };
     }
