@@ -209,7 +209,7 @@ public final class KingdomNpcWorkshop {
         var enterprises=KingdomEnterpriseData.get(level.getServer());var core=enterprises.core(p.enterprise());
         if(firm==null||enterprises.kind(p.enterprise())!=EnterpriseKind.SMITHY||core==null||!core.active()
                 ||!firm.owner().equals(w.employer) || contract==null || !contract.active()
-                ||w.contractPaused||!"work".equals(w.order)||!"smith".equals(w.job)
+                ||w.contractPaused||!KingdomNpcDuty.autonomousOrder(w.order)||!"smith".equals(w.job)
                 ||!NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)
                 ||!w.dimension.equals(level.dimension().location().toString())||!w.hasWorkstation
                 ||!w.hasSource||!w.hasDestination){data.clear(w.entityId);return false;}
