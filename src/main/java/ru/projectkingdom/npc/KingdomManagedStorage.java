@@ -41,6 +41,14 @@ public final class KingdomManagedStorage {
         ITEMS.register(bus);
         ENTITIES.register(bus);
     }
+    /** A titled city plot is also owned land; the old NPC claim mirror may be absent. */
+    private static boolean ownPlot(ServerPlayer player,BlockPos pos) {
+        if(KingdomTerritories.get(player.getServer()).canUse(player.serverLevel(),pos,player.getUUID()))
+            return true;
+        var civics=KingdomCivicsData.get(player.getServer());
+        return player.getUUID().equals(civics.plotOwner(
+            player.serverLevel().dimension().location().toString(),pos.getX()>>4,pos.getZ()>>4));
+    }
     private static final class StorageBlock extends Block implements EntityBlock {
         private StorageBlock() { super(BlockBehaviour.Properties.of().mapColor(MapColor.WOOD).strength(3.0f)); }
         @Override public BlockEntity newBlockEntity(BlockPos pos, BlockState state) {
@@ -52,7 +60,7 @@ public final class KingdomManagedStorage {
             super.setPlacedBy(level, pos, state, placer, stack);
             if (level.isClientSide || !(placer instanceof ServerPlayer player)
                     || !(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity storage)) return;
-            if (KingdomTerritories.get(player.getServer()).canUse(player.serverLevel(), pos, player.getUUID())) {
+            if (ownPlot(player,pos)) {
                 storage.bind(player.getUUID());
             }
         }
@@ -64,8 +72,7 @@ public final class KingdomManagedStorage {
                     || !(level.getBlockEntity(pos) instanceof KingdomManagedStorageEntity storage)) {
                 return InteractionResult.PASS;
             }
-            if (storage.owner() == null && KingdomTerritories.get(serverPlayer.getServer())
-                    .canUse(serverPlayer.serverLevel(), pos, serverPlayer.getUUID())) {
+            if (storage.owner() == null && ownPlot(serverPlayer,pos)) {
                 storage.bind(serverPlayer.getUUID());
             }
             if (!storage.canOpen(serverPlayer)) {
