@@ -1,112 +1,145 @@
 package ru.projectkingdom.npc;
 
+import java.io.IOException;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
-import java.util.*;
 
-/** Survival-mode building, one real inventory block for each newly placed plan block. */
+/**
+ * Creates paid, server-validated survival sites from built-in templates or
+ * immutable WorldEdit .schem snapshots. The original lectern is still supported.
+ */
 public final class KingdomSiteBuilder {
     private KingdomSiteBuilder() {}
-    public static String place(ServerPlayer p,KingdomBuildingTypes.Type type) {
-        BlockPos marker=findLectern(p);
-        if(marker==null)return "Поставь кафедру (lectern) и стой не дальше 4 блоков от неё.";
-        var db=KingdomConstructionData.get(p.getServer());
-        // A craftable blueprint pays for registering the building plan in survival.
-        // It is consumed only after all placement, land and collision checks pass.
+
+    public static String place(ServerPlayer player, KingdomBuildingTypes.Type type) {
+        if (type == null) return "Неизвестный тип здания.";
+        return placeDesign(player, type.name(), KingdomBuildingTypes.design(type), false);
+    }
+
+    public static String placeSchematic(ServerPlayer player, String name) {
+        if (!KingdomSchematicLibrary.validName(name)) return "Недопустимое имя схемы.";
+        try {
+            var design = KingdomSchematicLibrary.preview(player.getServer(), name);
+            return placeDesign(player, name, design, true);
+        } catch (IOException | IllegalArgumentException ex) {
+            return "Ошибка .schem: " + ex.getMessage();
+        }
+    }
+
+    private static String placeDesign(ServerPlayer player, String id,
+                                      KingdomDesignEngine.Design design, boolean imported) {
+        BlockPos marker = findLectern(player);
+        if (marker == null) return "Установи чертёжный стол или кафедру на расстоянии до 4 блоков.";
+        var db = KingdomConstructionData.get(player.getServer());
+        String dimension = player.level().dimension().location().toString();
+        if (db.atMarker(dimension, marker.getX(), marker.getY(), marker.getZ()) != null)
+            return "На этом чертёжном столе уже зарегистрирована стройка.";
+
         int blueprintSlot = -1;
-        if (!p.isCreative()) {
-            for (int slot = 0; slot < p.getInventory().getContainerSize(); slot++) {
-                if (p.getInventory().getItem(slot).is(KingdomConstructionRegistry.BUILDING_BLUEPRINT.get())) {
-                    blueprintSlot = slot;
-                    break;
+        if (!player.isCreative()) {
+            for (int i = 0; i < player.getInventory().getContainerSize(); i++) {
+                if (player.getInventory().getItem(i).is(
+                        KingdomConstructionRegistry.BUILDING_BLUEPRINT.get())) {
+                    blueprintSlot = i; break;
                 }
             }
-            if (blueprintSlot < 0)
-                return "Сначала скрафти строительный чертёж (бумага + уголь) и возьми его в инвентарь.";
+            if (blueprintSlot < 0) return "Для создания стройки нужен строительный чертёж.";
         }
-        String dimension=p.level().dimension().location().toString();
-        if(db.atMarker(dimension,marker.getX(),marker.getY(),marker.getZ())!=null)return "На этой кафедре уже есть стройка.";
-        var design=KingdomBuildingTypes.design(type);
-        var claims=KingdomTerritories.get(p.getServer());
-        var civics=KingdomCivicsData.get(p.getServer());
-        if (design.blocks().isEmpty()) return "У проекта нет строительных блоков.";
-        int minX=Integer.MAX_VALUE,minY=Integer.MAX_VALUE,minZ=Integer.MAX_VALUE;
-        int maxX=Integer.MIN_VALUE,maxY=Integer.MIN_VALUE,maxZ=Integer.MIN_VALUE;
-        for (var cell:design.blocks()) {
-            int x=marker.getX()+2+cell.x(),y=marker.getY()+cell.y(),z=marker.getZ()+2+cell.z();
-            minX=Math.min(minX,x);maxX=Math.max(maxX,x);
-            minY=Math.min(minY,y);maxY=Math.max(maxY,y);
-            minZ=Math.min(minZ,z);maxZ=Math.max(maxZ,z);
+        if (design == null || design.blocks().isEmpty()) return "Проект не содержит строительных блоков.";
+
+        int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, minZ = Integer.MAX_VALUE;
+        int maxX = Integer.MIN_VALUE, maxY = Integer.MIN_VALUE, maxZ = Integer.MIN_VALUE;
+        for (var cell : design.blocks()) {
+            BlockPos target = marker.offset(2 + cell.x(), cell.y(), 2 + cell.z());
+            minX = Math.min(minX, target.getX()); maxX = Math.max(maxX, target.getX());
+            minY = Math.min(minY, target.getY()); maxY = Math.max(maxY, target.getY());
+            minZ = Math.min(minZ, target.getZ()); maxZ = Math.max(maxZ, target.getZ());
         }
-        if (db.overlaps(dimension,minX,minY,minZ,maxX,maxY,maxZ))
-            return "Здесь уже зарегистрирована другая постройка. Выбери свободное место.";
-        for(var cell:design.blocks()) {
-            BlockPos target=marker.offset(2+cell.x(),cell.y(),2+cell.z());
-            if(target.getY()<p.serverLevel().getMinBuildHeight()||target.getY()>=p.serverLevel().getMaxBuildHeight())return "Проект выходит за высоту мира.";
-            if(!KingdomConstructionAccess.canBuild(p.getServer(),p.serverLevel(),target,p.getUUID()))return "Нет права строительства: блок "+target.toShortString()+", чанк "+(target.getX()>>4)+", "+(target.getZ()>>4)+". Проверь собственность или разрешение работника.";
-            if(!p.serverLevel().hasChunkAt(target))return "Сначала прогрузи все чанки строительной площадки.";
-            Block b=BuiltInRegistries.BLOCK.get(new ResourceLocation(cell.material()));
-            if(b==Blocks.AIR)return "Неизвестный материал в проекте: "+cell.material();
-            var existing=p.serverLevel().getBlockState(target);
-            if(!existing.isAir()&&!existing.is(b))return "Очисти площадку: препятствие в "+target.toShortString();
+        try {
+            if (db.overlaps(player.getServer(), dimension, minX, minY, minZ,
+                    maxX, maxY, maxZ))
+                return "Эта площадка пересекается с существующей постройкой.";
+        } catch (IllegalStateException ex) {
+            return "Схема прежнего проекта недоступна: сначала восстанови файлы стройки.";
         }
-        var project=db.add(p.getUUID(),dimension,type.name(),marker.getX()+2,marker.getY(),marker.getZ()+2);
+        for (var cell : design.blocks()) {
+            BlockPos target = marker.offset(2 + cell.x(), cell.y(), 2 + cell.z());
+            if (target.getY() < player.serverLevel().getMinBuildHeight()
+                    || target.getY() >= player.serverLevel().getMaxBuildHeight())
+                return "Здание выходит за высоту мира.";
+            if (!player.serverLevel().hasChunkAt(target))
+                return "Прогрузи всю площадку перед созданием проекта.";
+            if (!KingdomConstructionAccess.canBuild(
+                    player.getServer(), player.serverLevel(), target, player.getUUID()))
+                return "Нет права строить: " + target.toShortString();
+            var requested = KingdomBlockStateCodec.parse(cell.material());
+            if (!KingdomBlockStateCodec.buildable(requested))
+                return "Невозможно построить из этого предмета: " + cell.material();
+            var present = player.serverLevel().getBlockState(target);
+            if (!present.isAir() && !present.equals(requested))
+                return "Очисти площадку: мешает блок " + target.toShortString();
+        }
+
+        String designKey = id;
+        if (imported) {
+            try {
+                designKey = KingdomSchematicLibrary.freeze(player.getServer(), id);
+            } catch (IOException ex) {
+                return "Не удалось закрепить копию схемы: " + ex.getMessage();
+            }
+        }
+        var project = db.add(player.getUUID(), dimension, designKey,
+            marker.getX() + 2, marker.getY(), marker.getZ() + 2);
         if (blueprintSlot >= 0) {
-            p.getInventory().getItem(blueprintSlot).shrink(1);
-            p.getInventory().setChanged();
+            player.getInventory().getItem(blueprintSlot).shrink(1);
+            player.getInventory().setChanged();
         }
-        return "Площадка "+type.title+" создана. Открой кафедру ПКМ. ID: "+project.id();
+        return "Проект «" + KingdomConstructionPlans.title(designKey)
+            + "» создан. ПКМ по столу: управление. ID: " + project.id();
     }
-    public static BlockPos findLectern(ServerPlayer p) {
-        BlockPos base=p.blockPosition();BlockPos closest=null;double dist=Double.MAX_VALUE;
-        for(int dx=-4;dx<=4;dx++)for(int dy=-2;dy<=2;dy++)for(int dz=-4;dz<=4;dz++){
-            BlockPos pos=base.offset(dx,dy,dz);
-            if (!KingdomConstructionMarkers.isMarker(p.serverLevel(), pos)) continue;
-            double d=pos.distSqr(base);if(d<dist){dist=d;closest=pos;}
-        }return closest;
+
+    public static BlockPos findLectern(ServerPlayer player) {
+        BlockPos base = player.blockPosition();
+        BlockPos closest = null;
+        double best = Double.MAX_VALUE;
+        for (int dx = -4; dx <= 4; dx++)
+            for (int dy = -2; dy <= 2; dy++)
+                for (int dz = -4; dz <= 4; dz++) {
+                    BlockPos pos = base.offset(dx, dy, dz);
+                    if (!KingdomConstructionMarkers.isMarker(player.serverLevel(), pos)) continue;
+                    double distance = pos.distSqr(base);
+                    if (distance < best) { best = distance; closest = pos; }
+                }
+        return closest;
     }
-    public static String build(ServerPlayer p,KingdomConstructionData.Project project) {
-        if(project==null||!project.owner().equals(p.getUUID()))return "Нет прав на стройку.";
-        if(!project.dimension().equals(p.level().dimension().location().toString()))return "Постройка находится в другом измерении.";
-        var type=KingdomBuildingTypes.type(project.design());if(type==null)return "Старый проект: автоматическая стройка не поддерживается.";
-        var plan=KingdomBuildingTypes.design(type).blocks();var data=KingdomConstructionData.get(p.getServer());
-        int index=data.progress(project.id());if(index>=plan.size())return "Здание уже построено.";
-        BlockPos marker=new BlockPos(project.x()-2,project.y(),project.z()-2);
-        if(!KingdomConstructionMarkers.isMarker(p.serverLevel(),marker))return "Чертёжный стол или кафедра удалены.";
-        if(p.distanceToSqr(marker.getX()+0.5,marker.getY()+0.5,marker.getZ()+0.5)>144)return "Подойди к стройке (не дальше 12 блоков).";
-        var claims=KingdomTerritories.get(p.getServer());var civics=KingdomCivicsData.get(p.getServer());
-        int placed=0;
-        for(;index<plan.size()&&placed<32;index++){
-            var cell=plan.get(index);BlockPos target=new BlockPos(project.x()+cell.x(),project.y()+cell.y(),project.z()+cell.z());
-            if(!p.serverLevel().hasChunkAt(target))break;
-            if(!KingdomConstructionAccess.canBuild(p.getServer(),p.serverLevel(),target,p.getUUID()))break;
-            Block block=BuiltInRegistries.BLOCK.get(new ResourceLocation(cell.material()));
-            if(block==Blocks.AIR)break;
-            if(p.serverLevel().getBlockState(target).is(block)){data.advance(project.id(),1,plan.size());continue;}
-            if(!p.serverLevel().getBlockState(target).isAir())break;
-            Item item=block.asItem();if(item==net.minecraft.world.item.Items.AIR)break;
-            int inventorySlot=-1;
-            for(int i=0;i<p.getInventory().getContainerSize();i++){
-                ItemStack stack=p.getInventory().getItem(i);
-                if(stack.is(item)&&!stack.isEmpty()){inventorySlot=i;break;}
-            }
-            if(inventorySlot<0)break;
-            // Inventory is debited only when the placement is possible. Server-side only.
-            var stack=p.getInventory().getItem(inventorySlot);
-            stack.shrink(1);
-            if(!p.serverLevel().setBlock(target,block.defaultBlockState(),3)){
-                stack.grow(1);break;
-            }
-            data.advance(project.id(),1,plan.size());placed++;
+
+    /**
+     * Optional player batch-assist, also consuming real stock from the same
+     * physical site depot as the NPC builder. No personal-inventory duplication.
+     */
+    public static String build(ServerPlayer player, KingdomConstructionData.Project project) {
+        if (project == null || !project.owner().equals(player.getUUID()))
+            return "Нет прав на стройку.";
+        if (!project.dimension().equals(player.level().dimension().location().toString()))
+            return "Стройка в другом измерении.";
+        BlockPos marker = new BlockPos(project.x() - 2, project.y(), project.z() - 2);
+        if (!KingdomConstructionMarkers.isMarker(player.serverLevel(), marker))
+            return "Чертёжный стол или кафедра удалены.";
+        if (player.distanceToSqr(marker.getX() + .5, marker.getY(), marker.getZ() + .5) > 144)
+            return "Подойди к стройке ближе.";
+        int placed = 0, advanced = 0;
+        KingdomConstructionWork.Step last = null;
+        for (int i = 0; i < 32; i++) {
+            last = KingdomConstructionWork.placeNext(player.getServer(), player.serverLevel(), project);
+            if (!last.advanced()) break;
+            advanced++;
+            if (last.result() == KingdomConstructionWork.Result.PLACED) placed++;
         }
-        p.getInventory().setChanged();
-        int progress=data.progress(project.id());
-        return (progress==plan.size()?"Строительство завершено! ":"Строительство: ")+progress+"/"+plan.size()+" блоков (установлено сейчас "+placed+"). Если остановилось — проверь материалы, препятствия и права на землю.";
+        var design = KingdomConstructionPlans.resolve(player.getServer(), project.design());
+        int total = design == null ? 0 : design.blocks().size();
+        int progress = KingdomConstructionData.get(player.getServer()).progress(project.id());
+        return "Строительство: " + progress + "/" + total + " (поставлено " + placed
+            + ", учтено " + advanced + "). " + (last == null ? "" : last.result().message());
     }
 }
