@@ -153,6 +153,30 @@ public final class KingdomEnterpriseData extends SavedData {
         cores.put(enterprise,new EnterpriseCoreBinding(enterprise,firm.owner(),kind,dimension,packedPos,true));
         setDirty();return EnterpriseActivation.ACTIVATED;
     }
+    /**
+     * Heal a legacy/stale active marker only when its former chunk is loaded
+     * and the matching core truly does not exist. Unloaded sites fail closed.
+     */
+    public boolean reconcileMissingCore(MinecraftServer server, UUID enterprise) {
+        EnterpriseCoreBinding existing=cores.get(enterprise);
+        if(server==null || existing==null || !existing.active()) return false;
+        ServerLevel level=null;
+        for(ServerLevel candidate:server.getAllLevels()) {
+            if(candidate.dimension().location().toString().equals(existing.dimension())) {
+                level=candidate; break;
+            }
+        }
+        if(level==null)return false;
+        BlockPos previous=BlockPos.of(existing.packedPos());
+        if(!level.hasChunkAt(previous))return false;
+        BlockEntity be=level.getBlockEntity(previous);
+        if(be instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core
+                && core.bound() && enterprise.equals(core.enterpriseId())
+                && existing.kind()==core.kind())return false;
+        cores.put(enterprise,existing.suspended());
+        setDirty();
+        return true;
+    }
     public boolean suspendCore(UUID actor,UUID enterprise,String dimension,long packedPos){
         EnterpriseCoreBinding existing=cores.get(enterprise);
         if(!mayManage(actor,enterprise)||existing==null||!existing.active()
