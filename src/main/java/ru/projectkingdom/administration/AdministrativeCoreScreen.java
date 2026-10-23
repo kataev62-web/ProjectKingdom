@@ -22,7 +22,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox roleTarget;
-    private Button joinButton;
+    private Button joinButton,landPayButton;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
     }
@@ -37,6 +37,12 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             tabButtons.add(addRenderableWidget(new ParchmentIconButton(
                     leftPos+rect.x(),topPos+rect.y(),rect.width(),rect.height(),
                     tabIcon(tab),title(tab),()->{selected=tab;updateVisibility();},()->selected==tab)));
+        }
+        if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()){
+            landPayButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Оплатить бронь земли в кассу"),
+                    ignored->KingdomNetwork.CHANNEL.sendToServer(new AdministrativeActionPacket(
+                        menu.townId(),AdministrativeKind.TOWN_HALL,AdministrativeActionPacket.PAY_RESERVED_LAND)))
+                    .bounds(leftPos+60,topPos+170,245,20).build());
         }
         if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()&&menu.canJoin()){
             joinButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Вступить в город"),
@@ -54,6 +60,10 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     .bounds(leftPos+184,topPos+158,116,18).build());roleControls.add(mayor);
         }
         switch(menu.kind()){
+            case TOWN_HALL->{
+                if(menu.manager())addAction("Привязать кассу города",AdministrativeMenuLayout.Tab.CITIZENS,
+                        AdministrativeActionPacket.BIND_HALL_CASHBOX,58,180,248,true);
+            }
             case TREASURY->{
                 addAction("Внести 100",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.TREASURY_DEPOSIT_100,58,132,96,false);
                 addAction("Снять 100",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.TREASURY_WITHDRAW_100,162,132,96,true);
@@ -88,6 +98,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
         if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
+        if(landPayButton!=null)landPayButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS;
     }
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){
         g.fill(leftPos+36,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);
