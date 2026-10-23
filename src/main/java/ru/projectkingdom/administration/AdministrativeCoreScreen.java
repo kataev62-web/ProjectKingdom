@@ -67,7 +67,10 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 taxAmount.setFilter(value->value.matches("[0-9]*"));
                 taxAmount.setValue(Long.toString(Math.min(menu.taxDebt(),100)));
                 addRenderableWidget(taxAmount);
-                addAction("Оплатить весь долг",AdministrativeMenuLayout.Tab.FINANCE,AdministrativeActionPacket.TAX_PAY_FULL,56,156,123,false);
+                Button full=addRenderableWidget(Button.builder(KingdomFonts.readable("Оплатить весь долг"),
+                        ignored->sendText("pay_taxes","all"))
+                        .bounds(leftPos+56,topPos+156,123,20).build());
+                actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,full,false));
                 Button part=addRenderableWidget(Button.builder(KingdomFonts.readable("Оплатить часть"),
                         ignored->sendText("pay_taxes",taxAmount.getValue()))
                         .bounds(leftPos+185,topPos+156,119,20).build());
