@@ -33,6 +33,13 @@ final class EconomyResourceTest {
                 "the mod must not replace Minecraft's global default font");
     }
 
+    @Test void readableComponentsUseMinecraftFallbackFontForCyrillic() {
+        assertNull(ru.projectkingdom.core.KingdomFonts.readable("Пекарня").getStyle().getFont(),
+                "Project Kingdom must not force the client-rejected custom font");
+        assertNull(ru.projectkingdom.core.KingdomFonts.readable(
+                net.minecraft.network.chat.Component.literal("Книга игрока")).getStyle().getFont());
+    }
+
     private String resource(String path) throws Exception {
         try (InputStream stream = getClass().getResourceAsStream(path)) {
             assertNotNull(stream, path);
