@@ -58,16 +58,16 @@ public final class KingdomGraphicAtlasScreen extends Screen {
 
         addRenderableWidget(Button.builder(Component.literal("Земля"),
                 button -> setLayer(KingdomGraphicAtlasData.Layer.LAND))
-                .bounds(side, y, 34, 18).build());
+                .bounds(side, y, 31, 18).build());
         addRenderableWidget(Button.builder(Component.literal("Нации"),
                 button -> setLayer(KingdomGraphicAtlasData.Layer.POLITICAL))
-                .bounds(side + 36, y, 34, 18).build());
+                .bounds(side + 33, y, 31, 18).build());
         addRenderableWidget(Button.builder(Component.literal("Фирмы"),
                 button -> setLayer(KingdomGraphicAtlasData.Layer.ENTERPRISES))
-                .bounds(side + 72, y, 34, 18).build());
+                .bounds(side + 66, y, 31, 18).build());
         addRenderableWidget(Button.builder(Component.literal("Объекты"),
                 button -> setLayer(KingdomGraphicAtlasData.Layer.INFRASTRUCTURE))
-                .bounds(side + 108, y, 34, 18).build());
+                .bounds(side + 99, y, 43, 18).build());
 
         addRenderableWidget(Button.builder(Component.literal("−"),
                 button -> zoom(-1)).bounds(side, y + 24, 44, 18).build());
