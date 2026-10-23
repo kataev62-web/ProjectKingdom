@@ -3,13 +3,10 @@ package ru.projectkingdom.npc;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.Item;
-import net.minecraft.world.item.Items;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.entity.BlockEntity;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -19,9 +16,9 @@ import java.util.UUID;
 public final class KingdomConstructionDiagnostics {
     private KingdomConstructionDiagnostics() {}
     public static String nextStep(MinecraftServer server, KingdomConstructionData.Project site) {
-        var type=KingdomBuildingTypes.type(site.design());
-        if(type==null)return "Неизвестный проект";
-        var plan=KingdomBuildingTypes.design(type).blocks();
+        var design=KingdomConstructionPlans.resolve(server,site.design());
+        if(design==null)return "Файл строительной схемы недоступен";
+        var plan=design.blocks();
         int index=KingdomConstructionData.get(server).progress(site.id());
         if(index>=plan.size())return "Постройка завершена";
         ServerLevel level=null;
@@ -36,13 +33,13 @@ public final class KingdomConstructionDiagnostics {
         BlockPos target=new BlockPos(site.x()+cell.x(),site.y()+cell.y(),site.z()+cell.z());
         if(!level.hasChunkAt(target))return "Прогрузи чанк блока "+target.toShortString();
         if(!KingdomConstructionAccess.canBuild(server,level,target,site.owner()))return "Нет прав на блок "+target.toShortString();
-        ResourceLocation id=ResourceLocation.tryParse(cell.material());
-        if(id==null||!BuiltInRegistries.BLOCK.containsKey(id))return "Неизвестный блок: "+cell.material();
-        var block=BuiltInRegistries.BLOCK.get(id);
-        if(level.getBlockState(target).is(block))return "Ожидается подтверждение установленного блока";
+        net.minecraft.world.level.block.state.BlockState state;
+        try {state=KingdomBlockStateCodec.parse(cell.material());}
+        catch(IllegalArgumentException error){return "Неизвестный блок: "+cell.material();}
+        if(level.getBlockState(target).equals(state))return "Ожидается подтверждение установленного блока";
         if(!level.getBlockState(target).isAir())return "Убери препятствие: "+target.toShortString();
-        Item item=block.asItem();
-        if(item==Items.AIR)return "У блока нет предмета: "+cell.material();
+        Item item=state.getBlock().asItem();
+        if(!KingdomBlockStateCodec.buildable(state))return "Нельзя строить из предмета: "+cell.material();
         int available=0;
         for(int i=0;i<supplies.getContainerSize();i++)if(supplies.getItem(i).is(item))available+=supplies.getItem(i).getCount();
         if(available==0)return "Нет материала: "+cell.material();
@@ -60,9 +57,9 @@ public final class KingdomConstructionDiagnostics {
         return builder?"Материалы есть; строитель выполняет заказ":"Назначь строителя с договором; дневная смена, радиус 48 блоков";
     }
     public static String missingMaterials(MinecraftServer server, KingdomConstructionData.Project site) {
-        var type=KingdomBuildingTypes.type(site.design());
-        if(type==null)return "Неизвестный проект";
-        var plan=KingdomBuildingTypes.design(type).blocks();
+        var design=KingdomConstructionPlans.resolve(server,site.design());
+        if(design==null)return "Файл строительной схемы недоступен";
+        var plan=design.blocks();
         ServerLevel level=null;
         for(var candidate:server.getAllLevels())if(candidate.dimension().location().toString().equals(site.dimension())){level=candidate;break;}
         if(level==null)return "Измерение недоступно";
@@ -71,12 +68,13 @@ public final class KingdomConstructionDiagnostics {
         Map<Item,Integer> needed=new LinkedHashMap<>();
         for(int i=KingdomConstructionData.get(server).progress(site.id());i<plan.size();i++) {
             var cell=plan.get(i);
-            ResourceLocation id=ResourceLocation.tryParse(cell.material());
-            if(id==null||!BuiltInRegistries.BLOCK.containsKey(id))continue;
-            var block=BuiltInRegistries.BLOCK.get(id);
+            net.minecraft.world.level.block.state.BlockState state;
+            try {state=KingdomBlockStateCodec.parse(cell.material());}
+            catch(IllegalArgumentException error){return "Блок из схемы недоступен: "+cell.material();}
             BlockPos target=new BlockPos(site.x()+cell.x(),site.y()+cell.y(),site.z()+cell.z());
-            if(level.hasChunkAt(target)&&level.getBlockState(target).is(block))continue;
-            Item item=block.asItem();if(item!=Items.AIR)needed.merge(item,1,Integer::sum);
+            if(level.hasChunkAt(target)&&level.getBlockState(target).equals(state))continue;
+            Item item=state.getBlock().asItem();
+            if(KingdomBlockStateCodec.buildable(state))needed.merge(item,1,Integer::sum);
         }
         if(depot!=null)for(int i=0;i<depot.getContainerSize();i++) {
             var stack=depot.getItem(i);
