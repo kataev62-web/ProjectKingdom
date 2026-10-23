@@ -67,17 +67,19 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                     &&(packet.action==BANK_DEPOSIT_100||packet.action==BANK_WITHDRAW_100);
             if(!publicFinance&&!menu.manager())return;
             if(packet.action==BANK_DEPOSIT_100){
-                boolean ok=KingdomBankData.get(sender.getServer()).deposit(sender,100);
+                var bank=KingdomBankData.get(sender.getServer());
+                boolean ok=bank.deposit(sender,100);
                 sender.sendSystemMessage(Component.literal(ok
-                    ?"[Банк] Внесено 100 медных: монеты помещены в банковскую кассу."
-                    :"[Банк] Внести не удалось: проверьте привязку банковского сейфа, место для монет и кошелёк."));
+                    ?"[Банк] Внесено 100 медных: реальные монеты помещены в сейф."
+                    :"[Банк] "+bank.depositProblem(sender,100)));
                 return;
             }
             if(packet.action==BANK_WITHDRAW_100){
-                boolean ok=KingdomBankData.get(sender.getServer()).withdraw(sender,100);
+                var bank=KingdomBankData.get(sender.getServer());
+                boolean ok=bank.withdraw(sender,100);
                 sender.sendSystemMessage(Component.literal(ok
-                    ?"[Банк] Выдано 100 медных из физического резерва."
-                    :"[Банк] Снять не удалось: проверьте привязку сейфа, баланс счёта и реальные монеты в нём."));
+                    ?"[Банк] Выдано 100 медных из реального банковского сейфа."
+                    :"[Банк] "+bank.withdrawProblem(sender,100)));
                 return;
             }
             AdministrativeBindingRole role=switch(packet.action){
