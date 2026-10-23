@@ -3,6 +3,8 @@ package ru.projectkingdom.enterprise;
 import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
@@ -29,7 +31,9 @@ import ru.projectkingdom.npc.KingdomMainMenu;
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,OPEN_ARCHITECT=120,OPEN_PROJECTS=121;
-    public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180;
+    public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190;
+    private record Closing(UUID enterprise,long expiration) {}
+    private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
     public record ShopOffer(UUID id,String itemId,long price,long stock) {}
     private final List<ShopOffer> publicOffers;
     private final int applications;
@@ -128,6 +132,21 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public boolean applied(){return applied;}
     @Override public boolean clickMenuButton(Player player,int action){
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
+        if(action==CLOSE_BUSINESS){
+            if(!data.mayManage(server.getUUID(),enterpriseId))return false;
+            var old=PENDING_CLOSURES.get(server.getUUID());
+            long now=server.serverLevel().getGameTime();
+            if(old==null||!enterpriseId.equals(old.enterprise())||old.expiration()<now){
+                PENDING_CLOSURES.put(server.getUUID(),new Closing(enterpriseId,now+600));
+                server.sendSystemMessage(Component.literal("[Предприятие] Для закрытия нажмите «Подтвердить закрытие» ещё раз в течение 30 секунд. Деньги, товары и долги должны быть погашены."));
+                return true;
+            }
+            PENDING_CLOSURES.remove(server.getUUID());
+            var result=data.closeBusiness(server,enterpriseId,corePos);
+            server.sendSystemMessage(Component.literal("[Предприятие] "+KingdomEnterpriseData.closeMessage(result)));
+            if(result==KingdomEnterpriseData.ClosureStatus.CLOSED)server.closeContainer();
+            return result==KingdomEnterpriseData.ClosureStatus.CLOSED;
+        }
         if(action==APPLY_JOB && !data.mayManage(server.getUUID(),enterpriseId)) {
             boolean ok=KingdomEnterpriseApplications.get(server.getServer()).request(server.getServer(),
                     enterpriseId,server.getUUID(),server.getScoreboardName());
