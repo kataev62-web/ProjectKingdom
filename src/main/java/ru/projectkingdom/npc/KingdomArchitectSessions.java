@@ -46,15 +46,25 @@ public final class KingdomArchitectSessions {
         if (marker==null || !KingdomConstructionMarkers.isMarker(player.serverLevel(),marker)){
             tell(player,"Сначала поставь рядом чертёжный стол или кафедру.");return;
         }
+        if (!KingdomArchitectSiteAccess.mayUse(player,marker)) {
+            tell(player,"Нет прав пользоваться этой строительной конторой.");return;
+        }
         var storage=KingdomConstructionData.get(player.getServer());
         if(storage.atMarker(player.level().dimension().location().toString(),
                 marker.getX(),marker.getY(),marker.getZ())!=null){
             tell(player,"На этом столе уже зарегистрирована стройка.");return;
         }
-        String oriented=KingdomConstructionPlans.oriented(design,0);
-        var shape=KingdomConstructionPlans.resolve(player.getServer(),oriented);
-        if(shape==null || shape.blocks().isEmpty()){
-            tell(player,"Схема содержит недоступные для стройки блоки или слишком велика.");return;
+        var source=KingdomConstructionPlans.resolve(player.getServer(),design);
+        if(source==null || source.blocks().isEmpty()){
+            tell(player,"Не удалось прочитать строительную схему: "+design);return;
+        }
+        KingdomDesignEngine.Design shape;
+        try {
+            shape=KingdomArchitectDesignRotation.rotate(source,0);
+        } catch (IllegalArgumentException error) {
+            tell(player,"Проект «"+KingdomConstructionPlans.title(design)
+                +"» не может быть показан: "+error.getMessage());
+            return;
         }
         // Bounded preview packets: mostly exterior blocks for an intelligible
         // textured 3D model; full design remains exclusively on the server.
