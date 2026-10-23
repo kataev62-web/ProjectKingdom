@@ -105,7 +105,7 @@ public final class EnterpriseAccessService {
         String dim=level.dimension().location().toString();
         for(var other:data.all())for(var type:EnterpriseBindingRole.values()){
             var bound=data.storageBinding(other.id(),type);
-            if(bound!=null && dim.equals(bound.dimension()) && samePhysicalStorage(level,pos,bound.pos()))
+            if(bound!=null && dim.equals(bound.dimension()) && samePhysicalStorage(level,pos,bound.pos())
                     && (!enterprise.equals(other.id()) || role!=type))return true;
         }
         return false;
