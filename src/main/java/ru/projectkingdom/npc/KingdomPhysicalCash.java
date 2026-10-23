@@ -122,6 +122,20 @@ public final class KingdomPhysicalCash {
         }
         return slots;
     }
+    /** Transfer verified cash value between two distinct real business cashboxes. */
+    public static boolean canMove(Container source,Container target,long amount) {
+        return source!=null&&target!=null&&source!=target
+            &&planWithdrawal(source,amount)!=null&&planDeposit(target,amount)!=null;
+    }
+    public static boolean move(Container source,Container target,long amount) {
+        if(source==null||target==null||source==target)return false;
+        List<ItemStack> taken=planWithdrawal(source,amount);
+        List<ItemStack> added=planDeposit(target,amount);
+        if(taken==null||added==null)return false;
+        apply(source,taken);
+        apply(target,added);
+        return true;
+    }
     /** Trusted NPC settlement: the payroll layer validates the recipient's physical purse
      * capacity before taking actual coins from the company's protected container. */
     static boolean takeForNpc(Container vault,long amount) {
