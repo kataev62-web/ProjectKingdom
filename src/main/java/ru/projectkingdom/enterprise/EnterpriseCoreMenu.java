@@ -13,10 +13,11 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkHooks;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomEnterprisePayrollData;
+import ru.projectkingdom.npc.KingdomMainMenu;
 
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
-    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112;
+    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,OPEN_ARCHITECT=120,OPEN_PROJECTS=121;
     private final Inventory inventory;private final BlockPos corePos;private final UUID enterpriseId;private final EnterpriseKind kind;
     private final String enterpriseName;private final UUID owner;private final long cash;private final int workers;private final long debt;
     private final String cashboxState,rawState,finishedState;private final boolean manager;
@@ -48,6 +49,12 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public String cashboxState(){return cashboxState;}public String rawState(){return rawState;}public String finishedState(){return finishedState;}public boolean manager(){return manager;}
     @Override public boolean clickMenuButton(Player player,int action){
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
+        if(kind==EnterpriseKind.CONSTRUCTION && manager && action==OPEN_ARCHITECT) {
+            KingdomMainMenu.openArchitect(server);return true;
+        }
+        if(kind==EnterpriseKind.CONSTRUCTION && manager && action==OPEN_PROJECTS) {
+            KingdomMainMenu.openProjects(server);return true;
+        }
         return switch(action){
             case DEPOSIT_100->data.depositAtCore(server,enterpriseId,100);
             case WITHDRAW_100->data.withdrawAtCore(server,enterpriseId,100);
