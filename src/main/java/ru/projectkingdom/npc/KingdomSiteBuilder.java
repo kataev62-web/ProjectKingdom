@@ -125,7 +125,7 @@ public final class KingdomSiteBuilder {
             return "Нет прав на стройку: попроси владельца пригласить тебя в бригаду.";
         if (!project.dimension().equals(player.level().dimension().location().toString()))
             return "Стройка в другом измерении.";
-        BlockPos marker = new BlockPos(project.x() - 2, project.y(), project.z() - 2);
+        BlockPos marker = KingdomConstructionData.get(player.getServer()).marker(project);
         if (!KingdomConstructionMarkers.isMarker(player.serverLevel(), marker))
             return "Чертёжный стол или кафедра удалены.";
         if (player.distanceToSqr(marker.getX() + .5, marker.getY(), marker.getZ() + .5) > 144)
