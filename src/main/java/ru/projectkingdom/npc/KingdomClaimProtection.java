@@ -35,12 +35,14 @@ public final class KingdomClaimProtection {
         ServerLevel level=player.serverLevel();
         if(!level.hasChunkAt(pos))return false;
         if(!(level.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core)
-                ||!core.bound()||core.kind()!=AdministrativeKind.TOWN_HALL)return false;
+                ||!core.bound()||(core.kind()!=AdministrativeKind.TOWN_HALL
+                    && !ru.projectkingdom.administration.AdministrativePermissionService.mayUsePublic(core.kind())))
+            return false;
         var civics=KingdomCivicsData.get(player.getServer());
         var town=civics.townAt(level,pos);
         if(town==null||!town.id().equals(core.townId()))return false;
         var binding=KingdomAdministrationData.get(player.getServer())
-                .core(town.id(),AdministrativeKind.TOWN_HALL);
+                .core(town.id(),core.kind());
         return binding!=null
                 && binding.dimension().equals(level.dimension().location().toString())
                 && binding.packedPos()==pos.asLong();
