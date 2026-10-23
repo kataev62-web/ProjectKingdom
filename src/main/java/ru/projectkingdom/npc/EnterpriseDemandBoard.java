@@ -12,13 +12,29 @@ public final class EnterpriseDemandBoard {
     public record Listing(Key key, UUID listingId, int remaining, long maximumUnitCopper) {
         public Listing { Objects.requireNonNull(key); Objects.requireNonNull(listingId); if (remaining <= 0 || maximumUnitCopper <= 0) throw new IllegalArgumentException("listing"); }
     }
-    /** Preserve listing identity on refresh; remove it when no stock is needed. */
+    /** Compatibility entry point for clients that already know the exact physical stock. */
     public static Listing refresh(Listing old, Key key, EnterpriseStockPolicy.Thresholds limits,
                                   int physicalStock, int incoming, long maximumUnitCopper) {
+        return refresh(old, key, limits,
+                new EnterpriseStockPolicy.StockState(physicalStock, incoming, 0, true),
+                maximumUnitCopper);
+    }
+
+    /**
+     * A single stock projection is shared with the workshop planner. Count unfinished
+     * production and paid incoming orders before opening more demand. If one storage
+     * chunk is missing or a delivery is being reconciled, keep the previous listing:
+     * unknown inventory must neither create a new order nor erase a valid one.
+     */
+    public static Listing refresh(Listing old, Key key, EnterpriseStockPolicy.Thresholds limits,
+                                  EnterpriseStockPolicy.StockState stock, long maximumUnitCopper) {
         Objects.requireNonNull(key);
+        Objects.requireNonNull(limits);
+        Objects.requireNonNull(stock);
         if (old != null && !old.key().equals(key)) throw new IllegalArgumentException("wrong listing owner");
         if (maximumUnitCopper <= 0) throw new IllegalArgumentException("price");
-        int needed = EnterpriseStockPolicy.reorderQuantity(limits, physicalStock, incoming);
+        if (!stock.complete()) return old;
+        int needed = EnterpriseStockPolicy.reorderQuantity(limits, stock);
         if (needed == 0) return null;
         return new Listing(key, old == null ? UUID.randomUUID() : old.listingId(), needed, maximumUnitCopper);
     }

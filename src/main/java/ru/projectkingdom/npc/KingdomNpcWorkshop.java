@@ -242,11 +242,9 @@ public final class KingdomNpcWorkshop {
         if(npc.distanceToSqr(station.getX()+0.5,station.getY()+0.5,station.getZ()+0.5)>6.25){
             npc.getNavigation().moveTo(station.getX()+0.5,station.getY(),station.getZ()+0.5,0.75);return false;
         }
-        var stock=KingdomEnterpriseStock.inspect(level,p.enterprise(),p.output(),
-                ru.projectkingdom.enterprise.EnterpriseBindingRole.FINISHED_STORAGE,
-                new BlockPos(w.destX,w.destY,w.destZ));
+        var state=KingdomWarehouseStockCoordinator.finishedForWorker(
+                level,p.enterprise(),p.output(),new BlockPos(w.destX,w.destY,w.destZ),w.entityId);
         var limits=new EnterpriseStockPolicy.Thresholds(p.low(),p.high());
-        var state=stock.state(data.reservedProduction(p.enterprise(),p.output(),w.entityId));
         if(!state.complete()){data.clear(w.entityId);return false;}
         if(!EnterpriseStockPolicy.nextProduction(limits,state,data.enabled(w.entityId))){
             if(state.committedTotal()>=p.high())data.setEnabled(w.entityId,false);
@@ -287,20 +285,25 @@ public final class KingdomNpcWorkshop {
         BlockPos supply=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
         if(buyerDesk==null||!buyerDesk.pos().equals(supply)||
                 !buyerDesk.dimension().equals(w.dimension))return;
+        Set<String> examined=new HashSet<>();
         for(String item:p.grid()){
-            if(item.isBlank())continue;
+            if(item.isBlank()||!examined.add(item))continue;
             int needed=0;for(String slot:p.grid())if(item.equals(slot))needed++;
+            if(count(raw,item)>=needed)continue;
             int desired=Math.max(needed,4);
-            var shared=KingdomEnterpriseStock.inspect(level,p.enterprise(),item,
-                    ru.projectkingdom.enterprise.EnterpriseBindingRole.RAW_STORAGE,
-                    new BlockPos(w.sourceX,w.sourceY,w.sourceZ));
-            if(!shared.complete()||(long)shared.physical()+shared.incoming()>=desired)continue;
+            var state=KingdomWarehouseStockCoordinator.raw(level,p.enterprise(),item,supply);
+            // Purchase only the missing global amount. If the enterprise owns the
+            // ingredients in another chest, wait for internal logistics rather
+            // than buying the same materials again.
+            var limits=new EnterpriseStockPolicy.Thresholds(needed-1,desired);
+            int missing=KingdomWarehouseStockCoordinator.needed(limits,state);
+            if(missing<=0)continue;
             for(var offer:businesses.offers()){
                 if(!offer.itemId().equals(item)||offer.seller().equals(p.enterprise()))continue;
                 var sellerDesk=businesses.counter(offer.seller());
                 if(sellerDesk==null||!sellerDesk.dimension().equals(w.dimension)||
                         sellerDesk.pos().distSqr(supply)>25)continue;
-                if(businesses.buyForNpc(level,w.entityId,p.enterprise(),offer.id(),Math.min(8,Math.max(needed,4)-count(raw,item))))return;
+                if(businesses.buyForNpc(level,w.entityId,p.enterprise(),offer.id(),Math.min(8,missing)))return;
             }
         }
     }
