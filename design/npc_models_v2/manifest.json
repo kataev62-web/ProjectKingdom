@@ -1,0 +1,642 @@
+{
+  "version": "2.0",
+  "target": "Minecraft Java 1.20.1 Forge 47.3.0",
+  "modelCount": 36,
+  "groups": {
+    "professions": 8,
+    "townspeople": 10,
+    "family": 10,
+    "outlaws": 8
+  },
+  "characters": [
+    {
+      "id": "farmer",
+      "name_ru": "Фермер",
+      "category": "professions",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 71,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "blacksmith",
+      "name_ru": "Кузнец",
+      "category": "professions",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 70,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "merchant",
+      "name_ru": "Торговец",
+      "category": "professions",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 68,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back"
+      ]
+    },
+    {
+      "id": "town_guard",
+      "name_ru": "Стражник",
+      "category": "professions",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 65,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "hunter",
+      "name_ru": "Охотник",
+      "category": "professions",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 94,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "healer",
+      "name_ru": "Лекарь",
+      "category": "professions",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 102,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "priest",
+      "name_ru": "Жрец",
+      "category": "professions",
+      "age": "elder",
+      "gender": "m",
+      "cuboids": 74,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "weaver",
+      "name_ru": "Ткачиха",
+      "category": "professions",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 91,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "laborer",
+      "name_ru": "Рабочий",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 58,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "market_woman",
+      "name_ru": "Торговка",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 92,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "baker",
+      "name_ru": "Пекарь",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 69,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "potter",
+      "name_ru": "Гончарка",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 92,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "seamstress",
+      "name_ru": "Швея",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 91,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "porter",
+      "name_ru": "Грузчик",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 74,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back"
+      ]
+    },
+    {
+      "id": "fisherman",
+      "name_ru": "Рыбак",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 67,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "innkeeper",
+      "name_ru": "Трактирщица",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 86,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "stablehand",
+      "name_ru": "Конюх",
+      "category": "townspeople",
+      "age": "teen",
+      "gender": "m",
+      "cuboids": 71,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "scribe",
+      "name_ru": "Писарь",
+      "category": "townspeople",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 64,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "young_townswoman",
+      "name_ru": "Молодая горожанка",
+      "category": "family",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 92,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "craft_girl",
+      "name_ru": "Девушка-ремесленница",
+      "category": "family",
+      "age": "teen",
+      "gender": "f",
+      "cuboids": 91,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "mother",
+      "name_ru": "Мать",
+      "category": "family",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 94,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "little_girl",
+      "name_ru": "Девочка",
+      "category": "family",
+      "age": "child",
+      "gender": "f",
+      "cuboids": 81,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "little_boy",
+      "name_ru": "Мальчик",
+      "category": "family",
+      "age": "child",
+      "gender": "m",
+      "cuboids": 56,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "teen_girl",
+      "name_ru": "Девушка-подросток",
+      "category": "family",
+      "age": "teen",
+      "gender": "f",
+      "cuboids": 82,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "teen_boy",
+      "name_ru": "Юноша",
+      "category": "family",
+      "age": "teen",
+      "gender": "m",
+      "cuboids": 57,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "elder_woman",
+      "name_ru": "Пожилая женщина",
+      "category": "family",
+      "age": "elder",
+      "gender": "f",
+      "cuboids": 105,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "elder_man",
+      "name_ru": "Пожилой мужчина",
+      "category": "family",
+      "age": "elder",
+      "gender": "m",
+      "cuboids": 74,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "grandmother",
+      "name_ru": "Бабушка",
+      "category": "family",
+      "age": "elder",
+      "gender": "f",
+      "cuboids": 96,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "pickpocket",
+      "name_ru": "Карманник",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 74,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "highwayman",
+      "name_ru": "Дорожный грабитель",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 76,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "female_rogue",
+      "name_ru": "Разбойница",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "f",
+      "cuboids": 94,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "bandit_archer",
+      "name_ru": "Разбойник-лучник",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 94,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "poacher",
+      "name_ru": "Браконьер",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 94,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_left"
+      ]
+    },
+    {
+      "id": "smuggler",
+      "name_ru": "Контрабандист",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 74,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back"
+      ]
+    },
+    {
+      "id": "thug",
+      "name_ru": "Громила",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 66,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_right"
+      ]
+    },
+    {
+      "id": "bandit_leader",
+      "name_ru": "Главарь разбойников",
+      "category": "outlaws",
+      "age": "adult",
+      "gender": "m",
+      "cuboids": 76,
+      "bones": [
+        "body",
+        "head",
+        "right_arm",
+        "left_arm",
+        "right_leg",
+        "left_leg",
+        "equipment_back",
+        "equipment_right"
+      ]
+    }
+  ],
+  "integration_status": "not connected to in-game renderer"
+}
