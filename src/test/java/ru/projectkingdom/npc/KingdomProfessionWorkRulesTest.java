@@ -19,6 +19,11 @@ class KingdomProfessionWorkRulesTest {
     }
 
     @Test void tfcQuernIsBakeryOnlyAndDoesNotMakeOtherTradesReal() {
+        assertTrue(KingdomProfessionWorkRules.grill("baker", EnterpriseKind.BAKERY));
+        assertTrue(KingdomProfessionWorkRules.grill("cook", EnterpriseKind.BAKERY));
+        assertTrue(KingdomProfessionWorkRules.grill("butcher", EnterpriseKind.BAKERY));
+        assertFalse(KingdomProfessionWorkRules.grill("smith", EnterpriseKind.BAKERY));
+        assertFalse(KingdomProfessionWorkRules.grill("cook", EnterpriseKind.SMITHY));
         assertTrue(KingdomProfessionWorkRules.quern("baker", EnterpriseKind.BAKERY));
         assertFalse(KingdomProfessionWorkRules.quern("baker", EnterpriseKind.POTTERY));
         assertFalse(KingdomProfessionWorkRules.quern("smith", EnterpriseKind.BAKERY));
