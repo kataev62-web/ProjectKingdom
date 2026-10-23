@@ -14,7 +14,9 @@ public final class AdministrativeAccessService {
     private static final Map<UUID,AdministrativeBindingSession> SESSIONS=new ConcurrentHashMap<>();
     private AdministrativeAccessService(){}
     public static boolean begin(ServerPlayer player,UUID townId,AdministrativeKind kind,AdministrativeBindingRole role){
-        if(player==null||townId==null||kind==null||role==null||role.kind()!=kind
+        if(player==null||townId==null||kind==null||role==null
+                ||(role.kind()!=kind && !(kind==AdministrativeKind.TOWN_HALL
+                      &&role==AdministrativeBindingRole.TREASURY_VAULT))
                 ||!(player.containerMenu instanceof AdministrativeCoreMenu menu)
                 ||!townId.equals(menu.townId())||kind!=menu.kind()||!menu.manager()||!menu.stillValid(player))return false;
         SESSIONS.put(player.getUUID(),new AdministrativeBindingSession(player.getUUID(),townId,kind,role,
