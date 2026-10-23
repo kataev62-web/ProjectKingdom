@@ -44,6 +44,15 @@ public final class KingdomNpcNutrition {
         return supported;
     }
 
+    /** Original TFC expiration state; spoiled produce is NOT a viable food reserve. */
+    public static boolean spoiled(ItemStack stack) {
+        if(stack==null||stack.isEmpty()||!init())return false;
+        try {
+            Object food=foodOf.invoke(null,stack);
+            return food!=null && Boolean.TRUE.equals(isRotten.invoke(food));
+        }catch(ReflectiveOperationException|RuntimeException ex){return false;}
+    }
+
     /** Returns null for rotten food, tools, false food, or an unsupported TFC API. */
     public static Meal inspect(ItemStack stack){
         if(stack==null||stack.isEmpty()||!init())return null;
