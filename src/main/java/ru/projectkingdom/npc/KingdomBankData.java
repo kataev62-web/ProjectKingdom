@@ -49,6 +49,69 @@ public final class KingdomBankData extends SavedData {
     }
     public long balance(UUID owner) {return accounts.getOrDefault(owner,0L);}
     public long vault() {return vault;}
+    /** Legacy receipts are preserved here for an administrator, but never withdrawable. */
+    private final Map<UUID,Long> legacyAccounts=new LinkedHashMap<>();
+    public long legacyBalance(UUID owner){return legacyAccounts.getOrDefault(owner,0L);}
+    private final Map<UUID,Long> auditConfirmations=new LinkedHashMap<>();
+    public enum ReconcileStatus { CONFIRM_REQUIRED, DONE, NOT_AUTHORIZED, NOT_IN_BANK,
+        NO_VAULT, VAULT_NOT_EMPTY, NOTHING_TO_ARCHIVE, TOO_MANY_ENTRIES }
+    public static String reconciliationMessage(ReconcileStatus status){
+        return switch(status){
+            case CONFIRM_REQUIRED->"ВНИМАНИЕ: старые неподтверждённые остатки будут перенесены в архив требований, а новые счета начнут с нуля. Монеты не создаются и прежние обязательства не исчезают. Нажмите кнопку повторно в течение 30 секунд.";
+            case DONE->"Сверка зарегистрирована: старые неподтверждённые суммы сохранены в архиве, новые операции доступны с нулевого обеспеченного резерва.";
+            case NOT_AUTHORIZED->"Сверку может провести только мэр или управляющий банка.";
+            case NOT_IN_BANK->"Подойдите к городскому банку и откройте его меню.";
+            case NO_VAULT->"Сначала привяжите банковский сейф и загрузите его чанк.";
+            case VAULT_NOT_EMPTY->"В банковском сейфе уже есть монеты. Не смешивайте обеспеченные и старые остатки; требуется ручная сверка.";
+            case NOTHING_TO_ARCHIVE->"Неподтверждённых старых остатков нет.";
+            case TOO_MANY_ENTRIES->"Слишком много счетов для автоматической сверки; нужен администратор сервера.";
+        };
+    }
+    /** Two-click, manager-only migration for worlds whose bank has NO physical
+     * coins. Numerical promises remain an archive, never get minted.
+     * The server records new deposits only after this explicit action.
+     */
+    public ReconcileStatus reconcileEmptyBank(ServerPlayer manager){
+        if(manager==null)return ReconcileStatus.NOT_IN_BANK;
+        UUID town=bankTown(manager);
+        if(town==null)return ReconcileStatus.NOT_IN_BANK;
+        var civic=KingdomCivicsData.get(manager.getServer()).townById(town);
+        var admin=KingdomAdministrationData.get(manager.getServer());
+        if(civic==null||!ru.projectkingdom.administration.AdministrativePermissionService.mayManage(
+                manager.getUUID(),admin.founder(town),civic.mayor(),
+                admin.roles(town,manager.getUUID()),AdministrativeKind.BANK))
+            return ReconcileStatus.NOT_AUTHORIZED;
+        var vault=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return ReconcileStatus.NO_VAULT;
+        if(KingdomPhysicalCash.value(vault)!=0)return ReconcileStatus.VAULT_NOT_EMPTY;
+        if(accounts.size()>10000)return ReconcileStatus.TOO_MANY_ENTRIES;
+        boolean oldReserves=admin.bankReserve(town)>0||admin.treasuryReserve(town)>0;
+        boolean oldAccounts=false;
+        for(var entry:accounts.entrySet())if(entry.getValue()>0
+                &&(accountHomes.get(entry.getKey())==null
+                ||town.equals(accountHomes.get(entry.getKey())))){oldAccounts=true;break;}
+        if(!oldAccounts&&!oldReserves)return ReconcileStatus.NOTHING_TO_ARCHIVE;
+        long now=manager.serverLevel().getGameTime();
+        Long confirmed=auditConfirmations.get(manager.getUUID());
+        if(confirmed==null||confirmed<now||confirmed>now+600){
+            auditConfirmations.put(manager.getUUID(),now+600);
+            return ReconcileStatus.CONFIRM_REQUIRED;
+        }
+        auditConfirmations.remove(manager.getUUID());
+        for(var entry:accounts.entrySet()){
+            UUID home=accountHomes.get(entry.getKey());
+            if(entry.getValue()>0&&(home==null||town.equals(home))){
+                legacyAccounts.merge(entry.getKey(),entry.getValue(),
+                    (a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b);
+                accounts.put(entry.getKey(),0L);
+                accountHomes.put(entry.getKey(),town);
+            }
+        }
+        admin.archiveUnbackedReserves(town);
+        setDirty();
+        return ReconcileStatus.DONE;
+    }
+
     private static boolean covered(long cash,long bank,long city){
         return cash>=0&&bank>=0&&city>=0&&bank<=Long.MAX_VALUE-city
                 &&cash>=bank+city;
@@ -311,6 +374,10 @@ public final class KingdomBankData extends SavedData {
             CompoundTag row=list.getCompound(i);
             if(row.hasUUID("Owner"))data.accounts.put(row.getUUID("Owner"),Math.max(0,row.getLong("Amount")));
         }
+        for(Tag value:root.getList("LegacyClaims",Tag.TAG_COMPOUND)){
+            CompoundTag row=(CompoundTag)value;
+            if(row.hasUUID("Owner"))data.legacyAccounts.put(row.getUUID("Owner"),Math.max(0,row.getLong("Amount")));
+        }
         for(Tag value:root.getList("AccountHomes",Tag.TAG_COMPOUND)) {
             CompoundTag row=(CompoundTag)value;
             if(row.hasUUID("Owner")&&row.hasUUID("Bank"))
@@ -336,6 +403,12 @@ public final class KingdomBankData extends SavedData {
             CompoundTag row=new CompoundTag();row.putUUID("Owner",entry.getKey());row.putUUID("Bank",entry.getValue());homeTags.add(row);
         }
         root.put("AccountHomes",homeTags);
+        ListTag oldAccounts=new ListTag();
+        for(var entry:legacyAccounts.entrySet()){
+            CompoundTag row=new CompoundTag();row.putUUID("Owner",entry.getKey());
+            row.putLong("Amount",entry.getValue());oldAccounts.add(row);
+        }
+        root.put("LegacyClaims",oldAccounts);
         ListTag locations=new ListTag();
         for(var entry:branches.entrySet()) {
             CompoundTag row=new CompoundTag();row.putString("Location",entry.getKey());row.putUUID("Owner",entry.getValue());locations.add(row);
