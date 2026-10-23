@@ -53,6 +53,9 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
             if(!bound.owner().equals(player.getUUID())||bound.kind()!=kind){reject(server,pos,player,stack,"Это ядро принадлежит другому владельцу или типу.");return;}
             identity=new UUIDHolder(bound.enterpriseId(),bound.owner());
         }
+        // Older saves may still claim the demolished core is active. Reconcile
+        // only after verifying its previous loaded location is genuinely empty.
+        data.reconcileMissingCore(server.getServer(), identity.enterprise());
         var activation=data.activateCore(player.getUUID(),identity.enterprise(),kind,server.dimension().location().toString(),pos.asLong());
         if(activation!=EnterpriseActivation.ACTIVATED){reject(server,pos,player,stack,"Ядро не активировано: "+activation);return;}
         if(server.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core)core.bind(identity.enterprise(),identity.owner(),kind);
@@ -63,17 +66,22 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
         level.removeBlock(pos,false);player.sendSystemMessage(Component.literal("[Project Kingdom] "+reason));
     }
 
-    @Override public void playerWillDestroy(Level level,BlockPos pos,BlockState state,Player player){
-        if(level instanceof ServerLevel server&&server.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core&&core.bound()){
-            KingdomEnterpriseData.get(server.getServer()).suspendCore(player.getUUID(),core.enterpriseId(),server.dimension().location().toString(),pos.asLong());
+    @Override public void onRemove(BlockState state,Level level,BlockPos pos,BlockState next,boolean moving){
+        // Covers survival, creative, commands and explosions, unlike playerWillDestroy.
+        // A deleted core must not remain ALREADY_ACTIVE in the persistent ledger.
+        if(!state.is(next.getBlock()) && level instanceof ServerLevel server
+                && level.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core && core.bound()) {
+            KingdomEnterpriseData.get(server.getServer()).suspendCore(core.owner(),core.enterpriseId(),
+                    server.dimension().location().toString(),pos.asLong());
         }
-        super.playerWillDestroy(level,pos,state,player);
+        super.onRemove(state,level,pos,next,moving);
     }
 
     @Override public List<ItemStack> getDrops(BlockState state,LootParams.Builder builder){
         BlockEntity entity=builder.getOptionalParameter(LootContextParams.BLOCK_ENTITY);
-        net.minecraft.world.entity.Entity actor=builder.getOptionalParameter(LootContextParams.THIS_ENTITY);
-        if(entity instanceof EnterpriseCoreBlockEntity core&&core.bound()&&actor instanceof Player player&&core.owner().equals(player.getUUID())){
+        // Bound blocks keep their enterprise identity on relocation. Possession
+        // alone does not grant access: setPlacedBy still enforces the owner UUID.
+        if(entity instanceof EnterpriseCoreBlockEntity core&&core.bound()){
             ItemStack result=new ItemStack(this);EnterpriseCoreItemData.write(result,core.enterpriseId(),core.owner(),core.kind());return List.of(result);
         }
         return List.of();
