@@ -48,6 +48,7 @@ public final class KingdomMainMenu extends ChestMenu {
     public static void openLandOffice(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.LAND_OFFICE); }
     public static void openOrders(ServerPlayer player) { show(player,Page.ORDERS); }
     public static void openArchitect(ServerPlayer player) { show(player,Page.BUILD); }
+    public static void openProjects(ServerPlayer player) { show(player,Page.PROJECTS); }
     public static void openSite(ServerPlayer player,java.util.UUID id) { show(player,Page.SITE,id); }
     private static void openAdministrativeOrExplain(ServerPlayer player,AdministrativeKind kind){
         if(openNearbyAdministrative(player,kind))return;
