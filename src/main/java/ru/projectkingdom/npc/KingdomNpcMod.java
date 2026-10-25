@@ -356,6 +356,13 @@ public final class KingdomNpcMod {
     @SubscribeEvent
     public void commands(RegisterCommandsEvent event) {
         KingdomExpansionCommands.register(event);
+        event.getDispatcher().register(Commands.literal("kingdomadmin")
+                .requires(source->source.hasPermission(2))
+                .executes(ctx->{
+                    var operator=ctx.getSource().getPlayerOrException();
+                    ru.projectkingdom.administration.KingdomAdminEnterpriseMenu.open(operator);
+                    return 1;
+                }));
         var root = Commands.literal("knpc");
         root.then(Commands.literal("talk")
             .then(Commands.argument("id", IntegerArgumentType.integer(1))

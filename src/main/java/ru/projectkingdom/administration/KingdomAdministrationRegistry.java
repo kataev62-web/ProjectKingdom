@@ -45,6 +45,8 @@ public final class KingdomAdministrationRegistry {
             BlockEntityType.Builder.of(AdministrativeCoreBlockEntity::new,TOWN_HALL.get(),TREASURY.get(),BANK.get(),CENTRAL_WAREHOUSE.get(),
                     CITY_MARKET.get(),LAND_OFFICE.get(),COURT.get(),PRISON.get(),GUARD_ADMINISTRATION.get()).build(null));
     public static final RegistryObject<MenuType<AdministrativeCoreMenu>> CORE_MENU=MENUS.register("administrative_core",()->IForgeMenuType.create(AdministrativeCoreMenu::new));
+    public static final RegistryObject<MenuType<KingdomAdminEnterpriseMenu>> ADMIN_ENTERPRISE_MENU=
+            MENUS.register("admin_enterprise_console",()->IForgeMenuType.create(KingdomAdminEnterpriseMenu::new));
     private KingdomAdministrationRegistry(){}
     private static RegistryObject<Block> block(String id,AdministrativeKind kind){
         RegistryObject<Block> value=BLOCKS.register(id,()->new AdministrativeCoreBlock(kind));BLOCK_BY_KIND.put(kind,value);return value;
