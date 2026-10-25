@@ -248,47 +248,68 @@ public final class KingdomTfcPotWork {
         KingdomNpcData.get(level.getServer()).setDirty();
         return true;
     }
+    /**
+     * Roll back only the real items NOT accepted by the TFC machine.
+     * If a source slot unexpectedly refuses an item, materialize it as a
+     * physical world drop instead of silently deleting it.
+     */
+    private static void returnToSource(ServerLevel level,Container raw,int slot,
+                                       ItemStack left,BlockPos machinePos){
+        if(left.isEmpty())return;
+        ItemStack saved=raw.getItem(slot);
+        if(saved.isEmpty()&&raw.canPlaceItem(slot,left)){
+            raw.setItem(slot,left.copy());return;
+        }
+        if(!saved.isEmpty()&&ItemStack.isSameItemSameTags(saved,left)
+                &&saved.getCount()<=Math.min(saved.getMaxStackSize(),
+                    raw.getMaxStackSize())-left.getCount()){
+            saved.grow(left.getCount());raw.setChanged();return;
+        }
+        // Last-resort recovery: the item stays real and recoverable by the player.
+        net.minecraft.world.level.block.Block.popResource(level,machinePos,left.copy());
+    }
+
     private static boolean fill(ServerLevel level,KingdomNpcData.Worker worker,
                                 Plan plan,Container raw,IItemHandler machine,BlockPos pos){
-        for(int i=0;i<plan.inputs().size();i++){
-            ItemStack one=plan.inputs().get(i);
-            if(!machine.getStackInSlot(FIRST+i).isEmpty()
-                ||!machine.insertItem(FIRST+i,one.copy(),true).isEmpty()
-                ||raw.getItem(plan.slots().get(i)).getCount()<=0)return false;
-        }
-        // Batch IDs are recorded from the exact TFC recipe, not guesswork.
-        List<String> inputs=plan.inputs().stream().map(KingdomTfcPotWork::id).toList();
-        List<String> outputs=plan.outputs().stream().map(KingdomTfcPotWork::id).toList();
         int n=plan.inputs().size();
-        List<ItemStack> removed=new ArrayList<>();
+        Map<Integer,Integer> requirements=new HashMap<>();
         for(int i=0;i<n;i++){
-            ItemStack item=raw.removeItem(plan.slots().get(i),1);
-            if(!ItemStack.matches(item,plan.inputs().get(i))){
-                // Return every removed stack to its source slot; never produce a free ingredient.
-                if(!item.isEmpty())removed.add(item);
-                for(int j=0;j<removed.size();j++){
-                    int slot=plan.slots().get(j);
-                    ItemStack old=raw.getItem(slot);
-                    if(old.isEmpty())raw.setItem(slot,removed.get(j));
-                    else if(ItemStack.isSameItemSameTags(old,removed.get(j)))
-                        old.grow(removed.get(j).getCount());
-                }
-                raw.setChanged();return false;
+            ItemStack one=plan.inputs().get(i);
+            int sourceSlot=plan.slots().get(i);
+            requirements.merge(sourceSlot,1,Integer::sum);
+            ItemStack available=raw.getItem(sourceSlot);
+            if(available.getCount()<requirements.get(sourceSlot)
+                ||!ItemStack.isSameItemSameTags(available,one)
+                ||!raw.canTakeItem(raw,sourceSlot,available)
+                ||!machine.getStackInSlot(FIRST+i).isEmpty()
+                ||!machine.insertItem(FIRST+i,one.copy(),true).isEmpty())return false;
+        }
+        List<ItemStack> extracted=new ArrayList<>();
+        for(int i=0;i<n;i++){
+            ItemStack taken=raw.removeItem(plan.slots().get(i),1);
+            if(!ItemStack.matches(taken,plan.inputs().get(i))){
+                returnToSource(level,raw,plan.slots().get(i),taken,pos);
+                for(int j=0;j<extracted.size();j++)
+                    returnToSource(level,raw,plan.slots().get(j),extracted.get(j),pos);
+                raw.setChanged();
+                return false;
             }
-            removed.add(item);
+            extracted.add(taken);
         }
         for(int i=0;i<n;i++){
-            ItemStack remainder=machine.insertItem(FIRST+i,removed.get(i),false);
+            ItemStack remainder=machine.insertItem(FIRST+i,extracted.get(i),false);
             if(!remainder.isEmpty()){
-                // Fail closed: real remainder remains in source; already inserted items
-                // remain in the pot and are not re-created in storage.
-                ItemStack old=raw.getItem(plan.slots().get(i));
-                if(old.isEmpty())raw.setItem(plan.slots().get(i),remainder);
-                else if(ItemStack.isSameItemSameTags(old,remainder))old.grow(remainder.getCount());
-                raw.setChanged();return false;
+                // Accepted items stay IN the physical pot. Return only those NOT accepted.
+                returnToSource(level,raw,plan.slots().get(i),remainder,pos);
+                for(int j=i+1;j<n;j++)
+                    returnToSource(level,raw,plan.slots().get(j),extracted.get(j),pos);
+                raw.setChanged();
+                return false; // No batch credit, no invented output.
             }
         }
         raw.setChanged();
+        List<String> inputs=plan.inputs().stream().map(KingdomTfcPotWork::id).toList();
+        List<String> outputs=plan.outputs().stream().map(KingdomTfcPotWork::id).toList();
         KingdomTfcPotData.get(level.getServer()).put(new KingdomTfcPotData.Batch(
             worker.entityId,worker.dimension,pos.asLong(),inputs,outputs));
         return true;
