@@ -49,7 +49,7 @@ public final class KingdomEnterpriseData extends SavedData {
     public enum ClosureStatus {
         CLOSED, NO_PERMISSION, NOT_FOUND, NO_CORE, NOT_AT_CORE,
         CASH_REMAINING, TRADE_NOT_SETTLED, STAFF_DEBT, ACTIVE_BUILD,
-        STORAGE_UNLOADED, STORAGE_NOT_EMPTY, OLD_COUNTER_NOT_EMPTY, NOTICE_BOARD_ERROR
+        STORAGE_UNLOADED, STORAGE_NOT_EMPTY, OLD_COUNTER_NOT_EMPTY, NOTICE_BOARD_ERROR, ACTIVE_GUESTS
     }
     public static String closeMessage(ClosureStatus status){
         return switch(status){
@@ -66,6 +66,7 @@ public final class KingdomEnterpriseData extends SavedData {
             case STORAGE_NOT_EMPTY->"В складах или кассе остались предметы. Заберите всё в свой инвентарь.";
             case OLD_COUNTER_NOT_EMPTY->"В старой кассе-прилавке остались предметы. Заберите их.";
             case NOTICE_BOARD_ERROR->"Не удалось удалить объявления предприятия из городского рынка. Проверьте целостность торговой доски.";
+            case ACTIVE_GUESTS->"Гостиница или таверна имеет объявления либо действующие договоры. Завершите их перед закрытием.";
         };
     }
     /**
@@ -105,6 +106,8 @@ public final class KingdomEnterpriseData extends SavedData {
                         && old.bound()&&business.equals(old.enterpriseId()))return ClosureStatus.NO_CORE;
             }
         }
+        if(ru.projectkingdom.property.KingdomRentalsData.get(player.getServer())
+                .receptionHasObligations(business))return ClosureStatus.ACTIVE_GUESTS;
         if(firm.cash()!=0)return ClosureStatus.CASH_REMAINING;
         if(unresolved(business))return ClosureStatus.TRADE_NOT_SETTLED;
         var payroll=KingdomEnterprisePayrollData.get(player.getServer());
@@ -367,6 +370,56 @@ public final class KingdomEnterpriseData extends SavedData {
                 ||!KingdomPhysicalCash.deposit(actor,cash.container(),amount))return false;
         firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));setDirty();return true;
     }
+    /**
+     * A guest pays at the real hotel/tavern reception and into the firm's
+     * prebound physical cashbox. Bank accounts are never used for room rent.
+     * The full on-server validation is repeated at click time.
+     */
+    public boolean payHospitalityRoom(ServerPlayer payer,UUID enterprise,UUID roomId,boolean renewal){
+        if(payer==null||enterprise==null||roomId==null)return false;
+        Enterprise firm=firms.get(enterprise);
+        EnterpriseCoreBinding binding=cores.get(enterprise);
+        if(firm==null||binding==null||!binding.active()
+                ||(kind(enterprise)!=EnterpriseKind.HOTEL&&kind(enterprise)!=EnterpriseKind.TAVERN)
+                ||binding.kind()!=kind(enterprise)
+                ||!firm.owner().equals(binding.owner()))return false;
+        ServerLevel level=payer.serverLevel();
+        BlockPos pos=BlockPos.of(binding.packedPos());
+        if(!binding.dimension().equals(level.dimension().location().toString())
+                ||pos.distSqr(payer.blockPosition())>64||!level.hasChunkAt(pos))return false;
+        if(!(level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core)
+                ||!core.bound()||!enterprise.equals(core.enterpriseId())
+                ||core.kind()!=kind(enterprise)||!firm.owner().equals(core.owner()))return false;
+        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(payer.getServer());
+        var room=rentals.room(roomId);
+        var building=room==null?null:rentals.building(room.buildingId());
+        if(room==null||building==null||!enterprise.equals(rentals.receptionForRoom(roomId))
+                ||!firm.owner().equals(building.owner())||!building.dimension().equals(binding.dimension())
+                ||!building.bounds().contains(pos))return false;
+        var deeds=KingdomCivicsData.get(payer.getServer());
+        long now=System.currentTimeMillis();
+        if(renewal?!rentals.canRenew(deeds,payer.getUUID(),roomId,now)
+                  :!rentals.canRent(deeds,payer.getUUID(),roomId,now))return false;
+        long price=room.priceCopper();
+        if(price<1||price>1_000_000||firm.cash()>Long.MAX_VALUE-price
+                ||KingdomCurrency.balance(payer)<price)return false;
+        var cash=EnterpriseAccessService.snapshot(level,this,enterprise,EnterpriseBindingRole.CASHBOX);
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash())return false;
+        if(!KingdomPhysicalCash.deposit(payer,cash.container(),price))return false;
+        boolean updated=renewal?rentals.renewPaid(deeds,payer.getUUID(),roomId,now)
+                                :rentals.rentPaid(deeds,payer.getUUID(),roomId,now);
+        if(!updated){
+            if(!KingdomPhysicalCash.withdraw(payer,cash.container(),price))
+                throw new IllegalStateException("Hospitality rent payment refund failed");
+            return false;
+        }
+        firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+price));
+        setDirty();
+        payer.getInventory().setChanged();
+        return true;
+    }
+
     public boolean withdrawAtCore(ServerPlayer actor,UUID enterprise,long amount){
         Enterprise firm=firms.get(enterprise);EnterpriseCoreBinding core=cores.get(enterprise);
         if(firm==null||core==null||!core.active()||!mayManage(actor.getUUID(),enterprise)||amount<=0||amount>1_000_000
