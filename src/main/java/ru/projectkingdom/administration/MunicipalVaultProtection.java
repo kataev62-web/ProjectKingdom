@@ -84,6 +84,17 @@ public final class MunicipalVaultProtection {
         if(!(event.getPlayer() instanceof ServerPlayer player))return;
         var bound=bindingIncludingDoubleChest(player.serverLevel(),event.getPos());
         if(bound==null)return;
+        var state=player.serverLevel().getBlockState(event.getPos());
+        if(state.getBlock() instanceof ChestBlock
+                ||state.getBlock() instanceof net.minecraft.world.level.block.BarrelBlock){
+            var storage=ru.projectkingdom.npc.KingdomContainerAccess.resolve(player.serverLevel(),event.getPos());
+            if(storage==null||!storage.isEmpty()){
+                event.setCanceled(true);
+                player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    "Банковские сундуки с содержимым нельзя ломать. Переместите монеты через кассу банка."),true);
+                return;
+            }
+        }
         var admin=KingdomAdministrationData.get(player.getServer());
         var town=KingdomCivicsData.get(player.getServer()).townById(bound.town());
         if(town==null||!AdministrativePermissionService.mayManage(player.getUUID(),
