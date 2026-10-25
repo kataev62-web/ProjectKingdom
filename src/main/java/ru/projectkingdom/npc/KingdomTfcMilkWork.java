@@ -94,6 +94,9 @@ public final class KingdomTfcMilkWork {
         }
         return false;
     }
+    /** Real TFC-ready state used only for ranch read-only overview. */
+    public static boolean readyForMilking(Animal animal) {return ready(animal);}
+
     public static boolean hasMilk(ItemStack stack){
         IFluidHandlerItem cap=handler(stack);
         if(cap==null)return false;
