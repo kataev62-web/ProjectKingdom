@@ -40,7 +40,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     @Override protected void init(){
         super.init();
         var tabs=menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()
-                ?List.of(AdministrativeMenuLayout.Tab.INFO,AdministrativeMenuLayout.Tab.CITIZENS)
+                ?List.of(AdministrativeMenuLayout.Tab.INFO,AdministrativeMenuLayout.Tab.CITIZENS,
+                        AdministrativeMenuLayout.Tab.FOOD)
                 :AdministrativeMenuLayout.tabs(menu.kind());
         var rects=AdministrativeMenuLayout.tabRects(menu.kind());
         for(int i=0;i<tabs.size();i++){
