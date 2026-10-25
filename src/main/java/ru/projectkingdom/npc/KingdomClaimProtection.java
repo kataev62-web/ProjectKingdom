@@ -1,6 +1,7 @@
 package ru.projectkingdom.npc;
 
 import net.minecraft.core.BlockPos;
+import java.util.UUID;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
@@ -87,9 +88,38 @@ public final class KingdomClaimProtection {
         var rentals=ru.projectkingdom.property.KingdomRentalsData.get(player.getServer());
         return rentals.atRoom(level.dimension().location().toString(),pos)==null;
     }
+    /** Hotel guests may open COMMON entrance doors, not private room doors. */
+    private static boolean publicHospitalityPassage(ServerPlayer player,BlockPos pos) {
+        var level=player.serverLevel();
+        if(!level.hasChunkAt(pos))return false;
+        var block=level.getBlockState(pos).getBlock();
+        if(!(block instanceof net.minecraft.world.level.block.DoorBlock
+                ||block instanceof net.minecraft.world.level.block.TrapDoorBlock
+                ||block instanceof net.minecraft.world.level.block.FenceGateBlock))return false;
+        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(player.getServer());
+        String dim=level.dimension().location().toString();
+        var building=rentals.atBuilding(dim,pos);
+        if(building==null||rentals.atRoom(dim,pos)!=null)return false;
+        UUID enterprise=rentals.receptionForBuilding(building.id());
+        if(enterprise==null)return false;
+        var companies=KingdomEnterpriseData.get(player.getServer());
+        var firm=companies.find(enterprise);
+        var registered=companies.core(enterprise);
+        if(firm==null||registered==null||!registered.active()
+                ||(registered.kind()!=ru.projectkingdom.enterprise.EnterpriseKind.HOTEL
+                &&registered.kind()!=ru.projectkingdom.enterprise.EnterpriseKind.TAVERN)
+                ||!firm.owner().equals(building.owner())
+                ||!registered.dimension().equals(dim))return false;
+        BlockPos reception=BlockPos.of(registered.packedPos());
+        if(!building.bounds().contains(reception)||!level.hasChunkAt(reception))return false;
+        return level.getBlockEntity(reception) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core
+                &&core.bound()&&enterprise.equals(core.enterpriseId())
+                &&registered.kind()==core.kind()&&firm.owner().equals(core.owner());
+    }
     @SubscribeEvent public static void interact(PlayerInteractEvent.RightClickBlock event) {
         if(event.getEntity() instanceof ServerPlayer player
-                && (publicTownHall(player,event.getPos())||publicReception(player,event.getPos())))
+                && (publicTownHall(player,event.getPos())||publicReception(player,event.getPos())
+                    ||publicHospitalityPassage(player,event.getPos())))
             return;
         if(denied(event.getEntity(),event.getPos(),KingdomCivicsData.Action.INTERACT))event.setCanceled(true);
     }
