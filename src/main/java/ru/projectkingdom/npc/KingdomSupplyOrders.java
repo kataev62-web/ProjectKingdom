@@ -9,7 +9,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 /** Persistent physical pickup/delivery orders. No virtual item generation. */
 public final class KingdomSupplyOrders extends SavedData {
     private static final String KEY = "kingdom_supply_orders_v1";
-    public enum Mode { SELF_PICKUP, COURIER }
+    public enum Mode { SELF_PICKUP, COURIER, INTERNAL }
     public enum State { OPEN, ASSIGNED, IN_TRANSIT, DELIVERED, CANCELLED }
     /** Unfinished inventory mutations are quarantined; NEVER replay them by creating items. */
     public enum TransferKind { PICKUP, DELIVERY }
@@ -44,10 +44,48 @@ public final class KingdomSupplyOrders extends SavedData {
     public Order find(UUID id) { return orders.get(id); }
     /** The caller must validate ownership of both containers and their inventory before submission. */
     public Order create(UUID buyer, UUID seller, String dimension, String itemId, BlockPos source, BlockPos destination, int count, long goodsPrice, long deliveryFee, Mode mode) {
-        if (buyer==null || seller==null || dimension==null || dimension.isBlank() || itemId==null || itemId.isBlank() || source==null || destination==null || source.equals(destination) || mode==null || count<1 || count>2304 || goodsPrice<0 || deliveryFee<0 || goodsPrice>1000000 || deliveryFee>1000000 || (!buyer.equals(seller) && goodsPrice==0)) return null;
+        if (buyer==null || seller==null || dimension==null || dimension.isBlank() || itemId==null || itemId.isBlank() || source==null || destination==null || source.equals(destination) || mode==null || mode==Mode.INTERNAL || count<1 || count>2304 || goodsPrice<0 || deliveryFee<0 || goodsPrice>1000000 || deliveryFee>1000000 || (!buyer.equals(seller) && goodsPrice==0)) return null;
         Order order=new Order(UUID.randomUUID(),buyer,seller,dimension,itemId,source.immutable(),destination.immutable(),count,goodsPrice,deliveryFee,mode);
         orders.put(order.id,order);setDirty();return order;
     }
+    /**
+     * Internal transfer, not a trade. Physical warehouse ownership and access
+     * are verified by KingdomEnterpriseInternalSupply before issuance AND at
+     * every courier step. Delivery has no fee and neither cashbox is touched.
+     */
+    Order createInternal(UUID enterprise, String dimension, String itemId,
+            BlockPos source, BlockPos destination, int count) {
+        if (enterprise == null || dimension == null || dimension.isBlank()
+                || itemId == null || itemId.isBlank() || source == null
+                || destination == null || source.equals(destination)
+                || count <= 0 || count > 16
+                || hasActiveInternal(enterprise,dimension,source,destination,itemId)) return null;
+        Order order = new Order(UUID.randomUUID(),enterprise,enterprise,dimension,
+                itemId,source.immutable(),destination.immutable(),count,0,0,Mode.INTERNAL);
+        order.deliveryPaid = true; // No transport charge, no money movement.
+        orders.put(order.id,order);setDirty();
+        return order;
+    }
+
+    boolean hasActiveInternal(UUID enterprise,String dimension,
+            BlockPos source,BlockPos destination,String itemId) {
+        for (Order o:orders.values())
+            if(o.mode==Mode.INTERNAL && o.buyer.equals(enterprise)
+                    && o.dimension.equals(dimension) && o.source.equals(source)
+                    && o.destination.equals(destination) && o.itemId.equals(itemId)
+                    && o.state!=State.DELIVERED && o.state!=State.CANCELLED)
+                return true;
+        return false;
+    }
+
+    /** Only rollback of a new, never-dispatched, zero-value internal order. */
+    boolean cancelInternalUnassigned(UUID id) {
+        Order o=orders.get(id);
+        if(o==null || o.mode!=Mode.INTERNAL || o.state!=State.OPEN
+                || o.courier!=null || o.pickedUp!=0 || o.delivered!=0) return false;
+        o.state=State.CANCELLED;setDirty();return true;
+    }
+
     /** Reserve prepaid physical cash for a new order. Called only after a successful wallet debit. */
     public boolean escrow(UUID id, long goods, long delivery) {
         Order o=orders.get(id);

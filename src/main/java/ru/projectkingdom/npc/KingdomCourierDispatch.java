@@ -20,7 +20,8 @@ public final class KingdomCourierDispatch {
         }
         int assigned=0;
         for(var o:orders.all()) {
-            if(o.mode != KingdomSupplyOrders.Mode.COURIER || o.state != KingdomSupplyOrders.State.OPEN
+            if((o.mode != KingdomSupplyOrders.Mode.COURIER && o.mode != KingdomSupplyOrders.Mode.INTERNAL)
+                    || o.state != KingdomSupplyOrders.State.OPEN
                     || o.courier != null || !o.deliveryPaid
                     || (o.goodsEscrow<=0 && !o.goodsPaid && !o.buyer.equals(o.seller))) continue;
             // Choose the closest idle courier in the same dimension. Never load
@@ -29,6 +30,8 @@ public final class KingdomCourierDispatch {
             for(ServerLevel candidate:server.getAllLevels())
                 if(candidate.dimension().location().toString().equals(o.dimension)) {level=candidate;break;}
             if(level==null)continue;
+            if(o.mode==KingdomSupplyOrders.Mode.INTERNAL
+                    && !KingdomEnterpriseInternalSupply.authorized(level,o))continue;
             KingdomNpcData.Worker closest=null;
             double closestDistance=Double.MAX_VALUE;
             for(var w:npcData.all()) {

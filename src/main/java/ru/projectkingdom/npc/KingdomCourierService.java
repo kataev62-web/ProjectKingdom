@@ -21,7 +21,9 @@ public final class KingdomCourierService {
         KingdomSupplyOrders ledger=KingdomSupplyOrders.get(level.getServer());
         KingdomSupplyOrders.Order order=null;
         for (var candidate:ledger.all()) {
-            if(candidate.mode==KingdomSupplyOrders.Mode.COURIER && npc.getUUID().equals(candidate.courier)
+            if((candidate.mode==KingdomSupplyOrders.Mode.COURIER
+                    || candidate.mode==KingdomSupplyOrders.Mode.INTERNAL)
+                    && npc.getUUID().equals(candidate.courier)
                 && (candidate.state==KingdomSupplyOrders.State.ASSIGNED || candidate.state==KingdomSupplyOrders.State.IN_TRANSIT)) {
                 order=candidate;break;
             }
@@ -30,6 +32,10 @@ public final class KingdomCourierService {
             updateStatus(level,worker,(!worker.cargo.isEmpty() || worker.cartCargoCount>0
                     || worker.cartCargoOrder!=null)?"ORPHANED_CARGO_NEEDS_REVIEW":"IDLE");
             return false;
+        }
+        if(order.mode==KingdomSupplyOrders.Mode.INTERNAL
+                && !KingdomEnterpriseInternalSupply.authorized(level,order)) {
+            updateStatus(level,worker,"INTERNAL_STORAGE_UNAVAILABLE");return false;
         }
         if(ledger.needsReconciliation(order.id)) {
             updateStatus(level,worker,"TRANSFER_RECONCILIATION_REQUIRED");return false;
@@ -75,7 +81,8 @@ public final class KingdomCourierService {
             if(!KingdomCourierCart.hasCargo(cartInv,sample,worker.cartCargoCount)) {
                 updateStatus(level,worker,"CART_CARGO_MISMATCH");return false;
             }
-            int canInsert=capacity(target,sample);
+            int firstSlot=order.mode==KingdomSupplyOrders.Mode.INTERNAL?9:0;
+            int canInsert=capacity(target,sample,firstSlot);
             if(canInsert<=0){updateStatus(level,worker,"DESTINATION_FULL");return false;}
             if(order.state!=KingdomSupplyOrders.State.IN_TRANSIT || order.pickedUp-order.delivered<1) return false;
             int planned=Math.min(canInsert,worker.cartCargoCount);
@@ -92,7 +99,7 @@ public final class KingdomCourierService {
             }
             // Insert actual extracted items; only then acknowledge their delivery.
             ItemStack remainder=extracted.copy();
-            int delivered=insert(target,remainder);
+            int delivered=insert(target,remainder,firstSlot);
             if(!remainder.isEmpty() && !restoreCart(cartInv,remainder))
                 throw new IllegalStateException("Kingdom: cannot restore undelivered cart cargo");
             if(delivered<=0)return false;
@@ -117,12 +124,13 @@ public final class KingdomCourierService {
             // Compute capacity without mutating the destination, then commit ledger
             // and real inventory in the same server tick. The batch may be partial.
             ItemStack remaining=worker.cargo.copy();
-            int capacity=capacity(target,remaining);
+            int firstSlot=order.mode==KingdomSupplyOrders.Mode.INTERNAL?9:0;
+            int capacity=capacity(target,remaining,firstSlot);
             if(capacity<=0){updateStatus(level,worker,"DESTINATION_FULL");return false;}
             int toDeliver=Math.min(capacity,remaining.getCount());
             if(!ledger.beginTransfer(order.id,npc.getUUID(),KingdomSupplyOrders.TransferKind.DELIVERY,toDeliver))return false;
             ItemStack portion=remaining.copy();portion.setCount(toDeliver);
-            int inserted=insert(target,portion);
+            int inserted=insert(target,portion,firstSlot);
             if(inserted!=toDeliver)throw new IllegalStateException("Kingdom courier: inventory capacity changed during delivery");
             if(!ledger.recordDelivery(order.id,npc.getUUID(),inserted))
                 throw new IllegalStateException("Kingdom courier: delivery ledger rejected inserted items");
@@ -155,7 +163,13 @@ public final class KingdomCourierService {
         if(id==null || !BuiltInRegistries.ITEM.containsKey(id))return false;
         for(int slot=0;slot<seller.getContainerSize();slot++) {
             ItemStack stack=seller.getItem(slot);
-            if(stack.isEmpty() || !BuiltInRegistries.ITEM.getKey(stack.getItem()).equals(id) || !seller.canTakeItem(seller,slot,stack))continue;
+            if(stack.isEmpty() || !BuiltInRegistries.ITEM.getKey(stack.getItem()).equals(id)
+                    || !seller.canTakeItem(seller,slot,stack))continue;
+            // In-company logistics only supports plain homogeneous inputs for now.
+            // Preserve all TFC lot/tagged food until lot-aware transport is implemented.
+            if(order.mode==KingdomSupplyOrders.Mode.INTERNAL &&
+                    (stack.hasTag() || KingdomCurrency.value(stack)>0
+                        || stack.is(KingdomCurrency.WALLET.get())))continue;
             IItemHandler cartInv=KingdomCourierCart.inventory(level,worker);
             boolean cartAvailable=cartInv!=null && worker.cargo.isEmpty() && worker.cartCargoCount==0
                     && KingdomCourierCart.empty(cartInv);
@@ -248,8 +262,11 @@ public final class KingdomCourierService {
     }
     /** How many items can be inserted without touching the target inventory. */
     private static int capacity(Container container, ItemStack item) {
+        return capacity(container,item,0);
+    }
+    private static int capacity(Container container, ItemStack item, int firstSlot) {
         int free=0;
-        for(int slot=0;slot<container.getContainerSize();slot++) {
+        for(int slot=firstSlot;slot<container.getContainerSize();slot++) {
             if(!container.canPlaceItem(slot,item))continue;
             ItemStack existing=container.getItem(slot);
             if(existing.isEmpty())free+=Math.min(item.getMaxStackSize(),container.getMaxStackSize());
@@ -260,8 +277,11 @@ public final class KingdomCourierService {
         return Math.min(free,item.getCount());
     }
     private static int insert(Container container,ItemStack remainder) {
+        return insert(container,remainder,0);
+    }
+    private static int insert(Container container,ItemStack remainder,int firstSlot) {
         int original=remainder.getCount();
-        for(int slot=0;slot<container.getContainerSize() && !remainder.isEmpty();slot++) {
+        for(int slot=firstSlot;slot<container.getContainerSize() && !remainder.isEmpty();slot++) {
             if(!container.canPlaceItem(slot,remainder))continue;
             ItemStack existing=container.getItem(slot);
             if(existing.isEmpty()) {

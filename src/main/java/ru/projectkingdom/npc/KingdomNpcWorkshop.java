@@ -253,8 +253,11 @@ public final class KingdomNpcWorkshop {
         data.setEnabled(w.entityId,true);
         if(!refill(raw,p.grid())){
             data.clear(w.entityId);
-            // The owner must fund their real company and make an offer available locally.
-            procureLocal(level,npc,w,p,raw);
+            // Owned stock at the registered warehouse must be physically
+            // delivered to this worker's RAW chest before the recipe starts.
+            // Do not buy the same input a second time while delivery is pending.
+            if(!KingdomEnterpriseInternalSupply.request(level,w,p,raw))
+                procureLocal(level,npc,w,p,raw);
             return false;
         }
         CraftingContainer grid=layout(raw,p.grid());if(grid==null){data.clear(w.entityId);return false;}
