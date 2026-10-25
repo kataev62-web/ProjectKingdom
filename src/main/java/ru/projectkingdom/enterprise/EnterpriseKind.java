@@ -13,6 +13,8 @@ public enum EnterpriseKind {
     POTTERY("pottery", "Гончарная мастерская", "Гончарная", true),
     CONSTRUCTION("construction", "Строительная контора", "Стройконтора", true),
     COURIER("courier", "Курьерская служба", "Курьерская служба", true),
+    HOTEL("hotel", "Гостиница", "Гостиница", true),
+    TAVERN("tavern", "Таверна", "Таверна", true),
     LEGACY("legacy", "Старое предприятие", "Предприятие", false);
 
     private final String id;
