@@ -106,6 +106,8 @@ public final class KingdomMunicipalProcurement {
                 ||!level.hasChunkAt(order.source)||!level.hasChunkAt(order.destination))
             return false;
         var server=level.getServer();
+        if(!KingdomMunicipalProcurementData.get(server).authorizedDelivery(order))
+            return false;
         var admin=KingdomAdministrationData.get(server);
         var civics=KingdomCivicsData.get(server);
         if(civics.townById(order.buyer)==null
