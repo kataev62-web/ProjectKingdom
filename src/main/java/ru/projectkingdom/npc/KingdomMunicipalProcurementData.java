@@ -30,6 +30,16 @@ public final class KingdomMunicipalProcurementData extends SavedData {
     }
     public Collection<Receipt> all(){return Collections.unmodifiableCollection(receipts.values());}
     public Receipt get(UUID id){return receipts.get(id);}
+    /** A courier must never release municipal escrow without the finished journal. */
+    public boolean authorizedDelivery(KingdomSupplyOrders.Order order) {
+        if(order==null || order.mode!=KingdomSupplyOrders.Mode.MUNICIPAL)return false;
+        for(var r:receipts.values())
+            if(r.phase()==Phase.ORDERED && order.id.equals(r.deliveryId())
+                    && order.buyer.equals(r.town()) && order.itemId.equals(r.item())
+                    && order.count==r.amount() && order.goodsPrice==r.copper())
+                return true;
+        return false;
+    }
     public boolean active(UUID town,String item,KingdomSupplyOrders orders){
         for(var r:receipts.values()){
             if(!r.town().equals(town)||!r.item().equals(item))continue;
