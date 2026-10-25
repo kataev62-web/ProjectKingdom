@@ -268,46 +268,58 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         return started;
     }
     private boolean openSellNotice(ServerPlayer player,KingdomEnterpriseData data) {
-        var counter=data.counter(enterpriseId);
-        if(counter==null || !counter.dimension().equals(player.level().dimension().location().toString())
-                || counter.pos().distSqr(player.blockPosition())>64
-                || !data.atCounter(player,enterpriseId)){
-            player.sendSystemMessage(Component.literal("Для продажи подойди к кассе предприятия с товаром в руке."));
+        var core=EnterpriseAccessService.snapshot(player.serverLevel(),data,enterpriseId,EnterpriseBindingRole.CASHBOX);
+        if(core.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE || core.container()==null
+                ||core.position().distSqr(player.blockPosition())>64){
+            player.sendSystemMessage(Component.literal("Подойди к блоку предприятия — внутренняя касса должна быть доступна."));
             return false;
         }
-        if(!(player.serverLevel().getBlockEntity(counter.pos()) instanceof Container cashbox))return false;
-        // Never choose an arbitrary neighbouring chest for client-facing exchange.
         var bound=data.storageBinding(enterpriseId,EnterpriseBindingRole.RAW_STORAGE);
-        if(bound==null || !bound.dimension().equals(counter.dimension())
-                || bound.pos().distSqr(counter.pos())>4)return false;
+        if(bound==null||!bound.dimension().equals(player.level().dimension().location().toString())){
+            player.sendSystemMessage(Component.literal("Сначала привяжи сундук сырья для приёма купленного товара."));
+            return false;
+        }
         var access=EnterpriseAccessService.snapshot(player.serverLevel(),data,enterpriseId,
                 EnterpriseBindingRole.RAW_STORAGE);
         if(access.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
-                || access.container()==cashbox)return false;
+                ||access.container()==core.container()){
+            player.sendSystemMessage(Component.literal("Склад сырья не загружен или недоступен."));
+            return false;
+        }
         try {
             var path=player.getServer().getWorldPath(LevelResource.ROOT)
-                .resolve("data").resolve("kingdom_trade_notices.dat");
+                    .resolve("data").resolve("kingdom_trade_notices.dat");
             var board=SharedTradeNoticeBoards.get(path);
             var notices=board.offers(enterpriseId,SimpleTradeNoticeBoard.Side.BUY);
             var held=player.getMainHandItem();
-            if(held.isEmpty()){player.sendSystemMessage(Component.literal("Держи продаваемый товар в руке."));return false;}
-            var itemId=BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
-            var match=notices.stream().filter(n->n.itemId().equals(itemId)).findFirst();
+            if(held.isEmpty()){
+                player.sendSystemMessage(Component.literal("Держи продаваемый товар в руке."));
+                return false;
+            }
+            var id=BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
+            var match=notices.stream().filter(n->n.itemId().equals(id)).findFirst();
             if(match.isEmpty()){
                 player.sendSystemMessage(Component.literal("У предприятия нет заявки на покупку этого товара."));
                 return false;
             }
             var warehouse=access.container();
+            var cash=core.container();
             boolean opened=KingdomSimpleTradeMenu.openForNotice(player,board,match.get().id(),
-                enterpriseId,warehouse,cashbox,KingdomCurrency.COPPER.get(),
-                () -> data.atCounter(player,enterpriseId)
-                    && player.serverLevel().getBlockEntity(counter.pos())==cashbox
-                    && EnterpriseAccessService.snapshot(player.serverLevel(),data,enterpriseId,
-                        EnterpriseBindingRole.RAW_STORAGE).container()==warehouse);
+                enterpriseId,warehouse,cash,KingdomCurrency.COPPER.get(),
+                ()->{
+                    var current=EnterpriseAccessService.snapshot(player.serverLevel(),data,
+                        enterpriseId,EnterpriseBindingRole.CASHBOX);
+                    var receiving=EnterpriseAccessService.snapshot(player.serverLevel(),data,
+                        enterpriseId,EnterpriseBindingRole.RAW_STORAGE);
+                    return current.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE
+                        &&current.container()==cash&&receiving.container()==warehouse
+                        &&data.find(enterpriseId)!=null&&data.find(enterpriseId).cash()>=0
+                        &&core.position().distSqr(player.blockPosition())<=64;
+                });
             if(!opened)player.sendSystemMessage(Component.literal("Заявка на закупку недоступна."));
             return opened;
-        } catch(java.io.IOException | IllegalArgumentException error){
-            player.sendSystemMessage(Component.literal("Ошибка чтения торговых заявок."));
+        }catch(java.io.IOException | IllegalArgumentException problem){
+            player.sendSystemMessage(Component.literal("Не удалось прочитать торговые заявки предприятия."));
             return false;
         }
     }
