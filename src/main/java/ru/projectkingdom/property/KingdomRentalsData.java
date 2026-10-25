@@ -72,6 +72,8 @@ public final class KingdomRentalsData extends SavedData {
 
     private final Map<UUID,Building> buildings = new LinkedHashMap<>();
     private final Map<UUID,Room> rooms = new LinkedHashMap<>();
+    /** The hospitality enterprise that physically operates each building. */
+    private final Map<UUID,UUID> receptions = new LinkedHashMap<>();
 
     public static KingdomRentalsData get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
@@ -93,6 +95,42 @@ public final class KingdomRentalsData extends SavedData {
                 if(room.buildingId().equals(b.id())&&room.bounds().contains(pos))return room;
         }
         return null;
+    }
+
+    /** A hotel or tavern core inside the titled building becomes its reception. */
+    public boolean bindReception(KingdomCivicsData deeds, UUID owner, UUID enterprise,
+                                 String dimension, BlockPos corePos) {
+        if(enterprise==null || corePos==null || owner==null)return false;
+        Building b=atBuilding(dimension,corePos);
+        if(!validOwner(deeds,owner,b))return false;
+        UUID prior=receptions.get(b.id());
+        if(prior!=null)return prior.equals(enterprise);
+        if(receptions.containsValue(enterprise))return false;
+        receptions.put(b.id(),enterprise);setDirty();return true;
+    }
+    public Building receptionBuilding(UUID enterprise) {
+        if(enterprise==null)return null;
+        for(var e:receptions.entrySet())if(enterprise.equals(e.getValue()))
+            return buildings.get(e.getKey());
+        return null;
+    }
+    public UUID receptionForRoom(UUID roomId) {
+        Room r=rooms.get(roomId);
+        return r==null?null:receptions.get(r.buildingId());
+    }
+    public List<Room> roomsAtReception(UUID enterprise) {
+        Building b=receptionBuilding(enterprise);
+        if(b==null)return List.of();
+        List<Room> result=new ArrayList<>();
+        for(Room room:rooms.values())if(room.buildingId().equals(b.id()))
+            result.add(room);
+        return List.copyOf(result);
+    }
+    /** Company closure must not invalidate a guest's prepaid stay. */
+    public boolean receptionHasObligations(UUID enterprise) {
+        for(Room room:roomsAtReception(enterprise))
+            if(room.reserved()||room.listed())return true;
+        return false;
     }
 
     /** Every chunk under the building must have an unencumbered deed title. */
@@ -169,7 +207,7 @@ public final class KingdomRentalsData extends SavedData {
                 &&b!=null&&now>=0&&now<=Long.MAX_VALUE-room.days()*DAY
                 &&!tenant.equals(b.owner())&&validOwner(deeds,b.owner(),b);
     }
-    /** Called ONLY after physical bank vault cash deposit. */
+    /** Called ONLY after physical payment into the bound hotel/tavern cashbox. */
     public boolean rentPaid(KingdomCivicsData deeds,UUID tenant,UUID roomId,long now){
         if(!canRent(deeds,tenant,roomId,now))return false;
         var r=rooms.get(roomId);
@@ -295,6 +333,13 @@ public final class KingdomRentalsData extends SavedData {
                 if(!clash)db.rooms.put(room.id(),room);
             }catch(IllegalArgumentException ignored){}
         }
+        for(Tag value:root.getList("Receptions",Tag.TAG_COMPOUND)){
+            CompoundTag row=(CompoundTag)value;
+            if(!row.hasUUID("Building")||!row.hasUUID("Enterprise"))continue;
+            UUID building=row.getUUID("Building"),enterprise=row.getUUID("Enterprise");
+            if(db.buildings.containsKey(building)&&!db.receptions.containsValue(enterprise))
+                db.receptions.put(building,enterprise);
+        }
         return db;
     }
     @Override public CompoundTag save(CompoundTag root) {
@@ -314,6 +359,12 @@ public final class KingdomRentalsData extends SavedData {
             if(r.tenant()!=null){t.putUUID("Tenant",r.tenant());t.putLong("Expires",r.expiresAt());}
             rs.add(t);
         }
-        root.put("Rooms",rs);return root;
+        root.put("Rooms",rs);
+        var rec=new ListTag();
+        for(var entry:receptions.entrySet()){
+            var row=new CompoundTag();row.putUUID("Building",entry.getKey());
+            row.putUUID("Enterprise",entry.getValue());rec.add(row);
+        }
+        root.put("Receptions",rec);return root;
     }
 }
