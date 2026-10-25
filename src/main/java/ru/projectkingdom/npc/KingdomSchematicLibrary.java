@@ -52,10 +52,20 @@ public final class KingdomSchematicLibrary {
         return key != null && key.startsWith(PREFIX);
     }
 
+    /** Names in the in-game architect catalog; persistent keys remain unchanged. */
+    public static String displayName(String name) {
+        return switch (name == null ? "" : name) {
+            case "avalon_royal_gate" -> "Королевские ворота Авалона";
+            case "avalon_merchant_house" -> "Авалон — дом торговца";
+            case "avalon_tfc_smithy_shell" -> "Авалон — кузница (основа)";
+            default -> name;
+        };
+    }
+
     public static String title(String key) {
         if (!isKey(key)) return key;
         String[] parts = key.split(":", -1);
-        return parts.length == 3 ? parts[1] : key;
+        return parts.length == 3 ? displayName(parts[1]) : key;
     }
 
     public static boolean validName(String name) {
