@@ -58,6 +58,22 @@ public final class KingdomNpcMod {
         MinecraftForge.EVENT_BUS.register(this);
     }
 
+    /** Register one of several central-warehouse rooms using two server-verified corners. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
+    public void selectWarehouseCorners(PlayerInteractEvent.RightClickBlock event){
+        if(!(event.getEntity() instanceof ServerPlayer player))return;
+        var warehouse=ru.projectkingdom.administration.KingdomCentralWarehouseRooms.get(player.getServer());
+        if(!warehouse.hasSession(player.getUUID()))return;
+        if(!event.getItemStack().isEmpty()){
+            ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(player.getUUID());
+            player.sendSystemMessage(Component.literal("[Центральный склад] Освободите руку и начните разметку заново."));
+        }else{
+            var outcome=warehouse.select(player,event.getPos());
+            player.sendSystemMessage(Component.literal("[Центральный склад] "+ru.projectkingdom.administration.KingdomCentralWarehouseRooms.message(outcome)));
+        }
+        event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
+    }
+
     /** Protected municipal bank vault: mark opposite corners with an empty-hand click. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
     public void selectBankVaultCorners(PlayerInteractEvent.RightClickBlock event){
@@ -257,7 +273,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
