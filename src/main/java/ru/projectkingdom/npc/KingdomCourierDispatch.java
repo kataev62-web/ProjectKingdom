@@ -30,6 +30,8 @@ public final class KingdomCourierDispatch {
             for(ServerLevel candidate:server.getAllLevels())
                 if(candidate.dimension().location().toString().equals(o.dimension)) {level=candidate;break;}
             if(level==null)continue;
+            if(o.mode==KingdomSupplyOrders.Mode.INTERNAL
+                    && !KingdomEnterpriseInternalSupply.authorized(level,o))continue;
             KingdomNpcData.Worker closest=null;
             double closestDistance=Double.MAX_VALUE;
             for(var w:npcData.all()) {
