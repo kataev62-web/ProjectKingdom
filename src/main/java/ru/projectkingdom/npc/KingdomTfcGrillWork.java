@@ -54,7 +54,7 @@ public final class KingdomTfcGrillWork {
 
     /** Only deterministic recipes with an explicit NEW item and no liquid output. */
     private static ItemStack output(ServerLevel level, ItemStack input) {
-        if (!initialize() || input.isEmpty()) return ItemStack.EMPTY;
+        if (!initialize() || input.isEmpty() || KingdomNpcNutrition.spoiled(input)) return ItemStack.EMPTY;
         try {
             Object found = recipeFor.invoke(null, input.copy());
             if (!(found instanceof Recipe<?> recipe)
@@ -64,7 +64,8 @@ public final class KingdomTfcGrillWork {
             ItemStack out = recipe.getResultItem(level.registryAccess());
             if (out == null || out.isEmpty() || out.getCount() != 1) return ItemStack.EMPTY;
             // A cook must not smelt metal or fire ceramics by using the food grill.
-            if (!input.getItem().isEdible() || !out.getItem().isEdible()) return ItemStack.EMPTY;
+            if (KingdomNpcNutrition.inspect(input)==null
+                    || KingdomNpcNutrition.inspect(out)==null) return ItemStack.EMPTY;
             if (id(out).equals(id(input)) || KingdomCurrency.value(out) > 0
                     || out.is(KingdomCurrency.WALLET.get())) return ItemStack.EMPTY;
             return out;
