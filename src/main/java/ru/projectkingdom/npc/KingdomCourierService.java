@@ -220,6 +220,11 @@ public final class KingdomCourierService {
             updateStatus(level,worker,"IN_TRANSIT");
             return true;
         }
+        if(order.mode==KingdomSupplyOrders.Mode.INTERNAL && order.pickedUp==0
+                && ledger.cancelInternalUntouched(order.id,npc.getUUID())) {
+            updateStatus(level,worker,"INTERNAL_LOT_CHANGED_REPLAN");
+            return false; // Replan from physical stock; never create replacement items.
+        }
         updateStatus(level,worker,"SELLER_OUT_OF_STOCK");
         return false;
     }
