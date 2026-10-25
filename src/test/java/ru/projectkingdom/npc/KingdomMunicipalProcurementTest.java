@@ -79,6 +79,15 @@ final class KingdomMunicipalProcurementTest {
         assertFalse(KingdomMunicipalProcurement.fits(c,lot,65));
     }
 
+    @Test void municipalSpendingCannotConsumeResidentDeposits(){
+        assertTrue(KingdomMunicipalProcurement.fullyBacked(1500,500,1000,200));
+        assertFalse(KingdomMunicipalProcurement.fullyBacked(1200,500,1000,200));
+        assertFalse(KingdomMunicipalProcurement.fullyBacked(1500,100,1000,200));
+        assertFalse(KingdomMunicipalProcurement.fullyBacked(0,0,0,1));
+        assertFalse(KingdomMunicipalProcurement.fullyBacked(Long.MAX_VALUE,Long.MAX_VALUE,
+                Long.MAX_VALUE,1));
+    }
+
     @Test void generalMarketOrderCannotForgeMunicipalFreeDelivery(){
         var ledger=new KingdomSupplyOrders();
         assertNull(ledger.create(UUID.randomUUID(),UUID.randomUUID(),

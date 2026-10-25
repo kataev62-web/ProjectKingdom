@@ -67,8 +67,13 @@ public final class KingdomMunicipalProcurement {
         Proposal quote=select(level,town,itemId,amount,actor.getUUID());
         if(quote==null)return Result.NO_MARKET_FOOD;
         long price=quote.price();
+        long physicallyHeld=KingdomPhysicalCash.value(vault);
+        long cityBacking=admin.treasuryReserve(town);
+        long bankBacking=admin.bankReserve(town);
+        // The same bank room also backs resident deposits. Preserve their
+        // full claims before and after a municipal purchase.
         if(price<1||price>1_000_000 || city.treasury()<price
-                ||admin.treasuryReserve(town)<price ||KingdomPhysicalCash.value(vault)<price)
+                ||!fullyBacked(physicallyHeld,cityBacking,bankBacking,price))
             return Result.NO_MONEY;
         // Everything revalidated on the main server thread before cash withdrawal.
         var receipt=journal.prepare(town,actor.getUUID(),itemId,amount,price,orders);
@@ -103,7 +108,7 @@ public final class KingdomMunicipalProcurement {
                 ||order.buyer.equals(order.seller)
                 ||!order.dimension.equals(level.dimension().location().toString())
                 ||order.source.equals(order.destination)
-                ||!level.hasChunkAt(order.source)||!level.hasChunkAt(order.destination))
+                ||!level.hasChunkAt(order.destination))
             return false;
         var server=level.getServer();
         if(!KingdomMunicipalProcurementData.get(server).authorizedDelivery(order))
@@ -123,6 +128,11 @@ public final class KingdomMunicipalProcurement {
         var city=civics.townAt(level,order.destination);
         if(city==null||!city.id().equals(order.buyer)
                 ||!(level.getBlockEntity(order.destination) instanceof Container))return false;
+        // Once physical cargo has been picked up, the seller's chunk may
+        // unload. Delivery to the public warehouse must still proceed.
+        // For another pickup, the seller must be loaded and listed again.
+        if(order.pickedUp>order.delivered)return true;
+        if(!level.hasChunkAt(order.source))return false;
         boolean registered=false;
         for(var stall:KingdomWarehouseMarket.get(server).all())
             if(stall.owner().equals(order.seller)
@@ -157,6 +167,11 @@ public final class KingdomMunicipalProcurement {
                         ||stall.owner().equals(town)||!level.hasChunkAt(stall.pos())
                         ||stall.pos().equals(destination))continue;
                 if(!(level.getBlockEntity(stall.pos()) instanceof Container source))continue;
+                if(market.nearbyCityMarketTown(level,stall.pos(),8)==null
+                        || !KingdomTerritories.get(level.getServer()).canUse(
+                            level,stall.pos(),stall.owner())
+                        || !KingdomTerritories.get(level.getServer()).canUse(
+                            level,stall.pos().above(),stall.owner()))continue;
                 if(!level.hasChunkAt(stall.pos().above())
                         ||!(level.getBlockEntity(stall.pos().above()) instanceof Container sellerCashbox))
                     continue;
@@ -183,6 +198,14 @@ public final class KingdomMunicipalProcurement {
             }
         }
         return cheapest;
+    }
+
+    /** Preserve both municipal cash and all separate citizen bank liabilities. */
+    static boolean fullyBacked(long vaultCopper,long townLiability,
+                               long bankLiability,long debitCopper) {
+        return vaultCopper>=0 && townLiability>=debitCopper && debitCopper>0
+                && bankLiability>=0 && vaultCopper>=townLiability
+                && vaultCopper-townLiability>=bankLiability;
     }
 
     static boolean fits(Container chest,ItemStack item,int count){
