@@ -126,9 +126,13 @@ public final class KingdomNpcMenu extends ChestMenu {
             && KingdomTfcQuernWork.isQuern(viewer.serverLevel(), w);
         boolean tfcGrill = viewer.level().dimension().location().toString().equals(w.dimension)
             && KingdomTfcGrillWork.isGrill(viewer.serverLevel(), w);
-        icon(9, tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE : Items.CRAFTING_TABLE, tfcQuern
+        boolean tfcPot = viewer.level().dimension().location().toString().equals(w.dimension)
+            && KingdomTfcPotWork.isPot(viewer.serverLevel(),w);
+        icon(9, tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE :
+            tfcPot ? Items.CAULDRON : Items.CRAFTING_TABLE, tfcQuern
             ? "TFC ЖЕРНОВ: реальный помол по рецептам TFC с настоящим ручным камнем"
             : tfcGrill ? "TFC ГРИЛЬ: жарка еды по настоящим рецептам TFC с расходом топлива"
+            : tfcPot ? "TFC КОТЁЛ: штатная варка еды TFC; залей воду, положи ингредиенты и топливо в сырьё"
             : plan==null
                 ? "РЕЦЕПТ (ЛКМ): выложи ингредиенты в первых 9 ячейках сырьевого склада"
                 : "РЕЦЕПТ "+plan.output()+" | ЛКМ: записать заново | ПКМ: цена "+plan.salePrice()+" мед./шт.");
@@ -225,6 +229,11 @@ public final class KingdomNpcMenu extends ChestMenu {
                 if(viewer.level().dimension().location().toString().equals(w.dimension)
                         && KingdomTfcGrillWork.isGrill(viewer.serverLevel(),w)){
                     info("Гриль TFC готовит реальные продукты без ручного рецепта. Положи в сырьевой склад мясо или другую еду и топливо; нужны оба склада, приказ работать и действующая пекарня.");
+                    break;
+                }
+                if(viewer.level().dimension().location().toString().equals(w.dimension)
+                        && KingdomTfcPotWork.isPot(viewer.serverLevel(),w)){
+                    info("Котёл TFC: заранее залей в него настоящую воду, положи сырые продукты и дрова в сырьевой склад. NPC готовит только простые пищевые рецепты TFC; суп и варенье пока вручную.");
                     break;
                 }
                 if(button==1){
