@@ -116,6 +116,9 @@ public final class KingdomRentalsData extends SavedData {
             return buildings.get(e.getKey());
         return null;
     }
+    public UUID receptionForBuilding(UUID buildingId) {
+        return receptions.get(buildingId);
+    }
     public UUID receptionForRoom(UUID roomId) {
         Room r=rooms.get(roomId);
         return r==null?null:receptions.get(r.buildingId());
