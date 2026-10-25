@@ -10,6 +10,7 @@ import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.Containers;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
@@ -92,6 +93,10 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
         // A deleted core must not remain ALREADY_ACTIVE in the persistent ledger.
         if(!state.is(next.getBlock()) && level instanceof ServerLevel server
                 && level.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core && core.bound()) {
+            // If removed by a command or mod bypassing normal break protection,
+            // release real coin items instead of silently deleting their NBT.
+            if(!core.cashInventory().isEmpty())
+                Containers.dropContents(server,pos,core.cashInventory());
             KingdomEnterpriseData.get(server.getServer()).suspendCore(core.owner(),core.enterpriseId(),
                     server.dimension().location().toString(),pos.asLong());
         }
