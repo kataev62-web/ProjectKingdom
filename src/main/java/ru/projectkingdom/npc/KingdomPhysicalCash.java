@@ -9,6 +9,7 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import ru.projectkingdom.administration.AdministrativeBindingRole;
 import ru.projectkingdom.administration.KingdomAdministrationData;
+import ru.projectkingdom.administration.KingdomBankVaultRooms;
 
 /**
  * Server-thread settlement of a purse against real coin ItemStacks in a loaded vault.
@@ -26,6 +27,11 @@ public final class KingdomPhysicalCash {
     public static Container townVault(ServerPlayer actor, java.util.UUID town,
             AdministrativeBindingRole role) {
         if(actor==null||town==null||role==null)return null;
+        if(role==AdministrativeBindingRole.BANK_VAULT){
+            var rooms=KingdomBankVaultRooms.get(actor.getServer());
+            if(rooms.room(town)!=null)
+                return rooms.vault(actor.serverLevel(),town);
+        }
         var bindings=KingdomAdministrationData.get(actor.getServer()).containerBindings(town,role);
         if(bindings.size()!=1)return null;
         var binding=bindings.get(0);
