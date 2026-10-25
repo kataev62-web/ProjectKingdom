@@ -34,12 +34,23 @@ public final class KingdomMunicipalFoodReserves extends SavedData {
                          int winterDays,int preparationDays,int safetyDays) {
         public Policy {
             if(residents < 1 || residents > 100000 || portionsPerDay < 1 || portionsPerDay > 20
-                    || firstWinterDay < 0 || yearDays < 8 || yearDays > 10000
+                    || firstWinterDay < -yearDays || yearDays < 8 || yearDays > 10000
                     || winterDays < 1 || winterDays >= yearDays
                     || preparationDays < 0 || preparationDays > yearDays
                     || safetyDays < 0 || safetyDays > yearDays)
                 throw new IllegalArgumentException("Invalid city food policy");
         }
+        /**
+         * TFC calendar begins in January. Winter spans December-February,
+         * so its previous-year start is month -1 at calendar epoch 0.
+         * Repeating cycle follows the actual configured month length.
+         */
+        public static Policy fromTfcMonth(int residents,int monthDays) {
+            if(monthDays<1 || monthDays>833)throw new IllegalArgumentException("TFC month length");
+            return new Policy(residents,2,-monthDays,monthDays*12,
+                    monthDays*3,monthDays*3,monthDays);
+        }
+
         public static Policy defaults(int residents,long firstWinterDay,int yearDays) {
             int winter=Math.max(1,yearDays/4);
             return new Policy(residents,2,firstWinterDay,yearDays,winter,
@@ -121,7 +132,12 @@ public final class KingdomMunicipalFoodReserves extends SavedData {
         int[] groups=new int[KingdomNpcNutrition.COUNT];
         int counted=0;
         long edible=0,rotten=0;
-        boolean complete=day>=0 && KingdomNpcNutrition.available();
+        // A changed TFC month-length setting invalidates the persisted
+        // seasonal policy until the mayor reconfigures it.
+        int monthDays=KingdomSeasonCalendar.daysInMonth(server);
+        boolean complete=day>=0 && monthDays>0
+                && monthDays*12==policy.yearDays()
+                && KingdomNpcNutrition.available();
         var administration=KingdomAdministrationData.get(server);
         AdministrativeCoreBinding core=administration.core(town,AdministrativeKind.CENTRAL_WAREHOUSE);
         ServerLevel coreLevel=core==null?null:dimension(server,core.dimension());
