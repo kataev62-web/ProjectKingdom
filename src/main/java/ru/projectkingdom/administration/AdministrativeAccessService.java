@@ -62,6 +62,8 @@ public final class AdministrativeAccessService {
         if(!session.dimension().equals(level.dimension().location().toString()))return Status.WRONG_DIMENSION;
         if(pos.distSqr(player.blockPosition())>36)return Status.TOO_FAR;
         if(!level.hasChunkAt(pos))return Status.UNLOADED;
+        if(KingdomBankVaultRooms.get(player.getServer()).at(level,pos)!=null)
+            return Status.ALREADY_BOUND;
         KingdomCivicsData civics=KingdomCivicsData.get(player.getServer());var town=civics.townAt(level,pos);
         if(town==null||!town.id().equals(session.townId()))return Status.FOREIGN_TOWN;
         KingdomAdministrationData data=KingdomAdministrationData.get(player.getServer());
