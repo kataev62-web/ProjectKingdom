@@ -22,7 +22,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox roleTarget,taxAmount,bankAmount;
-    private Button joinButton,landPayButton;
+    private Button joinButton,landPayButton,warehouseBack,warehouseForward;
+    private int warehousePage;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
         if(menu.kind()==AdministrativeKind.TREASURY || menu.kind()==AdministrativeKind.BANK)
@@ -100,6 +101,12 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     AdministrativeActionPacket.RECONCILE_BANK,58,184,246,true);
             }
             case CENTRAL_WAREHOUSE->{
+                warehouseBack=addRenderableWidget(Button.builder(KingdomFonts.readable("◀"),ignored->{
+                    warehousePage=Math.max(0,warehousePage-1);updateVisibility();
+                }).bounds(leftPos+251,topPos+85,24,17).build());
+                warehouseForward=addRenderableWidget(Button.builder(KingdomFonts.readable("▶"),ignored->{
+                    warehousePage++;updateVisibility();
+                }).bounds(leftPos+279,topPos+85,24,17).build());
                 addAction("Новая обычная комната",AdministrativeMenuLayout.Tab.STORAGE,
                     AdministrativeActionPacket.WAREHOUSE_ROOM_GENERAL,54,126,250,true);
                 addAction("Новая продовольственная",AdministrativeMenuLayout.Tab.STORAGE,
@@ -133,6 +140,12 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         if(bankAmount!=null)bankAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
         if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
         if(landPayButton!=null)landPayButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS;
+        int pages=Math.max(1,(menu.warehouseRooms().size()+1)/2);
+        warehousePage=Math.max(0,Math.min(warehousePage,pages-1));
+        if(warehouseBack!=null){warehouseBack.visible=selected==AdministrativeMenuLayout.Tab.STORAGE;
+            warehouseBack.active=warehousePage>0;}
+        if(warehouseForward!=null){warehouseForward.visible=selected==AdministrativeMenuLayout.Tab.STORAGE;
+            warehouseForward.active=warehousePage+1<pages;}
     }
     @Override protected void renderBg(GuiGraphics g,float partial,int mouseX,int mouseY){
         g.fill(leftPos+36,topPos+4,leftPos+imageWidth-4,topPos+imageHeight-4,EDGE);
@@ -186,13 +199,17 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             }
             case STORAGE->{
                 if(menu.kind()==AdministrativeKind.CENTRAL_WAREHOUSE){
-                    line(g,"Городские склады: "+menu.warehouseRooms().size()+" комнат",58,81,MUTED);
-                    int y=98;
-                    for(String info:menu.warehouseRooms()){
-                        if(y>=123)break;
-                        line(g,info,58,y,MUTED);y+=13;
+                    line(g,"Комнат: "+menu.warehouseRooms().size()+" | стр. "+(warehousePage+1),58,84,MUTED);
+                    for(int i=0;i<2;i++){
+                        int index=warehousePage*2+i;
+                        if(index<menu.warehouseRooms().size()){
+                            String label=menu.warehouseRooms().get(index);
+                            if(font.width(label)>258)
+                                label=font.plainSubstrByWidth(label,249)+"…";
+                            line(g,label,58,105+i*14,MUTED);
+                        }
                     }
-                    if(menu.warehouseRooms().isEmpty())line(g,"Построй комнату и отметь два угла.",58,103,MUTED);
+                    if(menu.warehouseRooms().isEmpty())line(g,"Построй комнату и отметь два угла.",58,105,MUTED);
                 }else placeholder(g,"Привязанные реальные контейнеры",90);
             }
             case TRADE->placeholder(g,"Торговые места и заказы",90);
