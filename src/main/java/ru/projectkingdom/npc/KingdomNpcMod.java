@@ -71,6 +71,12 @@ public final class KingdomNpcMod {
     }
 
     // Farmer field selection is bound to a specific owned farm and right-clicked soil.
+    /** Capture only drops from Kingdom's explicitly permitted, synchronous TFC culling. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.LOWEST)
+    public void onOwnedLivestockDrops(net.minecraftforge.event.entity.living.LivingDropsEvent event){
+        KingdomTfcButcheryWork.onRealDrops(event);
+    }
+
     @SubscribeEvent public void chooseFarmCorner(PlayerInteractEvent.RightClickBlock event) {
         KingdomFarmSelection.select(event);
     }
