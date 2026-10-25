@@ -35,6 +35,68 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
             if(sender==null||packet.kind==null||field==null
                     ||!(sender.containerMenu instanceof AdministrativeCoreMenu menu)||!packet.townId.equals(menu.townId())
                     ||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
+            if(field.equals("food_config")||field.equals("food_buy")
+                    ||field.equals("food_refresh")){
+                var civics=KingdomCivicsData.get(sender.getServer());
+                var town=civics.townById(packet.townId);
+                if(town==null||!civics.isMember(packet.townId,sender.getUUID())
+                        ||(packet.kind!=AdministrativeKind.CENTRAL_WAREHOUSE
+                            &&packet.kind!=AdministrativeKind.BANK
+                            &&packet.kind!=AdministrativeKind.TOWN_HALL))return;
+                String notice="";
+                if(field.equals("food_config")){
+                    var admin=KingdomAdministrationData.get(sender.getServer());
+                    if(!AdministrativePermissionService.mayManage(sender.getUUID(),
+                            admin.founder(town.id()),town.mayor(),
+                            admin.roles(town.id(),sender.getUUID()),AdministrativeKind.CENTRAL_WAREHOUSE))
+                        return;
+                    String value=packet.value==null?"":packet.value.trim();
+                    if(!value.matches("[0-9]{1,6}"))notice="Численность: от 1 до 100000.";
+                    else {
+                        int population=Integer.parseInt(value);
+                        int days=ru.projectkingdom.npc.KingdomSeasonCalendar.daysInMonth(sender.getServer());
+                        if(population<1||population>100000||days<1||days>833)
+                            notice="Неверное население или календарь TFC недоступен.";
+                        else {
+                            var policy=ru.projectkingdom.npc.KingdomMunicipalFoodReserves.Policy.fromTfcMonth(
+                                    population,days);
+                            ru.projectkingdom.npc.KingdomMunicipalFoodReserves.get(sender.getServer())
+                                    .configure(town.id(),policy);
+                            notice="План на "+population+" жителей сохранён; запас пересчитан.";
+                        }
+                    }
+                }else if(field.equals("food_buy")){
+                    if(packet.kind!=AdministrativeKind.BANK)return;
+                    String value=packet.value==null?"":packet.value.trim();
+                    int at=value.lastIndexOf('|');
+                    if(at<1 || at==value.length()-1)return;
+                    String item=value.substring(0,at);
+                    String count=value.substring(at+1);
+                    if(item.length()>64||!count.matches("[0-9]{1,2}"))return;
+                    // The menu is only a hint: actual bank cash, TFC stock,
+                    // rights, price and recipient are checked again at purchase.
+                    if(menu.foodView().offers().stream().noneMatch(v->v.itemId().equals(item)))
+                        return;
+                    var status=ru.projectkingdom.npc.KingdomMunicipalProcurement.purchase(
+                            sender,item,Integer.parseInt(count));
+                    notice=switch(status){
+                        case SUCCESS->"Оплачено. NPC-курьер везёт реальные товары.";
+                        case NO_PERMISSION->"Недостаточно прав распоряжаться казной.";
+                        case NOT_AT_BANK->"Для оплаты откройте банк своего города.";
+                        case UNKNOWN_RESERVE->"Склад или календарь TFC не проверены.";
+                        case NO_SHORTAGE->"Нет подтверждённой нехватки на этот объём.";
+                        case ALREADY_ORDERED->"Заказ уже активен либо ожидает сверки.";
+                        case NO_MARKET_FOOD->"Товар, касса или место на складе недоступны.";
+                        case NO_DESTINATION->"Не найден действующий городской склад.";
+                        case NO_MONEY->"Не хватает обеспеченных монет в банке.";
+                        case PAYMENT_REQUIRES_REVIEW->"Платёж на сверке. Повторять нельзя!";
+                    };
+                }else notice="Остатки и предложения обновлены.";
+                var core=sender.serverLevel().getBlockEntity(menu.corePos());
+                if(core instanceof AdministrativeCoreBlockEntity active)
+                    AdministrativeCoreMenu.open(sender,active,notice);
+                return;
+            }
             if(field.equals("bank_deposit")||field.equals("bank_withdraw")){
                 if(packet.kind!=AdministrativeKind.BANK)return;
                 String value=packet.value==null?"":packet.value.trim();
