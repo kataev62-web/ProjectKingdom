@@ -14,7 +14,8 @@ public final class KingdomNpcFarmOwner {
     private KingdomNpcFarmOwner(){}
 
     public static UUID ownedFarm(MinecraftServer server,KingdomNpcData.Worker npc) {
-        if(npc==null||npc.entityId==null||!"farmer".equals(npc.job)||npc.ageYears<18)
+        if(npc==null||npc.entityId==null
+            ||!("farmer".equals(npc.job)||"breeder".equals(npc.job))||npc.ageYears<18)
             return null;
         var registry=KingdomNpcData.get(server);
         boolean exists=registry.all().stream().anyMatch(w->w.entityId.equals(npc.entityId));
