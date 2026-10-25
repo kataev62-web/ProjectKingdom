@@ -114,6 +114,21 @@ public final class KingdomSupplyOrders extends SavedData {
         o.state=State.CANCELLED;setDirty();return true;
     }
 
+    /**
+     * A specific TFC lot may spoil or be removed before pickup. Releasing an
+     * untouched INTERNAL order is safe; after any physical pickup it is not.
+     */
+    boolean cancelInternalUntouched(UUID id, UUID carrier) {
+        Order o=orders.get(id);
+        if(o==null || o.mode!=Mode.INTERNAL || o.pendingKind!=null
+                || o.pickedUp!=0 || o.delivered!=0 || o.goodsEscrow!=0
+                || o.deliveryEscrow!=0 || o.state==State.CANCELLED
+                || o.state==State.DELIVERED
+                || (o.state==State.ASSIGNED && !Objects.equals(o.courier,carrier))
+                || (o.state!=State.OPEN && o.state!=State.ASSIGNED))return false;
+        o.state=State.CANCELLED;setDirty();return true;
+    }
+
     /** Reserve prepaid physical cash for a new order. Called only after a successful wallet debit. */
     public boolean escrow(UUID id, long goods, long delivery) {
         Order o=orders.get(id);
