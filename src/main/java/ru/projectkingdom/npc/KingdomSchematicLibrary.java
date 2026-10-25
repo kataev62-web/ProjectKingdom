@@ -38,6 +38,13 @@ public final class KingdomSchematicLibrary {
     private static final int MAX_VOLUME = 65_536;
     private static final long MAX_COMPRESSED = 2L * 1024L * 1024L;
     private static final String HASH_PATTERN = "[a-f0-9]{64}";
+    /**
+     * These three schematics are original Project Kingdom assets, shipped with
+     * the mod JAR. Imported third-party schematics remain world-local.
+     */
+    private static final List<String> BUNDLED_AVALON = List.of(
+        "avalon_merchant_house", "avalon_royal_gate", "avalon_tfc_smithy_shell");
+
     private static final Map<MinecraftServer, Map<String, KingdomDesignEngine.Design>> CACHE =
         new WeakHashMap<>();
 
@@ -60,7 +67,46 @@ public final class KingdomSchematicLibrary {
             .resolve("data").resolve("kingdom_schematics");
     }
 
+    /**
+     * Unpacks first-party plans once per world. Never overwrites an existing
+     * file, even if the admin has already modified the building in their world.
+     * Import happens only in server-side code: no client filesystem access.
+     */
+    private static void installBundled(MinecraftServer server) {
+        Path directory = folder(server);
+        if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)
+                && !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) return;
+        try {
+            Files.createDirectories(directory);
+            for (String name : BUNDLED_AVALON) {
+                Path target = directory.resolve(name + ".schem");
+                if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) continue;
+                String resource = "/assets/kingdomnpc/avalon/" + name + ".schem";
+                try (var input = KingdomSchematicLibrary.class.getResourceAsStream(resource)) {
+                    if (input == null) throw new IOException("Missing bundled plan: " + name);
+                    Path temp = Files.createTempFile(directory, name + "-", ".tmp");
+                    try {
+                        Files.copy(input, temp, StandardCopyOption.REPLACE_EXISTING);
+                        readDesign(temp, name); // Reject invalid or unsafe blocks before installation.
+                        try {
+                            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE);
+                        } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                            Files.move(temp, target);
+                        } catch (java.nio.file.FileAlreadyExistsException ignored) {
+                            // World administrator created their own file concurrently.
+                        }
+                    } finally {
+                        Files.deleteIfExists(temp);
+                    }
+                }
+            }
+        } catch (IOException | IllegalArgumentException error) {
+            System.err.println("[Project Kingdom] Avalon schematic import failed: " + error.getMessage());
+        }
+    }
+
     public static List<String> available(MinecraftServer server) {
+        installBundled(server);
         Path folder = folder(server);
         if (!Files.isDirectory(folder, LinkOption.NOFOLLOW_LINKS)) return List.of();
         ArrayList<String> names = new ArrayList<>();
@@ -83,6 +129,8 @@ public final class KingdomSchematicLibrary {
      */
     public static String freeze(MinecraftServer server, String name) throws IOException {
         if (!validName(name)) throw new IOException("Invalid schematic name");
+        // Backstop for callers who open a plan directly rather than via the list.
+        if (BUNDLED_AVALON.contains(name)) installBundled(server);
         Path source = folder(server).resolve(name + ".schem");
         validateFile(source);
         // Validate the complete blockstate palette before making it selectable.
