@@ -140,11 +140,11 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 if(menu.kind()==AdministrativeKind.BANK){
                     line(g,"Архив старого личного счёта: "+menu.legacyPersonal()+" мед.",58,80,MUTED);
                     if(menu.manager()){
-                        line(g,"Архив обязательств банка: "+menu.legacyBank()+" мед.",58,102,MUTED);
-                        line(g,"Архив старой казны: "+menu.legacyTown()+" мед.",58,121,MUTED);
-                        line(g,"Архив не равен доступным монетам!",58,140,ACCENT);
-                        line(g,menu.vaultCopper()<0?"Комната/сундуки не загружены.":
-                                "Физические монеты: "+menu.vaultCopper()+" мед.",58,151,MUTED);
+                        line(g,"Архив банка: "+menu.legacyBank()+" мед.",58,98,MUTED);
+                        line(g,"Архив казны: "+menu.legacyTown()+" мед.",58,115,MUTED);
+                        line(g,menu.vaultCopper()<0?"Комната недоступна — загрузи чанки.":
+                                "Настоящие монеты в комнате: "+menu.vaultCopper(),58,132,MUTED);
+                        line(g,"Архив нельзя снимать как наличные!",58,145,ACCENT);
                     }else line(g,"Архив — на сверке. Снять его нельзя.",58,105,ACCENT);
                 }else{
                     line(g,"Основатель: "+menu.founder(),58,90,MUTED);
