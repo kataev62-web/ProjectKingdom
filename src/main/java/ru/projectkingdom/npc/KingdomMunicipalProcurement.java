@@ -73,8 +73,7 @@ public final class KingdomMunicipalProcurement {
         // The same bank room also backs resident deposits. Preserve their
         // full claims before and after a municipal purchase.
         if(price<1||price>1_000_000 || city.treasury()<price
-                ||cityBacking<price || physicallyHeld<0
-                ||physicallyHeld<cityBacking || physicallyHeld-cityBacking<bankBacking)
+                ||!fullyBacked(physicallyHeld,cityBacking,bankBacking,price))
             return Result.NO_MONEY;
         // Everything revalidated on the main server thread before cash withdrawal.
         var receipt=journal.prepare(town,actor.getUUID(),itemId,amount,price,orders);
@@ -199,6 +198,14 @@ public final class KingdomMunicipalProcurement {
             }
         }
         return cheapest;
+    }
+
+    /** Preserve both municipal cash and all separate citizen bank liabilities. */
+    static boolean fullyBacked(long vaultCopper,long townLiability,
+                               long bankLiability,long debitCopper) {
+        return vaultCopper>=0 && townLiability>=debitCopper && debitCopper>0
+                && bankLiability>=0 && vaultCopper>=townLiability
+                && vaultCopper-townLiability>=bankLiability;
     }
 
     static boolean fits(Container chest,ItemStack item,int count){
