@@ -1,7 +1,6 @@
 package ru.projectkingdom.npc;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.LongArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -51,31 +50,27 @@ public final class KingdomMunicipalFoodCommands {
             }))
             .then(Commands.literal("configure")
                 .then(Commands.argument("residents",IntegerArgumentType.integer(1,100000))
-                .then(Commands.argument("nextWinterDay",LongArgumentType.longArg(0))
-                .then(Commands.argument("yearDays",IntegerArgumentType.integer(8,10000))
                 .executes(ctx -> {
                     ServerPlayer player=ctx.getSource().getPlayerOrException();
-                    var civics=KingdomCivicsData.get(player.getServer());
-                    var town=civics.townOf(player.getUUID());
+                    var town=KingdomCivicsData.get(player.getServer()).townOf(player.getUUID());
                     if(town==null || (!player.hasPermissions(2)
                             && !town.mayor().equals(player.getUUID()))) {
                         message(player,"Настройка доступна только главе своего поселения.");return 0;
                     }
-                    long day=LongArgumentType.getLong(ctx,"nextWinterDay");
-                    long currentDay=KingdomSeasonCalendar.totalDays(player.getServer());
-                    if(currentDay<0) {
+                    int monthDays=KingdomSeasonCalendar.daysInMonth(player.getServer());
+                    if(monthDays<1 || monthDays>833
+                            || KingdomSeasonCalendar.totalDays(player.getServer())<0) {
                         message(player,"Календарь TFC недоступен. Настройка не записана.");return 0;
                     }
                     int residents=IntegerArgumentType.getInteger(ctx,"residents");
-                    int year=IntegerArgumentType.getInteger(ctx,"yearDays");
-                    var policy=KingdomMunicipalFoodReserves.Policy.defaults(residents,day,year);
-                    if(!KingdomMunicipalFoodReserves.get(player.getServer())
-                            .configure(town.id(),policy))return 0;
-                    message(player,"План резервов сохранён: "+residents+
-                        " жителей, следующая зима от дня TFC "+day+
-                        ", год "+year+" дней. Без автоматического расхода казны.");
+                    var policy=KingdomMunicipalFoodReserves.Policy.fromTfcMonth(residents,monthDays);
+                    KingdomMunicipalFoodReserves.get(player.getServer()).configure(town.id(),policy);
+                    message(player,"Резервы настроены для "+residents+" жителей: "+
+                            "календарь TFC "+monthDays+" дней/месяц, зимнее снабжение и "+
+                            "страховой запас включены. Денег и товаров не списано.");
                     return 1;
-                })))));
+                })));
+
     }
 
     private static void message(ServerPlayer player,String line) {
