@@ -1,6 +1,9 @@
 package ru.projectkingdom.npc;
 
 import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import java.util.UUID;
+import ru.projectkingdom.administration.AdministrativeBindingRole;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -48,6 +51,44 @@ public final class KingdomMunicipalFoodCommands {
                     message(player,"НЕОБХОДИМО ПОПОЛНЕНИЕ: информационная потребность, товары и деньги НЕ списаны.");
                 return 1;
             }))
+            .then(Commands.literal("offers")
+                .then(Commands.argument("item",StringArgumentType.word())
+                .executes(ctx -> {
+                    ServerPlayer player=ctx.getSource().getPlayerOrException();
+                    var town=KingdomCivicsData.get(player.getServer()).townOf(player.getUUID());
+                    if(town==null){message(player,"Для поиска закупок вступите в поселение.");return 0;}
+                    String item=StringArgumentType.getString(ctx,"item");
+                    var available=KingdomMunicipalProcurement.select(
+                            player.serverLevel(),town.id(),item,1,player.getUUID());
+                    if(available==null){message(player,"Нет доступного продукта на рынке или нет места в городском резерве.");return 0;}
+                    message(player,"Самое дешёвое проверенное предложение: "+item+
+                            " — "+available.seller().copperPerItem()+" мед./шт., склад "+
+                            available.destination().toShortString()+". Закупка: /knpc reserve buy "+
+                            item+" 1 (возле городского банка).");
+                    return 1;
+                })))
+            .then(Commands.literal("buy")
+                .then(Commands.argument("item",StringArgumentType.word())
+                .then(Commands.argument("count",IntegerArgumentType.integer(1,16))
+                .executes(ctx -> {
+                    ServerPlayer player=ctx.getSource().getPlayerOrException();
+                    String item=StringArgumentType.getString(ctx,"item");
+                    int amount=IntegerArgumentType.getInteger(ctx,"count");
+                    var result=KingdomMunicipalProcurement.purchase(player,item,amount);
+                    message(player,switch(result){
+                        case SUCCESS -> "Городская закупка оплачена реальными монетами. Курьер получит заказ; поступление ещё не подтверждено.";
+                        case NO_PERMISSION -> "Нет прав распоряжаться городской казной.";
+                        case NOT_AT_BANK -> "Подойдите к действующему банку своего города.";
+                        case UNKNOWN_RESERVE -> "Склад/календарь TFC недоступен: закупки заблокированы.";
+                        case NO_SHORTAGE -> "Нет подтверждённого дефицита на указанное количество.";
+                        case ALREADY_ORDERED -> "Такой товар уже заказан или предыдущая оплата требует проверки.";
+                        case NO_MARKET_FOOD -> "Нет подходящего свежего товара, места, кассы продавца или подтверждённого предложения.";
+                        case NO_DESTINATION -> "Нет действующего городского склада для приёмки.";
+                        case NO_MONEY -> "Недостаточно подтверждённых реальных монет в городском банке.";
+                        case PAYMENT_REQUIRES_REVIEW -> "ОПЕРАЦИЯ ОСТАНОВЛЕНА: ручная сверка банковских монет, казны и заказов обязательна. Не повторяйте!";
+                    });
+                    return result==KingdomMunicipalProcurement.Result.SUCCESS?1:0;
+                }))))
             .then(Commands.literal("configure")
                 .then(Commands.argument("residents",IntegerArgumentType.integer(1,100000))
                 .executes(ctx -> {
