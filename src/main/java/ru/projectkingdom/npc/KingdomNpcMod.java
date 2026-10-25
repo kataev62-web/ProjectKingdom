@@ -357,7 +357,6 @@ public final class KingdomNpcMod {
     public void commands(RegisterCommandsEvent event) {
         KingdomExpansionCommands.register(event);
         var root = Commands.literal("knpc");
-        root.then(KingdomMunicipalFoodCommands.command());
         root.then(Commands.literal("talk")
             .then(Commands.argument("id", IntegerArgumentType.integer(1))
             .then(Commands.argument("phrase", StringArgumentType.greedyString()).executes(ctx -> {

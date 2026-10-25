@@ -26,6 +26,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private int warehousePage;
     private int foodPage;
     private final List<Button> foodTabs=new ArrayList<>();
+    private Button foodReload;
     private final List<Button> foodOffers=new ArrayList<>();
     private EditBox foodResidents,foodQuantity;
     private Button foodSave,foodBuy;
@@ -40,7 +41,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     @Override protected void init(){
         super.init();
         var tabs=menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()
-                ?List.of(AdministrativeMenuLayout.Tab.INFO,AdministrativeMenuLayout.Tab.CITIZENS)
+                ?List.of(AdministrativeMenuLayout.Tab.INFO,AdministrativeMenuLayout.Tab.CITIZENS,
+                        AdministrativeMenuLayout.Tab.FOOD)
                 :AdministrativeMenuLayout.tabs(menu.kind());
         var rects=AdministrativeMenuLayout.tabRects(menu.kind());
         for(int i=0;i<tabs.size();i++){
@@ -140,6 +142,9 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     .bounds(leftPos+57+i*83,topPos+81,78,20).build());
             foodTabs.add(button);
         }
+        foodReload=addRenderableWidget(Button.builder(KingdomFonts.readable("⟳"),
+                ignored->sendText("food_refresh","refresh"))
+                .bounds(leftPos+304,topPos+81,25,20).build());
         foodResidents=addRenderableWidget(new EditBox(font,leftPos+156,topPos+173,
                 74,18,KingdomFonts.readable("Жители")));
         foodResidents.setMaxLength(6);
@@ -187,6 +192,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
         boolean food=selected==AdministrativeMenuLayout.Tab.FOOD&&menu.member();
         for(Button b:foodTabs)b.visible=food;
+        if(foodReload!=null)foodReload.visible=food;
         for(Button b:foodOffers)b.visible=food&&foodPage==1;
         if(foodResidents!=null)foodResidents.setVisible(food&&foodPage==0&&menu.foodView().canConfigure());
         if(foodSave!=null)foodSave.visible=food&&foodPage==0&&menu.foodView().canConfigure();
