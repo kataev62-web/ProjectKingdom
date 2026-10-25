@@ -21,8 +21,15 @@ public final class KingdomClaimProtection {
         if(!(player instanceof ServerPlayer p)||p.hasPermissions(2))return false;
         ServerLevel level=p.serverLevel();
         KingdomCivicsData data=KingdomCivicsData.get(p.getServer());
+        String dimension=level.dimension().location().toString();
+        // A lawful room tenancy is more specific than the surrounding chunk
+        // owner/tenant. This is NOT a lock-picking or criminal-access mechanic.
+        var room=ru.projectkingdom.property.KingdomRentalsData.get(p.getServer())
+                .roomAccess(p.getUUID(),dimension,pos,action,System.currentTimeMillis());
+        if(room==ru.projectkingdom.property.KingdomRentalsData.Access.DENIED)return true;
+        if(room==ru.projectkingdom.property.KingdomRentalsData.Access.ALLOWED)return false;
         if(data.plot(level,pos)==null)return false;
-        return !data.allowed(p.getUUID(),level.dimension().location().toString(),pos.getX(),pos.getZ(),action);
+        return !data.allowed(p.getUUID(),dimension,pos.getX(),pos.getZ(),action);
     }
     @SubscribeEvent public static void breakBlock(BlockEvent.BreakEvent event) {
         if(denied(event.getPlayer(),event.getPos(),KingdomCivicsData.Action.BREAK))event.setCanceled(true);
