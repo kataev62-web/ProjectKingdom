@@ -123,6 +123,8 @@ public final class EnterpriseAccessService {
         if(firm==null||!firm.owner().equals(player.getUUID()))return Status.NO_PERMISSION;
         if(!level.hasChunkAt(pos))return Status.BOUND_UNLOADED;
         if(!mayUse(level,pos,firm.owner()))return Status.FOREIGN_TERRITORY;
+        if(ru.projectkingdom.administration.KingdomBankVaultRooms.get(player.getServer())
+                .at(level,pos)!=null)return Status.ALREADY_ASSIGNED;
         Status container=checkContainer(level,pos,firm.owner());
         if(container!=Status.BOUND_AVAILABLE)return container;
         if(assignedElsewhere(data,session.enterpriseId(),session.role(),level,pos))return Status.ALREADY_ASSIGNED;
