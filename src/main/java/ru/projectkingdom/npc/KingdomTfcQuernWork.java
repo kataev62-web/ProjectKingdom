@@ -67,7 +67,7 @@ public final class KingdomTfcQuernWork {
     /** Let TFC itself match datapack recipes and assemble provider-dependent items. */
     @SuppressWarnings("unchecked")
     private static ItemStack recipeOutput(ServerLevel level, ItemStack input) {
-        if (!init() || input.isEmpty()) return ItemStack.EMPTY;
+        if (!init() || input.isEmpty() || KingdomNpcNutrition.spoiled(input)) return ItemStack.EMPTY;
         try {
             Object wrapped = inventoryCtor.newInstance(input.copy());
             Object found = findRecipe.invoke(null, level, wrapped);
