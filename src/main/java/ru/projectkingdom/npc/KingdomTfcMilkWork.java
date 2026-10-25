@@ -99,8 +99,7 @@ public final class KingdomTfcMilkWork {
         if(cap==null)return false;
         FluidStack inside=cap.drain(Integer.MAX_VALUE,IFluidHandler.FluidAction.SIMULATE);
         // Keep existing player-owned nonmilk fluid vessels out of finished production.
-        return !inside.isEmpty() && "minecraft:milk".equals(
-            net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(inside.getFluid()).toString());
+        return !inside.isEmpty() && inside.getFluid()==net.minecraftforge.common.ForgeMod.MILK.get();
     }
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                Animal animal,Container raw,BlockPos source,Container finished){
