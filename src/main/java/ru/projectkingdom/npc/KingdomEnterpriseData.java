@@ -569,6 +569,19 @@ public final class KingdomEnterpriseData extends SavedData {
         firms.put(business,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         setDirty();return true;
     }
+    /** Called only by a completed server-side notice trade after actual coins left
+     * the company's private core till. There is no client-direct ledger command.
+     */
+    public boolean recordPhysicalNoticePayment(ServerLevel level,UUID business,Container till,long amount){
+        Enterprise firm=firms.get(business);
+        var core=EnterpriseAccessService.snapshot(level,this,business,EnterpriseBindingRole.CASHBOX);
+        if(firm==null||amount<1||amount>1_000_000||firm.cash()<amount
+                ||core.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||core.container()!=till || KingdomPhysicalCash.value(till)!=firm.cash()-amount)
+            return false;
+        firms.put(business,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
+        setDirty();return true;
+    }
     /** Explicit trade offer by owner; offer is NOT a reservation and is rechecked at purchase. */
     public Offer listItem(ServerPlayer seller, String itemId, long unitPrice) {
         Enterprise firm=owned(seller.getUUID());
