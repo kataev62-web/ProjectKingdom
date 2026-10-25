@@ -140,6 +140,13 @@ class KingdomRentalsDataTest {
         assertEquals(building,loaded.receptionBuilding(hotel));
         assertEquals(rentals.room(first.id()),loaded.roomsAtReception(hotel).get(0));
         assertTrue(loaded.receptionHasObligations(hotel));
+        assertFalse(loaded.releaseVacantReception(hotel));
+        assertTrue(loaded.surrender(tenant,first.id()));
+        assertTrue(loaded.releaseVacantReception(hotel));
+        assertNull(loaded.receptionForRoom(first.id()));
+        assertNotNull(loaded.room(first.id()));
+        assertTrue(loaded.bindReception(land,owner,tavern,DIM,new BlockPos(3,64,3)));
+        assertEquals(tavern,loaded.receptionForRoom(first.id()));
     }
 
     @Test void boundsLimitAndStructuralSurfaces() {
