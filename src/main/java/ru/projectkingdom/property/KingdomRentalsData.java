@@ -99,13 +99,16 @@ public final class KingdomRentalsData extends SavedData {
     public static boolean ownsFullFootprint(KingdomCivicsData deeds,UUID actor,
                                              String dimension,Bounds bounds) {
         if(deeds==null||actor==null||dimension==null)return false;
+        var plots=deeds.mapPlots(dimension);
         for(int x=bounds.minX()>>4;x<=bounds.maxX()>>4;x++)
             for(int z=bounds.minZ()>>4;z<=bounds.maxZ()>>4;z++){
                 if(!actor.equals(deeds.plotOwner(dimension,x,z)))return false;
-                var plot=deeds.mapPlots(dimension).stream()
-                        .filter(p->p.x()==x&&p.z()==z).findFirst().orElse(null);
-                if(plot==null||plot.tenant()!=null
-                        ||deeds.leaseContract(dimension,x,z)!=null)return false;
+                boolean found=false;
+                for(var plot:plots)if(plot.x()==x&&plot.z()==z) {
+                    if(plot.tenant()!=null) return false;
+                    found=true;break;
+                }
+                if(!found||deeds.leaseContract(dimension,x,z)!=null)return false;
             }
         return true;
     }
@@ -163,7 +166,7 @@ public final class KingdomRentalsData extends SavedData {
         Room room=rooms.get(roomId);
         Building b=room==null?null:buildings.get(room.buildingId());
         return tenant!=null&&room!=null&&room.listed()&&!room.reserved()
-                &&now>=0&&now<=Long.MAX_VALUE-room.days()*DAY
+                &&b!=null&&now>=0&&now<=Long.MAX_VALUE-room.days()*DAY
                 &&!tenant.equals(b.owner())&&validOwner(deeds,b.owner(),b);
     }
     /** Called ONLY after physical bank vault cash deposit. */
