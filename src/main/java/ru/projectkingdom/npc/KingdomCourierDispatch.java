@@ -20,7 +20,8 @@ public final class KingdomCourierDispatch {
         }
         int assigned=0;
         for(var o:orders.all()) {
-            if(o.mode != KingdomSupplyOrders.Mode.COURIER || o.state != KingdomSupplyOrders.State.OPEN
+            if((o.mode != KingdomSupplyOrders.Mode.COURIER && o.mode != KingdomSupplyOrders.Mode.INTERNAL)
+                    || o.state != KingdomSupplyOrders.State.OPEN
                     || o.courier != null || !o.deliveryPaid
                     || (o.goodsEscrow<=0 && !o.goodsPaid && !o.buyer.equals(o.seller))) continue;
             // Choose the closest idle courier in the same dimension. Never load
