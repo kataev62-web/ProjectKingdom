@@ -97,7 +97,7 @@ public final class KingdomNpcWorkshop {
         },3,3);
         for(int i=0;i<9;i++){
             var stack=from.getItem(i);
-            if(money(stack))return null;
+            if(money(stack) || KingdomNpcNutrition.spoiled(stack))return null;
             if(blueprint!=null){
                 String needed=blueprint.get(i);
                 if(needed.isBlank()){if(!stack.isEmpty())return null;}
@@ -152,13 +152,15 @@ public final class KingdomNpcWorkshop {
                 continue;
             }
             if(!prepared.get(i).isEmpty()){
-                if(!item.equals(BuiltInRegistries.ITEM.getKey(prepared.get(i).getItem()).toString()))return false;
+                if(!item.equals(BuiltInRegistries.ITEM.getKey(prepared.get(i).getItem()).toString())
+                    || KingdomNpcNutrition.spoiled(prepared.get(i)))return false;
                 continue;
             }
             boolean found=false;
             for(int j=9;j<prepared.size();j++){
                 var stack=prepared.get(j);
                 if(stack.isEmpty()||!item.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
+                        ||KingdomNpcNutrition.spoiled(stack)||money(stack)
                         ||!raw.canTakeItem(raw,j,stack)||!raw.canPlaceItem(i,stack))continue;
                 var one=stack.copy();one.setCount(1);stack.shrink(1);prepared.set(i,one);
                 found=true;changed=true;break;
