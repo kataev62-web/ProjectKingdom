@@ -26,7 +26,7 @@ public final class KingdomNpcNutrition {
     private static boolean init(){
         if(initialized)return supported;
         initialized=true;
-        if(!ModList.get().isLoaded("tfc"))return false;
+        if(ModList.get()==null||!ModList.get().isLoaded("tfc"))return false;
         try{
             Class<?> capability=Class.forName("net.dries007.tfc.common.capabilities.food.FoodCapability");
             Class<?> food=Class.forName("net.dries007.tfc.common.capabilities.food.IFood");
