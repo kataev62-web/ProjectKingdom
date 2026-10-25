@@ -75,6 +75,52 @@ public final class KingdomEnterpriseData extends SavedData {
      * Persistent history is retained for audit, while the placed block is returned
      * as an UNBOUND item so it can create a fresh registered enterprise.
      */
+    public enum CashMigration { MOVED, READY, NO_OLD_CASHBOX, NO_RIGHTS, CORE_UNAVAILABLE,
+        OLD_UNAVAILABLE, UNSUPPORTED_BALANCE, FULL, PARTIAL }
+    public static String cashMigrationMessage(CashMigration result){
+        return switch(result){
+            case MOVED->"Все монеты прежней кассы перенесены внутрь блока предприятия. Старый сундук освобождён.";
+            case READY->"Касса уже находится внутри блока. Дополнительный сундук не нужен.";
+            case NO_OLD_CASHBOX->"Старая касса не привязана. Пользуйтесь кассой внутри блока предприятия.";
+            case NO_RIGHTS->"Перенос кассы может выполнить только владелец предприятия.";
+            case CORE_UNAVAILABLE->"Подойдите к своему блоку предприятия и загрузите его чанк.";
+            case OLD_UNAVAILABLE->"Старый кассовый сундук не найден или не загружен. Подойдите к нему и повторите.";
+            case UNSUPPORTED_BALANCE->"Сумма монет в старой кассе и в блоке не совпадает с учтёнными деньгами предприятия. Нужна сверка; монеты не созданы.";
+            case FULL->"Внутренней кассе не хватило места или номиналы не позволяют перенести сумму.";
+            case PARTIAL->"Перенесена часть суммы. Нажмите «Перенести монеты» снова.";
+        };
+    }
+    /** Migrate old physical cash without duplicating the ledger or erasing goods.
+     * The ledger must equal the combined real coin value before any transfer.
+     */
+    public CashMigration migrateLegacyCash(ServerPlayer player,UUID business){
+        Enterprise firm=firms.get(business);
+        if(player==null||firm==null||!mayManage(player.getUUID(),business))return CashMigration.NO_RIGHTS;
+        var inner=EnterpriseAccessService.snapshot(player.serverLevel(),this,business,EnterpriseBindingRole.CASHBOX);
+        if(inner.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||inner.container()==null
+                ||inner.position().distSqr(player.blockPosition())>64)return CashMigration.CORE_UNAVAILABLE;
+        var old=storageBinding(business,EnterpriseBindingRole.CASHBOX);
+        if(old==null)return CashMigration.NO_OLD_CASHBOX;
+        if(!old.dimension().equals(player.serverLevel().dimension().location().toString())
+                ||!player.serverLevel().hasChunkAt(old.pos()))return CashMigration.OLD_UNAVAILABLE;
+        var from=KingdomContainerAccess.resolve(player.serverLevel(),old.pos());
+        if(from==null||from==inner.container())return CashMigration.OLD_UNAVAILABLE;
+        long source=KingdomPhysicalCash.value(from),inside=KingdomPhysicalCash.value(inner.container());
+        if(source<0||inside<0||source>Long.MAX_VALUE-inside || source+inside!=firm.cash())
+            return CashMigration.UNSUPPORTED_BALANCE;
+        if(source==0){
+            storageBindings.get(business).remove(EnterpriseBindingRole.CASHBOX);
+            setDirty();return CashMigration.READY;
+        }
+        long amount=Math.min(source,1_000_000L);
+        if(!KingdomPhysicalCash.move(from,inner.container(),amount))return CashMigration.FULL;
+        if(source==amount){
+            storageBindings.get(business).remove(EnterpriseBindingRole.CASHBOX);
+            setDirty();return CashMigration.MOVED;
+        }
+        setDirty();return CashMigration.PARTIAL;
+    }
+
     public ClosureStatus closeBusiness(ServerPlayer player,UUID business,BlockPos pos){
         if(player==null||business==null)return ClosureStatus.NOT_FOUND;
         Enterprise firm=firms.get(business);
@@ -354,7 +400,8 @@ public final class KingdomEnterpriseData extends SavedData {
         return false;
     }
     public boolean bindStorage(UUID actor,UUID enterprise,EnterpriseBindingRole role,String dimension,BlockPos pos){
-        if(!mayManage(actor,enterprise)||role==null||dimension==null||dimension.isBlank()||pos==null)return false;
+        if(!mayManage(actor,enterprise)||role==null||role==EnterpriseBindingRole.CASHBOX
+                ||dimension==null||dimension.isBlank()||pos==null)return false;
         for(var byRole:storageBindings.values())for(StorageBinding other:byRole.values())
             if(other.dimension().equals(dimension)&&other.pos().equals(pos)
                     &&(!other.enterprise().equals(enterprise)||other.role()!=role))return false;
@@ -367,6 +414,7 @@ public final class KingdomEnterpriseData extends SavedData {
                 ||firm.cash()>Long.MAX_VALUE-amount)return false;
         var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,enterprise,EnterpriseBindingRole.CASHBOX);
         if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
                 ||!KingdomPhysicalCash.deposit(actor,cash.container(),amount))return false;
         firms.put(enterprise,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));setDirty();return true;
     }
@@ -470,6 +518,7 @@ public final class KingdomEnterpriseData extends SavedData {
         if(firm==null || !atCounter(actor,firm.id()) || amount<=0 || amount>1000000 || firm.cash()>Long.MAX_VALUE-amount)return false;
         var cash=EnterpriseAccessService.snapshot(actor.serverLevel(),this,firm.id(),EnterpriseBindingRole.CASHBOX);
         if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
+                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
                 ||!KingdomPhysicalCash.deposit(actor,cash.container(),amount))return false;
         firms.put(firm.id(),new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()+amount));
         actor.getInventory().setChanged();setDirty();return true;
@@ -715,6 +764,7 @@ public final class KingdomEnterpriseData extends SavedData {
                     || originalSlot.getCount()>=originalSlot.getMaxStackSize())))return false;
         var cash=EnterpriseAccessService.snapshot(level,this,sellerId,EnterpriseBindingRole.CASHBOX);
         if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE || cash.container()==source
+                || KingdomPhysicalCash.value(cash.container())<vendor.cash()
                 || !KingdomPhysicalCash.deposit(visitor,cash.container(),offer.unitPrice()))return false;
         from.shrink(1);
         if(originalSlot.isEmpty())inventory.setItem(destination,delivery.copy());
@@ -770,6 +820,7 @@ public final class KingdomEnterpriseData extends SavedData {
         if(coinsFrom==null||coinsTo==null||coinsFrom==coinsTo
                 ||coinsFrom==from||coinsFrom==to||coinsTo==from||coinsTo==to
                 ||KingdomPhysicalCash.value(coinsFrom)<purchaser.cash()
+                ||KingdomPhysicalCash.value(coinsTo)<vendor.cash()
                 ||!KingdomPhysicalCash.canMove(coinsFrom,coinsTo,total))return false;
         List<ItemStack> source=new ArrayList<>(),dest=new ArrayList<>();
         for(int i=0;i<from.getContainerSize();i++)source.add(from.getItem(i).copy());
