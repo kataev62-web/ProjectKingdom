@@ -11,12 +11,6 @@ import net.minecraft.world.item.ItemStack;
 public final class KingdomNpcFoodRoutine {
     private KingdomNpcFoodRoutine() {}
 
-    private static int priority(KingdomNpcData.Worker w,KingdomNpcNutrition.Meal food) {
-        int score=food.hunger()*2;
-        for(int i=0;i<KingdomNpcNutrition.COUNT;i++)
-            score+=food.nutrients()[i] * Math.max(0,100-KingdomNpcNutrition.nutrient(w,i))/40;
-        return score;
-    }
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w) {
         UUID farm=KingdomNpcFarmOwner.ownedFarm(level.getServer(),w);
         boolean staff=w.employer!=null && w.rationsEnabled
@@ -31,14 +25,18 @@ public final class KingdomNpcFoodRoutine {
                 .usable(level,pos,owner,"finished")
                 || !(level.getBlockEntity(pos) instanceof Container foodStore))return false;
         int selected=-1, top=Integer.MIN_VALUE;
-        KingdomNpcNutrition.Meal selectedMeal=null;
+        long bestExpiry=Long.MAX_VALUE;
+        long now=KingdomFoodFreshness.now();
         for(int i=0;i<foodStore.getContainerSize();i++){
             ItemStack in=foodStore.getItem(i);
             if(in.isEmpty()||!foodStore.canTakeItem(foodStore,i,in))continue;
             var meal=KingdomNpcNutrition.inspect(in);
             if(meal==null)continue; // No spoiled/nonfood items.
-            int score=priority(w,meal);
-            if(score>top){top=score;selected=i;selectedMeal=meal;}
+            long expiry=KingdomFoodFreshness.expiry(in);
+            int score=KingdomFoodFreshness.mealScore(w,meal,expiry,now);
+            if(score>top||(score==top && KingdomFoodFreshness.prefers(expiry,bestExpiry))){
+                top=score;selected=i;bestExpiry=expiry;
+            }
         }
         if(selected<0)return false;
         if(npc.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)>6.25){
