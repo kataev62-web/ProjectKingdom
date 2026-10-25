@@ -5,7 +5,7 @@
   "target_minecraft": "Java 1.20.1 Forge",
   "last_reviewed": "2026-10-25",
   "source_binary_count_in_repository": 2,
-  "warning": "Additional candidates are visual/source-page research, NOT downloaded or approved. Existing single dock fixture remains the only original binary. Do not mirror third-party files without rights.",
+  "warning": "Primary Avalon castle reference selected: Littau Castle by Neekoris. Source is a server build (30% listed), not a distributable schematic. Only the GDMC dock original+converted derivative are staged binaries; no castle has been imported or approved.",
   "candidates": [
     {
       "id": "stubbs_medieval_bundle",
@@ -382,6 +382,48 @@
       "interiors": "70+ castle rooms and 30+ village structures per creator",
       "status": "candidate",
       "next": "Visual architectural reference only; do not import 1.21 blocks into 1.20.1 without detailed rework."
+    },
+    {
+      "id": "neekoris_littau_castle",
+      "type": [
+        "castle",
+        "royal_citadel",
+        "architectural_reference_only"
+      ],
+      "title": "Littau Castle — Realistic Bohemian Style Medieval Castle",
+      "author": "Neekoris and credited collaborators",
+      "url": "https://www.planetminecraft.com/project/ettenhall-castle-realistic-bohemian-style-medieval-castle-medieval-unlimited-server/",
+      "published_version": "Published in 2024; creator states Java 1.20–1.21 server compatibility",
+      "priority": 0,
+      "licensing": "No public schematic/world download offered on the source page and no permission to mirror a binary. Reference architecture only; do not extract/copy server build without permission.",
+      "credit": "Neekoris, Stannoman, Bosvrutchen, TheMuskratQueen, xXLEOJ02Xx (as credited on source)",
+      "compatibility": "reference_only_no_file_no_1_20_1_schematic_test",
+      "interiors": "private survival-base interior; no complete plans published",
+      "status": "selected_visual_reference_only",
+      "original_progress": "30%",
+      "next": "Design a separately created original Avalon castle with compatible TFC/Forge 1.20.1 blocks; split into builder-sized modules; test 3D placement, foundations, rooms, and NPC resources before approval."
     }
-  ]
+  ],
+  "primary_castle_reference": {
+    "id": "neekoris_littau_castle",
+    "name": "Littau Castle — realistic Bohemian style",
+    "selected_for": "Avalon main royal castle — architectural reference",
+    "approved_by_user": "2026-10-25",
+    "source_url": "https://www.planetminecraft.com/project/ettenhall-castle-realistic-bohemian-style-medieval-castle-medieval-unlimited-server/",
+    "architect": "Neekoris with acknowledged contributors",
+    "status": "selected_visual_reference_only",
+    "original_progress": "30% according to source listing",
+    "downloadable_schematic": false,
+    "source_republication_permission": false,
+    "github_binary_present": false,
+    "import_ready": false,
+    "preferred_features": [
+      "15th-century Bohemian medieval defensive style",
+      "tiered wards",
+      "gatehouses",
+      "bastions and curtain walls",
+      "siege-engine platforms",
+      "natural topography and elevation"
+    ]
+  }
 }
