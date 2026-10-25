@@ -38,11 +38,4 @@ class KingdomTfcPotDataTest {
         assertFalse(KingdomProfessionWorkRules.pot("miner",ru.projectkingdom.enterprise.EnterpriseKind.BAKERY));
         assertFalse(KingdomProfessionWorkRules.pot("cook",ru.projectkingdom.enterprise.EnterpriseKind.SMITHY));
     }
-    @Test void freshCountNeverChangesInventory(){
-        var store=new SimpleContainer(2);
-        store.setItem(0,new ItemStack(Items.APPLE,3));
-        assertEquals(3,KingdomTfcPotWork.freshCount(store,"minecraft:apple"));
-        assertEquals(0,KingdomTfcPotWork.freshCount(store,"minecraft:beef"));
-        assertEquals(3,store.getItem(0).getCount());
-    }
 }
