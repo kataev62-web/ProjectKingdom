@@ -3,9 +3,9 @@
   "project": "Project Kingdom",
   "location": "Avalon",
   "target_minecraft": "Java 1.20.1 Forge",
-  "last_reviewed": "2026-10-23",
+  "last_reviewed": "2026-10-25",
   "source_binary_count_in_repository": 2,
-  "warning": "One GDMC dock original plus one converted derivative are under review. None are accepted until in-client QA. Other candidates remain links only.",
+  "warning": "Additional candidates are visual/source-page research, NOT downloaded or approved. Existing single dock fixture remains the only original binary. Do not mirror third-party files without rights.",
   "candidates": [
     {
       "id": "stubbs_medieval_bundle",
@@ -227,6 +227,161 @@
       "converted_sha256": "0bdf041242ad4fe712d4e1fdee3e8724e08835d725d81569228c913c6f815cbe",
       "converted_palette_size": 30,
       "converted_status": "NBT_validated_not_in_game_tested"
+    },
+    {
+      "id": "nighthearted_gothic_castle",
+      "type": [
+        "castle",
+        "citadel"
+      ],
+      "title": "Gothic Castle (Now with download)",
+      "author": "Nighthearted",
+      "url": "https://www.planetminecraft.com/project/gothic-castle-3763704/",
+      "published_version": "2016 legacy; version conversion mandatory",
+      "priority": 1,
+      "licensing": "Schematic download available; public redistribution and commercial use not established.",
+      "credit": "Nighthearted, Planet Minecraft",
+      "compatibility": "legacy_requires_conversion_to_1_20_1",
+      "interiors": "library, dining room and other rooms shown",
+      "status": "candidate",
+      "next": "Download from original; inspect file version, volume, license, rooms and edit into several modular projects if >48 blocks."
+    },
+    {
+      "id": "stone_golem_realistic_city",
+      "type": [
+        "urban_reference",
+        "fortified_city",
+        "cathedral",
+        "port"
+      ],
+      "title": "Realistic Medieval City",
+      "author": "Stone_Golem",
+      "url": "https://www.planetminecraft.com/project/realistic-mediaval-city/",
+      "published_version": "1.19 world download",
+      "priority": 1,
+      "licensing": "World download available; permission to republish or extract models for a public game server not confirmed.",
+      "credit": "Stone_Golem, Planet Minecraft",
+      "compatibility": "not_a_schematic; extract after checking permissions",
+      "interiors": "none; empty buildings",
+      "status": "candidate",
+      "next": "Use street layout, Gothic skyline and facades as urban reference; interiors would need original designs. Do not import entire world."
+    },
+    {
+      "id": "cult_happiness_modular_houses",
+      "type": [
+        "housing",
+        "roof_modules",
+        "facade_modules",
+        "dense_quarters"
+      ],
+      "title": "Modular Medieval Houses Asset Pack (Schematics)",
+      "author": "CultOfHappiness",
+      "url": "https://www.planetminecraft.com/project/modular-medieval-houses-asset-pack-schematics/",
+      "published_version": "2024; version not verified",
+      "priority": 1,
+      "licensing": "Public download; explicit permission to redistribute source files not checked.",
+      "credit": "CultOfHappiness, Planet Minecraft",
+      "compatibility": "requires_file_palette_1_20_1_check",
+      "interiors": "varies",
+      "status": "candidate",
+      "next": "Inspect individual angled presets and source schematics; use for irregular compact streets rather than random detached houses."
+    },
+    {
+      "id": "minecathedral_castle_2",
+      "type": [
+        "castle",
+        "interior",
+        "citadel"
+      ],
+      "title": "Realistic Medieval Castle 2 [With Interior]",
+      "author": "minecathedral",
+      "url": "https://www.planetminecraft.com/project/realistic-medieval-castle-2-with-interior/",
+      "published_version": "2016-2017 legacy",
+      "priority": 1,
+      "licensing": "Original schematic download available; reused third-party chapel elements require credit/permissions.",
+      "credit": "minecathedral, Goudse Kaas (chapel components), Planet Minecraft",
+      "compatibility": "legacy_requires_conversion_to_1_20_1",
+      "interiors": "throne/knight halls, library, kitchens, storerooms, chapels",
+      "status": "candidate",
+      "next": "Check individual rooms, component licenses and size before architect conversion."
+    },
+    {
+      "id": "buildbucket_medieval_guard_gate",
+      "type": [
+        "gate",
+        "fortification",
+        "guardhouse"
+      ],
+      "title": "Medieval Guard Gate (2 versions)",
+      "author": "BuildBucket",
+      "url": "https://www.planetminecraft.com/project/medieval-guard-gate-2-versions-dowload-option/",
+      "published_version": "1.20+ per author",
+      "priority": 1,
+      "licensing": "Paid via Patreon; server decorative use mentioned with credit; binary mirroring in public GitHub not authorized.",
+      "credit": "BuildBucket, Planet Minecraft",
+      "compatibility": "version_declared_not_tested",
+      "interiors": "armory, stables, warehouse",
+      "status": "candidate",
+      "next": "Verify exact version, price/access and licensing; may be closer to Avalon gate than simpler alternatives."
+    },
+    {
+      "id": "bedrock_doctor_gothic_castle",
+      "type": [
+        "castle",
+        "citadel",
+        "interior"
+      ],
+      "title": "A Gothic Castle 1.20.1",
+      "author": "The Bedrock Doctor",
+      "url": "https://www.planetminecraft.com/project/a-gothic-castle-1-20-1/",
+      "published_version": "1.20.1",
+      "priority": 2,
+      "licensing": "World download; redistributing extracted parts not confirmed.",
+      "credit": "The Bedrock Doctor, Planet Minecraft",
+      "compatibility": "1_20_1_world_not_yet_extracted_or_tested",
+      "interiors": "furnished rooms mentioned in comments",
+      "status": "candidate",
+      "next": "Inspect actual save; see if stone/roof palette and layout meet scale and quality requirements."
+    },
+    {
+      "id": "mattwillen_townpack_37",
+      "type": [
+        "housing",
+        "market",
+        "smithy",
+        "warehouse",
+        "walls",
+        "gate"
+      ],
+      "title": "Medieval Town Pack (37 handcrafted schematics)",
+      "author": "mattwillen",
+      "url": "https://www.planetminecraft.com/project/medieval-town-pack-download/",
+      "published_version": "2024",
+      "priority": 2,
+      "licensing": "Author allows use in own projects but not claiming authorship; GitHub binary re-upload not confirmed.",
+      "credit": "mattwillen, Planet Minecraft",
+      "compatibility": "requires_file_inspection",
+      "interiors": "unknown",
+      "status": "candidate",
+      "next": "Evaluate individual assets at street view against detailed reference; secondary buildings only if quality passes."
+    },
+    {
+      "id": "jake_kelton_foelworn_reference",
+      "type": [
+        "castle_reference",
+        "village_reference"
+      ],
+      "title": "Dreyunterra - Foelworn Stronghold + Senaburg",
+      "author": "Jake_Kelton",
+      "url": "https://www.planetminecraft.com/project/dreyunterra-the-foelworn-stronghold-senaburg-tributary/",
+      "published_version": "1.21",
+      "priority": 2,
+      "licensing": "No source schematic redistributing permission determined.",
+      "credit": "Jake_Kelton, Planet Minecraft",
+      "compatibility": "1_21_not_1_20_1",
+      "interiors": "70+ castle rooms and 30+ village structures per creator",
+      "status": "candidate",
+      "next": "Visual architectural reference only; do not import 1.21 blocks into 1.20.1 without detailed rework."
     }
   ]
 }
