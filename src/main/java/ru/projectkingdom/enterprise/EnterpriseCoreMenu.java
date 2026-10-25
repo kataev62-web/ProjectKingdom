@@ -36,6 +36,45 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     private record Closing(UUID enterprise,long expiration) {}
     private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
     public record ShopOffer(UUID id,String itemId,long price,long stock) {}
+    public record StockLine(ItemStack sample,long count) {
+        public StockLine { sample=sample.copy(); }
+    }
+    private static final int MAX_STOCK_LINES=64;
+    private final List<StockLine> rawStocks,finishedStocks;
+    private static List<StockLine> readStockLines(FriendlyByteBuf buf){
+        int size=buf.readVarInt();
+        if(size<0||size>MAX_STOCK_LINES)throw new IllegalArgumentException("Warehouse list too large");
+        List<StockLine> result=new ArrayList<>();
+        for(int i=0;i<size;i++)result.add(new StockLine(buf.readItem(),buf.readVarLong()));
+        return List.copyOf(result);
+    }
+    private static void writeStockLines(FriendlyByteBuf buf,List<StockLine> entries){
+        buf.writeVarInt(entries.size());
+        for(var line:entries){buf.writeItem(line.sample());buf.writeVarLong(line.count());}
+    }
+    private static List<StockLine> stockLines(ServerPlayer viewer,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){
+        var access=EnterpriseAccessService.snapshot(viewer.serverLevel(),data,firm,role);
+        if(access.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||access.container()==null)return List.of();
+        List<StockLine> rows=new ArrayList<>();
+        var store=access.container();
+        for(int slot=0;slot<store.getContainerSize();slot++){
+            var stack=store.getItem(slot);
+            if(stack.isEmpty())continue;
+            boolean grouped=false;
+            for(int index=0;index<rows.size();index++){
+                var existing=rows.get(index);
+                if(ItemStack.isSameItemSameTags(existing.sample(),stack)){
+                    rows.set(index,new StockLine(existing.sample(),existing.count()+stack.getCount()));
+                    grouped=true;break;
+                }
+            }
+            if(!grouped && rows.size()<MAX_STOCK_LINES){
+                var sample=stack.copy();sample.setCount(1);
+                rows.add(new StockLine(sample,stack.getCount()));
+            }
+        }
+        return List.copyOf(rows);
+    }
     private final List<ShopOffer> publicOffers;
     private final int applications;
     private final String firstApplicant;
@@ -47,15 +86,18 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public EnterpriseCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),EnterpriseKind.byId(buffer.readUtf(24)),buffer.readUtf(48),
                 buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(96),buffer.readUtf(96),buffer.readUtf(96),buffer.readBoolean(),
-                readOffers(buffer),buffer.readVarInt(),buffer.readUtf(32),buffer.readBoolean());
+                readOffers(buffer),buffer.readVarInt(),buffer.readUtf(32),buffer.readBoolean(),
+                readStockLines(buffer),readStockLines(buffer));
     }
     private EnterpriseCoreMenu(int id,Inventory inventory,BlockPos pos,UUID enterprise,EnterpriseKind kind,String name,UUID owner,
                                long cash,int workers,long debt,String cashbox,String raw,String finished,boolean manager,
-                               List<ShopOffer> offers,int applications,String firstApplicant,boolean applied){
+                               List<ShopOffer> offers,int applications,String firstApplicant,boolean applied,
+                               List<StockLine> rawStocks,List<StockLine> finishedStocks){
         super(KingdomEnterpriseRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=pos;this.enterpriseId=enterprise;this.kind=kind;
         this.enterpriseName=name;this.owner=owner;this.cash=cash;this.workers=workers;this.debt=debt;
         this.cashboxState=cashbox;this.rawState=raw;this.finishedState=finished;this.manager=manager;
         this.publicOffers=List.copyOf(offers);this.applications=applications;this.firstApplicant=firstApplicant;this.applied=applied;
+        this.rawStocks=List.copyOf(rawStocks);this.finishedStocks=List.copyOf(finishedStocks);
     }
     private static List<ShopOffer> readOffers(FriendlyByteBuf buffer) {
         int size=Math.min(4,Math.max(0,buffer.readVarInt()));
@@ -81,14 +123,19 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         var firm=data.find(core.enterpriseId());if(firm==null)return;
         boolean manager=data.mayManage(player.getUUID(),firm.id());
         int workers=0;long debt=0;
-        String cashbox="MISSING",raw="MISSING",finished="MISSING";
+        String cashbox="Касса в блоке",raw="Не подключено",finished="Не подключено";
+        List<StockLine> rawStocks=List.of(),finishedStocks=List.of();
         if(manager){
             var payroll=KingdomEnterprisePayrollData.get(player.getServer());
             workers=(int)payroll.all().stream().filter(e->e.enterprise().equals(firm.id())&&e.active()).count();
             debt=payroll.all().stream().filter(e->e.enterprise().equals(firm.id())).mapToLong(e->e.owed()).reduce(0,(a,b)->a>Long.MAX_VALUE-b?Long.MAX_VALUE:a+b);
-            cashbox=status(player,data,firm.id(),EnterpriseBindingRole.CASHBOX);
+            var actualCash=EnterpriseAccessService.snapshot(player.serverLevel(),data,firm.id(),EnterpriseBindingRole.CASHBOX);
+            cashbox=actualCash.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE?"Касса внутри блока":
+                    EnterpriseAccessService.display(actualCash.status());
             raw=status(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE);
             finished=status(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
+            rawStocks=stockLines(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE);
+            finishedStocks=stockLines(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
         }
         var applications=KingdomEnterpriseApplications.get(player.getServer());
         var pending=manager?applications.applications(firm.id()):List.<KingdomEnterpriseApplications.Application>of();
@@ -100,12 +147,13 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         final int workerCount=workers, count=applicationCount;
         final long visibleDebt=debt;
         final String cashState=cashbox,rawState=raw,finishedState=finished,applicant=firstApplicant;
+        final List<StockLine> rawInventory=rawStocks,finishedInventory=finishedStocks;
         NetworkHooks.openScreen(player,new MenuProvider(){
             @Override public Component getDisplayName(){return Component.literal(firm.name());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
                 return new EnterpriseCoreMenu(id,inv,core.getBlockPos(),firm.id(),core.kind(),firm.name(),
                     firm.owner(),visibleCash,workerCount,visibleDebt,cashState,rawState,finishedState,manager,
-                    offers,count,applicant,applied);
+                    offers,count,applicant,applied,rawInventory,finishedInventory);
             }
         },buffer->{
             buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(firm.id());
@@ -118,6 +166,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
                 buffer.writeLong(offer.price());buffer.writeLong(offer.stock());
             }
             buffer.writeVarInt(count);buffer.writeUtf(applicant,32);buffer.writeBoolean(applied);
+            writeStockLines(buffer,rawInventory);writeStockLines(buffer,finishedInventory);
         });
     }
     private static String status(ServerPlayer player,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){
@@ -131,6 +180,8 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public int applications(){return applications;}
     public String firstApplicant(){return firstApplicant;}
     public boolean applied(){return applied;}
+    public List<StockLine> rawStocks(){return rawStocks;}
+    public List<StockLine> finishedStocks(){return finishedStocks;}
     @Override public boolean clickMenuButton(Player player,int action){
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
         if(action==CLOSE_BUSINESS){
@@ -193,7 +244,10 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
                         :"Выдача невозможна: проверьте монеты в кассе, баланс и свободное место в кошельке."));
                 yield ok;
             }
-            case BIND_CASHBOX->beginBinding(server,EnterpriseBindingRole.CASHBOX);
+            case BIND_CASHBOX->{
+                server.sendSystemMessage(Component.literal("Касса уже находится внутри блока предприятия. Для старой кассы используйте «Перенести монеты» во вкладке «Касса»."));
+                yield false;
+            }
             case BIND_RAW->beginBinding(server,EnterpriseBindingRole.RAW_STORAGE);
             case BIND_FINISHED->beginBinding(server,EnterpriseBindingRole.FINISHED_STORAGE);
             default->false;};
