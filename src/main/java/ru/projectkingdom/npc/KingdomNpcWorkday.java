@@ -40,7 +40,8 @@ public final class KingdomNpcWorkday {
         return switch (kind) {
             case NONE, DELIVERY -> false;
             case FIELD -> worker.hasSource && worker.hasDestination
-                && (!"farmer".equals(worker.job) || KingdomFarmWorker.site(level,worker)!=null);
+                && (!"farmer".equals(worker.job) || KingdomFarmWorker.site(level,worker)!=null)
+                && (!"breeder".equals(worker.job) || KingdomLivestockWork.workSite(level,worker)!=null);
             case WORKSHOP -> worker.hasSource && worker.hasDestination && worker.hasWorkstation
                 && (KingdomNpcWorkshopData.get(server).plan(worker.entityId) != null
                     || KingdomTfcQuernWork.isQuern(level, worker)
@@ -59,6 +60,10 @@ public final class KingdomNpcWorkday {
                 || KingdomNpcFarmOwner.workOwner(level,worker) == null) return null;
         var land = KingdomTerritories.get(server);
         var kind = KingdomNpcDuty.kind(worker.job);
+        if ("breeder".equals(worker.job)) {
+            BlockPos pen=KingdomLivestockWork.workSite(level,worker);
+            if(pen!=null)return pen;
+        }
         if ("farmer".equals(worker.job)) {
             BlockPos farmPlot=KingdomFarmWorker.site(level,worker);
             if(farmPlot!=null)return farmPlot;
