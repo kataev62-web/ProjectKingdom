@@ -102,7 +102,9 @@ public final class KingdomRentalsData extends SavedData {
                                  String dimension, BlockPos corePos) {
         if(enterprise==null || corePos==null || owner==null)return false;
         Building b=atBuilding(dimension,corePos);
-        if(!validOwner(deeds,owner,b))return false;
+        // Public reception must stand in common space, never inside a tenant's
+        // private room, including a room that is vacant when first bound.
+        if(atRoom(dimension,corePos)!=null || !validOwner(deeds,owner,b))return false;
         UUID prior=receptions.get(b.id());
         if(prior!=null)return prior.equals(enterprise);
         if(receptions.containsValue(enterprise))return false;
