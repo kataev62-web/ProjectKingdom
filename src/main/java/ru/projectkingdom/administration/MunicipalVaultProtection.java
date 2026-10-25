@@ -105,7 +105,19 @@ public final class MunicipalVaultProtection {
     public static void placing(BlockEvent.EntityPlaceEvent event) {
         if(!(event.getLevel() instanceof ServerLevel level)
                 ||!(event.getEntity() instanceof ServerPlayer player))return;
-        var room=KingdomBankVaultRooms.get(level.getServer()).at(level,event.getPos());
+        var rooms=KingdomBankVaultRooms.get(level.getServer());
+        if(event.getPlacedBlock().getBlock() instanceof net.minecraft.world.level.block.HopperBlock){
+            // A hopper outside the vault could siphon a chest through the wall.
+            for(var direction:net.minecraft.core.Direction.values()){
+                if(rooms.at(level,event.getPos().relative(direction))!=null){
+                    event.setCanceled(true);
+                    player.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                        "Рядом с банковским хранилищем нельзя устанавливать воронки."),true);
+                    return;
+                }
+            }
+        }
+        var room=rooms.at(level,event.getPos());
         if(room!=null&&!canManageBank(player,room.town()))event.setCanceled(true);
     }
     @SubscribeEvent(priority=EventPriority.HIGHEST)
