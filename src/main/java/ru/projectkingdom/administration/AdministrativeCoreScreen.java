@@ -92,7 +92,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     .bounds(leftPos+180,topPos+151,108,20).build());
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,deposit,false));
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,withdraw,false));
-                addAction("Привязать банковский сейф",AdministrativeMenuLayout.Tab.FINANCE,
+                addAction("Отметить комнату хранилища",AdministrativeMenuLayout.Tab.FINANCE,
                     AdministrativeActionPacket.BIND_BANK,80,179,224,true);
                 addAction("Перенести монеты старой казны",AdministrativeMenuLayout.Tab.INFO,
                     AdministrativeActionPacket.CONSOLIDATE_BANK,58,158,246,true);
@@ -143,6 +143,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                         line(g,"Архив обязательств банка: "+menu.legacyBank()+" мед.",58,102,MUTED);
                         line(g,"Архив старой казны: "+menu.legacyTown()+" мед.",58,121,MUTED);
                         line(g,"Архив не равен доступным монетам!",58,140,ACCENT);
+                        line(g,menu.vaultCopper()<0?"Комната/сундуки не загружены.":
+                                "Физические монеты: "+menu.vaultCopper()+" мед.",58,151,MUTED);
                     }else line(g,"Архив — на сверке. Снять его нельзя.",58,105,ACCENT);
                 }else{
                     line(g,"Основатель: "+menu.founder(),58,90,MUTED);
@@ -166,6 +168,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     line(g,"Ваш счёт: "+menu.bankAccount()+" медных",58,83,MUTED);
                     line(g,"Ваш кошелёк: "+menu.walletCoins()+" медных",58,101,MUTED);
                     line(g,"Сумма:",58,122,MUTED);
+                    if(menu.manager())
+                        line(g,menu.vaultRoomInfo(),58,139,MUTED);
                 }else if(menu.kind()==AdministrativeKind.TREASURY){
                     line(g,"Ваш долг городу: "+menu.taxDebt()+" медных",58,82,INK);
                     line(g,"Монет в кошельке: "+menu.walletCoins()+" медных",58,102,MUTED);
