@@ -54,6 +54,7 @@ public final class KingdomNpcMod {
         KingdomConstructionRegistry.register();
         KingdomAdministrationRegistry.register();
         KingdomNetwork.register();
+        new KingdomFemaleOutfitSync();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
         MinecraftForge.EVENT_BUS.register(this);
     }
