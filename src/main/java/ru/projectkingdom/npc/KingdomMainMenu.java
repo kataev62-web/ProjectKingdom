@@ -60,14 +60,14 @@ public final class KingdomMainMenu extends ChestMenu {
     public static void openTreasury(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.TREASURY); }
     public static void openLandOffice(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.LAND_OFFICE); }
     public static void openOrders(ServerPlayer player) { show(player,Page.ORDERS); }
-    public static void openArchitect(ServerPlayer player) { show(player,Page.BUILD); }
+    public static void openArchitect(ServerPlayer player) { KingdomArchitectCatalog.open(player,null); }
     /** Opened from the company core: reuse that existing block; no second lectern. */
     public static void openArchitect(ServerPlayer player, BlockPos office) {
         if (office == null || !KingdomArchitectSiteAccess.mayUse(player,office)) {
             player.sendSystemMessage(Component.literal("[Архитектор] Строительная контора недоступна или нет прав."));
             return;
         }
-        show(player,Page.BUILD,null,office);
+        KingdomArchitectCatalog.open(player,office);
     }
     public static void openProjects(ServerPlayer player) { show(player,Page.PROJECTS); }
     public static void openSite(ServerPlayer player,java.util.UUID id) { show(player,Page.SITE,id); }
