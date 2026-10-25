@@ -24,10 +24,13 @@ class KingdomBundledAvalonSchematicsTest {
     }
 
     private KingdomDesignEngine.Design load(String name) throws Exception {
-        String resource="/assets/kingdomnpc/avalon/"+name+".schem";
+        boolean encoded=name.equals("avalon_tfc_smithy_shell");
+        String resource="/assets/kingdomnpc/avalon/"+name
+            +(encoded ? ".schem.b64" : ".schem");
         Path imported=folder.resolve(name+".schem");
-        try (InputStream in=KingdomBundledAvalonSchematicsTest.class.getResourceAsStream(resource)) {
-            assertNotNull(in, "JAR must ship the genuine Sponge v2 schematic: "+resource);
+        try (InputStream raw=KingdomBundledAvalonSchematicsTest.class.getResourceAsStream(resource)) {
+            assertNotNull(raw, "JAR must ship the genuine Sponge v2 schematic: "+resource);
+            InputStream in=encoded?java.util.Base64.getMimeDecoder().wrap(raw):raw;
             Files.copy(in, imported);
         }
         assertTrue(Files.size(imported)>100);
