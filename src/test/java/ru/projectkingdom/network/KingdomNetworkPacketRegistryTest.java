@@ -20,7 +20,7 @@ class KingdomNetworkPacketRegistryTest {
             assertTrue(used.add(id),"Duplicate Kingdom packet id "+id);
             count++;
         }
-        assertTrue(count>=15);
-        assertTrue(source.contains("private static final String PROTOCOL=\"3\""));
+        assertTrue(count>=17);
+        assertTrue(source.contains("private static final String PROTOCOL=\"4\""));
     }
 }

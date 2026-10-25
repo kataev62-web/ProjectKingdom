@@ -1,0 +1,5 @@
+Vosk Java 0.3.45 and vosk-model-small-ru-0.22 are distributed with this mod.
+
+Project and model source: https://alphacephei.com/vosk/
+License: Apache License, Version 2.0 (see LICENSE-vosk-model.txt)
+Copyright Alpha Cephei Inc and contributors.

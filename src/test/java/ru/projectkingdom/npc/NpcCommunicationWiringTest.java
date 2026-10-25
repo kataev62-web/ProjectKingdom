@@ -17,7 +17,8 @@ final class NpcCommunicationWiringTest {
         assertTrue(service.contains("stack.shrink(1)"));
         assertTrue(service.contains("w.hunger = NpcLife.feed(w.hunger, 1)"));
         assertTrue(service.contains("w.remember(player.getUUID(), memory)"));
-        assertTrue(service.contains("listener.sendSystemMessage"));
+        assertTrue(service.contains("KingdomNetwork.sendNpcSpeech(listener,speech)"));
+        assertFalse(service.contains("listener.sendSystemMessage"));
         assertTrue(service.contains("level.playSound"));
     }
 

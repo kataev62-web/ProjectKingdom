@@ -8,7 +8,7 @@ import ru.projectkingdom.administration.AdministrativeActionPacket;
 import ru.projectkingdom.administration.AdministrativeTextPacket;
 
 public final class KingdomNetwork {
-    private static final String PROTOCOL="3";
+    private static final String PROTOCOL="4";
     public static final SimpleChannel CHANNEL=NetworkRegistry.newSimpleChannel(
             new ResourceLocation(KingdomNpcMod.MOD_ID,"main"),()->PROTOCOL,PROTOCOL::equals,PROTOCOL::equals);
     private static boolean registered;
@@ -47,5 +47,13 @@ public final class KingdomNetwork {
                 OpenKingdomMapsHubPacket::decode,OpenKingdomMapsHubPacket::handle);
         CHANNEL.registerMessage(31,OpenLandMapFromAtlasPacket.class,OpenLandMapFromAtlasPacket::encode,
                 OpenLandMapFromAtlasPacket::decode,OpenLandMapFromAtlasPacket::handle);
+        CHANNEL.registerMessage(40,NpcVoiceRequestPacket.class,NpcVoiceRequestPacket::encode,
+                NpcVoiceRequestPacket::decode,NpcVoiceRequestPacket::handle);
+        CHANNEL.registerMessage(41,NpcSpeechPacket.class,NpcSpeechPacket::encode,
+                NpcSpeechPacket::decode,NpcSpeechPacket::handle);
+    }
+
+    public static void sendNpcSpeech(net.minecraft.server.level.ServerPlayer player,NpcSpeechPacket packet){
+        CHANNEL.send(net.minecraftforge.network.PacketDistributor.PLAYER.with(()->player),packet);
     }
 }

@@ -1,6 +1,5 @@
 package ru.projectkingdom.npc;
 
-import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -11,6 +10,10 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
 import java.util.ArrayList;
+import java.util.UUID;
+import ru.projectkingdom.network.KingdomNetwork;
+import ru.projectkingdom.network.NpcSpeechPacket;
+import ru.projectkingdom.npc.voice.NpcSpeechTiming;
 
 /** Forge-facing conversation boundary. All material effects are validated on the server. */
 public final class NpcDialogueService {
@@ -33,6 +36,16 @@ public final class NpcDialogueService {
         if (match.isEmpty()) return false;
         KingdomNpcData.Worker worker = data.workers.get(match.get().npcId());
         return respond(player, worker, match.get().phrase());
+    }
+
+    /** Voice may target the looked-at NPC; the server resolves and revalidates that UUID. */
+    public static boolean respondVoice(ServerPlayer player, UUID targetEntity, String text) {
+        if(player==null||text==null||text.isBlank())return false;
+        if(targetEntity==null)return respondAddressed(player,text);
+        KingdomNpcData.Worker worker=null;
+        for(var candidate:KingdomNpcData.get(player.getServer()).all())
+            if(candidate.entityId.equals(targetEntity)){worker=candidate;break;}
+        return respond(player,worker,text);
     }
 
     public static boolean respond(ServerPlayer player, KingdomNpcData.Worker w, String utterance) {
@@ -67,7 +80,7 @@ public final class NpcDialogueService {
 
         w.remember(player.getUUID(), memory);
         KingdomNpcData.get(player.getServer()).setDirty();
-        speak(player.serverLevel(), npc, w.name, text, positive);
+        speak(player.serverLevel(), npc, w.name, text, w.gender, positive);
 
         if (reply.action() == NpcDialogueEngine.Action.OPEN_MANAGEMENT) {
             KingdomNpcMod.openNpcManagement(player, w.id);
@@ -107,12 +120,12 @@ public final class NpcDialogueService {
         return false;
     }
 
-    private static void speak(ServerLevel level, Villager npc, String name, String text, boolean positive) {
-        Component subtitle = Component.literal(name + ": ").withStyle(ChatFormatting.GOLD)
-                .append(Component.literal(text).withStyle(ChatFormatting.WHITE));
+    private static void speak(ServerLevel level, Villager npc, String name, String text,
+                              String gender, boolean positive) {
+        var speech=new NpcSpeechPacket(npc.getUUID(),name,text,gender,NpcSpeechTiming.durationTicks(text));
         for (ServerPlayer listener : level.players()) {
             if (listener.distanceToSqr(npc) <= LISTENER_RANGE_SQUARED)
-                listener.sendSystemMessage(subtitle);
+                KingdomNetwork.sendNpcSpeech(listener,speech);
         }
         level.playSound(null, npc.blockPosition(), positive ? SoundEvents.VILLAGER_YES : SoundEvents.VILLAGER_TRADE,
                 SoundSource.NEUTRAL, 0.8F, positive ? 1.05F : 0.95F);
