@@ -32,7 +32,7 @@ import ru.projectkingdom.npc.KingdomFarmFieldsMenu;
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122;
-    public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190;
+    public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190,MIGRATE_CASH=191;
     private record Closing(UUID enterprise,long expiration) {}
     private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
     public record ShopOffer(UUID id,String itemId,long price,long stock) {}
@@ -184,6 +184,14 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public List<StockLine> finishedStocks(){return finishedStocks;}
     @Override public boolean clickMenuButton(Player player,int action){
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
+        if(action==MIGRATE_CASH){
+            if(!data.mayManage(server.getUUID(),enterpriseId))return false;
+            var outcome=data.migrateLegacyCash(server,enterpriseId);
+            server.sendSystemMessage(Component.literal("[Касса] "+KingdomEnterpriseData.cashMigrationMessage(outcome)));
+            if(outcome==KingdomEnterpriseData.CashMigration.MOVED||outcome==KingdomEnterpriseData.CashMigration.READY)
+                server.closeContainer();
+            return outcome==KingdomEnterpriseData.CashMigration.MOVED||outcome==KingdomEnterpriseData.CashMigration.READY;
+        }
         if(action==CLOSE_BUSINESS){
             if(!data.mayManage(server.getUUID(),enterpriseId))return false;
             var old=PENDING_CLOSURES.get(server.getUUID());
@@ -233,15 +241,15 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             case DEPOSIT_100->{
                 boolean ok=data.depositAtCore(server,enterpriseId,100);
                 server.sendSystemMessage(Component.literal(ok
-                        ?"В кассу внесено 100 медных в виде настоящих монет."
-                        :"Внести деньги не удалось. Привяжите кассу, проверьте место в сундуке и монеты в кошельке."));
+                        ?"В кассу внутри блока внесено 100 медных реальными монетами."
+                        :"Внесение отклонено: проверьте монеты в кошельке, место во внутренней кассе и старый баланс. При необходимости перенесите прежнюю кассу."));
                 yield ok;
             }
             case WITHDRAW_100->{
                 boolean ok=data.withdrawAtCore(server,enterpriseId,100);
                 server.sendSystemMessage(Component.literal(ok
-                        ?"Из кассы выдано 100 медных в кошелёк."
-                        :"Выдача невозможна: проверьте монеты в кассе, баланс и свободное место в кошельке."));
+                        ?"Из внутренней кассы выдано 100 медных в кошелёк."
+                        :"Выдача невозможна: проверьте сумму в блоке, номиналы монет и место в кошельке."));
                 yield ok;
             }
             case BIND_CASHBOX->{
