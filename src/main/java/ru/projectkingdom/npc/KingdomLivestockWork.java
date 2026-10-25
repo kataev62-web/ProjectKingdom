@@ -229,10 +229,13 @@ public final class KingdomLivestockWork {
             ||!(level.getBlockEntity(rawPos) instanceof Container raw)
             ||!(level.getBlockEntity(finishedPos) instanceof Container finished))return false;
         // Physical goods must be delivered before acquiring more supplies.
-        boolean woolCarried=w.fieldInventory.stream().anyMatch(stack->
-            !stack.isEmpty() && "tfc:wool".equals(
-                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()));
-        if(woolCarried)return NpcFieldWork.deposit(level,npc,w);
+        java.util.function.Predicate<ItemStack> product=stack->!stack.isEmpty()
+            && (KingdomTfcNestWork.edibleEgg(stack)
+                || KingdomTfcMilkWork.hasMilk(stack)
+                || "tfc:wool".equals(net.minecraft.core.registries.BuiltInRegistries.ITEM
+                    .getKey(stack.getItem()).toString()));
+        if(w.fieldInventory.stream().anyMatch(product))
+            return KingdomLivestockStorage.deposit(level,npc,w,product);
         // Bounded: maximum four pens, each 16 x 16 in loaded chunks.
         for(var pen:KingdomRanchPenData.get(level.getServer()).of(enterprise)){
             if(!pen.enabled()||!pen.dimension().equals(w.dimension))continue;
@@ -245,8 +248,11 @@ public final class KingdomLivestockWork {
                 if(!isTfc(animal)||!territory.canUse(level,animal.blockPosition(),owner))continue;
                 if(hungry(animal)){
                     if(feedAnimal(level,npc,w,animal,raw,rawPos))return true;
-                }else if(shearAnimal(level,npc,w,animal,raw,rawPos))return true;
+                }else if(KingdomTfcMilkWork.tick(level,npc,w,animal,raw,rawPos,finished))
+                    return true;
+                else if(shearAnimal(level,npc,w,animal,raw,rawPos))return true;
             }
+            if(KingdomTfcNestWork.tick(level,npc,w,pen,finished))return true;
         }
         return false;
     }
