@@ -45,6 +45,9 @@ class KingdomRentalsDataTest {
         assertFalse(rentals.canRent(land,owner,first.id(),now));
         assertTrue(rentals.rentPaid(land,tenant,first.id(),now));
         assertFalse(rentals.rentPaid(land,other,first.id(),now));
+        assertTrue(rentals.residentOfBuilding(tenant,DIM,new BlockPos(10,65,9),now+1));
+        assertFalse(rentals.residentOfBuilding(other,DIM,new BlockPos(10,65,9),now+1));
+        assertFalse(rentals.residentOfBuilding(tenant,DIM,new BlockPos(20,65,9),now+1));
         assertEquals(Access.ALLOWED,rentals.roomAccess(tenant,DIM,
                 new BlockPos(4,65,4),KingdomCivicsData.Action.BUILD,now+1));
         assertEquals(Access.DENIED,rentals.roomAccess(owner,DIM,
