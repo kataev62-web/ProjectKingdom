@@ -47,8 +47,11 @@ public final class KingdomRanchPenMenu extends ChestMenu {
         if(selected>=pens.size())selected=Math.max(0,pens.size()-1);
         for(int i=0;i<pens.size()&&i<4;i++){
             var pen=pens.get(i);
+            var status=KingdomLivestockWork.inspect(player.serverLevel(),pen);
             icon(i,Items.OAK_FENCE,(i==selected?"[ВЫБРАН] ":"")+"Загон "+(i+1)
                 +" | "+(pen.maxX()-pen.minX()+1)+"x"+(pen.maxZ()-pen.minZ()+1)
+                +" | животных "+status.animals()+", голодных "+status.hungry()
+                +", шерсть готова "+status.woolReady()
                 +" | "+(pen.enabled()?"работает":"остановлен"));
         }
         icon(9,Items.BOOK,"Загоны "+pens.size()+"/4; NPC работает только внутри выбранной территории");
