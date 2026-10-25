@@ -50,6 +50,28 @@ public final class KingdomTfcNestWork {
             &&Math.abs(block.getY()-pen.y())<=3;
     }
 
+    /** Read-only: how many fresh unfertilized eggs exist in real loaded nests. */
+    public static int availableEggs(ServerLevel level,KingdomRanchPenData.Pen pen){
+        if(!init()||!pen.dimension().equals(level.dimension().location().toString()))return 0;
+        int eggs=0;
+        for(int x=pen.minX();x<=pen.maxX();x++)for(int z=pen.minZ();z<=pen.maxZ();z++)
+            for(int y=pen.y()-2;y<=pen.y()+3;y++){
+                BlockPos pos=new BlockPos(x,y,z);
+                if(!level.hasChunkAt(pos)||!inPen(pos,pen)
+                    ||!"tfc:nest_box".equals(BuiltInRegistries.BLOCK.getKey(
+                        level.getBlockState(pos).getBlock()).toString()))continue;
+                var nest=level.getBlockEntity(pos);
+                if(nest==null)continue;
+                try{
+                    Object inventory=nest.getClass().getMethod("getInventory").invoke(nest);
+                    if(!(inventory instanceof IItemHandler handler))continue;
+                    for(int slot=0;slot<handler.getSlots();slot++)
+                        if(edibleEgg(handler.getStackInSlot(slot)))eggs++;
+                }catch(ReflectiveOperationException|RuntimeException ignored){}
+            }
+        return eggs;
+    }
+
     /** Work one nest slot at a time; return true only after a real item transfer. */
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                                KingdomRanchPenData.Pen pen,Container output){
