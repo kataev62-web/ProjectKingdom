@@ -14,6 +14,7 @@ import ru.projectkingdom.npc.KingdomLandReservations;
 public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int action) {
     public static final int JOIN_TOWN=100,PAY_RESERVED_LAND=204,BIND_HALL_CASHBOX=115,CONSOLIDATE_BANK=205,RECONCILE_BANK=206;
     public static final int BIND_TREASURY=110,BIND_BANK=111,BIND_WAREHOUSE=112,BIND_MARKET=113,BIND_PRISON_CELL=114;
+    public static final int WAREHOUSE_ROOM_GENERAL=310,WAREHOUSE_ROOM_FOOD=311,WAREHOUSE_ROOM_COLD=312;
     public static final int BANK_DEPOSIT_100=200,BANK_WITHDRAW_100=201,TREASURY_DEPOSIT_100=202,TREASURY_WITHDRAW_100=203;
     public static void encode(AdministrativeActionPacket packet,FriendlyByteBuf buffer){
         buffer.writeUUID(packet.townId);buffer.writeUtf(packet.kind==null?"":packet.kind.id(),32);buffer.writeInt(packet.action);
@@ -109,8 +110,22 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 if(ok)sender.closeContainer();
                 return;
             }
+            if(packet.action>=WAREHOUSE_ROOM_GENERAL&&packet.action<=WAREHOUSE_ROOM_COLD){
+                if(packet.kind!=AdministrativeKind.CENTRAL_WAREHOUSE||!menu.manager())return;
+                var kind=switch(packet.action){
+                    case WAREHOUSE_ROOM_GENERAL->KingdomCentralWarehouseRooms.Kind.GENERAL;
+                    case WAREHOUSE_ROOM_FOOD->KingdomCentralWarehouseRooms.Kind.FOOD;
+                    default->KingdomCentralWarehouseRooms.Kind.COLD;
+                };
+                boolean started=KingdomCentralWarehouseRooms.get(sender.getServer()).begin(sender,kind);
+                sender.sendSystemMessage(Component.literal(started
+                    ?"[Центральный склад] "+kind.title()+": нажмите ПКМ пустой рукой по двум углам помещения (до 17×9×17)."
+                    :"[Центральный склад] Нет доступа: откройте зарегистрированный склад как его управляющий."));
+                if(started)sender.closeContainer();
+                return;
+            }
             AdministrativeBindingRole role=switch(packet.action){
-                case BIND_WAREHOUSE->AdministrativeBindingRole.WAREHOUSE_STORAGE;
+                // The central warehouse now uses typed physical rooms, not per-chest bindings.
                 case BIND_MARKET->AdministrativeBindingRole.MARKET_STORAGE;
                 case BIND_PRISON_CELL->AdministrativeBindingRole.PRISON_CELL;
                 default->null;
