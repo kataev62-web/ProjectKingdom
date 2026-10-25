@@ -5,12 +5,12 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import net.minecraft.client.model.VillagerModel;
-import net.minecraft.client.model.geom.EntityModelLayer;
+import net.minecraft.client.model.geom.ModelLayerLocation;
 import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.builders.CubeListBuilder;
 import net.minecraft.client.model.geom.builders.LayerDefinition;
 import net.minecraft.client.model.geom.builders.MeshDefinition;
-import net.minecraft.client.model.geom.builders.PartPose;
+import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.renderer.entity.VillagerRenderer;
@@ -31,7 +31,7 @@ import net.minecraftforge.fml.common.Mod;
  * Works only for server-approved adult female Kingdom NPCs.
  */
 public final class KingdomFemaleOutfitClient {
-    private static final EntityModelLayer OUTFIT_LAYER = new EntityModelLayer(
+    private static final ModelLayerLocation OUTFIT_LAYER = new ModelLayerLocation(
             new ResourceLocation("kingdomnpc", "female_outfit"), "main");
     private static final ResourceLocation CLOTH = new ResourceLocation(
             "kingdomnpc", "textures/entity/female_outfit.png");
@@ -55,7 +55,7 @@ public final class KingdomFemaleOutfitClient {
 
         @SubscribeEvent
         public static void addToVillager(EntityRenderersEvent.AddLayers event) {
-            if (event.getEntityRenderer(EntityType.VILLAGER) instanceof VillagerRenderer renderer) {
+            if (event.getRenderer(EntityType.VILLAGER) instanceof VillagerRenderer renderer) {
                 renderer.addLayer(new OutfitLayer(renderer, event.getContext().bakeLayer(OUTFIT_LAYER)));
             }
         }
