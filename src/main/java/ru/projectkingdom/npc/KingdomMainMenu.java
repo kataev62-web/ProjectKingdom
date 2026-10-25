@@ -150,8 +150,8 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(13,Items.COPPER_INGOT,"Цена аренды: "+(chosen==null?"не выбрана":chosen.priceCopper()+" медных")+" | изменить");
                 icon(14,Items.CLOCK,"Срок аренды: "+(chosen==null?"не выбран":chosen.days()+" суток")+" | изменить");
                 icon(15,Items.PAPER,chosen==null?"Опубликовать объявление":chosen.listed()?"Снять объявление":"Опубликовать объявление");
-                icon(16,Items.GOLD_INGOT,"Оплатить выбранную комнату у банковской кассы");
-                icon(17,Items.EMERALD,"Продлить аренду, оплатив в банке");
+                icon(16,Items.OAK_DOOR,"Арендовать номер: ПКМ по блоку гостиницы или таверны");
+                icon(17,Items.CLOCK,"Продление: через стойку своей гостиницы или таверны");
                 icon(18,Items.OAK_DOOR,"Освободить комнату (только арендатор)");
                 icon(19,Items.HOPPER,"Окончить просроченный договор (только собственник)");
                 icon(20,Items.BOOK,chosen==null?"Зайдите в помещение, чтобы выбрать его":
@@ -161,7 +161,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(22,Items.PLAYER_HEAD,chosen==null?"Нет выбранного договора":
                         chosen.tenant()==null?"Не сдано":chosen.occupied(System.currentTimeMillis())
                         ?"Арендатор до "+new java.util.Date(chosen.expiresAt()):"Договор истёк, ожидает освобождения");
-                icon(23,Items.WRITABLE_BOOK,"Оплата из физического кошелька в городской банковский сейф; собственнику начисляется обеспеченное хранение");
+                icon(23,Items.WRITABLE_BOOK,"Оплата реальными монетами в отдельную кассу предприятия гостиницы или таверны");
             }
             case WALLET -> {
                 var wallet=KingdomCurrency.wallet(viewer);
@@ -506,12 +506,8 @@ public final class KingdomMainMenu extends ChestMenu {
                     draw();break;
                 }
                 if(slot==16||slot==17){
-                    boolean renew=slot==17;
-                    if(KingdomBankData.get(viewer.getServer()).payRoomLeaseCash(viewer,renew))
-                        say(renew?"Аренда продлена, оплата поступила в обеспеченный банк.":
-                                "Договор оплачен и вступил в силу.");
-                    else say("Нужны: действующий договор/объявление, кошелёк с монетами и привязанный банковский сейф рядом с кассой.");
-                    draw();break;
+                    say("Аренда и продление только при ПКМ по стойке действующей гостиницы или таверны. Деньги поступают в кассу предприятия, не в банк.");
+                    break;
                 }
                 if(slot==18){
                     say(properties.surrender(viewer.getUUID(),selected.id())
