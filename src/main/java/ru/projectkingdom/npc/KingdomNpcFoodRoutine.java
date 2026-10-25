@@ -17,7 +17,9 @@ public final class KingdomNpcFoodRoutine {
                 && KingdomNpcWorkday.employed(level.getServer(),w);
         UUID owner=farm!=null?w.entityId:staff?w.employer:null;
         if(owner==null||w.contractPaused||!w.hasDestination||!npc.isAlive())return false;
-        long today=level.getServer().overworld().getDayTime()/24000L;
+        // TFC year/day length may be changed in server settings.
+        long today=KingdomSeasonCalendar.totalDays(level.getServer());
+        if(today<0)return false;
         if(w.lastMealDay==today || (w.hunger>=75 && KingdomNpcNutrition.quality(w)>=55))
             return false;
         BlockPos pos=new BlockPos(w.destX,w.destY,w.destZ);
