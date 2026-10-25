@@ -51,7 +51,7 @@ public final class KingdomSupplyOrders extends SavedData {
     public Order find(UUID id) { return orders.get(id); }
     /** The caller must validate ownership of both containers and their inventory before submission. */
     public Order create(UUID buyer, UUID seller, String dimension, String itemId, BlockPos source, BlockPos destination, int count, long goodsPrice, long deliveryFee, Mode mode) {
-        if (buyer==null || seller==null || dimension==null || dimension.isBlank() || itemId==null || itemId.isBlank() || source==null || destination==null || source.equals(destination) || mode==null || mode==Mode.INTERNAL || count<1 || count>2304 || goodsPrice<0 || deliveryFee<0 || goodsPrice>1000000 || deliveryFee>1000000 || (!buyer.equals(seller) && goodsPrice==0)) return null;
+        if (buyer==null || seller==null || dimension==null || dimension.isBlank() || itemId==null || itemId.isBlank() || source==null || destination==null || source.equals(destination) || mode==null || mode==Mode.INTERNAL || mode==Mode.MUNICIPAL || count<1 || count>2304 || goodsPrice<0 || deliveryFee<0 || goodsPrice>1000000 || deliveryFee>1000000 || (!buyer.equals(seller) && goodsPrice==0)) return null;
         Order order=new Order(UUID.randomUUID(),buyer,seller,dimension,itemId,source.immutable(),destination.immutable(),count,goodsPrice,deliveryFee,mode);
         orders.put(order.id,order);setDirty();return order;
     }
