@@ -20,7 +20,7 @@ public final class KingdomTfcButcheryWork {
     private KingdomTfcButcheryWork(){}
     private static final Map<UUID,KingdomNpcData.Worker> ACTIVE=new HashMap<>();
     private static Class<?> animalProperties;
-    private static Method getAgeType,isFertilized;
+    private static Method getAgeType,isFertilized,getCalendar;
     private static boolean loaded,compatible;
     private static boolean init(){
         if(loaded)return compatible;
@@ -30,6 +30,7 @@ public final class KingdomTfcButcheryWork {
             animalProperties=Class.forName("net.dries007.tfc.common.entities.livestock.TFCAnimalProperties");
             getAgeType=animalProperties.getMethod("getAgeType");
             isFertilized=animalProperties.getMethod("isFertilized");
+            getCalendar=animalProperties.getMethod("getCalendar");
             compatible=true;
         }catch(ReflectiveOperationException|LinkageError ex){
             System.err.println("[Kingdom] TFC butchery disabled: "+ex);
@@ -43,17 +44,25 @@ public final class KingdomTfcButcheryWork {
             return "OLD".equals(age)&&!Boolean.TRUE.equals(isFertilized.invoke(animal));
         }catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
+    private static long tfcDay(Animal animal) {
+        try {
+            Object calendar=getCalendar.invoke(animal);
+            return ((Number)calendar.getClass().getMethod("getTotalDays").invoke(calendar)).longValue();
+        }catch(ReflectiveOperationException|RuntimeException ex){return -1;}
+    }
+
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                                KingdomRanchPenData.Pen pen,List<Animal> herd){
         if(!"breeder".equals(worker.job)||worker.butcherDelivery||!worker.fieldInventory.isEmpty()
             ||!pen.enabled()||!init())return false;
         var state=KingdomRanchPolicyData.get(level.getServer());
         var policy=state.policy(pen.id());
-        long day=level.getServer().overworld().getDayTime()/24000;
-        if(!policy.cullOld()||policy.lastCullDay()==day||herd.size()<=policy.minHerd())
-            return false;
+        if(!policy.cullOld()||herd.size()<=policy.minHerd())return false;
         for(Animal animal:herd){
             if(!eligible(animal))continue;
+            long day=tfcDay(animal);
+            if(day<0 || !KingdomRanchPolicyData.mayCull(policy,day,herd.size(),true,false))
+                continue;
             if(npc.distanceToSqr(animal)>9){
                 npc.getNavigation().moveTo(animal,.75);return false;
             }
