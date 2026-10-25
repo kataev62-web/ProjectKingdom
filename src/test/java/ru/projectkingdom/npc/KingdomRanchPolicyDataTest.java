@@ -26,4 +26,21 @@ class KingdomRanchPolicyDataTest {
         assertFalse(copy.policy(pen).cullOld());
         assertEquals(6,copy.policy(pen).minHerd());
     }
+    @Test void eggCollectionIsOffByDefaultAndPersistedSeparatelyFromCullConsent(){
+        var old=new KingdomRanchPolicyData.Policy(true,6,22);
+        assertFalse(old.collectEggs());
+        UUID id=UUID.randomUUID();
+        var root=new CompoundTag();
+        var row=new CompoundTag();
+        row.putUUID("Pen",id);row.putBoolean("CullOld",true);
+        row.putBoolean("CollectEggs",true);row.putInt("MinHerd",6);row.putLong("LastCull",22);
+        var list=new net.minecraft.nbt.ListTag();list.add(row);root.put("Policies",list);
+        var loaded=KingdomRanchPolicyData.load(root);
+        assertTrue(loaded.policy(id).collectEggs());
+        assertTrue(loaded.policy(id).cullOld());
+        var after=KingdomRanchPolicyData.load(loaded.save(new CompoundTag()));
+        assertTrue(after.policy(id).collectEggs());
+        assertEquals(22,after.policy(id).lastCullDay());
+        assertFalse(after.policy(UUID.randomUUID()).collectEggs());
+    }
 }
