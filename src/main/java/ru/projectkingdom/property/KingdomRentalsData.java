@@ -132,6 +132,13 @@ public final class KingdomRentalsData extends SavedData {
             if(room.reserved()||room.listed())return true;
         return false;
     }
+    /** Only after the enterprise closure checks pass; keep all rooms intact. */
+    public boolean releaseVacantReception(UUID enterprise) {
+        if(enterprise==null||receptionHasObligations(enterprise))return false;
+        boolean removed=receptions.entrySet().removeIf(e->enterprise.equals(e.getValue()));
+        if(removed)setDirty();
+        return removed;
+    }
 
     /** Every chunk under the building must have an unencumbered deed title. */
     public static boolean ownsFullFootprint(KingdomCivicsData deeds,UUID actor,
