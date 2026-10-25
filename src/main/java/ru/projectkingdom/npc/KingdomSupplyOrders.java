@@ -9,7 +9,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 /** Persistent physical pickup/delivery orders. No virtual item generation. */
 public final class KingdomSupplyOrders extends SavedData {
     private static final String KEY = "kingdom_supply_orders_v1";
-    public enum Mode { SELF_PICKUP, COURIER, INTERNAL }
+    public enum Mode { SELF_PICKUP, COURIER, INTERNAL, MUNICIPAL }
     public enum State { OPEN, ASSIGNED, IN_TRANSIT, DELIVERED, CANCELLED }
     /** Unfinished inventory mutations are quarantined; NEVER replay them by creating items. */
     public enum TransferKind { PICKUP, DELIVERY }
@@ -51,7 +51,7 @@ public final class KingdomSupplyOrders extends SavedData {
     public Order find(UUID id) { return orders.get(id); }
     /** The caller must validate ownership of both containers and their inventory before submission. */
     public Order create(UUID buyer, UUID seller, String dimension, String itemId, BlockPos source, BlockPos destination, int count, long goodsPrice, long deliveryFee, Mode mode) {
-        if (buyer==null || seller==null || dimension==null || dimension.isBlank() || itemId==null || itemId.isBlank() || source==null || destination==null || source.equals(destination) || mode==null || mode==Mode.INTERNAL || count<1 || count>2304 || goodsPrice<0 || deliveryFee<0 || goodsPrice>1000000 || deliveryFee>1000000 || (!buyer.equals(seller) && goodsPrice==0)) return null;
+        if (buyer==null || seller==null || dimension==null || dimension.isBlank() || itemId==null || itemId.isBlank() || source==null || destination==null || source.equals(destination) || mode==null || mode==Mode.INTERNAL || mode==Mode.MUNICIPAL || count<1 || count>2304 || goodsPrice<0 || deliveryFee<0 || goodsPrice>1000000 || deliveryFee>1000000 || (!buyer.equals(seller) && goodsPrice==0)) return null;
         Order order=new Order(UUID.randomUUID(),buyer,seller,dimension,itemId,source.immutable(),destination.immutable(),count,goodsPrice,deliveryFee,mode);
         orders.put(order.id,order);setDirty();return order;
     }
@@ -129,13 +129,29 @@ public final class KingdomSupplyOrders extends SavedData {
         o.state=State.CANCELLED;setDirty();return true;
     }
 
+    /** Only the reviewed city purchase coordinator can create a municipal order. */
+    Order createMunicipal(UUID town,UUID seller,String dimension,String itemId,
+            BlockPos source,BlockPos destination,int count,long goodsPrice,
+            net.minecraft.world.item.ItemStack lot) {
+        if(town==null || seller==null || town.equals(seller)||dimension==null
+                ||dimension.isBlank()||itemId==null||itemId.isBlank()
+                ||source==null||destination==null||source.equals(destination)
+                ||count<1||count>16||goodsPrice<1||goodsPrice>1_000_000
+                ||lot==null||lot.isEmpty()||!itemId.equals(net.minecraft.core.registries.BuiltInRegistries
+                    .ITEM.getKey(lot.getItem()).toString()))return null;
+        var order=new Order(UUID.randomUUID(),town,seller,dimension,itemId,
+                source.immutable(),destination.immutable(),count,goodsPrice,0,Mode.MUNICIPAL);
+        order.itemTag=lot.hasTag()?lot.getTag().copy():null;
+        orders.put(order.id,order);setDirty();return order;
+    }
+
     /** Reserve prepaid physical cash for a new order. Called only after a successful wallet debit. */
     public boolean escrow(UUID id, long goods, long delivery) {
         Order o=orders.get(id);
         if(o==null || o.state!=State.OPEN || o.goodsEscrow!=0 || o.deliveryEscrow!=0
                 || goods!=o.goodsPrice || delivery!=o.deliveryFee)return false;
         o.goodsEscrow=goods;o.deliveryEscrow=delivery;
-        o.deliveryPaid=delivery>0;
+        o.deliveryPaid=delivery>0 || o.mode==Mode.MUNICIPAL;
         // goodsPaid deliberately remains false until seller actually receives cash.
         setDirty();return true;
     }
@@ -189,7 +205,7 @@ public final class KingdomSupplyOrders extends SavedData {
      */
     public boolean paySellerAtPickup(UUID id, UUID carrier, net.minecraft.world.Container cashbox) {
         Order o=orders.get(id);
-        if(o==null || !Objects.equals(o.courier,carrier) || o.mode!=Mode.COURIER
+        if(o==null || !Objects.equals(o.courier,carrier) || (o.mode!=Mode.COURIER && o.mode!=Mode.MUNICIPAL)
                 || (o.state!=State.ASSIGNED && o.state!=State.IN_TRANSIT)
                 || o.pickedUp!=0 || o.goodsPaid || o.goodsEscrow!=o.goodsPrice || o.goodsEscrow<=0)
             return false;

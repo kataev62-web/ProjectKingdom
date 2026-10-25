@@ -13,6 +13,18 @@ import java.util.List;
 public final class KingdomCourierCashbox {
     private KingdomCourierCashbox() {}
 
+    /** Check seller cashbox capacity without inserting or minting a coin. */
+    public static boolean canDeposit(Container cashbox,long copper) {
+        if(cashbox==null||copper<=0||copper>1_000_000)return false;
+        List<ItemStack> proposed=new ArrayList<>();
+        for(int i=0;i<cashbox.getContainerSize();i++)proposed.add(cashbox.getItem(i).copy());
+        long remainder=copper;
+        remainder=place(proposed,cashbox,KingdomCurrency.GOLD.get(),remainder,10000);
+        remainder=place(proposed,cashbox,KingdomCurrency.SILVER.get(),remainder,100);
+        remainder=place(proposed,cashbox,KingdomCurrency.COPPER.get(),remainder,1);
+        return remainder==0;
+    }
+
     public static boolean deposit(Container cashbox, long copper) {
         if(cashbox==null || copper<=0 || copper>1_000_000)return false;
         List<ItemStack> proposed=new ArrayList<>();

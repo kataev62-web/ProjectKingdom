@@ -22,7 +22,8 @@ public final class KingdomCourierService {
         KingdomSupplyOrders.Order order=null;
         for (var candidate:ledger.all()) {
             if((candidate.mode==KingdomSupplyOrders.Mode.COURIER
-                    || candidate.mode==KingdomSupplyOrders.Mode.INTERNAL)
+                    || candidate.mode==KingdomSupplyOrders.Mode.INTERNAL
+                    || candidate.mode==KingdomSupplyOrders.Mode.MUNICIPAL)
                     && npc.getUUID().equals(candidate.courier)
                 && (candidate.state==KingdomSupplyOrders.State.ASSIGNED || candidate.state==KingdomSupplyOrders.State.IN_TRANSIT)) {
                 order=candidate;break;
@@ -36,6 +37,10 @@ public final class KingdomCourierService {
         if(order.mode==KingdomSupplyOrders.Mode.INTERNAL
                 && !KingdomEnterpriseInternalSupply.authorized(level,order)) {
             updateStatus(level,worker,"INTERNAL_STORAGE_UNAVAILABLE");return false;
+        }
+        if(order.mode==KingdomSupplyOrders.Mode.MUNICIPAL
+                && !KingdomMunicipalProcurement.authorized(level,order)) {
+            updateStatus(level,worker,"MUNICIPAL_STORAGE_OR_MARKET_UNAVAILABLE");return false;
         }
         if(ledger.needsReconciliation(order.id)) {
             updateStatus(level,worker,"TRANSFER_RECONCILIATION_REQUIRED");return false;
@@ -62,7 +67,8 @@ public final class KingdomCourierService {
             ResourceLocation cargoId=ResourceLocation.tryParse(order.itemId);
             if(cargoId==null || !BuiltInRegistries.ITEM.containsKey(cargoId)
                     || !BuiltInRegistries.ITEM.getKey(worker.cargo.getItem()).equals(cargoId)
-                    || (order.mode==KingdomSupplyOrders.Mode.INTERNAL
+                    || ((order.mode==KingdomSupplyOrders.Mode.INTERNAL
+                        || order.mode==KingdomSupplyOrders.Mode.MUNICIPAL)
                         && !order.matchesLot(worker.cargo))
                     || order.state!=KingdomSupplyOrders.State.IN_TRANSIT
                     || worker.cargo.getCount()>order.pickedUp-order.delivered)return false;
@@ -80,7 +86,8 @@ public final class KingdomCourierService {
             ResourceLocation itemId=ResourceLocation.tryParse(order.itemId);
             if(itemId==null || !BuiltInRegistries.ITEM.containsKey(itemId))return false;
             ItemStack sample=new ItemStack(BuiltInRegistries.ITEM.get(itemId));
-            if(order.mode==KingdomSupplyOrders.Mode.INTERNAL && order.itemTag!=null)
+            if((order.mode==KingdomSupplyOrders.Mode.INTERNAL
+                    || order.mode==KingdomSupplyOrders.Mode.MUNICIPAL) && order.itemTag!=null)
                 sample.setTag(order.itemTag.copy());
             if(!KingdomCourierCart.hasCargo(cartInv,sample,worker.cartCargoCount)) {
                 updateStatus(level,worker,"CART_CARGO_MISMATCH");return false;
@@ -177,9 +184,12 @@ public final class KingdomCourierService {
                     || !seller.canTakeItem(seller,slot,stack))continue;
             // For TFC, the chosen physical lot must match the immutable NBT
             // snapshot on the durable order. Never substitute another batch.
-            if(order.mode==KingdomSupplyOrders.Mode.INTERNAL
+            if((order.mode==KingdomSupplyOrders.Mode.INTERNAL
+                    || order.mode==KingdomSupplyOrders.Mode.MUNICIPAL)
                     && (!order.matchesLot(stack) || KingdomCurrency.value(stack)>0
-                        || stack.is(KingdomCurrency.WALLET.get())))continue;
+                        || stack.is(KingdomCurrency.WALLET.get())
+                        || (order.mode==KingdomSupplyOrders.Mode.MUNICIPAL
+                            && KingdomNpcNutrition.inspect(stack)==null)))continue;
             IItemHandler cartInv=KingdomCourierCart.inventory(level,worker);
             boolean cartAvailable=cartInv!=null && worker.cargo.isEmpty() && worker.cartCargoCount==0
                     && KingdomCourierCart.empty(cartInv);

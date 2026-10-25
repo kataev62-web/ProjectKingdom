@@ -20,7 +20,9 @@ public final class KingdomCourierDispatch {
         }
         int assigned=0;
         for(var o:orders.all()) {
-            if((o.mode != KingdomSupplyOrders.Mode.COURIER && o.mode != KingdomSupplyOrders.Mode.INTERNAL)
+            if((o.mode != KingdomSupplyOrders.Mode.COURIER
+                    && o.mode != KingdomSupplyOrders.Mode.INTERNAL
+                    && o.mode != KingdomSupplyOrders.Mode.MUNICIPAL)
                     || o.state != KingdomSupplyOrders.State.OPEN
                     || o.courier != null || !o.deliveryPaid
                     || (o.goodsEscrow<=0 && !o.goodsPaid && !o.buyer.equals(o.seller))) continue;
@@ -32,6 +34,8 @@ public final class KingdomCourierDispatch {
             if(level==null)continue;
             if(o.mode==KingdomSupplyOrders.Mode.INTERNAL
                     && !KingdomEnterpriseInternalSupply.authorized(level,o))continue;
+            if(o.mode==KingdomSupplyOrders.Mode.MUNICIPAL
+                    && !KingdomMunicipalProcurement.authorized(level,o))continue;
             KingdomNpcData.Worker closest=null;
             double closestDistance=Double.MAX_VALUE;
             for(var w:npcData.all()) {
