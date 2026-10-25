@@ -27,6 +27,9 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     private final List<Button> buyButtons=new ArrayList<>();
     private Button sellButton,applyButton,acceptButton;
     private final List<Button> storageButtons=new ArrayList<>(),cashButtons=new ArrayList<>(),constructionButtons=new ArrayList<>();
+    private boolean showFinishedStock=false;
+    private int stockPage=0;
+    private Button stockPrevious,stockNext;
     private EditBox rename;private Button renameButton,closeButton;
     private Button fieldsButton;
     private boolean closureArmed;
@@ -36,12 +39,27 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         if(!menu.manager()){initVisitor();return;}
         var tabs=EnterpriseMenuLayout.tabs();int index=0;
         for(var tab:EnterpriseMenuLayout.Tab.values()){var r=tabs.get(index++);addRenderableWidget(new ParchmentIconButton(leftPos+r.x(),topPos+r.y(),r.width(),r.height(),tabIcon(tab),title(tab),()->{selected=tab;updateVisibility();},()->selected==tab));}
-        storageButtons.add(addRenderableWidget(action("Касса",60,132,70,EnterpriseCoreMenu.BIND_CASHBOX)));
-        storageButtons.add(addRenderableWidget(action("Сырьё",136,132,70,EnterpriseCoreMenu.BIND_RAW)));
-        storageButtons.add(addRenderableWidget(action("Продукция",212,132,78,EnterpriseCoreMenu.BIND_FINISHED)));
+        storageButtons.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Сырьё"),b->{
+            showFinishedStock=false;stockPage=0;updateVisibility();
+        }).bounds(leftPos+56,topPos+82,112,20).build()));
+        storageButtons.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Продукция"),b->{
+            showFinishedStock=true;stockPage=0;updateVisibility();
+        }).bounds(leftPos+181,topPos+82,122,20).build()));
+        storageButtons.add(addRenderableWidget(Button.builder(KingdomFonts.readable("Привязать сундук"),b->{
+            if(minecraft!=null&&minecraft.gameMode!=null)
+                minecraft.gameMode.handleInventoryButtonClick(menu.containerId,
+                    showFinishedStock?EnterpriseCoreMenu.BIND_FINISHED:EnterpriseCoreMenu.BIND_RAW);
+        }).bounds(leftPos+56,topPos+183,139,20).build()));
+        stockPrevious=addRenderableWidget(Button.builder(KingdomFonts.readable("◀"),b->{
+            stockPage=Math.max(0,stockPage-1);updateVisibility();
+        }).bounds(leftPos+210,topPos+183,39,20).build());
+        stockNext=addRenderableWidget(Button.builder(KingdomFonts.readable("▶"),b->{
+            stockPage++;updateVisibility();
+        }).bounds(leftPos+259,topPos+183,39,20).build());
         acceptButton=addRenderableWidget(action("Принять первого заявителя (10 мед./сут.)",58,132,250,EnterpriseCoreMenu.ACCEPT_FIRST));
         cashButtons.add(addRenderableWidget(action("Внести 100",78,132,90,EnterpriseCoreMenu.DEPOSIT_100)));
         cashButtons.add(addRenderableWidget(action("Снять 100",178,132,90,EnterpriseCoreMenu.WITHDRAW_100)));
+        cashButtons.add(addRenderableWidget(action("Перенести монеты старой кассы",68,166,235,EnterpriseCoreMenu.MIGRATE_CASH)));
         fieldsButton=addRenderableWidget(action("Поля и семена",72,132,205,EnterpriseCoreMenu.OPEN_FARM_FIELDS));
         constructionButtons.add(addRenderableWidget(action("Архитектор",62,132,110,EnterpriseCoreMenu.OPEN_ARCHITECT)));
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
@@ -82,7 +100,11 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
             return;
         }
         if(acceptButton!=null)acceptButton.visible=selected==EnterpriseMenuLayout.Tab.WORKERS&&menu.applications()>0;
-        for(Button b:storageButtons)b.visible=selected==EnterpriseMenuLayout.Tab.STORAGE&&menu.manager();for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();
+        for(Button b:storageButtons)b.visible=selected==EnterpriseMenuLayout.Tab.STORAGE&&menu.manager();
+        int stockPages=(activeStock().size()+3)/4;
+        if(stockPrevious!=null){stockPrevious.visible=selected==EnterpriseMenuLayout.Tab.STORAGE;stockPrevious.active=stockPage>0;}
+        if(stockNext!=null){stockNext.visible=selected==EnterpriseMenuLayout.Tab.STORAGE;stockNext.active=stockPage+1<Math.max(stockPages,1);}
+        for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();
         if(fieldsButton!=null)fieldsButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.FARM;
         for(Button b:constructionButtons)b.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION
             &&menu.kind()==EnterpriseKind.CONSTRUCTION&&menu.manager();
@@ -113,8 +135,12 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                     line(g,"Фантомные товары и прогресс не создаются.",54,108);
                 }
             }
-            case STORAGE->{line(g,"Касса: "+menu.cashboxState(),54,84);line(g,"Сырьё: "+menu.rawState(),54,101);line(g,"Продукция: "+menu.finishedState(),54,118);}
-            case CASH->{line(g,"Физически обеспеченная касса: "+menu.cash()+" мед.",54,88);line(g,"Операции доступны владельцу у загруженного ядра.",54,108);}
+            case STORAGE->renderWarehouse(g);
+            case CASH->{
+                line(g,"Касса находится внутри блока предприятия.",54,85);
+                line(g,"Учётный остаток: "+menu.cash()+" медных",54,103);
+                line(g,"Никакого отдельного кассового сундука.",54,119);
+            }
             case ORDERS->{line(g,"Только реальные сохранённые заявки и поставки.",54,90);line(g,"Удалённое создание товаров отключено.",54,108);}
             case SETTINGS->{
                 line(g,menu.manager()?"Новое название (до 48 символов):":"Управление доступно только владельцу.",54,80);
@@ -123,6 +149,33 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
             }
         }
     }
+    private List<EnterpriseCoreMenu.StockLine> activeStock(){
+        return showFinishedStock?menu.finishedStocks():menu.rawStocks();
+    }
+    private void renderWarehouse(GuiGraphics g){
+        var stocks=activeStock();
+        String status=showFinishedStock?menu.finishedState():menu.rawState();
+        line(g,"Склад: "+status,54,107);
+        if(stocks.isEmpty()){
+            line(g,status.equals("Подключено, работает")?"Сундук пуст. Положите в него товары.":"Нет доступного содержимого.",54,129);
+        }else{
+            int pages=Math.max(1,(stocks.size()+3)/4);
+            stockPage=Math.min(stockPage,pages-1);
+            for(int i=0;i<4;i++){
+                int index=stockPage*4+i;
+                if(index>=stocks.size())break;
+                var line=stocks.get(index);
+                int y=116+i*16;
+                g.renderItem(line.sample(),54,y);
+                String name=line.sample().getHoverName().getString();
+                if(font.width(name)>178)name=font.plainSubstrByWidth(name,173)+"…";
+                g.drawString(font,KingdomFonts.readable(name),75,y+2,INK,false);
+                g.drawString(font,KingdomFonts.readable("×"+line.count()),258,y+2,MUTED,false);
+            }
+            line(g,"Страница "+(stockPage+1)+"/"+pages+" | Позиций: "+stocks.size(),54,174);
+        }
+    }
+
     private void renderVisitor(GuiGraphics g){
         g.drawCenteredString(font,KingdomFonts.readable(menu.kind().title()),174,18,ACCENT);
         line(g,menu.enterpriseName(),54,48);
