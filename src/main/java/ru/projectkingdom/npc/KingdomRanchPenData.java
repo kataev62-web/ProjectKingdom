@@ -65,6 +65,31 @@ public final class KingdomRanchPenData extends SavedData {
         Pen p=new Pen(UUID.randomUUID(),farm,dimension,x1,x2,one.getY(),z1,z2,true);
         pens.put(p.id(),p);setDirty();return true;
     }
+    /** Trusted settlement AI only: register a previously BUILT pen on existing NPC-owned land. */
+    public boolean registerForNpcOwner(ServerLevel level,UUID npcOwner,UUID farm,BlockPos one,BlockPos two){
+        if(npcOwner==null||farm==null||one.getY()!=two.getY()||of(farm).size()>=MAX_PENS)
+            return false;
+        boolean validOwner=KingdomNpcData.get(level.getServer()).all().stream()
+            .anyMatch(w->npcOwner.equals(w.entityId)
+                && farm.equals(KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)));
+        var core=KingdomEnterpriseData.get(level.getServer()).core(farm);
+        if(!validOwner||core==null||!core.active()||core.kind()!=EnterpriseKind.FARM
+            ||!core.dimension().equals(level.dimension().location().toString()))return false;
+        int x1=Math.min(one.getX(),two.getX()),x2=Math.max(one.getX(),two.getX());
+        int z1=Math.min(one.getZ(),two.getZ()),z2=Math.max(one.getZ(),two.getZ());
+        if(x2-x1+1>MAX_SIDE||z2-z1+1>MAX_SIDE)return false;
+        String dimension=level.dimension().location().toString();
+        for(Pen p:pens.values())if(p.dimension().equals(dimension)&&p.y()==one.getY()
+            &&x1<=p.maxX()&&x2>=p.minX()&&z1<=p.maxZ()&&z2>=p.minZ())return false;
+        var land=KingdomTerritories.get(level.getServer());
+        for(int x=x1;x<=x2;x++)for(int z=z1;z<=z2;z++){
+            BlockPos soil=new BlockPos(x,one.getY(),z);
+            if(!level.hasChunkAt(soil)||!land.canUse(level,soil,npcOwner))return false;
+        }
+        Pen pen=new Pen(UUID.randomUUID(),farm,dimension,x1,x2,one.getY(),z1,z2,true);
+        pens.put(pen.id(),pen);setDirty();return true;
+    }
+
     static KingdomRanchPenData load(CompoundTag nbt){
         KingdomRanchPenData out=new KingdomRanchPenData();
         for(Tag obj:nbt.getList("Pens",Tag.TAG_COMPOUND)){
