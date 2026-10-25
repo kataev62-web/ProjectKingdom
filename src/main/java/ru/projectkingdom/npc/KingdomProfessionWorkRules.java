@@ -32,7 +32,7 @@ public final class KingdomProfessionWorkRules {
     /** Only list real server-side executors, not professions with an idle work schedule. */
     public static boolean executable(String job) {
         return switch (job == null ? "" : job) {
-            case "farmer", "miner", "lumberjack", "builder", "courier",
+            case "farmer", "breeder", "miner", "lumberjack", "builder", "courier",
                  "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason" -> true;
             default -> false;
         };
