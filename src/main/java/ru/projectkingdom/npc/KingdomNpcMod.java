@@ -358,7 +358,6 @@ public final class KingdomNpcMod {
     public void commands(RegisterCommandsEvent event) {
         KingdomExpansionCommands.register(event);
         var root = Commands.literal("knpc");
-        root.then(KingdomMunicipalFoodCommands.command());
         root.then(Commands.literal("talk")
             .then(Commands.argument("id", IntegerArgumentType.integer(1))
             .then(Commands.argument("phrase", StringArgumentType.greedyString()).executes(ctx -> {
@@ -937,6 +936,7 @@ public final class KingdomNpcMod {
                         executed |= NpcFieldWork.tick(level,resident,w)
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
+                            | KingdomTfcPotWork.tick(level,resident,w)
                             | KingdomTfcGrillWork.tick(level,resident,w)
                             | KingdomLivestockWork.tick(level,resident,w);
                     }
