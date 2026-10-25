@@ -99,7 +99,14 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 addAction("Сверить старые остатки (пустой сейф)",AdministrativeMenuLayout.Tab.INFO,
                     AdministrativeActionPacket.RECONCILE_BANK,58,184,246,true);
             }
-            case CENTRAL_WAREHOUSE->addAction("Добавить контейнер",AdministrativeMenuLayout.Tab.STORAGE,AdministrativeActionPacket.BIND_WAREHOUSE,78,146,190,true);
+            case CENTRAL_WAREHOUSE->{
+                addAction("Новая обычная комната",AdministrativeMenuLayout.Tab.STORAGE,
+                    AdministrativeActionPacket.WAREHOUSE_ROOM_GENERAL,54,126,250,true);
+                addAction("Новая продовольственная",AdministrativeMenuLayout.Tab.STORAGE,
+                    AdministrativeActionPacket.WAREHOUSE_ROOM_FOOD,54,151,250,true);
+                addAction("Новая холодильная камера",AdministrativeMenuLayout.Tab.STORAGE,
+                    AdministrativeActionPacket.WAREHOUSE_ROOM_COLD,54,176,250,true);
+            }
             case CITY_MARKET->addAction("Добавить склад рынка",AdministrativeMenuLayout.Tab.TRADE,AdministrativeActionPacket.BIND_MARKET,78,146,190,true);
             case PRISON->addAction("Добавить камеру",AdministrativeMenuLayout.Tab.CELLS,AdministrativeActionPacket.BIND_PRISON_CELL,78,146,190,true);
             default->{}
@@ -177,7 +184,17 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     line(g,"Все платежи поступают в городской банк.",58,188,MUTED);
                 }else placeholder(g,"Физические резервы и обязательства",90);
             }
-            case STORAGE->placeholder(g,"Привязанные реальные контейнеры",90);
+            case STORAGE->{
+                if(menu.kind()==AdministrativeKind.CENTRAL_WAREHOUSE){
+                    line(g,"Городские склады: "+menu.warehouseRooms().size()+" комнат",58,81,MUTED);
+                    int y=98;
+                    for(String info:menu.warehouseRooms()){
+                        if(y>=123)break;
+                        line(g,info,58,y,MUTED);y+=13;
+                    }
+                    if(menu.warehouseRooms().isEmpty())line(g,"Построй комнату и отметь два угла.",58,103,MUTED);
+                }else placeholder(g,"Привязанные реальные контейнеры",90);
+            }
             case TRADE->placeholder(g,"Торговые места и заказы",90);
             case LAND->renderRows(g,"Участки, продажа и аренда",menu.pageRows());
             case CASES->renderRows(g,menu.kind()==AdministrativeKind.GUARD_ADMINISTRATION?"Ордера и розыск (автоматика выкл.)":"Судебные дела",menu.pageRows());
