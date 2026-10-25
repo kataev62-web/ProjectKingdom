@@ -132,7 +132,7 @@ public final class KingdomFemaleOutfitClient {
                 Villager villager, float limbSwing, float limbAmount, float partialTick,
                 float ageTicks, float yaw, float pitch) {
             if (!FEMALE.contains(villager.getUUID()) || villager.isInvisible() || villager.isBaby()) return;
-            outfit.render(stack.last() == null ? stack : stack,
+            outfit.render(stack,
                     buffers.getBuffer(RenderType.entityCutoutNoCull(CLOTH)),
                     light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
         }
