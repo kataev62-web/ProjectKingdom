@@ -296,7 +296,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 var schematics=KingdomSchematicLibrary.available(viewer.getServer());
                 int offset=schematicPage*7;
                 for(int i=0;i<7 && offset+i<schematics.size();i++)
-                    icon(15+i,Items.MAP,"Предпросмотр 3D: "+schematics.get(offset+i));
+                    icon(15+i,Items.MAP,"3D-макет: "+KingdomSchematicLibrary.displayName(schematics.get(offset+i)));
                 int pages=Math.max(1,(schematics.size()+6)/7);
                 icon(25,Items.COMPASS,"Схемы .schem, страница "+(schematicPage+1)+"/"+pages+" (следующая)");
                 icon(22,KingdomConstructionRegistry.DRAFTING_TABLE_ITEM.get(),
