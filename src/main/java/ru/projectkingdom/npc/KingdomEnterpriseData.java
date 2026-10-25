@@ -155,6 +155,8 @@ public final class KingdomEnterpriseData extends SavedData {
         if(ru.projectkingdom.property.KingdomRentalsData.get(player.getServer())
                 .receptionHasObligations(business))return ClosureStatus.ACTIVE_GUESTS;
         if(firm.cash()!=0)return ClosureStatus.CASH_REMAINING;
+        if(blockPresent && level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity live
+                && !live.cashInventory().isEmpty())return ClosureStatus.CASH_REMAINING;
         if(unresolved(business))return ClosureStatus.TRADE_NOT_SETTLED;
         var payroll=KingdomEnterprisePayrollData.get(player.getServer());
         var contracts=new ArrayList<KingdomEnterprisePayrollData.Employment>();
@@ -554,18 +556,15 @@ public final class KingdomEnterpriseData extends SavedData {
      * The caller validates earned debt and capacity in the NPC's actual persistent coin purse.
      */
     boolean debitVerifiedNpcWage(ServerLevel level, UUID business, UUID npcId,long amount) {
-        Enterprise firm=firms.get(business);Counter desk=counters.get(business);
-        if(firm==null || desk==null || amount<=0 || amount>10000 || firm.cash()<amount
-                || !desk.dimension().equals(level.dimension().location().toString())
-                || !level.hasChunkAt(desk.pos()) || !(level.getBlockEntity(desk.pos()) instanceof Container)
-                || !KingdomTerritories.get(level.getServer()).canUse(level,desk.pos(),firm.owner()))return false;
-        var entity=level.getEntity(npcId);
-        if(!(entity instanceof net.minecraft.world.entity.npc.Villager npc) || !npc.isAlive()
-                || npc.distanceToSqr(desk.pos().getX()+0.5,desk.pos().getY()+0.5,desk.pos().getZ()+0.5)>9)return false;
+        Enterprise firm=firms.get(business);
+        if(firm==null || amount<=0 || amount>10000 || firm.cash()<amount)return false;
         var cash=EnterpriseAccessService.snapshot(level,this,business,EnterpriseBindingRole.CASHBOX);
-        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE
-                ||cash.position().distSqr(desk.pos())>9
-                ||KingdomPhysicalCash.value(cash.container())<firm.cash()
+        if(cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE)return false;
+        var entity=level.getEntity(npcId);
+        if(!(entity instanceof net.minecraft.world.entity.npc.Villager npc)||!npc.isAlive()
+                ||npc.distanceToSqr(cash.position().getX()+0.5,
+                    cash.position().getY()+0.5,cash.position().getZ()+0.5)>9)return false;
+        if(KingdomPhysicalCash.value(cash.container())<firm.cash()
                 ||!KingdomPhysicalCash.takeForNpc(cash.container(),amount))return false;
         firms.put(business,new Enterprise(firm.id(),firm.owner(),firm.name(),firm.cash()-amount));
         setDirty();return true;
