@@ -44,9 +44,9 @@ public final class KingdomEnterpriseRawStores {
         for(var entry:locations.entrySet()) {
             BlockPos pos=entry.getKey();
             if(!level.hasChunkAt(pos) || firms.storageClaimedByOther(enterprise,dimension,pos))continue;
-            boolean registered=registered!=null && dimension.equals(registered.dimension())
+            boolean isRegisteredSource=registered!=null && dimension.equals(registered.dimension())
                     && registered.pos().equals(pos);
-            if(!((registered && territory.canUse(level,pos,firm.owner()))
+            if(!((isRegisteredSource && territory.canUse(level,pos,firm.owner()))
                     || territory.usable(level,pos,firm.owner(),"raw")))continue;
             if(!(level.getBlockEntity(pos) instanceof Container c))continue;
             int first = entry.getValue()?9:0;
