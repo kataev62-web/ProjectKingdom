@@ -95,6 +95,17 @@ public final class KingdomSupplyOrders extends SavedData {
         return false;
     }
 
+    /** One pending shipment per destination/item, even across multiple source chests. */
+    boolean hasActiveInternalTo(UUID enterprise,String dimension,BlockPos destination,String itemId) {
+        for(Order o:orders.values())
+            if(o.mode==Mode.INTERNAL && o.buyer.equals(enterprise)
+                    && o.dimension.equals(dimension) && o.destination.equals(destination)
+                    && o.itemId.equals(itemId)
+                    && o.state!=State.DELIVERED && o.state!=State.CANCELLED)
+                return true;
+        return false;
+    }
+
     /** Only rollback of a new, never-dispatched, zero-value internal order. */
     boolean cancelInternalUnassigned(UUID id) {
         Order o=orders.get(id);
