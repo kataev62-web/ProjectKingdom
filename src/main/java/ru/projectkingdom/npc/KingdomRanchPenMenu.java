@@ -58,6 +58,14 @@ public final class KingdomRanchPenMenu extends ChestMenu {
         icon(18,Items.OAK_FENCE,"ДОБАВИТЬ ЗАГОН: два угла Shift+ПКМ пустой рукой");
         icon(19,Items.LEVER,"ВКЛЮЧИТЬ / ВЫКЛЮЧИТЬ выбранный загон");
         icon(20,Items.BARRIER,"УДАЛИТЬ загон из плана. Животные и блоки остаются.");
+        var chosen=selected<pens.size()?pens.get(selected):null;
+        boolean enabled=chosen!=null
+            &&KingdomRanchPolicyData.get(player.getServer()).policy(chosen.id()).cullOld();
+        icon(21,Items.IRON_SWORD,"ПЛАНОВЫЙ ЗАБОЙ старых животных: "
+            +(enabled?"ВКЛ":"ВЫКЛ")
+            +" | только старые, не беременные; стадо минимум 6, не более одного в сутки; ЛКМ изменить");
+        icon(23,Items.EGG,"Яйца: сбор из настоящих гнёзд TFC, неоплодотворённые — на склад; оплодотворённые остаются.");
+        icon(24,Items.MILK_BUCKET,"Молоко: реальная жидкость из TFC в настоящую пустую тару со склада.");
         icon(22,Items.SHEARS,"Уход: корм из сырьевого склада, шерсть в готовый склад. Требуются настоящие ножницы.");
         icon(26,Items.OAK_DOOR,"ЗАКРЫТЬ");
         broadcastChanges();
@@ -85,6 +93,17 @@ public final class KingdomRanchPenMenu extends ChestMenu {
             }
             case 20 -> {
                 if(selected<pens.size())data.remove(player,farm,pens.get(selected).id());
+            }
+            case 21 -> {
+                if(selected<pens.size()){
+                    var policy=KingdomRanchPolicyData.get(player.getServer());
+                    if(policy.toggleCull(player,farm,pens.get(selected).id())){
+                        boolean enabled=policy.policy(pens.get(selected).id()).cullOld();
+                        player.sendSystemMessage(Component.literal("[Ферма] Плановый забой старых животных "
+                            +(enabled?"ВКЛЮЧЁН":"ОТКЛЮЧЁН")
+                            +". Сохраняем как минимум 6 животных, не трогаем беременных."));
+                    }
+                }
             }
             case 26 -> {player.closeContainer();return;}
             default -> {}
