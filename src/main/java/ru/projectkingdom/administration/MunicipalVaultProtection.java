@@ -26,9 +26,18 @@ import ru.projectkingdom.npc.KingdomNpcMod;
 public final class MunicipalVaultProtection {
     private MunicipalVaultProtection() {}
     private record Binding(UUID town,AdministrativeBindingRole role) {}
+    private static boolean canManageBank(ServerPlayer player,UUID townId){
+        var admin=KingdomAdministrationData.get(player.getServer());
+        var town=KingdomCivicsData.get(player.getServer()).townById(townId);
+        return town!=null && AdministrativePermissionService.mayManage(player.getUUID(),
+            admin.founder(townId),town.mayor(),
+            admin.roles(townId,player.getUUID()),AdministrativeKind.BANK);
+    }
 
     private static Binding binding(ServerLevel level,BlockPos pos) {
         if(!level.hasChunkAt(pos))return null;
+        var foundRoom=KingdomBankVaultRooms.get(level.getServer()).at(level,pos);
+        if(foundRoom!=null)return new Binding(foundRoom.town(),AdministrativeBindingRole.BANK_VAULT);
         var cities=KingdomCivicsData.get(level.getServer());
         var admin=KingdomAdministrationData.get(level.getServer());
         String dim=level.dimension().location().toString();
@@ -80,6 +89,13 @@ public final class MunicipalVaultProtection {
         if(town==null||!AdministrativePermissionService.mayManage(player.getUUID(),
                 admin.founder(town.id()),town.mayor(),admin.roles(town.id(),player.getUUID()),
                 bound.role().kind()))event.setCanceled(true);
+    }
+    @SubscribeEvent(priority=EventPriority.HIGHEST)
+    public static void placing(BlockEvent.EntityPlaceEvent event) {
+        if(!(event.getLevel() instanceof ServerLevel level)
+                ||!(event.getEntity() instanceof ServerPlayer player))return;
+        var room=KingdomBankVaultRooms.get(level.getServer()).at(level,event.getPos());
+        if(room!=null&&!canManageBank(player,room.town()))event.setCanceled(true);
     }
     @SubscribeEvent(priority=EventPriority.HIGHEST)
     public static void explosions(ExplosionEvent.Detonate event) {
