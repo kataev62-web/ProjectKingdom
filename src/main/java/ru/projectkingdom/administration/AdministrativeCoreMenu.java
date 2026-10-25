@@ -97,7 +97,7 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
                 var stock=registered.inspect(player.serverLevel(),room);
                 String status=stock.loaded()?"шт. "+stock.itemCount():"не загружена";
                 if(room.kind()==KingdomCentralWarehouseRooms.Kind.COLD){
-                    status+=stock.cellarControllerPresent()?" | есть станция Firmalife":" | охлаждение не подтверждено";
+                    status+=stock.cellarControllerPresent()?" | станция найдена (проверь)":" | нет проверенного охлаждения";
                 }
                 String text=room.kind().title()+" "+room.dimensions()+" | "+status;
                 warehouseRooms.add(text.length()>94?text.substring(0,94):text);
