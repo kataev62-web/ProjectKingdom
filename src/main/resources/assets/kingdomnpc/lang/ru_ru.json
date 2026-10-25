@@ -14,6 +14,8 @@
   "block.kingdomnpc.lumber_core": "Ядро лесного предприятия",
   "block.kingdomnpc.smithy_core": "Ядро кузницы",
   "block.kingdomnpc.bakery_core": "Ядро пекарни",
+  "block.kingdomnpc.hotel_core": "Стойка гостиницы",
+  "block.kingdomnpc.tavern_core": "Стойка таверны",
   "block.kingdomnpc.pottery_core": "Ядро гончарной мастерской",
   "block.kingdomnpc.construction_core": "Ядро строительной конторы",
   "block.kingdomnpc.courier_core": "Ядро курьерской службы",
