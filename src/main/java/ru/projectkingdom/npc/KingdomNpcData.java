@@ -101,6 +101,8 @@ public final class KingdomNpcData extends SavedData {
         public long lastMealDay=-1;
         /** Employer explicitly supplies meals from this worker's marked finished warehouse. */
         public boolean rationsEnabled=false;
+        /** Explicit native-death loot must be delivered before further animal work. */
+        public boolean butcherDelivery=false;
         public int energy = 80;
         public int morale = 70;
         public int safety = 70;
@@ -179,6 +181,7 @@ public final class KingdomNpcData extends SavedData {
             w.dietDairy=t.contains("DietDairy",Tag.TAG_INT)?NpcLife.clamp(t.getInt("DietDairy")):50;
             w.lastMealDay=t.contains("LastMealDay",Tag.TAG_LONG)?t.getLong("LastMealDay"):-1;
             w.rationsEnabled=t.getBoolean("RationsEnabled");
+            w.butcherDelivery=t.getBoolean("ButcherDelivery");
             w.energy = t.contains("Energy", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Energy")) : 80;
             w.morale = t.contains("Morale", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Morale")) : 70;
             w.safety = t.contains("Safety", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Safety")) : 70;
@@ -252,6 +255,7 @@ public final class KingdomNpcData extends SavedData {
             t.putInt("DietVegetables",dietVegetables);t.putInt("DietProtein",dietProtein);
             t.putInt("DietDairy",dietDairy);t.putLong("LastMealDay",lastMealDay);
             t.putBoolean("RationsEnabled",rationsEnabled);
+            t.putBoolean("ButcherDelivery",butcherDelivery);
             t.putString("Settlement",settlement);t.putString("FamilyName",familyName);
             t.putLong("LastLifeDay",lastLifeDay);t.putInt("PersonalStock",personalStock);
             t.putString("Gender", gender); t.putInt("AgeYears", ageYears);
