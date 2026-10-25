@@ -373,6 +373,12 @@ public final class KingdomTfcPotWork {
                 return false; // Never take a player's special output or ongoing batch.
             for(int i=FIRST;i<=LAST;i++)if(!machine.getStackInSlot(i).isEmpty())
                 return false; // A player or another worker already put items in this pot.
+            // The pot must already be attached to real fluid capabilities.
+            // A finite, one-item vessel from RAW may fill it; Kingdom never spawns water.
+            if(((FluidStack)fluidInTank.invoke(tfcInventory,0)).isEmpty()
+                    && KingdomTfcPotWater.fill(level,potPos,raw,pot)){
+                return true; // TFC fluid changed; check recipes next worker tick.
+            }
             Plan selected=findRecipe(level,tfcInventory,raw,dest);
             if(selected==null)return false;
             if(!fill(level,w,selected,raw,machine,potPos))return false;
