@@ -17,11 +17,11 @@ public record MunicipalFoodView(boolean configured,boolean complete,boolean canC
     public MunicipalFoodView {
         groups=List.copyOf(groups);offers=List.copyOf(offers);shipments=List.copyOf(shipments);
         if(offers.size()>5||shipments.size()>4||groups.size()>5
-                ||notice.length()>110)throw new IllegalArgumentException("food menu bounds");
+                ||groups.size()!=5||notice.length()>110)throw new IllegalArgumentException("food menu bounds");
     }
     public static MunicipalFoodView empty() {
         return new MunicipalFoodView(false,false,false,0,-1,0,0,0,0,0,
-                List.of(),List.of(),List.of(),"");
+                List.of(0,0,0,0,0),List.of(),List.of(),"");
     }
     public static MunicipalFoodView snapshot(ServerPlayer player,UUID town,String notice) {
         var civics=KingdomCivicsData.get(player.getServer());
