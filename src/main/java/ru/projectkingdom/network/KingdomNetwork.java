@@ -8,7 +8,7 @@ import ru.projectkingdom.administration.AdministrativeActionPacket;
 import ru.projectkingdom.administration.AdministrativeTextPacket;
 
 public final class KingdomNetwork {
-    private static final String PROTOCOL="4";
+    private static final String PROTOCOL="5";
     public static final SimpleChannel CHANNEL=NetworkRegistry.newSimpleChannel(
             new ResourceLocation(KingdomNpcMod.MOD_ID,"main"),()->PROTOCOL,PROTOCOL::equals,PROTOCOL::equals);
     private static boolean registered;
@@ -49,6 +49,8 @@ public final class KingdomNetwork {
                 OpenKingdomMapsFromBookPacket::decode,OpenKingdomMapsFromBookPacket::handle);
         CHANNEL.registerMessage(21,OpenKingdomMapsHubPacket.class,OpenKingdomMapsHubPacket::encode,
                 OpenKingdomMapsHubPacket::decode,OpenKingdomMapsHubPacket::handle);
+        CHANNEL.registerMessage(22,KingdomFemaleOutfitPacket.class,KingdomFemaleOutfitPacket::encode,
+                KingdomFemaleOutfitPacket::decode,KingdomFemaleOutfitPacket::handle);
         CHANNEL.registerMessage(31,OpenLandMapFromAtlasPacket.class,OpenLandMapFromAtlasPacket::encode,
                 OpenLandMapFromAtlasPacket::decode,OpenLandMapFromAtlasPacket::handle);
     }
