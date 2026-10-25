@@ -63,8 +63,14 @@ public final class KingdomEnterpriseStock {
                     ||o.state==KingdomSupplyOrders.State.DELIVERED)continue;
             if(o.pendingKind!=null&&(positions.contains(o.source)||positions.contains(o.destination)))
                 return new Snapshot(0,0,false);
-            if(positions.contains(o.destination)&&(enterprise.equals(o.buyer)||firm.owner().equals(o.buyer)))
-                arriving+=Math.max(0,o.count-o.delivered);
+            if(positions.contains(o.destination)&&(enterprise.equals(o.buyer)||firm.owner().equals(o.buyer))) {
+                // Internal goods already exist in this enterprise's source warehouse.
+                // Count only cargo physically picked up and currently in transit,
+                // otherwise an open transfer doubles the company's total stock.
+                arriving+=o.mode==KingdomSupplyOrders.Mode.INTERNAL
+                        ?Math.max(0,o.pickedUp-o.delivered)
+                        :Math.max(0,o.count-o.delivered);
+            }
         }
         return new Snapshot((int)Math.min(total,Integer.MAX_VALUE),
                 (int)Math.min(arriving,Integer.MAX_VALUE),true);
