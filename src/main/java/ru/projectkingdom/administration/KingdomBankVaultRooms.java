@@ -19,6 +19,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BarrelBlock;
 import net.minecraft.world.level.block.ChestBlock;
+import net.minecraft.world.level.block.HopperBlock;
+import net.minecraft.core.Direction;
 import net.minecraft.world.level.saveddata.SavedData;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomContainerAccess;
@@ -63,7 +65,7 @@ public final class KingdomBankVaultRooms extends SavedData {
         FIRST_CORNER, CREATED, EXPANDED, NO_SESSION, NO_RIGHTS, WRONG_DIMENSION,
         TOO_FAR, TOO_LARGE, FOREIGN_PLOT, OVERLAP, BANK_DESK_INSIDE, LEGACY_CHEST_OUTSIDE,
         EXISTING_ROOM_NOT_INCLUDED, UNLOADED, NO_CHESTS, TOO_MANY_CHESTS,
-        INVALID_STORAGE
+        INVALID_STORAGE, AUTOMATION_NEARBY
     }
     public static String message(Result result){
         return switch(result){
@@ -84,6 +86,7 @@ public final class KingdomBankVaultRooms extends SavedData {
             case NO_CHESTS->"В комнате должен стоять хотя бы один настоящий сундук или бочка.";
             case TOO_MANY_CHESTS->"В одной банковской комнате поддерживается не более 64 отдельных хранилищ.";
             case INVALID_STORAGE->"Проверьте сундуки: внутри должны лежать только монеты Kingdom; двойной сундук не должен выходить за границу комнаты.";
+            case AUTOMATION_NEARBY->"У банковского сундука обнаружена воронка. Уберите воронки внутри и возле хранилища: автоматическая выдача монет запрещена.";
         };
     }
     private record Session(UUID town,String dimension,BlockPos bank,BlockPos first) {}
@@ -221,6 +224,12 @@ public final class KingdomBankVaultRooms extends SavedData {
             var state=level.getBlockState(pos);
             if(!(state.getBlock() instanceof ChestBlock)
                     &&!(state.getBlock() instanceof BarrelBlock))continue;
+            for(Direction direction:Direction.values()){
+                BlockPos neighbor=pos.relative(direction);
+                if(!level.hasChunkAt(neighbor))return new Scan(null,Result.UNLOADED);
+                if(level.getBlockState(neighbor).getBlock() instanceof HopperBlock)
+                    return new Scan(null,Result.AUTOMATION_NEARBY);
+            }
             Container container=KingdomContainerAccess.resolve(level,pos);
             if(container==null)return new Scan(null,Result.INVALID_STORAGE);
             seen.add(pos.immutable());
