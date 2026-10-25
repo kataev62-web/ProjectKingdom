@@ -115,6 +115,33 @@ class KingdomRentalsDataTest {
         assertEquals(1,loaded.rooms().size());
     }
 
+    @Test void receptionOwnsOnlyItsBuildingsRoomsAndSurvivesSave() {
+        var building=home();
+        UUID hotel=UUID.randomUUID(),tavern=UUID.randomUUID();
+        assertFalse(rentals.bindReception(land,other,hotel,DIM,new BlockPos(3,64,3)));
+        assertFalse(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(30,64,30)));
+        assertTrue(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(3,64,3)));
+        assertTrue(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(3,64,3)));
+        assertFalse(rentals.bindReception(land,owner,tavern,DIM,new BlockPos(3,64,3)));
+        assertEquals(building,rentals.receptionBuilding(hotel));
+        var first=rentals.createRoom(land,owner,building.id(),"Номер 1",Purpose.HOME,
+                new Bounds(3,64,3,6,68,6));
+        assertNotNull(first);
+        assertEquals(hotel,rentals.receptionForRoom(first.id()));
+        assertEquals(1,rentals.roomsAtReception(hotel).size());
+        assertTrue(rentals.roomsAtReception(tavern).isEmpty());
+        assertFalse(rentals.receptionHasObligations(hotel));
+        assertTrue(rentals.configure(land,owner,first.id(),50,1,true));
+        assertTrue(rentals.receptionHasObligations(hotel));
+        assertTrue(rentals.rentPaid(land,tenant,first.id(),1_900_000_000_000L));
+        assertTrue(rentals.receptionHasObligations(hotel));
+        var loaded=KingdomRentalsData.load(rentals.save(new CompoundTag()));
+        assertEquals(hotel,loaded.receptionForRoom(first.id()));
+        assertEquals(building,loaded.receptionBuilding(hotel));
+        assertEquals(rentals.room(first.id()),loaded.roomsAtReception(hotel).get(0));
+        assertTrue(loaded.receptionHasObligations(hotel));
+    }
+
     @Test void boundsLimitAndStructuralSurfaces() {
         assertThrows(IllegalArgumentException.class,()->
                 new Bounds(0,0,0,70,1,2));
