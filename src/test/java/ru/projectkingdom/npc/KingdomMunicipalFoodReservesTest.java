@@ -40,6 +40,18 @@ final class KingdomMunicipalFoodReservesTest {
                         List.of(0,0),10,10,9));
     }
 
+    @Test void tfcConfiguredMonthsCoverWinterAcrossCalendarYearBoundary() {
+        var p=KingdomMunicipalFoodReserves.Policy.fromTfcMonth(10,8);
+        assertEquals(-8,p.firstWinterDay());
+        assertEquals(96,p.yearDays());
+        assertEquals(24,p.winterDays());
+        assertEquals(3*8,p.preparationDays());
+        assertEquals(24,KingdomMunicipalFoodReserves.coverageDays(p,0));
+        assertEquals(8,KingdomMunicipalFoodReserves.coverageDays(p,16));
+        assertEquals(56,KingdomMunicipalFoodReserves.coverageDays(p,64));
+        assertEquals(24,KingdomMunicipalFoodReserves.coverageDays(p,96));
+    }
+
     @Test void policyPersistsButStaleForecastNeverReplays() {
         var state=new KingdomMunicipalFoodReserves();
         UUID town=UUID.randomUUID();
