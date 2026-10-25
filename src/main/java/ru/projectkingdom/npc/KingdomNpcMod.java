@@ -64,6 +64,12 @@ public final class KingdomNpcMod {
         ru.projectkingdom.property.KingdomRentalSelection.handle(event);
     }
 
+    /** Blueprint copying: two right-clicked corners on an owned, loaded building. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
+    public void chooseBlueprintCopyCorners(PlayerInteractEvent.RightClickBlock event) {
+        KingdomStructureCopy.handle(event);
+    }
+
     // Farmer field selection is bound to a specific owned farm and right-clicked soil.
     @SubscribeEvent public void chooseFarmCorner(PlayerInteractEvent.RightClickBlock event) {
         KingdomFarmSelection.select(event);
@@ -230,7 +236,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
