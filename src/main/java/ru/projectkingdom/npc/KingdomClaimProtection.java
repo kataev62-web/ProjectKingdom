@@ -69,8 +69,27 @@ public final class KingdomClaimProtection {
                 && binding.dimension().equals(level.dimension().location().toString())
                 && binding.packedPos()==pos.asLong();
     }
+    /** Guests may reach a REAL active reception, never the hotel's storage or private rooms. */
+    private static boolean publicReception(ServerPlayer player, BlockPos pos) {
+        var level=player.serverLevel();
+        if(!level.hasChunkAt(pos))return false;
+        if(!(level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core)
+                ||!core.bound()||(core.kind()!=ru.projectkingdom.enterprise.EnterpriseKind.HOTEL
+                &&core.kind()!=ru.projectkingdom.enterprise.EnterpriseKind.TAVERN))return false;
+        var firms=KingdomEnterpriseData.get(player.getServer());
+        var binding=firms.core(core.enterpriseId());
+        var firm=firms.find(core.enterpriseId());
+        if(binding==null||firm==null||!binding.active()
+                ||!firm.owner().equals(core.owner())||binding.kind()!=core.kind()
+                ||!binding.dimension().equals(level.dimension().location().toString())
+                ||binding.packedPos()!=pos.asLong())return false;
+        // A reception inside somebody's private room is never public.
+        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(player.getServer());
+        return rentals.atRoom(level.dimension().location().toString(),pos)==null;
+    }
     @SubscribeEvent public static void interact(PlayerInteractEvent.RightClickBlock event) {
-        if(event.getEntity() instanceof ServerPlayer player && publicTownHall(player,event.getPos()))
+        if(event.getEntity() instanceof ServerPlayer player
+                && (publicTownHall(player,event.getPos())||publicReception(player,event.getPos())))
             return;
         if(denied(event.getEntity(),event.getPos(),KingdomCivicsData.Action.INTERACT))event.setCanceled(true);
     }
