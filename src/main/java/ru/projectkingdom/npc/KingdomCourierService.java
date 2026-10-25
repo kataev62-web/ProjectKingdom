@@ -62,6 +62,8 @@ public final class KingdomCourierService {
             ResourceLocation cargoId=ResourceLocation.tryParse(order.itemId);
             if(cargoId==null || !BuiltInRegistries.ITEM.containsKey(cargoId)
                     || !BuiltInRegistries.ITEM.getKey(worker.cargo.getItem()).equals(cargoId)
+                    || (order.mode==KingdomSupplyOrders.Mode.INTERNAL
+                        && !order.matchesLot(worker.cargo))
                     || order.state!=KingdomSupplyOrders.State.IN_TRANSIT
                     || worker.cargo.getCount()>order.pickedUp-order.delivered)return false;
         }
@@ -78,6 +80,8 @@ public final class KingdomCourierService {
             ResourceLocation itemId=ResourceLocation.tryParse(order.itemId);
             if(itemId==null || !BuiltInRegistries.ITEM.containsKey(itemId))return false;
             ItemStack sample=new ItemStack(BuiltInRegistries.ITEM.get(itemId));
+            if(order.mode==KingdomSupplyOrders.Mode.INTERNAL && order.itemTag!=null)
+                sample.setTag(order.itemTag.copy());
             if(!KingdomCourierCart.hasCargo(cartInv,sample,worker.cartCargoCount)) {
                 updateStatus(level,worker,"CART_CARGO_MISMATCH");return false;
             }
@@ -161,14 +165,20 @@ public final class KingdomCourierService {
         }
         ResourceLocation id=ResourceLocation.tryParse(order.itemId);
         if(id==null || !BuiltInRegistries.ITEM.containsKey(id))return false;
-        for(int slot=0;slot<seller.getContainerSize();slot++) {
+        int firstSourceSlot=0;
+        if(order.mode==KingdomSupplyOrders.Mode.INTERNAL) {
+            var sourceInfo=KingdomEnterpriseRawStores.find(level,order.buyer,order.source);
+            if(sourceInfo==null)return false;
+            firstSourceSlot=sourceInfo.firstFreeSlot();
+        }
+        for(int slot=firstSourceSlot;slot<seller.getContainerSize();slot++) {
             ItemStack stack=seller.getItem(slot);
             if(stack.isEmpty() || !BuiltInRegistries.ITEM.getKey(stack.getItem()).equals(id)
                     || !seller.canTakeItem(seller,slot,stack))continue;
-            // In-company logistics only supports plain homogeneous inputs for now.
-            // Preserve all TFC lot/tagged food until lot-aware transport is implemented.
-            if(order.mode==KingdomSupplyOrders.Mode.INTERNAL &&
-                    (stack.hasTag() || KingdomCurrency.value(stack)>0
+            // For TFC, the chosen physical lot must match the immutable NBT
+            // snapshot on the durable order. Never substitute another batch.
+            if(order.mode==KingdomSupplyOrders.Mode.INTERNAL
+                    && (!order.matchesLot(stack) || KingdomCurrency.value(stack)>0
                         || stack.is(KingdomCurrency.WALLET.get())))continue;
             IItemHandler cartInv=KingdomCourierCart.inventory(level,worker);
             boolean cartAvailable=cartInv!=null && worker.cargo.isEmpty() && worker.cartCargoCount==0
