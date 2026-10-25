@@ -100,8 +100,16 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 if(status==KingdomBankData.ReconcileStatus.DONE)sender.closeContainer();
                 return;
             }
+            if(packet.action==BIND_BANK){
+                if(packet.kind!=AdministrativeKind.BANK || !menu.manager())return;
+                boolean ok=KingdomBankVaultRooms.get(sender.getServer()).begin(sender);
+                sender.sendSystemMessage(Component.literal(ok
+                    ?"[Банк] Отметьте два противоположных угла хранилища ПКМ с пустой рукой. Максимум 17×9×17 блоков; рядом с банком."
+                    :"[Банк] Только управляющий может размечать хранилище через меню банка."));
+                if(ok)sender.closeContainer();
+                return;
+            }
             AdministrativeBindingRole role=switch(packet.action){
-                case BIND_BANK->AdministrativeBindingRole.BANK_VAULT;
                 case BIND_WAREHOUSE->AdministrativeBindingRole.WAREHOUSE_STORAGE;
                 case BIND_MARKET->AdministrativeBindingRole.MARKET_STORAGE;
                 case BIND_PRISON_CELL->AdministrativeBindingRole.PRISON_CELL;
