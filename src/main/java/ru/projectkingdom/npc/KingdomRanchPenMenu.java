@@ -51,7 +51,8 @@ public final class KingdomRanchPenMenu extends ChestMenu {
             icon(i,Items.OAK_FENCE,(i==selected?"[ВЫБРАН] ":"")+"Загон "+(i+1)
                 +" | "+(pen.maxX()-pen.minX()+1)+"x"+(pen.maxZ()-pen.minZ()+1)
                 +" | животных "+status.animals()+", голодных "+status.hungry()
-                +", шерсть готова "+status.woolReady()
+                +", шерсть готова "+status.woolReady()+", молоко "+status.milkReady()
+                +", свежие яйца "+status.edibleEggs()
                 +" | "+(pen.enabled()?"работает":"остановлен"));
         }
         icon(9,Items.BOOK,"Загоны "+pens.size()+"/4; NPC работает только внутри выбранной территории");
