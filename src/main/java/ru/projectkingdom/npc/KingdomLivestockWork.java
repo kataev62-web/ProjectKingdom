@@ -101,6 +101,27 @@ public final class KingdomLivestockWork {
         return null;
     }
 
+    public record PenStatus(int animals,int hungry,int woolReady) {}
+
+    /** Read-only, loaded-area diagnosis. Never changes TFC entity state. */
+    public static PenStatus inspect(ServerLevel level,KingdomRanchPenData.Pen pen){
+        if(!pen.dimension().equals(level.dimension().location().toString())||!init()
+                ||!level.hasChunkAt(pen.center()))return new PenStatus(0,0,0);
+        AABB bounds=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
+            pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
+        int count=0,needsFood=0,ready=0;
+        for(Animal animal:level.getEntitiesOfClass(Animal.class,bounds,
+                entity->entity.isAlive()&&pen.contains(entity))){
+            if(!isTfc(animal))continue;
+            count++;
+            if(hungry(animal))needsFood++;
+            if(animal instanceof IForgeShearable shearable
+                && animal.getClass().getName().startsWith("net.dries007.tfc.common.entities.livestock")
+                && shearable.isShearable(new ItemStack(Items.SHEARS),level,animal.blockPosition()))ready++;
+        }
+        return new PenStatus(count,needsFood,ready);
+    }
+
     private static boolean nearby(Villager npc,BlockPos pos){
         return npc.distanceToSqr(pos.getX()+.5,pos.getY()+.5,pos.getZ()+.5)<=8;
     }
