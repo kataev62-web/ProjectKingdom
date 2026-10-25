@@ -77,17 +77,23 @@ public final class KingdomStructureCopy {
         try {
             var result=copy(player,session.name(),session.first(),clicked);
             ACTIVE.remove(player.getUUID());
-            say(player,"Здание скопировано в строительную контору: «"+result
-                +"». У тебя появился новый чертёж в каталоге архитектора. "
-                +"Содержимое сундуков и живые сущности не копируются.");
+            say(player,"Схема «"+result.name()+"» сохранена в строительной конторе: "
+                +result.copied()+" блоков. "
+                +(result.skipped()>0 ? "Пропущено несовместимых блоков: "+result.skipped()
+                    +" (например, двери/кровати — установи вручную). " : "")
+                +(result.emptyNbt()>0 ? "Содержимое "+result.emptyNbt()
+                    +" контейнеров/механизмов не копируется. " : "")
+                +"Возвращайся к конторе, новая схема уже в каталоге.");
         }catch(IOException | IllegalArgumentException ex){
             say(player,"Копирование не выполнено: "+ex.getMessage()
                 +". Исправь ошибку и повторно нажми второй угол или переоткрой архитектора.");
         }
     }
 
+    public record CopyResult(String name,int copied,int skipped,int emptyNbt) {}
+
     /** Validate all positions before writing anything to disk. */
-    static String copy(ServerPlayer player,String name,BlockPos p1,BlockPos p2)
+    static CopyResult copy(ServerPlayer player,String name,BlockPos p1,BlockPos p2)
             throws IOException {
         if(!KingdomSchematicLibrary.validName(name))
             throw new IOException("Используй латиницу, цифры и _ для имени файла.");
@@ -111,16 +117,19 @@ public final class KingdomStructureCopy {
         Map<String,Integer> palette=new HashMap<>();
         CompoundTag paletteTag=new CompoundTag();
         ByteArrayOutputStream bytes=new ByteArrayOutputStream(volume);
-        int solid=0,blockEntities=0;
+        int solid=0,blockEntities=0,skipped=0;
         for(int y=minY;y<=maxY;y++)
             for(int z=minZ;z<=maxZ;z++)
                 for(int x=minX;x<=maxX;x++){
                     BlockPos at=new BlockPos(x,y,z);
                     var state=level.getBlockState(at);
-                    if(!state.isAir() && !KingdomBlockStateCodec.buildable(state))
-                        throw new IOException("Неподдерживаемый блок на "+at.toShortString()
-                            +": "+KingdomArchitectDesignRotation.encode(state)
-                            +". Двери, кровати, жидкости и сыпучие блоки требуют специальных адаптеров.");
+                    // A copied building may contain doors, beds, unsupported
+                    // fluids or blocks with no legal survival ItemStack.
+                    // Keep the buildable shell and report EACH omitted block.
+                    if(!state.isAir() && !KingdomBlockStateCodec.buildable(state)){
+                        skipped++;
+                        state=net.minecraft.world.level.block.Blocks.AIR.defaultBlockState();
+                    }
                     if(!state.isAir()) {
                         solid++;
                         if(level.getBlockEntity(at)!=null)blockEntities++;
@@ -152,6 +161,7 @@ public final class KingdomStructureCopy {
         var metadata=new CompoundTag();
         metadata.putString("KingdomCopyOwner",player.getUUID().toString());
         metadata.putInt("KingdomCopyBlockEntitiesWithoutNbt",blockEntities);
+        metadata.putInt("KingdomSkippedUnsupported",skipped);
         root.put("Metadata",metadata);
         Path directory=player.getServer().getWorldPath(LevelResource.ROOT)
             .resolve("data").resolve("kingdom_schematics");
@@ -170,7 +180,7 @@ public final class KingdomStructureCopy {
         }finally {
             Files.deleteIfExists(temp);
         }
-        return name;
+        return new CopyResult(name,solid,skipped,blockEntities);
     }
 
     private static void say(ServerPlayer player,String text){
