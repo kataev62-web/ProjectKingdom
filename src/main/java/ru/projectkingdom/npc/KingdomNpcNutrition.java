@@ -21,7 +21,7 @@ public final class KingdomNpcNutrition {
     }
 
     private static boolean initialized, supported;
-    private static Method foodOf, foodData, isRotten, getHunger;
+    private static Method foodOf, foodData, isRotten, getHunger, getRottenDate;
     private static final Method[] nutrients=new Method[COUNT];
     private static boolean init(){
         if(initialized)return supported;
@@ -34,6 +34,7 @@ public final class KingdomNpcNutrition {
             foodOf=capability.getMethod("get",ItemStack.class);
             foodData=food.getMethod("getData");
             isRotten=food.getMethod("isRotten");
+            getRottenDate=food.getMethod("getRottenDate");
             getHunger=data.getMethod("hunger");
             String[] names={"grain","fruit","vegetables","protein","dairy"};
             for(int i=0;i<COUNT;i++)nutrients[i]=data.getMethod(names[i]);
@@ -54,6 +55,18 @@ public final class KingdomNpcNutrition {
             Object food=foodOf.invoke(null,stack);
             return food!=null && Boolean.TRUE.equals(isRotten.invoke(food));
         }catch(ReflectiveOperationException|RuntimeException ex){return false;}
+    }
+
+    /** Absolute TFC expiration time; nonfood/unsupported are never prioritized. */
+    public static long expiration(ItemStack stack){
+        if(stack==null||stack.isEmpty()||!init())return Long.MAX_VALUE;
+        try {
+            Object food=foodOf.invoke(null,stack);
+            if(food==null)return Long.MAX_VALUE;
+            return ((Number)getRottenDate.invoke(food)).longValue();
+        }catch(ReflectiveOperationException|RuntimeException ex){
+            return Long.MAX_VALUE;
+        }
     }
 
     /** Returns null for rotten food, tools, false food, or an unsupported TFC API. */
