@@ -138,29 +138,10 @@ public final class KingdomMunicipalFoodReserves extends SavedData {
         boolean complete=day>=0 && monthDays>0
                 && monthDays*12==policy.yearDays()
                 && KingdomNpcNutrition.available();
-        var administration=KingdomAdministrationData.get(server);
-        AdministrativeCoreBinding core=administration.core(town,AdministrativeKind.CENTRAL_WAREHOUSE);
-        ServerLevel coreLevel=core==null?null:dimension(server,core.dimension());
-        if(core==null || coreLevel==null || !KingdomWarehouseMarket.get(server)
-                .activeMunicipalCore(coreLevel,town,AdministrativeKind.CENTRAL_WAREHOUSE))
-            complete=false;
-        List<KingdomAdministrationData.BoundContainer> bindings=
-                administration.boundContainers(town,STORAGE);
-        if(bindings.isEmpty())complete=false;
-        LinkedHashSet<String> seen=new LinkedHashSet<>();
-        for(var binding:bindings) {
-            String location=binding.dimension()+":"+binding.packedPos();
-            if(!seen.add(location))continue;
-            ServerLevel level=dimension(server,binding.dimension());
-            BlockPos pos=BlockPos.of(binding.packedPos());
-            if(level==null || coreLevel!=level || !level.hasChunkAt(pos)
-                    || !(level.getBlockEntity(pos) instanceof Container container)) {
-                complete=false;continue;
-            }
-            var ownerTown=KingdomCivicsData.get(server).townAt(level,pos);
-            if(ownerTown==null || !town.equals(ownerTown.id())) {
-                complete=false;continue;
-            }
+        var storage=KingdomMunicipalFoodStorage.inspect(server,town);
+        complete &= storage.complete();
+        for(var bound:storage.containers()) {
+            Container container=bound.container();
             counted++;
             for(int slot=0;slot<container.getContainerSize();slot++) {
                 ItemStack stack=container.getItem(slot);
@@ -185,12 +166,6 @@ public final class KingdomMunicipalFoodReserves extends SavedData {
                 (int)Math.min(Integer.MAX_VALUE,rotten),
                 Arrays.stream(groups).boxed().toList(),coverage,target,
                 complete?shortage(target,available):0);
-    }
-
-    private static ServerLevel dimension(MinecraftServer server,String id) {
-        for(ServerLevel level:server.getAllLevels())
-            if(level.dimension().location().toString().equals(id))return level;
-        return null;
     }
 
     public Forecast evaluate(MinecraftServer server,UUID town) {

@@ -24,9 +24,17 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private EditBox roleTarget,taxAmount,bankAmount;
     private Button joinButton,landPayButton,warehouseBack,warehouseForward;
     private int warehousePage;
+    private int foodPage;
+    private final List<Button> foodTabs=new ArrayList<>();
+    private final List<Button> foodOffers=new ArrayList<>();
+    private EditBox foodResidents,foodQuantity;
+    private Button foodSave,foodBuy;
+    private String selectedFood;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
-        if(menu.kind()==AdministrativeKind.TREASURY || menu.kind()==AdministrativeKind.BANK)
+        if(!menu.foodView().notice().isBlank())
+            selected=AdministrativeMenuLayout.Tab.FOOD;
+        else if(menu.kind()==AdministrativeKind.TREASURY || menu.kind()==AdministrativeKind.BANK)
             selected=AdministrativeMenuLayout.Tab.FINANCE;
     }
     @Override protected void init(){
@@ -118,7 +126,49 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             case PRISON->addAction("Добавить камеру",AdministrativeMenuLayout.Tab.CELLS,AdministrativeActionPacket.BIND_PRISON_CELL,78,146,190,true);
             default->{}
         }
+        if(menu.kind()==AdministrativeKind.TOWN_HALL || menu.kind()==AdministrativeKind.BANK
+                || menu.kind()==AdministrativeKind.CENTRAL_WAREHOUSE)
+            initFoodControls();
         updateVisibility();
+    }
+    private void initFoodControls() {
+        String[] labels={"Запасы","Предложения","Доставки"};
+        for(int i=0;i<labels.length;i++) {
+            final int page=i;
+            Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(labels[i]),
+                    ignored->{foodPage=page;updateVisibility();})
+                    .bounds(leftPos+57+i*83,topPos+81,78,20).build());
+            foodTabs.add(button);
+        }
+        foodResidents=addRenderableWidget(new EditBox(font,leftPos+156,topPos+173,
+                74,18,KingdomFonts.readable("Жители")));
+        foodResidents.setMaxLength(6);
+        foodResidents.setFilter(value->value.matches("[0-9]*"));
+        foodResidents.setValue(Integer.toString(
+                menu.foodView().configured()?menu.foodView().residents():50));
+        foodSave=addRenderableWidget(Button.builder(KingdomFonts.readable("Сохранить"),
+                ignored->sendText("food_config",foodResidents.getValue()))
+                .bounds(leftPos+235,topPos+172,75,19).build());
+        foodQuantity=addRenderableWidget(new EditBox(font,leftPos+135,topPos+178,
+                49,18,KingdomFonts.readable("Количество")));
+        foodQuantity.setMaxLength(2);
+        foodQuantity.setFilter(value->value.matches("[0-9]*"));
+        foodQuantity.setValue("1");
+        foodBuy=addRenderableWidget(Button.builder(KingdomFonts.readable("Купить в казну"),
+                ignored->{
+                    if(selectedFood!=null)
+                        sendText("food_buy",selectedFood+"|"+foodQuantity.getValue());
+                }).bounds(leftPos+192,topPos+177,117,20).build());
+        for(int i=0;i<menu.foodView().offers().size();i++) {
+            final int index=i;
+            Button button=addRenderableWidget(Button.builder(KingdomFonts.readable("Выбрать"),
+                    ignored->{selectedFood=menu.foodView().offers().get(index).itemId();
+                        updateVisibility();})
+                    .bounds(leftPos+257,topPos+108+i*15,53,14).build());
+            foodOffers.add(button);
+        }
+        if(!menu.foodView().offers().isEmpty())
+            selectedFood=menu.foodView().offers().get(0).itemId();
     }
     private void addRolePair(MunicipalRole role,String label,int x,int y){
         Button add=addRenderableWidget(Button.builder(KingdomFonts.readable("+ "+label),ignored->sendText("appoint_role",roleTarget.getValue()+"|"+role.name()))
@@ -135,6 +185,15 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     }
     private void updateVisibility(){
         for(ActionButton entry:actionButtons)entry.button.visible=entry.tab==selected&&(!entry.managerOnly||menu.manager());
+        boolean food=selected==AdministrativeMenuLayout.Tab.FOOD&&menu.member();
+        for(Button b:foodTabs)b.visible=food;
+        for(Button b:foodOffers)b.visible=food&&foodPage==1;
+        if(foodResidents!=null)foodResidents.setVisible(food&&foodPage==0&&menu.foodView().canConfigure());
+        if(foodSave!=null)foodSave.visible=food&&foodPage==0&&menu.foodView().canConfigure();
+        if(foodQuantity!=null)foodQuantity.setVisible(food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager());
+        if(foodBuy!=null){foodBuy.visible=food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager();
+            foodBuy.active=selectedFood!=null&&menu.foodView().complete();}
+
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
         if(taxAmount!=null)taxAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
         if(bankAmount!=null)bankAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
@@ -212,6 +271,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     if(menu.warehouseRooms().isEmpty())line(g,"Построй комнату и отметь два угла.",58,105,MUTED);
                 }else placeholder(g,"Привязанные реальные контейнеры",90);
             }
+            case FOOD->renderFood(g);
             case TRADE->placeholder(g,"Торговые места и заказы",90);
             case LAND->renderRows(g,"Участки, продажа и аренда",menu.pageRows());
             case CASES->renderRows(g,menu.kind()==AdministrativeKind.GUARD_ADMINISTRATION?"Ордера и розыск (автоматика выкл.)":"Судебные дела",menu.pageRows());
@@ -220,7 +280,53 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             case LOG->placeholder(g,"Журнал административных действий",90);
             case SETTINGS->placeholder(g,menu.manager()?"Настройки службы":"Нет прав управления",90);
         }
-        line(g,menu.manager()?"Права управления подтверждены сервером.":"Доступен разрешённый просмотр.",58,204,MUTED);
+        if(selected!=AdministrativeMenuLayout.Tab.FOOD)
+            line(g,menu.manager()?"Права управления подтверждены сервером.":"Доступен разрешённый просмотр.",58,204,MUTED);
+    }
+    private void renderFood(GuiGraphics g){
+        if(!menu.member()){line(g,"Доступно только гражданам этого города.",58,110,ACCENT);return;}
+        var v=menu.foodView();
+        if(foodPage==0){
+            if(!v.configured()){
+                line(g,"План продовольствия ещё не настроен.",58,113,ACCENT);
+            }else{
+                line(g,"Жителей: "+v.residents()+" | день TFC: "+v.day()+" | запас на "+v.coverage()+" д.",58,109,INK);
+                if(!v.complete())line(g,"СКЛАД НЕДОСТУПЕН: закупка заблокирована",58,125,ACCENT);
+                else{
+                    line(g,"Годных порций: "+v.edible()+" / цель: "+v.target(),58,125,INK);
+                    line(g,"Испорчено: "+v.rotten()+" | не хватает: "+v.missing(),58,141,v.missing()>0?ACCENT:MUTED);
+                    line(g,"Питание: зерно "+v.groups().get(0)+" / фрукты "+v.groups().get(1),58,157,MUTED);
+                    line(g,"Овощи "+v.groups().get(2)+" / белки "+v.groups().get(3)+" / молоко "+v.groups().get(4),58,169,MUTED);
+                }
+            }
+            if(v.canConfigure())line(g,"Население:",58,177,MUTED);
+        }else if(foodPage==1){
+            line(g,"Реальные товары рынка — цена за 1 шт.",58,103,MUTED);
+            for(int i=0;i<v.offers().size();i++){
+                var offer=v.offers().get(i);
+                String prefix=offer.itemId().equals(selectedFood)?"● ":"  ";
+                String name=prefix+offer.itemId();
+                if(font.width(name)>174)name=font.plainSubstrByWidth(name,169)+"…";
+                line(g,name,58,111+i*15,INK);
+                line(g,offer.unitPrice()+" м.",230,111+i*15,MUTED);
+            }
+            if(v.offers().isEmpty())line(g,"Нет доступных предложений с реальной едой.",58,131,ACCENT);
+            if(menu.kind()==AdministrativeKind.BANK&&menu.manager())
+                line(g,"Количество (1–16):",58,183,MUTED);
+            else line(g,"Оплата: в меню банка, уполномоченным казначеем.",58,184,MUTED);
+        }else{
+            line(g,"Последние заказы (обновятся при открытии):",58,108,MUTED);
+            int i=0;
+            for(String entry:v.shipments()){
+                String text=font.plainSubstrByWidth(entry,242);
+                line(g,text,58,125+i*16,MUTED);i++;
+            }
+            if(i==0)line(g,"Оплаченных заявок пока нет.",58,130,MUTED);
+        }
+        if(!v.notice().isBlank()){
+            String notice=font.plainSubstrByWidth(v.notice(),245);
+            line(g,notice,58,204,ACCENT);
+        }else line(g,"Проверки и оплата выполняются только сервером.",58,204,MUTED);
     }
     private void placeholder(GuiGraphics g,String text,int y){line(g,text,58,y,MUTED);line(g,"Подробные действия подключаются по этапам.",58,y+18,MUTED);}
     private void renderRows(GuiGraphics g,String heading,List<String> rows){line(g,heading,58,82,MUTED);int y=100;for(String row:rows){line(g,row,58,y,MUTED);y+=15;}if(rows.isEmpty())line(g,"Нет записей.",58,y,MUTED);}
@@ -231,6 +337,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         case OFFICES -> Items.WRITABLE_BOOK;
         case FINANCE -> Items.GOLD_INGOT;
         case STORAGE -> Items.CHEST;
+        case FOOD -> Items.BREAD;
         case TRADE -> Items.EMERALD;
         case LAND -> Items.GRASS_BLOCK;
         case CASES -> Items.PAPER;
@@ -240,7 +347,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         case SETTINGS -> Items.COMPARATOR;
     };}
     private static String title(AdministrativeMenuLayout.Tab tab){return switch(tab){
-        case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case FINANCE->"Финансы";case STORAGE->"Склад";
+        case INFO->"Сведения";case CITIZENS->"Граждане";case OFFICES->"Должности";case FINANCE->"Финансы";case STORAGE->"Склад";case FOOD->"Продовольствие";
         case TRADE->"Рынок";case LAND->"Земля";case CASES->"Дела";case CELLS->"Камеры";case GUARDS->"Стража";case LOG->"Журнал";case SETTINGS->"Настройки";};}
     private record ActionButton(AdministrativeMenuLayout.Tab tab,Button button,boolean managerOnly){}
     @Override public void render(GuiGraphics g,int mouseX,int mouseY,float partial){renderBackground(g);super.render(g,mouseX,mouseY,partial);renderTooltip(g,mouseX,mouseY);}

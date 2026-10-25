@@ -119,12 +119,8 @@ public final class KingdomMunicipalProcurement {
                 || !KingdomWarehouseMarket.get(server).activeMunicipalCore(
                     level,order.buyer,AdministrativeKind.CENTRAL_WAREHOUSE))
             return false;
-        boolean bound=false;
-        for(var b:admin.boundContainers(order.buyer,AdministrativeBindingRole.WAREHOUSE_STORAGE))
-            if(b.dimension().equals(order.dimension) && b.packedPos()==order.destination.asLong()){
-                bound=true;break;
-            }
-        if(!bound)return false;
+        if(!KingdomMunicipalFoodStorage.destination(
+                server,order.buyer,order.dimension,order.destination))return false;
         var city=civics.townAt(level,order.destination);
         if(city==null||!city.id().equals(order.buyer)
                 ||!(level.getBlockEntity(order.destination) instanceof Container))return false;
@@ -147,19 +143,15 @@ public final class KingdomMunicipalProcurement {
                                   int amount,UUID actor) {
         if(amount<1||amount>MAX_LOT)return null;
         var market=KingdomWarehouseMarket.get(level.getServer());
-        var admin=KingdomAdministrationData.get(level.getServer());
         var orders=KingdomSupplyOrders.get(level.getServer());
         var dim=level.dimension().location().toString();
-        var allowed=admin.boundContainers(town,AdministrativeBindingRole.WAREHOUSE_STORAGE);
-        if(!market.activeMunicipalCore(level,town,AdministrativeKind.CENTRAL_WAREHOUSE))
-            return null;
+        var storage=KingdomMunicipalFoodStorage.inspect(level.getServer(),town);
+        if(!storage.complete())return null;
         Proposal cheapest=null;
-        for(var b:allowed) {
-            if(!dim.equals(b.dimension()))continue;
-            BlockPos destination=BlockPos.of(b.packedPos());
-            if(!level.hasChunkAt(destination)
-                    ||!(level.getBlockEntity(destination) instanceof Container recipient))
-                continue;
+        for(var bound:storage.containers()) {
+            if(bound.level()!=level)continue;
+            BlockPos destination=bound.pos();
+            Container recipient=bound.container();
             var city=KingdomCivicsData.get(level.getServer()).townAt(level,destination);
             if(city==null || !town.equals(city.id()))continue;
             for(var stall:market.all()) {
@@ -198,6 +190,30 @@ public final class KingdomMunicipalProcurement {
             }
         }
         return cheapest;
+    }
+
+    /** Food IDs actually offered for physical delivery to this town, no virtual catalog. */
+    public static List<String> availableFoods(ServerLevel level,UUID town,int limit) {
+        if(level==null||town==null||limit<1)return List.of();
+        LinkedHashSet<String> ids=new LinkedHashSet<>();
+        var market=KingdomWarehouseMarket.get(level.getServer());
+        String dimension=level.dimension().location().toString();
+        for(var stall:market.all()) {
+            if(ids.size()>=64)break;
+            if(!dimension.equals(stall.dimension())||!level.hasChunkAt(stall.pos())
+                    ||!(level.getBlockEntity(stall.pos()) instanceof Container c))continue;
+            for(int i=0;i<c.getContainerSize()&&ids.size()<64;i++){
+                ItemStack stack=c.getItem(i);
+                if(stack.isEmpty()||KingdomNpcNutrition.inspect(stack)==null)continue;
+                ids.add(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString());
+            }
+        }
+        List<String> results=new ArrayList<>();
+        for(String id:ids) {
+            if(select(level,town,id,1,town)!=null)results.add(id);
+            if(results.size()>=Math.min(8,limit))break;
+        }
+        return List.copyOf(results);
     }
 
     /** Preserve both municipal cash and all separate citizen bank liabilities. */
