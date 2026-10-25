@@ -16,7 +16,7 @@ public final class KingdomNpcDuty {
         if (!KingdomProfessionRegistry.known(job)) return Kind.NONE;
         return switch (job) {
             case "free" -> Kind.NONE;
-            case "farmer", "miner", "lumberjack" -> Kind.FIELD;
+            case "farmer", "breeder", "miner", "lumberjack" -> Kind.FIELD;
             case "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason" -> Kind.WORKSHOP;
             case "builder" -> Kind.CONSTRUCTION;
             case "courier" -> Kind.DELIVERY;
