@@ -122,17 +122,30 @@ public final class KingdomEnterpriseData extends SavedData {
     }
 
     public ClosureStatus closeBusiness(ServerPlayer player,UUID business,BlockPos pos){
+        return closeBusinessInternal(player,business,pos,false);
+    }
+    /**
+     * Server operator closure reuses every financial and physical safety check.
+     * Unlike player closure, operator may act on a loaded core remotely and cannot
+     * take its dropped unbound core into their personal inventory.
+     */
+    public ClosureStatus adminCloseBusiness(ServerPlayer operator,UUID business,BlockPos pos){
+        if(operator==null||!operator.hasPermissions(2))return ClosureStatus.NO_PERMISSION;
+        if(pos==null)return ClosureStatus.NO_CORE; // only registered installed cores
+        return closeBusinessInternal(operator,business,pos,true);
+    }
+    private ClosureStatus closeBusinessInternal(ServerPlayer player,UUID business,BlockPos pos,boolean administrator){
         if(player==null||business==null)return ClosureStatus.NOT_FOUND;
         Enterprise firm=firms.get(business);
         if(firm==null)return ClosureStatus.NOT_FOUND;
-        if(!firm.owner().equals(player.getUUID()))return ClosureStatus.NO_PERMISSION;
+        if(!administrator&&!firm.owner().equals(player.getUUID()))return ClosureStatus.NO_PERMISSION;
         EnterpriseCoreBinding binding=cores.get(business);
         boolean blockPresent=pos!=null;
         ServerLevel level=player.serverLevel();
         if(blockPresent){
             if(binding==null||!binding.active())return ClosureStatus.NO_CORE;
             if(!binding.dimension().equals(level.dimension().location().toString())
-                    ||binding.packedPos()!=pos.asLong()||pos.distSqr(player.blockPosition())>64
+                    ||binding.packedPos()!=pos.asLong()||(!administrator&&pos.distSqr(player.blockPosition())>64)
                     ||!level.hasChunkAt(pos)
                     ||!(level.getBlockEntity(pos) instanceof ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity core)
                     ||!core.bound()||!business.equals(core.enterpriseId()))return ClosureStatus.NOT_AT_CORE;
@@ -227,9 +240,13 @@ public final class KingdomEnterpriseData extends SavedData {
             var item=level.getBlockState(pos).getBlock().asItem();
             level.removeBlock(pos,false);
             var fresh=new ItemStack(item);
-            if(!player.getInventory().add(fresh)&&!fresh.isEmpty())
+            if(administrator){
                 net.minecraft.world.level.block.Block.popResource(level,pos,fresh);
-            player.getInventory().setChanged();
+            }else{
+                if(!player.getInventory().add(fresh)&&!fresh.isEmpty())
+                    net.minecraft.world.level.block.Block.popResource(level,pos,fresh);
+                player.getInventory().setChanged();
+            }
         }
         // If core was dismantled earlier, the original bound item becomes
         // reusable thanks to EnterpriseCoreBlock's closed-ID migration.

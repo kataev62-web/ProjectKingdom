@@ -6,6 +6,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import ru.projectkingdom.npc.KingdomNpcMod;
 import ru.projectkingdom.administration.AdministrativeActionPacket;
 import ru.projectkingdom.administration.AdministrativeTextPacket;
+import ru.projectkingdom.administration.KingdomAdminEnterprisePacket;
 
 public final class KingdomNetwork {
     private static final String PROTOCOL="5";
@@ -53,5 +54,7 @@ public final class KingdomNetwork {
                 KingdomFemaleOutfitPacket::decode,KingdomFemaleOutfitPacket::handle);
         CHANNEL.registerMessage(31,OpenLandMapFromAtlasPacket.class,OpenLandMapFromAtlasPacket::encode,
                 OpenLandMapFromAtlasPacket::decode,OpenLandMapFromAtlasPacket::handle);
+        CHANNEL.registerMessage(32,KingdomAdminEnterprisePacket.class,KingdomAdminEnterprisePacket::encode,
+                KingdomAdminEnterprisePacket::decode,KingdomAdminEnterprisePacket::handle);
     }
 }
