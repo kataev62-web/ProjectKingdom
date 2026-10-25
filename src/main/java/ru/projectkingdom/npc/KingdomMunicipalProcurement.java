@@ -193,7 +193,7 @@ public final class KingdomMunicipalProcurement {
     }
 
     /** Food IDs actually offered for physical delivery to this town, no virtual catalog. */
-    public static List<String> availableFoods(ServerLevel level,UUID town,int limit) {
+    public static List<String> availableFoods(ServerLevel level,UUID town,UUID actor,int limit) {
         if(level==null||town==null||limit<1)return List.of();
         LinkedHashSet<String> ids=new LinkedHashSet<>();
         var market=KingdomWarehouseMarket.get(level.getServer());
@@ -210,7 +210,7 @@ public final class KingdomMunicipalProcurement {
         }
         List<String> results=new ArrayList<>();
         for(String id:ids) {
-            if(select(level,town,id,1,town)!=null)results.add(id);
+            if(select(level,town,id,1,actor)!=null)results.add(id);
             if(results.size()>=Math.min(8,limit))break;
         }
         return List.copyOf(results);
