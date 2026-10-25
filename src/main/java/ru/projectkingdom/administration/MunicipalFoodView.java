@@ -34,10 +34,12 @@ public record MunicipalFoodView(boolean configured,boolean complete,boolean canC
         var reserve=KingdomMunicipalFoodReserves.get(player.getServer());
         var policy=reserve.policy(town);
         var forecast=policy==null?null:reserve.evaluate(player.getServer(),town);
-        var market=KingdomMunicipalProcurement.availableFoods(player.serverLevel(),town,5);
+        var market=KingdomMunicipalProcurement.availableFoods(
+                player.serverLevel(),town,player.getUUID(),5);
         List<Offer> offers=new ArrayList<>();
         for(String item:market) {
-            var p=KingdomMunicipalProcurement.select(player.serverLevel(),town,item,1,town);
+            var p=KingdomMunicipalProcurement.select(
+                    player.serverLevel(),town,item,1,player.getUUID());
             if(p!=null)offers.add(new Offer(item,p.price()));
         }
         List<String> shipments=new ArrayList<>();
