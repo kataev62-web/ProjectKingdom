@@ -81,9 +81,14 @@ public final class KingdomSchematicLibrary {
             for (String name : BUNDLED_AVALON) {
                 Path target = directory.resolve(name + ".schem");
                 if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) continue;
-                String resource = "/assets/kingdomnpc/avalon/" + name + ".schem";
-                try (var input = KingdomSchematicLibrary.class.getResourceAsStream(resource)) {
-                    if (input == null) throw new IOException("Missing bundled plan: " + name);
+                // Smithy uses a lossless text-encoded binary resource to prevent
+                // intermediary Git transport from corrupting compressed bytes.
+                boolean encoded = name.equals("avalon_tfc_smithy_shell");
+                String resource = "/assets/kingdomnpc/avalon/" + name
+                    + (encoded ? ".schem.b64" : ".schem");
+                try (var raw = KingdomSchematicLibrary.class.getResourceAsStream(resource)) {
+                    if (raw == null) throw new IOException("Missing bundled plan: " + name);
+                    var input = encoded ? java.util.Base64.getMimeDecoder().wrap(raw) : raw;
                     Path temp = Files.createTempFile(directory, name + "-", ".tmp");
                     try {
                         Files.copy(input, temp, StandardCopyOption.REPLACE_EXISTING);
