@@ -190,7 +190,15 @@ public final class KingdomLivestockWork {
         if(npc.distanceToSqr(animal)>9){npc.getNavigation().moveTo(animal,.75);return false;}
         // The Forge event is invoked by TFC onSheared (including product cancellation).
         List<ItemStack> drops=shearable.onSheared(null,shears,level,animal.blockPosition(),0);
-        if(drops==null)return false;
+        if(drops==null||drops.stream().allMatch(ItemStack::isEmpty))return false;
+        // If another mod increases the event product beyond our prediction,
+        // keep EVERY physical drop rather than silently deleting an overflow.
+        if(!NpcFieldWork.canFit(w,drops)){
+            for(ItemStack drop:drops)if(!drop.isEmpty())
+                net.minecraft.world.level.block.Block.popResource(level,animal.blockPosition(),drop);
+            shears.hurtAndBreak(1,npc,v-> {});
+            return true;
+        }
         for(ItemStack drop:drops) if(!drop.isEmpty()) {
             NpcFieldWork.put(w,drop);
             w.fieldHarvested+=drop.getCount();
