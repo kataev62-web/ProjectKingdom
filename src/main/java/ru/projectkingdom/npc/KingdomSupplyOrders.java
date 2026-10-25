@@ -31,6 +31,13 @@ public final class KingdomSupplyOrders extends SavedData {
         public boolean goodsPaid, deliveryPaid;
         /** Cash held in custody until the courier pays the seller; not a bank transfer. */
         public long goodsEscrow, deliveryEscrow;
+        /** Original lot metadata, including TFC freshness/quality. Null means untagged. */
+        public CompoundTag itemTag;
+        public boolean matchesLot(net.minecraft.world.item.ItemStack stack) {
+            return !stack.isEmpty() && itemId.equals(
+                    net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
+                    && Objects.equals(itemTag,stack.getTag());
+        }
         private Order(UUID id, UUID buyer, UUID seller, String dimension, String itemId, BlockPos source, BlockPos destination, int count, long goodsPrice, long deliveryFee, Mode mode) {
             this.id=id; this.buyer=buyer; this.seller=seller; this.dimension=dimension; this.itemId=itemId;
             this.source=source; this.destination=destination; this.count=count; this.goodsPrice=goodsPrice; this.deliveryFee=deliveryFee; this.mode=mode;
@@ -55,6 +62,15 @@ public final class KingdomSupplyOrders extends SavedData {
      */
     Order createInternal(UUID enterprise, String dimension, String itemId,
             BlockPos source, BlockPos destination, int count) {
+        return createInternal(enterprise,dimension,itemId,source,destination,count,null);
+    }
+
+    Order createInternal(UUID enterprise, String dimension, String itemId,
+            BlockPos source, BlockPos destination, int count,
+            net.minecraft.world.item.ItemStack sample) {
+        if (sample != null && (sample.isEmpty()
+                || !itemId.equals(net.minecraft.core.registries.BuiltInRegistries.ITEM
+                    .getKey(sample.getItem()).toString()))) return null;
         if (enterprise == null || dimension == null || dimension.isBlank()
                 || itemId == null || itemId.isBlank() || source == null
                 || destination == null || source.equals(destination)
@@ -63,6 +79,7 @@ public final class KingdomSupplyOrders extends SavedData {
         Order order = new Order(UUID.randomUUID(),enterprise,enterprise,dimension,
                 itemId,source.immutable(),destination.immutable(),count,0,0,Mode.INTERNAL);
         order.deliveryPaid = true; // No transport charge, no money movement.
+        order.itemTag = sample != null && sample.hasTag() ? sample.getTag().copy() : null;
         orders.put(order.id,order);setDirty();
         return order;
     }
@@ -256,6 +273,8 @@ public final class KingdomSupplyOrders extends SavedData {
                 o.pickedUp=Math.max(0,Math.min(o.count,t.getInt("Picked")));o.delivered=Math.max(0,Math.min(o.pickedUp,t.getInt("Delivered")));
                 o.goodsPaid=t.getBoolean("GoodsPaid");o.deliveryPaid=t.getBoolean("DeliveryPaid");
                 o.goodsEscrow=t.getLong("GoodsEscrow");o.deliveryEscrow=t.getLong("DeliveryEscrow");
+                if(o.mode==Mode.INTERNAL && t.contains("ItemTag",Tag.TAG_COMPOUND))
+                    o.itemTag=t.getCompound("ItemTag").copy();
                 if(t.contains("PendingKind",Tag.TAG_STRING)) {
                     o.pendingKind=TransferKind.valueOf(t.getString("PendingKind"));
                     o.pendingQuantity=t.getInt("PendingQuantity");
@@ -277,6 +296,7 @@ public final class KingdomSupplyOrders extends SavedData {
             if(o.courier!=null)t.putUUID("Courier",o.courier);t.putInt("Picked",o.pickedUp);t.putInt("Delivered",o.delivered);
             t.putBoolean("GoodsPaid",o.goodsPaid);t.putBoolean("DeliveryPaid",o.deliveryPaid);
             t.putLong("GoodsEscrow",o.goodsEscrow);t.putLong("DeliveryEscrow",o.deliveryEscrow);
+            if(o.mode==Mode.INTERNAL && o.itemTag!=null)t.put("ItemTag",o.itemTag.copy());
             if(o.pendingKind!=null){t.putString("PendingKind",o.pendingKind.name());
                 t.putInt("PendingQuantity",o.pendingQuantity);
                 t.putInt("PendingPickedBefore",o.pendingPickedBefore);
