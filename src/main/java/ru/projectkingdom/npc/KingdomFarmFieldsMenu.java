@@ -68,6 +68,7 @@ public final class KingdomFarmFieldsMenu extends ChestMenu {
                 +" | "+(f.enabled()?"в работе":"пауза"));
         }
         icon(VIEW,Items.BOOK,"Поля "+list.size()+"/8. Выбери поле в верхнем ряду, затем действие.");
+        icon(17,Items.OAK_FENCE,"ЖИВОТНОВОДСТВО: создание и управление загонами для овец и других животных TFC");
         icon(ASSIGN_SEED,Items.WHEAT_SEEDS,"НАЗНАЧИТЬ СЕМЕНА из основной руки на выбранное поле (не расходуются при настройке)");
         icon(NEW,Items.GRASS_BLOCK,"ДОБАВИТЬ ПОЛЕ: затем Shift + ПКМ пустой рукой по двум углам");
         icon(TOGGLE,Items.LEVER,"ВКЛЮЧИТЬ / ОСТАНОВИТЬ посевы на выбранном поле");
@@ -93,6 +94,7 @@ public final class KingdomFarmFieldsMenu extends ChestMenu {
         if(slot<8) {
             if(slot<fields().size())selected=slot;
         } else switch(slot) {
+            case 17 -> {KingdomRanchPenMenu.open(viewer,farm,core);return;}
             case NEW -> {
                 if(KingdomFarmSelection.begin(viewer,farm))viewer.closeContainer();
                 else say("Нет права на создание поля.");
