@@ -9,7 +9,12 @@ import net.minecraft.world.level.saveddata.SavedData;
 /** Explicit livestock policy. Culling is DISABLED by default. */
 public final class KingdomRanchPolicyData extends SavedData {
     private static final String KEY="kingdom_ranch_policy_v1";
-    public record Policy(boolean cullOld,int minHerd,long lastCullDay,boolean collectEggs){}
+    public record Policy(boolean cullOld,int minHerd,long lastCullDay,boolean collectEggs){
+        /** Backward-compatible with pre-egg-consent policy callers and saves. */
+        public Policy(boolean cullOld,int minHerd,long lastCullDay){
+            this(cullOld,minHerd,lastCullDay,false);
+        }
+    }
     private final Map<UUID,Policy> policies=new LinkedHashMap<>();
     public static KingdomRanchPolicyData get(MinecraftServer server){
         return server.overworld().getDataStorage().computeIfAbsent(
