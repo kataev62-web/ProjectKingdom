@@ -205,6 +205,10 @@ public final class KingdomEnterpriseData extends SavedData {
         for(var contract:contracts)
             if(!payroll.dismiss(player.getServer(),firm.owner(),business,contract.worker()))
                 return ClosureStatus.STAFF_DEBT;
+        // The old hotel identity must not permanently lock the physical building
+        // once every room listing and prepaid stay has been concluded.
+        ru.projectkingdom.property.KingdomRentalsData.get(player.getServer())
+                .releaseVacantReception(business);
         closedBusinesses.put(business,new ClosedBusiness(business,firm.owner(),firm.name(),
                 Math.max(0,level.getDayTime()/24000L)));
         offers.values().removeIf(offer->business.equals(offer.seller()));
