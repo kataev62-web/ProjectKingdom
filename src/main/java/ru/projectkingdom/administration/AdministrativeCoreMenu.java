@@ -32,23 +32,25 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     private final long vaultCopper;
     private final List<String> pageRows;
     private final List<String> warehouseRooms;
+    private final MunicipalFoodView foodView;
 
     public AdministrativeCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),AdministrativeKind.byId(buffer.readUtf(32)).orElseThrow(),
                 buffer.readUtf(48),buffer.readUUID(),buffer.readUUID(),buffer.readBoolean(),buffer.readBoolean(),
                 buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),readRows(buffer),buffer.readBoolean(),buffer.readBoolean(),buffer.readLong(),buffer.readLong(),
-                buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readUtf(96),buffer.readLong(),readWarehouseRows(buffer));
+                buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readUtf(96),buffer.readLong(),readWarehouseRows(buffer),
+                MunicipalFoodView.read(buffer));
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess){
-        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of(),false,false,0,0,0,0,0,"",0,List.of());
+        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of(),false,false,0,0,0,0,0,"",0,List.of(),MunicipalFoodView.empty());
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess,
                                    long bankAccount,long bankReserve,long treasuryBalance,long treasuryReserve,long historicalTreasury,
                                    List<String> pageRows,boolean member,boolean canJoin,long taxDebt,long walletCoins,
                                    long legacyBank,long legacyTown,long legacyPersonal,String vaultRoomInfo,long vaultCopper,
-                                   List<String> warehouseRooms){
+                                   List<String> warehouseRooms,MunicipalFoodView foodView){
         super(KingdomAdministrationRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=corePos;this.townId=townId;
         this.kind=kind;this.townName=townName;this.founder=founder;this.mayor=mayor;this.manager=manager;this.publicAccess=publicAccess;
         this.bankAccount=bankAccount;this.bankReserve=bankReserve;this.treasuryBalance=treasuryBalance;this.treasuryReserve=treasuryReserve;this.historicalTreasury=historicalTreasury;
@@ -56,6 +58,7 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
         this.legacyBank=legacyBank;this.legacyTown=legacyTown;this.legacyPersonal=legacyPersonal;
         this.vaultRoomInfo=vaultRoomInfo;this.vaultCopper=vaultCopper;
         this.warehouseRooms=List.copyOf(warehouseRooms);
+        this.foodView=foodView;
     }
     private static List<String> readWarehouseRows(FriendlyByteBuf buffer){
         int n=buffer.readVarInt();
@@ -66,6 +69,9 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     }
     private static List<String> readRows(FriendlyByteBuf buffer){int count=Math.min(8,Math.max(0,buffer.readVarInt()));List<String> rows=new ArrayList<>();for(int i=0;i<count;i++)rows.add(buffer.readUtf(96));return List.copyOf(rows);}
     public static void open(ServerPlayer player,AdministrativeCoreBlockEntity core){
+        open(player,core,"");
+    }
+    public static void open(ServerPlayer player,AdministrativeCoreBlockEntity core,String notice){
         if(core==null||!core.bound())return;
         KingdomCivicsData civics=KingdomCivicsData.get(player.getServer());var town=civics.townById(core.townId());if(town==null)return;
         boolean publicAccess=AdministrativePermissionService.mayUsePublic(core.kind());
@@ -128,13 +134,17 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
             for(GuardRecord item:data.guards(town.id(),0,3))rows.add("Страж: "+item.name());
             for(KingdomAdministrationData.WarrantEntry item:data.wantedEntries(town.id(),0,3))rows.add("Розыск: "+item.target().toString().substring(0,8));
         }
+        MunicipalFoodView foodView=(core.kind()==AdministrativeKind.CENTRAL_WAREHOUSE
+                || core.kind()==AdministrativeKind.BANK || core.kind()==AdministrativeKind.TOWN_HALL)
+                ?MunicipalFoodView.snapshot(player,town.id(),notice)
+                :MunicipalFoodView.empty();
         NetworkHooks.openScreen(player,new MenuProvider(){
             @Override public Component getDisplayName(){return Component.literal(core.kind().russianName());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
                 return new AdministrativeCoreMenu(id,inv,core.getBlockPos(),town.id(),core.kind(),town.name(),founder,town.mayor(),manager,publicAccess,
                         account,manager?bankReserve:0L,manager?town.treasury():0L,manager?treasuryReserve:0L,
                         manager?historical:0L,rows,member,canJoin,taxDebt,walletCoins,
-                        legacyBank,legacyTown,legacyPersonal,roomInfo,physicalCoins,warehouseRooms);
+                        legacyBank,legacyTown,legacyPersonal,roomInfo,physicalCoins,warehouseRooms,foodView);
             }
         },buffer->{buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(town.id());buffer.writeUtf(core.kind().id(),32);
             buffer.writeUtf(town.name(),48);buffer.writeUUID(founder);buffer.writeUUID(town.mayor());buffer.writeBoolean(manager);buffer.writeBoolean(publicAccess);
@@ -146,7 +156,8 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
             buffer.writeLong(legacyBank);buffer.writeLong(legacyTown);buffer.writeLong(legacyPersonal);
             buffer.writeUtf(roomInfo,96);buffer.writeLong(physicalCoins);
             buffer.writeVarInt(warehouseRooms.size());
-            for(String row:warehouseRooms)buffer.writeUtf(row,96);});
+            for(String row:warehouseRooms)buffer.writeUtf(row,96);
+            MunicipalFoodView.write(buffer,foodView);});
     }
     public BlockPos corePos(){return corePos;}public UUID townId(){return townId;}public AdministrativeKind kind(){return kind;}public String townName(){return townName;}
     public UUID founder(){return founder;}public UUID mayor(){return mayor;}public boolean manager(){return manager;}public boolean publicAccess(){return publicAccess;}
@@ -163,6 +174,7 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     public String vaultRoomInfo(){return vaultRoomInfo;}
     public long vaultCopper(){return vaultCopper;}
     public List<String> warehouseRooms(){return warehouseRooms;}
+    public MunicipalFoodView foodView(){return foodView;}
     @Override public ItemStack quickMoveStack(Player player,int slot){return ItemStack.EMPTY;}
     @Override public boolean stillValid(Player player){
         if(player.level()!=inventory.player.level()||corePos.distSqr(player.blockPosition())>64||!player.level().hasChunkAt(corePos))return false;
