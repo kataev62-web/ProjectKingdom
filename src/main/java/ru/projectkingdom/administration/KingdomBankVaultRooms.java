@@ -15,7 +15,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.Container;
-import net.minecraft.world.CompoundContainer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.BarrelBlock;
@@ -25,6 +24,8 @@ import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomContainerAccess;
 import ru.projectkingdom.npc.KingdomCurrency;
 import ru.projectkingdom.npc.KingdomPhysicalCash;
+import ru.projectkingdom.npc.KingdomEnterpriseData;
+import ru.projectkingdom.enterprise.EnterpriseBindingRole;
 
 /**
  * One spatially defined, protected bank vault per city.
@@ -169,6 +170,7 @@ public final class KingdomBankVaultRooms extends SavedData {
         // Test with the candidate room before publishing its protected boundary.
         Scan inventory=scan(level,proposed);
         if(inventory.error()!=null)return inventory.error();
+        if(conflictingBindings(level,proposed))return Result.INVALID_STORAGE;
         rooms.put(session.town(),proposed);setDirty();
         return old==null?Result.CREATED:Result.EXPANDED;
     }
@@ -184,6 +186,24 @@ public final class KingdomBankVaultRooms extends SavedData {
     public long availableCopper(ServerLevel level,UUID town){
         Container vault=vault(level,town);
         return vault==null?-1:KingdomPhysicalCash.value(vault);
+    }
+    /** No municipal marketplace or private business may reuse the bank vault's chests. */
+    private static boolean conflictingBindings(ServerLevel level,Room room){
+        var administration=KingdomAdministrationData.get(level.getServer());
+        var civic=KingdomCivicsData.get(level.getServer());
+        for(var city:civic.towns())for(var role:AdministrativeBindingRole.values()){
+            if(role==AdministrativeBindingRole.BANK_VAULT && city.id().equals(room.town()))continue;
+            for(var bound:administration.containerBindings(city.id(),role))
+                if(room.dimension().equals(bound.dimension())&&room.contains(BlockPos.of(bound.packedPos())))
+                    return true;
+        }
+        var firms=KingdomEnterpriseData.get(level.getServer());
+        for(var business:firms.all())for(var role:EnterpriseBindingRole.values()){
+            var bound=firms.storageBinding(business.id(),role);
+            if(bound!=null&&room.dimension().equals(bound.dimension())&&room.contains(bound.pos()))
+                return true;
+        }
+        return false;
     }
     private record Scan(Container container,Result error){}
     private static Scan scan(ServerLevel level,Room room){
@@ -204,6 +224,9 @@ public final class KingdomBankVaultRooms extends SavedData {
             seen.add(pos.immutable());
             if(state.getBlock() instanceof ChestBlock){
                 // A double chest must be wholly inside the protected room.
+                if(state.getValue(ChestBlock.TYPE)!=net.minecraft.world.level.block.state.properties.ChestType.SINGLE
+                        &&container.getContainerSize()<54)
+                    return new Scan(null,Result.INVALID_STORAGE);
                 for(var direction:net.minecraft.core.Direction.Plane.HORIZONTAL){
                     BlockPos other=pos.relative(direction);
                     if(KingdomContainerAccess.samePhysicalStorage(level,pos,other)){
