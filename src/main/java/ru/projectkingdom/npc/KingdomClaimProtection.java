@@ -28,6 +28,21 @@ public final class KingdomClaimProtection {
                 .roomAccess(p.getUUID(),dimension,pos,action,System.currentTimeMillis());
         if(room==ru.projectkingdom.property.KingdomRentalsData.Access.DENIED)return true;
         if(room==ru.projectkingdom.property.KingdomRentalsData.Access.ALLOWED)return false;
+        // Shared corridors are not free-loot zones. A lawful resident may
+        // operate passage blocks outside the boundaries of their room, but
+        // NOT arbitrary chests, furnaces, machines, or warehouse containers.
+        if(action==KingdomCivicsData.Action.INTERACT
+                && ru.projectkingdom.property.KingdomRentalsData.get(p.getServer())
+                        .residentOfBuilding(p.getUUID(),dimension,pos,System.currentTimeMillis())
+                && level.hasChunkAt(pos)){
+            var block=level.getBlockState(pos).getBlock();
+            if(block instanceof net.minecraft.world.level.block.DoorBlock
+                    ||block instanceof net.minecraft.world.level.block.TrapDoorBlock
+                    ||block instanceof net.minecraft.world.level.block.FenceGateBlock
+                    ||block instanceof net.minecraft.world.level.block.ButtonBlock
+                    ||block instanceof net.minecraft.world.level.block.LeverBlock)
+                return false;
+        }
         if(data.plot(level,pos)==null)return false;
         return !data.allowed(p.getUUID(),dimension,pos.getX(),pos.getZ(),action);
     }
