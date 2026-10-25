@@ -83,11 +83,22 @@ public final class KingdomMunicipalFoodStorage {
     }
 
     public static boolean destination(MinecraftServer server,UUID town,String dimension,BlockPos pos) {
-        Snapshot all=inspect(server,town);
-        if(!all.complete())return false;
-        return all.containers().stream().anyMatch(x ->
-                x.pos().equals(pos)
-                && x.level().dimension().location().toString().equals(dimension));
+        var admin=KingdomAdministrationData.get(server);
+        var core=admin.core(town,AdministrativeKind.CENTRAL_WAREHOUSE);
+        if(core==null||!dimension.equals(core.dimension()))return false;
+        ServerLevel level=level(server,dimension);
+        if(level==null||!level.hasChunkAt(pos)
+                ||!KingdomWarehouseMarket.get(server).activeMunicipalCore(
+                    level,town,AdministrativeKind.CENTRAL_WAREHOUSE)
+                ||KingdomContainerAccess.resolve(level,pos)==null)return false;
+        var civic=KingdomCivicsData.get(server).townAt(level,pos);
+        if(civic==null||!town.equals(civic.id()))return false;
+        var rooms=KingdomCentralWarehouseRooms.get(server).rooms(town);
+        if(!rooms.isEmpty())return rooms.stream().anyMatch(room ->
+                dimension.equals(room.dimension())&&room.contains(pos));
+        return admin.boundContainers(town,AdministrativeBindingRole.WAREHOUSE_STORAGE)
+                .stream().anyMatch(row ->
+                    dimension.equals(row.dimension())&&row.packedPos()==pos.asLong());
     }
 
     private static ServerLevel level(MinecraftServer server,String dim) {
