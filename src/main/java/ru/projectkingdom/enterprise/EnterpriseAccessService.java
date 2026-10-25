@@ -15,6 +15,7 @@ import ru.projectkingdom.npc.KingdomContainerAccess;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomTerritories;
 import ru.projectkingdom.npc.KingdomManagedStorageEntity;
+import ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity;
 
 /** Container binding with precise failure diagnoses, always server-authorized. */
 public final class EnterpriseAccessService {
@@ -63,7 +64,8 @@ public final class EnterpriseAccessService {
     }
     public static String display(Status status) {return label(status);}
     public static boolean begin(ServerPlayer player,UUID enterprise,EnterpriseBindingRole role){
-        if(player==null||role==null||!KingdomEnterpriseData.get(player.getServer()).mayManage(player.getUUID(),enterprise))return false;
+        if(player==null||role==null||role==EnterpriseBindingRole.CASHBOX
+                ||!KingdomEnterpriseData.get(player.getServer()).mayManage(player.getUUID(),enterprise))return false;
         SESSIONS.put(player.getUUID(),new EnterpriseBindingSession(player.getUUID(),enterprise,role,
                 player.level().dimension().location().toString()));return true;
     }
@@ -114,6 +116,7 @@ public final class EnterpriseAccessService {
     public static Status complete(ServerPlayer player,ServerLevel level,BlockPos pos){
         EnterpriseBindingSession session=SESSIONS.remove(player.getUUID());
         if(session==null)return Status.NO_SESSION;
+        if(session.role()==EnterpriseBindingRole.CASHBOX)return Status.INVALID_CONTAINER;
         if(!session.dimension().equals(level.dimension().location().toString()))return Status.WRONG_DIMENSION;
         if(pos.distSqr(player.blockPosition())>36)return Status.TOO_FAR;
         var data=KingdomEnterpriseData.get(player.getServer());var firm=data.find(session.enterpriseId());
@@ -129,6 +132,19 @@ public final class EnterpriseAccessService {
     }
 
     public static Access snapshot(ServerLevel level,KingdomEnterpriseData data,UUID enterprise,EnterpriseBindingRole role){
+        if(role==EnterpriseBindingRole.CASHBOX){
+            var business=data.core(enterprise);
+            if(business==null||!business.active())return new Access(Status.MISSING,null,null);
+            BlockPos pos=BlockPos.of(business.packedPos());
+            if(!business.dimension().equals(level.dimension().location().toString()))
+                return new Access(Status.WRONG_DIMENSION,null,pos);
+            if(!level.hasChunkAt(pos))return new Access(Status.BOUND_UNLOADED,null,pos);
+            if(!(level.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core)
+                    ||!core.bound()||!enterprise.equals(core.enterpriseId())
+                    ||!business.owner().equals(core.owner())||business.kind()!=core.kind())
+                return new Access(Status.INVALID_CONTAINER,null,pos);
+            return new Access(Status.BOUND_AVAILABLE,core.cashInventory(),pos);
+        }
         var binding=data.storageBinding(enterprise,role);
         if(binding==null)return new Access(Status.MISSING,null,null);
         if(!binding.dimension().equals(level.dimension().location().toString()))return new Access(Status.WRONG_DIMENSION,null,binding.pos());
