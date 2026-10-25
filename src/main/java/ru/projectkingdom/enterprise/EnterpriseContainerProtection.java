@@ -97,6 +97,18 @@ public final class EnterpriseContainerProtection {
     @SubscribeEvent(priority = EventPriority.HIGHEST)
     public static void breaking(BlockEvent.BreakEvent event) {
         if (!(event.getPlayer() instanceof ServerPlayer actor)) return;
+        if(actor.serverLevel().getBlockEntity(event.getPos()) instanceof EnterpriseCoreBlockEntity core
+                &&core.bound()){
+            var firm=KingdomEnterpriseData.get(actor.getServer()).find(core.enterpriseId());
+            if(firm==null||!firm.owner().equals(actor.getUUID()) || !core.cashInventory().isEmpty()){
+                event.setCanceled(true);
+                actor.displayClientMessage(net.minecraft.network.chat.Component.literal(
+                    firm==null||!firm.owner().equals(actor.getUUID())
+                        ?"Это чужое предприятие: ломать блок нельзя."
+                        :"Перед переносом блока снимите все реальные монеты из его внутренней кассы."),true);
+                return;
+            }
+        }
         if (denied(actor.serverLevel(), event.getPos(), actor.getUUID())) event.setCanceled(true);
     }
 
@@ -105,6 +117,7 @@ public final class EnterpriseContainerProtection {
         if (!(event.getLevel() instanceof ServerLevel level)) return;
         var data = KingdomEnterpriseData.get(level.getServer());
         event.getAffectedBlocks().removeIf(pos -> {
+            if(level.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core&&core.bound())return true;
             UUID owner = ownerAt(level, pos, data);
             return owner != null; // no explosion is authorized to destroy enrolled enterprise stock
         });
