@@ -2,6 +2,8 @@ name: Build Project Kingdom
 
 on:
   push:
+    branches: [main, feature/vanilla-female-skirt-bust-20261026]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
