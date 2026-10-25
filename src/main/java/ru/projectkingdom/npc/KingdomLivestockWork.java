@@ -229,6 +229,14 @@ public final class KingdomLivestockWork {
             ||!(level.getBlockEntity(rawPos) instanceof Container raw)
             ||!(level.getBlockEntity(finishedPos) instanceof Container finished))return false;
         // Physical goods must be delivered before acquiring more supplies.
+        if(w.butcherDelivery){
+            if(w.fieldInventory.isEmpty()){
+                w.butcherDelivery=false;
+                KingdomNpcData.get(level.getServer()).setDirty();
+                return false;
+            }
+            return NpcFieldWork.deposit(level,npc,w);
+        }
         java.util.function.Predicate<ItemStack> product=stack->!stack.isEmpty()
             && (KingdomTfcNestWork.edibleEgg(stack)
                 || KingdomTfcMilkWork.hasMilk(stack)
@@ -243,8 +251,9 @@ public final class KingdomLivestockWork {
             if(!territory.canUse(level,pen.center(),owner))continue;
             AABB area=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
                 pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
-            for(Animal animal:level.getEntitiesOfClass(Animal.class,area,
-                entity->entity.isAlive()&&pen.contains(entity))){
+            var herd=level.getEntitiesOfClass(Animal.class,area,
+                entity->entity.isAlive()&&pen.contains(entity)&&isTfc(entity));
+            for(Animal animal:herd){
                 if(!isTfc(animal)||!territory.canUse(level,animal.blockPosition(),owner))continue;
                 if(hungry(animal)){
                     if(feedAnimal(level,npc,w,animal,raw,rawPos))return true;
@@ -253,6 +262,7 @@ public final class KingdomLivestockWork {
                 else if(shearAnimal(level,npc,w,animal,raw,rawPos))return true;
             }
             if(KingdomTfcNestWork.tick(level,npc,w,pen,finished))return true;
+            if(KingdomTfcButcheryWork.tick(level,npc,w,pen,herd))return true;
         }
         return false;
     }
