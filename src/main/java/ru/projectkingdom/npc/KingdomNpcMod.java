@@ -326,6 +326,7 @@ public final class KingdomNpcMod {
     public void commands(RegisterCommandsEvent event) {
         KingdomExpansionCommands.register(event);
         var root = Commands.literal("knpc");
+        root.then(KingdomMunicipalFoodCommands.command());
         root.then(Commands.literal("talk")
             .then(Commands.argument("id", IntegerArgumentType.integer(1))
             .then(Commands.argument("phrase", StringArgumentType.greedyString()).executes(ctx -> {
@@ -843,6 +844,10 @@ public final class KingdomNpcMod {
         if (server.getTickCount() % 1200 == 0)
             KingdomCivicsData.get(server).expireDueLeases(System.currentTimeMillis());
         if (server.getTickCount() % 100 == 0) KingdomCourierDispatch.tick(server);
+        // Two municipal warehouses per minute at most; scans only already-loaded
+        // physical containers and records informational seasonal shortages.
+        if (server.getTickCount() % 1200 == 0)
+            KingdomMunicipalFoodReserves.get(server).tick(server);
         if (server.getTickCount() % 20 == 0) {
             KingdomNpcData current=KingdomNpcData.get(server);
             for (var w : current.all()) if ("bake".equals(w.order)) {w.order="stay";current.setDirty();}
