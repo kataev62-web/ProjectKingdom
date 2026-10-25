@@ -132,9 +132,11 @@ public final class NpcFieldWork {
     }
     /** Route harvested stock into a marked finished warehouse. Unemployed keep it in a persistent personal inventory. */
     static boolean deposit(ServerLevel level,Villager npc, KingdomNpcData.Worker w){
-        if(w.fieldInventory.isEmpty() || w.employer==null || !w.hasDestination)return false;
+        if(w.fieldInventory.isEmpty() || KingdomNpcFarmOwner.workOwner(level,w)==null
+                || !w.hasDestination)return false;
         BlockPos pos=new BlockPos(w.destX,w.destY,w.destZ);
-        if(!level.hasChunkAt(pos)||!KingdomTerritories.get(level.getServer()).usable(level,pos,w.employer,"finished"))return false;
+        if(!level.hasChunkAt(pos)||!KingdomTerritories.get(level.getServer()).usable(level,pos,
+                KingdomNpcFarmOwner.workOwner(level,w),"finished"))return false;
         if(npc.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>6.25){npc.getNavigation().moveTo(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5,0.8);return false;}
         BlockEntity be=level.getBlockEntity(pos);if(!(be instanceof Container c))return false;
         boolean moved=false;
