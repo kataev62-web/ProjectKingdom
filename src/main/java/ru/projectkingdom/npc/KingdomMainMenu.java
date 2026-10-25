@@ -228,7 +228,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(12,Items.HOPPER,"Внести 100 медных в активную кассу");
                 icon(13,Items.CHEST,"Снять 100 медных из активной кассы");
                 icon(14,Items.BARREL,firm==null?"Сначала открой предприятие":
-                    "Привязать сундук/бочку под ногами; касса "+firm.cash()+" мед., доступ "+data.atCounter(viewer,firm.id()));
+                    "Касса уже внутри блока предприятия. Нажмите, чтобы открыть блок и увидеть складские остатки.");
                 icon(15,Items.EMERALD,"Выставить предмет из руки: 10 медных/шт. (из привязанного сундука)");
                 icon(16,Items.GOLD_INGOT,"Выставить предмет из руки: 100 медных/шт.");
                 icon(17,Items.GOLD_BLOCK,"Выставить предмет из руки: 1000 медных/шт.");
@@ -564,10 +564,10 @@ public final class KingdomMainMenu extends ChestMenu {
                 else if(slot==11){say(db.selectNext(viewer.getUUID())?"Переключено предприятие":"Других предприятий пока нет");draw();}
                 else if(slot==12){say(db.deposit(viewer,100)?"В кассу внесено 100":"Встань у своей кассы, проверь кошелёк");draw();}
                 else if(slot==13){say(db.withdraw(viewer,100)?"Из кассы получено 100":"Встань у кассы, проверь остаток");draw();}
-                else if(slot==14){say(db.bindCounter(viewer,viewer.blockPosition().below())?"Сундук или бочка зарегистрированы как касса":"Встань на принадлежащий тебе сундук/бочку");draw();}
+                else if(slot==14){if(!openNearbyEnterprise())say("Подойди к своему блоку предприятия: касса находится внутри него.");}
                 else if(slot>=15 && slot<=17){
                     var held=viewer.getMainHandItem();
-                    if(held.isEmpty())say("Возьми в руку товар из кассового сундука");
+                    if(held.isEmpty())say("Возьми в руку товар со склада готовой продукции");
                     else {long price=slot==15?10:slot==16?100:1000;
                         String item=net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(held.getItem()).toString();
                         say(db.listItem(viewer,item,price)==null?"Нет товара в привязанном сундуке или нет прав":"Товар выставлен: "+item+" по "+price+" мед.");
