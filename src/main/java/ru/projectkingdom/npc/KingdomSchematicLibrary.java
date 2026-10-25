@@ -104,8 +104,8 @@ public final class KingdomSchematicLibrary {
                         Files.copy(input, temp, StandardCopyOption.REPLACE_EXISTING);
                         readDesign(temp, name); // Reject invalid or unsafe blocks before installation.
                         try {
-                            Files.move(temp, target, StandardCopyOption.ATOMIC_MOVE);
-                        } catch (java.nio.file.AtomicMoveNotSupportedException ex) {
+                            // No REPLACE_EXISTING: an administrator's custom
+                            // schematic must always win, even in a race.
                             Files.move(temp, target);
                         } catch (java.nio.file.FileAlreadyExistsException ignored) {
                             // World administrator created their own file concurrently.
