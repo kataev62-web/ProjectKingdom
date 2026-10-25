@@ -50,8 +50,7 @@ public final class KingdomWarehouseRoomProtection {
             event.setCanceled(true);return;
         }
         // Never inadvertently break a filled chest when rearranging rooms.
-        if(player.serverLevel().getBlockEntity(event.getPos())!=null
-                &&player.serverLevel().getBlockState(event.getPos()).getBlock() instanceof ChestBlock){
+        if(player.serverLevel().getBlockEntity(event.getPos()) instanceof net.minecraft.world.Container){
             var contents=KingdomContainerAccess.resolve(player.serverLevel(),event.getPos());
             if(contents==null || !contents.isEmpty()){
                 event.setCanceled(true);
