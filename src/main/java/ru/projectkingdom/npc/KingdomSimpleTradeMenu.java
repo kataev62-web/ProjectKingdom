@@ -95,6 +95,10 @@ public final class KingdomSimpleTradeMenu extends ChestMenu {
         player.openMenu(new SimpleMenuProvider((id, inv, p) -> new KingdomSimpleTradeMenu(
                 id, inv, player, warehouse, cashbox, wantedItem, copperCoin,
                 (int) notice.priceCopper(), quantity -> {
+                    long paid=(long)quantity*notice.priceCopper();
+                    if(!KingdomEnterpriseData.get(player.getServer()).recordPhysicalNoticePayment(
+                            player.serverLevel(),enterpriseId,cashbox,paid))
+                        throw new IllegalStateException("Physical till and enterprise ledger disagree");
                     try {
                         if (!board.confirmedTrade(noticeId, notice.itemId(), quantity))
                             throw new IllegalStateException("Notice no longer valid");
