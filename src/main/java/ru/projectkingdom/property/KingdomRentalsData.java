@@ -222,6 +222,17 @@ public final class KingdomRentalsData extends SavedData {
         return nbt.hasUUID(SELECTED)?rooms.get(nbt.getUUID(SELECTED)):null;
     }
 
+    /** Shared passages are reachable by occupants, but storage stays private. */
+    public boolean residentOfBuilding(UUID actor,String dimension,BlockPos position,long now){
+        if(actor==null)return false;
+        var b=atBuilding(dimension,position);
+        if(b==null)return false;
+        for(var r:rooms.values())
+            if(r.buildingId().equals(b.id())&&actor.equals(r.tenant())&&r.occupied(now))
+                return true;
+        return false;
+    }
+
     /**
      * Exact permission only for rental cuboids. OUTSIDE delegates to the
      * existing chunk-claim system. This is *lawful* access only; future
