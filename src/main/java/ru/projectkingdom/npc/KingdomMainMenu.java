@@ -20,7 +20,7 @@ import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Menu-driven management; all changes are verified on the server. */
 public final class KingdomMainMenu extends ChestMenu {
-    private enum Page { HOME, BUILD, PROJECTS, ARMY, TERRITORY, PEOPLE, CIVICS, WALLET, PAYMENTS, PAYROLL, ENTERPRISE, BANK, SITE, MATERIALS, WAREHOUSE, ORDERS }
+    private enum Page { HOME, RENTALS, BUILD, PROJECTS, ARMY, TERRITORY, PEOPLE, CIVICS, WALLET, PAYMENTS, PAYROLL, ENTERPRISE, BANK, SITE, MATERIALS, WAREHOUSE, ORDERS }
     private final SimpleContainer content;
     private final ServerPlayer viewer;
     private final Page page;
@@ -52,6 +52,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 new ru.projectkingdom.network.OpenGraphicAtlasPacket(
                     ru.projectkingdom.map.KingdomGraphicAtlasData.Layer.LAND.ordinal()));
     }
+    public static void openRentals(ServerPlayer player) { show(player,Page.RENTALS); }
     public static void openWallet(ServerPlayer player) { show(player,Page.WALLET); }
     public static void openBank(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.BANK); }
     public static void openWarehouse(ServerPlayer player) { openAdministrativeOrExplain(player,AdministrativeKind.CITY_MARKET); }
@@ -103,7 +104,7 @@ public final class KingdomMainMenu extends ChestMenu {
     private static void show(ServerPlayer player,Page page,java.util.UUID siteId,BlockPos office) {
         player.openMenu(new SimpleMenuProvider((id,inv,p)->make(id,inv,player,page,siteId,office),
             Component.literal("Project Kingdom / "+switch(page){
-                case HOME -> "Управление"; case BUILD -> "Архитектор";
+                case HOME -> "Управление"; case RENTALS -> "Недвижимость и аренда"; case BUILD -> "Архитектор";
                 case PROJECTS -> "Проекты"; case ARMY -> "Армия";
                 case TERRITORY -> "Территории"; case PEOPLE -> "Жители"; case CIVICS -> "Города и нации"; case WALLET -> "Кошелёк"; case PAYMENTS -> "Платежи"; case PAYROLL -> "Зарплаты"; case ENTERPRISE -> "Предприятие"; case BANK -> "Банк"; case SITE -> "Строительная площадка"; case MATERIALS -> "Материалы для стройки"; case WAREHOUSE -> "Заказ доставки"; case ORDERS -> "Мои доставки";
             })));
@@ -130,10 +131,37 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(14,Items.VILLAGER_SPAWN_EGG,"Жители и профессии");
                 icon(15,Items.EMERALD,"Ратуша города");
                 icon(16,Items.CHEST,"Городской рынок");
+                icon(17,Items.OAK_DOOR,"Недвижимость: здания, комнаты и аренда");
                 icon(20,Items.OAK_SIGN,"Города, государства и управление");
                 icon(21,Items.FILLED_MAP,"Карты Kingdom: территория, политика, предприятия");
                 icon(22,KingdomCurrency.WALLET.get(),"Монеты и кошелёк");
                 icon(23,Items.EMERALD,"Моё предприятие и касса");
+            }
+            case RENTALS -> {
+                var properties=ru.projectkingdom.property.KingdomRentalsData.get(viewer.getServer());
+                var dim=viewer.serverLevel().dimension().location().toString();
+                var room=properties.atRoom(dim,viewer.blockPosition());
+                if(room!=null)properties.select(viewer,room.id());
+                var chosen=room!=null?room:properties.selected(viewer);
+                var building=properties.atBuilding(dim,viewer.blockPosition());
+                icon(10,Items.BRICKS,"Разметить здание: 2 угла Shift+ПКМ пустой рукой (только собственник земли)");
+                icon(11,Items.OAK_DOOR,"Разметить комнату внутри своего здания: 2 угла Shift+ПКМ");
+                icon(12,Items.COMPASS,"Выбрать комнату, в которой сейчас находитесь");
+                icon(13,Items.COPPER_INGOT,"Цена аренды: "+(chosen==null?"не выбрана":chosen.priceCopper()+" медных")+" | изменить");
+                icon(14,Items.CLOCK,"Срок аренды: "+(chosen==null?"не выбран":chosen.days()+" суток")+" | изменить");
+                icon(15,Items.PAPER,chosen==null?"Опубликовать объявление":chosen.listed()?"Снять объявление":"Опубликовать объявление");
+                icon(16,Items.GOLD_INGOT,"Оплатить выбранную комнату у банковской кассы");
+                icon(17,Items.EMERALD,"Продлить аренду, оплатив в банке");
+                icon(18,Items.OAK_DOOR,"Освободить комнату (только арендатор)");
+                icon(19,Items.HOPPER,"Окончить просроченный договор (только собственник)");
+                icon(20,Items.BOOK,chosen==null?"Зайдите в помещение, чтобы выбрать его":
+                        "Помещение: "+chosen.name()+" | "+chosen.purpose());
+                icon(21,Items.CHEST,building==null?"Находитесь вне зарегистрированного здания":
+                        "Здание: "+building.name());
+                icon(22,Items.PLAYER_HEAD,chosen==null?"Нет выбранного договора":
+                        chosen.tenant()==null?"Не сдано":chosen.occupied(System.currentTimeMillis())
+                        ?"Арендатор до "+new java.util.Date(chosen.expiresAt()):"Договор истёк, ожидает освобождения");
+                icon(23,Items.WRITABLE_BOOK,"Оплата из физического кошелька в городской банковский сейф; собственнику начисляется обеспеченное хранение");
             }
             case WALLET -> {
                 var wallet=KingdomCurrency.wallet(viewer);
@@ -433,11 +461,71 @@ public final class KingdomMainMenu extends ChestMenu {
                 case 14 -> show(viewer,Page.PEOPLE);
                 case 15 -> openTownHall(viewer);
                 case 16 -> openWarehouse(viewer);
+                case 17 -> show(viewer,Page.RENTALS);
                 case 20 -> show(viewer,Page.CIVICS);
                 case 21 -> openMaps(viewer);
                 case 22 -> show(viewer,Page.WALLET);
                 case 23 -> {if(!openNearbyEnterprise()){say("Подойди к установленному блоку-ядру предприятия.");show(viewer,Page.ENTERPRISE);}}
             }}
+            case RENTALS -> {
+                var properties=ru.projectkingdom.property.KingdomRentalsData.get(viewer.getServer());
+                var deeds=KingdomCivicsData.get(viewer.getServer());
+                var dim=viewer.serverLevel().dimension().location().toString();
+                var here=properties.atRoom(dim,viewer.blockPosition());
+                if(here!=null)properties.select(viewer,here.id());
+                var selected=here!=null?here:properties.selected(viewer);
+                var owner=selected==null?null:properties.building(selected.buildingId());
+                long now=System.currentTimeMillis();
+                if(slot==10){
+                    if(ru.projectkingdom.property.KingdomRentalSelection.beginBuilding(viewer))
+                        viewer.closeContainer();
+                    break;
+                }
+                if(slot==11){
+                    if(ru.projectkingdom.property.KingdomRentalSelection.beginRoom(viewer))
+                        viewer.closeContainer();
+                    else say("Встаньте внутри зарегистрированного здания, которым владеете.");
+                    break;
+                }
+                if(slot==12){
+                    say(here==null?"Сначала войдите в нужную комнату":"Выбрано: "+here.name());
+                    draw();break;
+                }
+                if(selected==null){say("Сначала войдите в помещение и выберите его");break;}
+                if(slot==13||slot==14||slot==15){
+                    if(owner==null || !viewer.getUUID().equals(owner.owner())){
+                        say("Изменять условия аренды может только собственник здания.");break;
+                    }
+                    long price=selected.priceCopper();
+                    int days=selected.days();
+                    if(slot==13)price=price==20?50:price==50?100:price==100?250:price==250?500:20;
+                    if(slot==14)days=days==1?7:days==7?30:1;
+                    boolean listed=slot==15?!selected.listed():selected.listed();
+                    say(properties.configure(deeds,viewer.getUUID(),selected.id(),price,days,listed)
+                            ?"Условия аренды обновлены":"Комната занята или у вас нет прав.");
+                    draw();break;
+                }
+                if(slot==16||slot==17){
+                    boolean renew=slot==17;
+                    if(KingdomBankData.get(viewer.getServer()).payRoomLeaseCash(viewer,renew))
+                        say(renew?"Аренда продлена, оплата поступила в обеспеченный банк.":
+                                "Договор оплачен и вступил в силу.");
+                    else say("Нужны: действующий договор/объявление, кошелёк с монетами и привязанный банковский сейф рядом с кассой.");
+                    draw();break;
+                }
+                if(slot==18){
+                    say(properties.surrender(viewer.getUUID(),selected.id())
+                            ?"Помещение освобождено, автоматического возврата предоплаты нет.":
+                            "Освободить комнату может только её арендатор.");
+                    draw();break;
+                }
+                if(slot==19){
+                    say(properties.releaseExpired(deeds,viewer.getUUID(),selected.id(),now)
+                            ?"Просроченный договор завершён, помещение свободно.":
+                            "Договор ещё действует или недостаточно прав.");
+                    draw();break;
+                }
+            }
             case WALLET -> {
                 var wallet=KingdomCurrency.wallet(viewer);
                 if(wallet.isEmpty()){say("Сначала получи предмет Кошелёк");break;}
