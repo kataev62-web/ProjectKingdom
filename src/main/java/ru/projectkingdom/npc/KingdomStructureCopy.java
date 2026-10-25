@@ -99,13 +99,13 @@ public final class KingdomStructureCopy {
             throw new IOException("Максимальный объём: 48×48×48 и 65 536 блоков. "
                 +"Большое здание нужно копировать по секциям.");
         ServerLevel level=player.serverLevel();
-        var claims=KingdomTerritories.get(player.getServer());
         for(int z=minZ;z<=maxZ;z++)for(int x=minX;x<=maxX;x++){
             BlockPos at=new BlockPos(x,minY,z);
             if(!level.hasChunkAt(at))throw new IOException("Часть постройки не загружена.");
-            if(!player.hasPermissions(2) && !claims.canUse(level,at,player.getUUID()))
-                throw new IOException("Скопировать можно только собственную территорию. "
-                    +"Чужой участок: "+x+", "+z);
+            if(!player.hasPermissions(2) && !KingdomConstructionAccess.canBuild(
+                    player.getServer(),level,at,player.getUUID()))
+                throw new IOException("Нет права на копирование: участок "+x+", "+z
+                    +". Разрешены свои и доверенные строительные участки.");
         }
         int volume=(int)(width*height*length);
         Map<String,Integer> palette=new HashMap<>();
