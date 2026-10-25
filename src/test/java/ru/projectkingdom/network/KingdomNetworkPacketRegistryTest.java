@@ -21,6 +21,6 @@ class KingdomNetworkPacketRegistryTest {
             count++;
         }
         assertTrue(count>=18);
-        assertTrue(source.contains("private static final String PROTOCOL=\"4\""));
+        assertTrue(source.contains("private static final String PROTOCOL=\"5\""));
     }
 }
