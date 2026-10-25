@@ -118,11 +118,11 @@ class KingdomRentalsDataTest {
     @Test void receptionOwnsOnlyItsBuildingsRoomsAndSurvivesSave() {
         var building=home();
         UUID hotel=UUID.randomUUID(),tavern=UUID.randomUUID();
-        assertFalse(rentals.bindReception(land,other,hotel,DIM,new BlockPos(3,64,3)));
+        assertFalse(rentals.bindReception(land,other,hotel,DIM,new BlockPos(10,64,10)));
         assertFalse(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(30,64,30)));
-        assertTrue(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(3,64,3)));
-        assertTrue(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(3,64,3)));
-        assertFalse(rentals.bindReception(land,owner,tavern,DIM,new BlockPos(3,64,3)));
+        assertTrue(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(10,64,10)));
+        assertTrue(rentals.bindReception(land,owner,hotel,DIM,new BlockPos(10,64,10)));
+        assertFalse(rentals.bindReception(land,owner,tavern,DIM,new BlockPos(10,64,10)));
         assertEquals(building,rentals.receptionBuilding(hotel));
         var first=rentals.createRoom(land,owner,building.id(),"Номер 1",Purpose.HOME,
                 new Bounds(3,64,3,6,68,6));
@@ -133,6 +133,7 @@ class KingdomRentalsDataTest {
         assertFalse(rentals.receptionHasObligations(hotel));
         assertTrue(rentals.configure(land,owner,first.id(),50,1,true));
         assertTrue(rentals.receptionHasObligations(hotel));
+        assertFalse(rentals.bindReception(land,owner,tavern,DIM,new BlockPos(3,64,3)));
         assertTrue(rentals.rentPaid(land,tenant,first.id(),1_900_000_000_000L));
         assertTrue(rentals.receptionHasObligations(hotel));
         var loaded=KingdomRentalsData.load(rentals.save(new CompoundTag()));
@@ -145,7 +146,7 @@ class KingdomRentalsDataTest {
         assertTrue(loaded.releaseVacantReception(hotel));
         assertNull(loaded.receptionForRoom(first.id()));
         assertNotNull(loaded.room(first.id()));
-        assertTrue(loaded.bindReception(land,owner,tavern,DIM,new BlockPos(3,64,3)));
+        assertTrue(loaded.bindReception(land,owner,tavern,DIM,new BlockPos(10,64,10)));
         assertEquals(tavern,loaded.receptionForRoom(first.id()));
     }
 
