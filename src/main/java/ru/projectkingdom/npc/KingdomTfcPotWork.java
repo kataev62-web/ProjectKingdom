@@ -78,7 +78,61 @@ public final class KingdomTfcPotWork {
             && id(stack).startsWith("tfc:food/")
             && KingdomCurrency.value(stack)==0 && !stack.is(KingdomCurrency.WALLET.get());
     }
-    private record Plan(List<Integer> slots,List<ItemStack> inputs,List<ItemStack> outputs,Recipe<?> recipe){}
+    private record Plan(List<Integer> slots,List<ItemStack> inputs,List<ItemStack> outputs,
+                        Recipe<?> recipe,String specialMode){
+        private Plan(List<Integer> slots,List<ItemStack> inputs,List<ItemStack> outputs,Recipe<?> recipe){
+            this(slots,inputs,outputs,recipe,"");
+        }
+    }
+    /** Soup and jam create special TFC native outputs, not items in pot slots. */
+    private static Plan findSpecialRecipe(ServerLevel level,Object potInventory,
+                                          Container raw,Container finished){
+        try{
+            Object fluid=fluidInTank.invoke(potInventory,0);
+            if(!(fluid instanceof FluidStack water)||water.isEmpty())return null;
+            // Reserve at least one free destination slot; final NBT and recipe yield
+            // are validated after native cooking and before removing any portion.
+            boolean space=false;
+            for(int i=0;i<finished.getContainerSize();i++)
+                if(finished.getItem(i).isEmpty()){space=true;break;}
+            if(!space)return null;
+            List<? extends Recipe<?>> recipes=level.getRecipeManager()
+                .getAllRecipesFor((RecipeType)potType).stream()
+                .sorted(Comparator.comparing(r->((Recipe<?>)r).getId().toString())).toList();
+            for(Object candidate:recipes){
+                if(!(candidate instanceof Recipe<?> recipe))continue;
+                String mode=KingdomTfcSpecialPotWork.recipeMode(candidate);
+                if(mode.isBlank()||!KingdomTfcSpecialPotWork.hasServingContainer(raw,mode))
+                    continue;
+                Object fluidRequirement=fluidIngredient.invoke(candidate);
+                if(!Boolean.TRUE.equals(fluidRequirement.getClass()
+                    .getMethod("test",FluidStack.class).invoke(fluidRequirement,water)))continue;
+                List<?> ingredients=(List<?>)itemIngredients.invoke(candidate);
+                if(ingredients.isEmpty()||ingredients.size()>5)continue;
+                List<Integer> slots=new ArrayList<>();
+                List<ItemStack> inputs=new ArrayList<>();
+                Map<Integer,Integer> reserved=new HashMap<>();
+                boolean matched=true;
+                for(Object targetObject:ingredients){
+                    if(!(targetObject instanceof Ingredient target)){matched=false;break;}
+                    int picked=-1;
+                    for(int slot=0;slot<raw.getContainerSize();slot++){
+                        ItemStack available=raw.getItem(slot);
+                        if(!cookable(available)||!raw.canTakeItem(raw,slot,available)
+                            ||available.getCount()<=reserved.getOrDefault(slot,0))continue;
+                        ItemStack one=available.copyWithCount(1);
+                        if(target.test(one)){picked=slot;inputs.add(one);break;}
+                    }
+                    if(picked<0){matched=false;break;}
+                    slots.add(picked);reserved.merge(picked,1,Integer::sum);
+                }
+                if(matched)return new Plan(slots,inputs,List.of(),recipe,mode);
+            }
+        }catch(ReflectiveOperationException|RuntimeException ex){
+            System.err.println("[Kingdom] TFC special recipe matching stopped: "+ex);
+        }
+        return null;
+    }
     /** Bounded simple pot recipe matching against real existing water and stock. */
     private static Plan findRecipe(ServerLevel level,Object potInventory,Container raw,Container finished){
         try{
@@ -138,7 +192,7 @@ public final class KingdomTfcPotWork {
                     bestScore=score;
                 }
             }
-            return bestPlan;
+            return bestPlan!=null?bestPlan:findSpecialRecipe(level,potInventory,raw,finished);
         }catch(ReflectiveOperationException | RuntimeException ex){
             // Incompatible TFC API disables rather than inventing outputs.
             compatible=false;
@@ -309,7 +363,9 @@ public final class KingdomTfcPotWork {
         }
         raw.setChanged();
         List<String> inputs=plan.inputs().stream().map(KingdomTfcPotWork::id).toList();
-        List<String> outputs=plan.outputs().stream().map(KingdomTfcPotWork::id).toList();
+        List<String> outputs=plan.specialMode().isBlank()
+            ? plan.outputs().stream().map(KingdomTfcPotWork::id).toList()
+            : Collections.nCopies(plan.inputs().size(),plan.specialMode());
         KingdomTfcPotData.get(level.getServer()).put(new KingdomTfcPotData.Batch(
             worker.entityId,worker.dimension,pos.asLong(),inputs,outputs));
         return true;
@@ -365,7 +421,10 @@ public final class KingdomTfcPotWork {
                 if(!batch.dimension().equals(w.dimension)||batch.position()!=potPos.asLong()){
                     data.remove(w.entityId);return false;
                 }
-                boolean collected=collect(level,w,batch,machine,dest);
+                boolean collected=batch.outputs().contains(KingdomTfcSpecialPotWork.SOUP)
+                    ||batch.outputs().contains(KingdomTfcSpecialPotWork.JAM)
+                    ?KingdomTfcSpecialPotWork.collect(level,potPos,pot,w,batch,raw,dest)
+                    :collect(level,w,batch,machine,dest);
                 if(!collected){fuel(raw,machine);lightPot(pot,level,potPos);}
                 return collected;
             }
