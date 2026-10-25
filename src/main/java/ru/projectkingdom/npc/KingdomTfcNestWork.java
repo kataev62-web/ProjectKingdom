@@ -54,7 +54,9 @@ public final class KingdomTfcNestWork {
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                                KingdomRanchPenData.Pen pen,Container output){
         if(!init()||!pen.enabled()
-                ||!pen.dimension().equals(level.dimension().location().toString()))return false;
+                ||!pen.dimension().equals(level.dimension().location().toString())
+                ||!KingdomRanchPolicyData.get(level.getServer()).policy(pen.id()).collectEggs())
+            return false;
         var owner=KingdomNpcFarmOwner.workOwner(level,worker);
         if(owner==null)return false;
         var claims=KingdomTerritories.get(level.getServer());
