@@ -505,7 +505,11 @@ public final class KingdomEnterpriseData extends SavedData {
     }
     public boolean atCounter(ServerPlayer player, UUID business) {
         Enterprise firm=firms.get(business);Counter c=counters.get(business);
-        if(firm==null || c==null)return false;
+        if(firm==null)return false;
+        var core=EnterpriseAccessService.snapshot(player.serverLevel(),this,business,EnterpriseBindingRole.CASHBOX);
+        if(core.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE
+                &&core.position().distSqr(player.blockPosition())<=64)return true;
+        if(c==null)return false;
         ServerLevel level=player.serverLevel();
         return c.dimension().equals(level.dimension().location().toString())
                 && c.pos().distSqr(player.blockPosition())<=36
@@ -637,8 +641,24 @@ public final class KingdomEnterpriseData extends SavedData {
         var entity=level.getBlockEntity(pos);return entity instanceof Container c?c:null;
     }
     private Container inventoryForOffer(ServerLevel level,Offer offer){
-        return offer.stockWorker()==null ? inventory(level,offer.seller())
+        return offer.stockWorker()==null ? finishedInventory(level,offer.seller())
                 : workshopInventory(level,offer.stockWorker(),offer.seller(),offer.itemId());
+    }
+    private Container finishedInventory(ServerLevel level,UUID enterprise){
+        var binding=storageBinding(enterprise,EnterpriseBindingRole.FINISHED_STORAGE);
+        if(binding!=null){
+            var snapshot=EnterpriseAccessService.snapshot(level,this,enterprise,EnterpriseBindingRole.FINISHED_STORAGE);
+            return snapshot.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE?snapshot.container():null;
+        }
+        return legacyInventory(level,enterprise);
+    }
+    private Container receivingInventory(ServerLevel level,UUID enterprise){
+        var binding=storageBinding(enterprise,EnterpriseBindingRole.RAW_STORAGE);
+        if(binding!=null){
+            var snapshot=EnterpriseAccessService.snapshot(level,this,enterprise,EnterpriseBindingRole.RAW_STORAGE);
+            return snapshot.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE?snapshot.container():null;
+        }
+        return legacyInventory(level,enterprise);
     }
     /** Unresolved trades quarantine BOTH counterparties until an operator reconciles them. */
     public boolean unresolved(UUID seller){
@@ -652,7 +672,7 @@ public final class KingdomEnterpriseData extends SavedData {
         return stockIn(inventoryForOffer(level,offer),offer.itemId());
     }
     public long stock(ServerLevel level,UUID business,String itemId) {
-        Container inventory=inventory(level,business);
+        Container inventory=finishedInventory(level,business);
         if(inventory==null)return 0;
         ResourceLocation item=ResourceLocation.tryParse(itemId);
         if(item==null)return 0;
@@ -663,7 +683,7 @@ public final class KingdomEnterpriseData extends SavedData {
         }
         return count;
     }
-    private Container inventory(ServerLevel level,UUID business) {
+    private Container legacyInventory(ServerLevel level,UUID business) {
         Counter counter=counters.get(business);Enterprise firm=firms.get(business);
         if(counter==null || firm==null || !counter.dimension().equals(level.dimension().location().toString())
                 || !level.hasChunkAt(counter.pos())
@@ -679,7 +699,7 @@ public final class KingdomEnterpriseData extends SavedData {
             throws IOException {
         Enterprise firm = firms.get(enterpriseId);
         if (firm == null || journalUnavailable) return null;
-        Container container = inventory(level, enterpriseId);
+        Container container = finishedInventory(level, enterpriseId);
         if (container == null) return null;
         return TradeMinecraftContainerView.snapshot(enterpriseId, firm.cash(), container);
     }
@@ -810,7 +830,7 @@ public final class KingdomEnterpriseData extends SavedData {
         long total=offer.unitPrice()*count;
         if(total>1_000_000||purchaser.cash()<total||vendor.cash()>Long.MAX_VALUE-total)return false;
         if(unresolved(vendor.id()) || unresolved(purchaser.id()))return false;
-        Container from=inventoryForOffer(level,offer),to=inventory(level,purchaser.id());
+        Container from=inventoryForOffer(level,offer),to=receivingInventory(level,purchaser.id());
         if(from==null||to==null||from==to||(npc&&to.getContainerSize()<=9))return false;
         var buyerCash=EnterpriseAccessService.snapshot(level,this,buyerFirm,EnterpriseBindingRole.CASHBOX);
         var sellerCash=EnterpriseAccessService.snapshot(level,this,vendor.id(),EnterpriseBindingRole.CASHBOX);
@@ -889,7 +909,7 @@ public final class KingdomEnterpriseData extends SavedData {
         Enterprise buyer=firms.get(trade.buyer()), seller=firms.get(trade.seller());
         if (offer==null || buyer==null || seller==null || !offer.seller().equals(seller.id()))
             return TradeWriteAheadJournal.RecoveryAssessment.MIXED_OR_CHANGED;
-        Container from=inventoryForOffer(level,offer), to=inventory(level,buyer.id());
+        Container from=inventoryForOffer(level,offer), to=receivingInventory(level,buyer.id());
         if (from==null || to==null || from==to)
             return TradeWriteAheadJournal.RecoveryAssessment.MIXED_OR_CHANGED;
         List<ItemStack> source=new ArrayList<>(), dest=new ArrayList<>();
