@@ -36,6 +36,16 @@ public final class KingdomEnterpriseStock {
             positions.add(binding.pos());
         }
         if(workerChest!=null)positions.add(workerChest.immutable());
+        if(role==EnterpriseBindingRole.RAW_STORAGE) {
+            var plans=KingdomNpcWorkshopData.get(level.getServer());
+            for(var worker:KingdomNpcData.get(level.getServer()).all()) {
+                if(!worker.hasSource || !dim.equals(worker.dimension)
+                        || !firm.owner().equals(worker.employer))continue;
+                var plan=plans.plan(worker.entityId);
+                if(plan!=null && enterprise.equals(plan.enterprise()))
+                    positions.add(new BlockPos(worker.sourceX,worker.sourceY,worker.sourceZ));
+            }
+        }
         if(positions.isEmpty())return new Snapshot(0,0,false);
         long total=0;
         String usage=role==EnterpriseBindingRole.RAW_STORAGE?"raw":"finished";
