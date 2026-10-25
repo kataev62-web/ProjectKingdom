@@ -61,7 +61,7 @@ public final class KingdomBankVaultRooms extends SavedData {
     }
     public enum Result {
         FIRST_CORNER, CREATED, EXPANDED, NO_SESSION, NO_RIGHTS, WRONG_DIMENSION,
-        TOO_FAR, TOO_LARGE, FOREIGN_PLOT, OVERLAP, LEGACY_CHEST_OUTSIDE,
+        TOO_FAR, TOO_LARGE, FOREIGN_PLOT, OVERLAP, BANK_DESK_INSIDE, LEGACY_CHEST_OUTSIDE,
         EXISTING_ROOM_NOT_INCLUDED, UNLOADED, NO_CHESTS, TOO_MANY_CHESTS,
         INVALID_STORAGE
     }
@@ -77,6 +77,7 @@ public final class KingdomBankVaultRooms extends SavedData {
             case TOO_LARGE->"Максимальный размер комнаты: 17×9×17 блоков. Минимальный — 3×3×3.";
             case FOREIGN_PLOT->"Комната должна целиком находиться на земле этого города.";
             case OVERLAP->"Комната пересекается с банковским хранилищем другого города.";
+            case BANK_DESK_INSIDE->"Стойка банка должна находиться снаружи защищённой комнаты, чтобы посетители могли пользоваться банком.";
             case LEGACY_CHEST_OUTSIDE->"Старый банковский сундук должен остаться внутри новой комнаты — выберите другие углы.";
             case EXISTING_ROOM_NOT_INCLUDED->"При расширении старое хранилище должно полностью оставаться внутри новых границ.";
             case UNLOADED->"Не все чанки комнаты загружены. Подойдите к хранилищу и повторите.";
@@ -141,6 +142,7 @@ public final class KingdomBankVaultRooms extends SavedData {
         BlockPos max=new BlockPos(Math.max(p.getX(),pos.getX()),
             Math.max(p.getY(),pos.getY()),Math.max(p.getZ(),pos.getZ()));
         Room proposed=new Room(session.town(),session.dimension(),min,max);
+        if(proposed.contains(session.bank()))return Result.BANK_DESK_INSIDE;
         if(max.getX()-min.getX()+1>MAX_XZ || max.getZ()-min.getZ()+1>MAX_XZ
                 ||max.getY()-min.getY()+1>MAX_Y
                 ||max.getX()-min.getX()<2||max.getZ()-min.getZ()<2||max.getY()-min.getY()<2)
