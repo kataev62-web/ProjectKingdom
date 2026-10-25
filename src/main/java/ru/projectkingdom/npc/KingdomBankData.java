@@ -347,6 +347,55 @@ public final class KingdomBankData extends SavedData {
         accountHomes.put(seller,bank);
         buyer.getInventory().setChanged();setDirty();return true;
     }
+    /**
+     * Stage 6: prepaid room rental paid into a REAL city-bank vault.
+     * Offline landlords receive a backed bank-storage receipt. No virtual
+     * currency is created, and existing plot leases stay independent.
+     */
+    public boolean payRoomLeaseCash(ServerPlayer payer,boolean renewal){
+        if(payer==null || !atBranch(payer))return false;
+        UUID bank=bankTown(payer);
+        if(bank==null)return false;
+        var physical=KingdomPhysicalCash.townVault(payer,bank,AdministrativeBindingRole.BANK_VAULT);
+        if(physical==null)return false;
+        var admin=KingdomAdministrationData.get(payer.getServer());
+        if(!covered(KingdomPhysicalCash.value(physical),admin.bankReserve(bank),
+                admin.treasuryReserve(bank)))return false;
+        var property=ru.projectkingdom.property.KingdomRentalsData.get(payer.getServer());
+        var deeds=KingdomCivicsData.get(payer.getServer());
+        var room=property.selected(payer);
+        if(room==null)return false;
+        var building=property.building(room.buildingId());
+        if(building==null)return false;
+        long now=System.currentTimeMillis();
+        boolean allowed=renewal
+                ?property.canRenew(deeds,payer.getUUID(),room.id(),now)
+                :property.canRent(deeds,payer.getUUID(),room.id(),now);
+        if(!allowed)return false;
+        long amount=room.priceCopper();
+        UUID landlord=building.owner();
+        long prior=balance(landlord);
+        if(!payableAt(landlord,bank)||amount<1||amount>1_000_000
+                ||KingdomCurrency.balance(payer)<amount
+                ||prior>Long.MAX_VALUE-amount
+                ||admin.bankReserve(bank)>Long.MAX_VALUE-amount)return false;
+        if(!KingdomPhysicalCash.deposit(payer,physical,amount))return false;
+        boolean recorded=renewal
+                ?property.renewPaid(deeds,payer.getUUID(),room.id(),now)
+                :property.rentPaid(deeds,payer.getUUID(),room.id(),now);
+        if(!recorded){
+            if(!KingdomPhysicalCash.withdraw(payer,physical,amount))
+                throw new IllegalStateException("Room rent cash compensation failed");
+            return false;
+        }
+        if(!admin.depositBankReserve(bank,amount))
+            throw new IllegalStateException("Room rent bank reserve update failed");
+        accounts.put(landlord,prior+amount);
+        accountHomes.put(landlord,bank);
+        payer.getInventory().setChanged();setDirty();
+        return true;
+    }
+
     /** A bank branch must actually exist within interaction distance. */
     public boolean atBranch(ServerPlayer player) {
         if(bankTown(player)!=null)return true;
