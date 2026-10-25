@@ -63,8 +63,15 @@ public final class KingdomPhysicalCash {
         return result;
     }
     private static void apply(Container container,List<ItemStack> next) {
-        for(int i=0;i<next.size();i++)container.setItem(i,next.get(i));
-        container.setChanged();
+        // Multi-chest bank rooms may contain thousands of slots. Do not rewrite
+        // unmodified inventories, especially modded chests or unloaded save data.
+        boolean changed=false;
+        for(int i=0;i<next.size();i++){
+            if(net.minecraft.world.item.ItemStack.matches(container.getItem(i),next.get(i)))continue;
+            container.setItem(i,next.get(i));
+            changed=true;
+        }
+        if(changed)container.setChanged();
     }
     private static boolean insert(Container container,List<ItemStack> slots,Item coin,long total){
         long remaining=total;
