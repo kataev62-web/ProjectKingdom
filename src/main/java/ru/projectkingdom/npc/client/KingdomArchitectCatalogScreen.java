@@ -28,6 +28,8 @@ public final class KingdomArchitectCatalogScreen extends Screen {
     private EditBox name;
     private int x,y,w,h,listWidth,rows,offset;
     private List<RenderBlock> drawing=List.of();
+    private boolean showMaterials;
+    private int materialOffset;
 
     private record RenderBlock(int isoX,int isoY,int color,int depth){}
 
@@ -45,6 +47,8 @@ public final class KingdomArchitectCatalogScreen extends Screen {
                 && screen.data.token().equals(packet.token())){
             screen.data=packet;
             screen.remakeDrawing();
+            screen.showMaterials=false;
+            screen.materialOffset=0;
             screen.revealSelected();
             return;
         }
@@ -104,6 +108,12 @@ public final class KingdomArchitectCatalogScreen extends Screen {
     }
 
     @Override public boolean mouseScrolled(double mouseX,double mouseY,double delta){
+        if(showMaterials && mouseX>x+listWidth && mouseX<x+w-7
+                &&mouseY>=y+43 &&mouseY<y+h-80){
+            materialOffset=Math.max(0,Math.min(Math.max(0,data.materials().size()-1),
+                materialOffset-(int)Math.signum(delta)));
+            return true;
+        }
         if(mouseX>=x&&mouseX<=x+listWidth){
             offset=Math.max(0,Math.min(Math.max(0,data.entries().size()-rows),
                 offset-(int)Math.signum(delta)));
@@ -113,6 +123,12 @@ public final class KingdomArchitectCatalogScreen extends Screen {
     }
 
     @Override public boolean mouseClicked(double mx,double my,int button){
+        if(button==0 && mx>=x+listWidth+9 && mx<x+w-9
+                && my>=y+43 && my<y+Math.max(105,h-104)){
+            showMaterials=!showMaterials;
+            materialOffset=0;
+            return true;
+        }
         if(button==0 && mx>=x+5&&mx<x+listWidth-5
                 &&my>=y+34 && my<y+34+rows*17){
             int index=offset+(int)((my-(y+34))/17);
@@ -158,25 +174,31 @@ public final class KingdomArchitectCatalogScreen extends Screen {
         int drawingHeight=Math.max(62,h-148);
         gfx.fill(rightX,drawingTop,rightX+rightWidth,drawingTop+drawingHeight,0xBB1A241F);
         gfx.enableScissor(rightX+2,drawingTop+2,rightX+rightWidth-2,drawingTop+drawingHeight-2);
-        drawBlueprint(gfx,rightX,rightWidth,drawingTop,drawingHeight);
+        if(showMaterials){
+            int visible=Math.max(1,(drawingHeight-16)/11);
+            gfx.drawString(font,"Материалы — колёсико",rightX+4,drawingTop+4,GOLD,false);
+            for(int i=0;i<visible;i++){
+                int index=materialOffset+i;
+                if(index>=data.materials().size())break;
+                var material=data.materials().get(index);
+                String block=material.blockId();
+                if(block.contains(":"))block=block.substring(block.indexOf(':')+1);
+                gfx.drawString(font,font.plainSubstrByWidth(
+                    block+" × "+material.count(),rightWidth-10),
+                    rightX+4,drawingTop+16+i*11,BEIGE,false);
+            }
+        }else{
+            drawBlueprint(gfx,rightX,rightWidth,drawingTop,drawingHeight);
+            gfx.drawString(font,"Клик: состав блоков",rightX+4,
+                drawingTop+drawingHeight-11,0xFFEAD39D,false);
+        }
         gfx.disableScissor();
 
         int infoY=drawingTop+drawingHeight+3;
         gfx.drawString(font,"Размер: "+current.width()+" × "+current.length()
             +" × "+current.height(),rightX+2,infoY,BEIGE,false);
         gfx.drawString(font,"Всего блоков: "+current.blocks(),rightX+2,infoY+12,GOLD,false);
-        gfx.drawString(font,"Основные материалы:",rightX+2,infoY+24,SOFT,false);
-        if(!data.materials().isEmpty()){
-            int z=0;
-            for(var mat:data.materials()){
-                if(z>=2)break;
-                String simple=mat.blockId();
-                if(simple.contains(":"))simple=simple.substring(simple.indexOf(':')+1);
-                gfx.drawString(font,font.plainSubstrByWidth(simple+" ×"+mat.count(),rightWidth-5),
-                    rightX+2,infoY+35+z*10,BEIGE,false);
-                z++;
-            }
-        }
+        gfx.drawString(font,"Клик по рисунку: материалы",rightX+2,infoY+24,SOFT,false);
         gfx.drawString(font,"Имя копии:",rightX+2,y+h-59,SOFT,false);
         super.render(gfx,mouseX,mouseY,delta);
     }
