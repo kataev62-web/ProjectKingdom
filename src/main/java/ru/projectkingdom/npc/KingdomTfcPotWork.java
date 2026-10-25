@@ -84,6 +84,9 @@ public final class KingdomTfcPotWork {
         try{
             Object fluid=fluidInTank.invoke(potInventory,0);
             if(!(fluid instanceof FluidStack water)||water.isEmpty())return null;
+            int[] balancedStock=KingdomFoodBalance.freshNutritionStock(finished);
+            Plan bestPlan=null;
+            int bestScore=Integer.MIN_VALUE;
             for(Object recipeObject:level.getRecipeManager().getAllRecipesFor((RecipeType)potType)){
                 if(!simpleRecipe.isInstance(recipeObject) || !(recipeObject instanceof Recipe<?> recipe))continue;
                 FluidStack outputFluid=(FluidStack)displayFluid.invoke(recipeObject);
@@ -127,8 +130,15 @@ public final class KingdomTfcPotWork {
                 for(ItemStack produced:outputs)
                     if(freshCount(finished,id(produced))>=32){overstocked=true;break;}
                 if(overstocked)continue;
-                return new Plan(slots,inputs,outputs,recipe);
+                int score=KingdomFoodBalance.scoreOutputs(balancedStock,outputs);
+                if(bestPlan==null||score>bestScore
+                    ||(score==bestScore
+                        &&recipe.getId().toString().compareTo(bestPlan.recipe().getId().toString())<0)){
+                    bestPlan=new Plan(slots,inputs,outputs,recipe);
+                    bestScore=score;
+                }
             }
+            return bestPlan;
         }catch(ReflectiveOperationException | RuntimeException ex){
             // Incompatible TFC API disables rather than inventing outputs.
             compatible=false;
