@@ -44,6 +44,9 @@ public final class KingdomNpcNutrition {
         return supported;
     }
 
+    /** True only when actual TFC food capability methods have been resolved. */
+    public static boolean available(){return init();}
+
     /** Original TFC expiration state; spoiled produce is NOT a viable food reserve. */
     public static boolean spoiled(ItemStack stack) {
         if(stack==null||stack.isEmpty()||!init())return false;
