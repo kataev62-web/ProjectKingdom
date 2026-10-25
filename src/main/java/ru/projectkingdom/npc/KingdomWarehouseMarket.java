@@ -16,6 +16,7 @@ import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
 import ru.projectkingdom.administration.AdministrativeCoreBinding;
 import ru.projectkingdom.administration.AdministrativeKind;
 import ru.projectkingdom.administration.KingdomAdministrationData;
+import ru.projectkingdom.administration.KingdomCentralWarehouseRooms;
 
 /** Registered seller inventories; quotations always read actual loaded containers. */
 public final class KingdomWarehouseMarket extends SavedData {
@@ -121,7 +122,43 @@ public final class KingdomWarehouseMarket extends SavedData {
         KingdomAdministrationData administration=KingdomAdministrationData.get(level.getServer());
         KingdomCivicsData civics=KingdomCivicsData.get(level.getServer());
         List<InventorySnapshot> snapshots=new ArrayList<>();
+        Set<BlockPos> included=new HashSet<>();
+        if(role==AdministrativeBindingRole.WAREHOUSE_STORAGE){
+            var rooms=KingdomCentralWarehouseRooms.get(level.getServer());
+            // If even one room is unloaded, do not publish a misleading partial
+            // municipal stock projection. Physical logistics may then retry later.
+            for(var room:rooms.rooms(townId))
+                if(room.dimension().equals(dimension)
+                        &&!rooms.inspect(level,room).loaded())return List.of();
+            for(var room:rooms.rooms(townId)){
+                if(!room.dimension().equals(dimension))continue;
+                Set<BlockPos> seenInRoom=new HashSet<>();
+                for(BlockPos pos:BlockPos.betweenClosed(room.min(),room.max())){
+                    if(seenInRoom.contains(pos)||!level.getBlockState(pos).hasBlockEntity())continue;
+                    var container=KingdomContainerAccess.resolve(level,pos);
+                    if(container==null)continue;
+                    var state=level.getBlockState(pos);
+                    if(state.getBlock() instanceof net.minecraft.world.level.block.ChestBlock)
+                        for(var direction:net.minecraft.core.Direction.Plane.HORIZONTAL){
+                            BlockPos other=pos.relative(direction);
+                            if(KingdomContainerAccess.samePhysicalStorage(level,pos,other)
+                                    &&room.contains(other))seenInRoom.add(other.immutable());
+                        }
+                    seenInRoom.add(pos.immutable());
+                    included.add(pos.immutable());
+                    included.addAll(seenInRoom);
+                    Map<String,Integer> items=new LinkedHashMap<>();
+                    for(int index=0;index<container.getContainerSize();index++){
+                        ItemStack stack=container.getItem(index);
+                        if(!stack.isEmpty())items.merge(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
+                            stack.getCount(),Integer::sum);
+                    }
+                    snapshots.add(new InventorySnapshot(dimension,pos.immutable(),items));
+                }
+            }
+        }
         for(KingdomAdministrationData.BoundContainer binding:administration.boundContainers(townId,role)) {
+            if(included.contains(BlockPos.of(binding.packedPos())))continue;
             if(!dimension.equals(binding.dimension()))continue;
             BlockPos pos=BlockPos.of(binding.packedPos());
             if(!level.hasChunkAt(pos))continue;
