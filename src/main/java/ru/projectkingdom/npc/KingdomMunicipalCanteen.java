@@ -24,6 +24,17 @@ public final class KingdomMunicipalCanteen {
             &&sameTown&&forecastKnown&&!alreadyFed;
     }
 
+    /** Cheap guard used by the existing NPC movement controller. */
+    public static boolean walkingForMeal(net.minecraft.server.MinecraftServer server,
+                                         KingdomNpcData.Worker w) {
+        if(server==null||w==null||w.employer!=null||w.contractPaused)return false;
+        var town=KingdomCivicsData.get(server).townOf(w.entityId);
+        if(town==null||!KingdomMunicipalRationPolicy.get(server).enabled(town.id()))
+            return false;
+        long today=KingdomSeasonCalendar.totalDays(server);
+        return today>=0&&w.lastMealDay!=today
+            && (w.hunger<75||KingdomNpcNutrition.quality(w)<55);
+    }
     public static boolean tick(ServerLevel level,Villager resident,KingdomNpcData.Worker worker){
         if(worker==null||resident==null||!resident.isAlive()||worker.employer!=null
                 ||worker.contractPaused||!worker.dimension.equals(
