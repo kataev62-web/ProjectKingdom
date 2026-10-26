@@ -130,6 +130,9 @@ public final class KingdomTavernImmigration {
      */
     private static List<BlockPos> withIndependentHousing(ServerLevel level,BlockPos tavern,
                                                          UUID owner,List<BlockPos> existing){
+        // An inn must have at least one REAL sheltered bed itself.
+        // A remote house cannot replace the tavern in the starting hamlet.
+        if(existing.isEmpty())return existing;
         var civic=KingdomCivicsData.get(level.getServer());
         var town=civic.townAt(level,tavern);
         if(town==null)return existing;
