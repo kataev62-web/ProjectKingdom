@@ -467,6 +467,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 case 20 -> show(viewer,Page.CIVICS);
                 case 21 -> openMaps(viewer);
                 case 22 -> show(viewer,Page.WALLET);
+                case 24 -> {if(viewer.hasPermissions(4))KingdomAdminDashboardService.open(viewer);}
                 case 23 -> {if(!openNearbyEnterprise()){say("Подойди к установленному блоку-ядру предприятия.");show(viewer,Page.ENTERPRISE);}}
             }}
             case RENTALS -> {
