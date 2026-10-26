@@ -487,7 +487,7 @@ public final class KingdomGraphicAtlasScreen extends Screen {
 
     private int markerColor(KingdomAtlasInfrastructure.Marker marker) {
         return switch (marker.kind()) {
-            case TOWN_HALL -> 0xFFFFE19A;
+            case TOWN_HALL -> 0xFFCE8176;
             case ADMINISTRATION -> 0xFF67D6D6;
             case ENTERPRISE -> 0xFFFAD447;
             case BUILDING -> 0xFFF2F2ED;
@@ -549,22 +549,53 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         }
     }
 
+    /** A visible letter identifies the type without relying on color alone. */
+    private static String markerSymbol(KingdomAtlasInfrastructure.Kind kind) {
+        return switch(kind){
+            case TOWN_HALL -> "Р";
+            case ADMINISTRATION -> "А";
+            case ENTERPRISE -> "Ф";
+            case BUILDING -> "З";
+            case ROAD -> "Д";
+            case BRIDGE -> "М";
+        };
+    }
     private void renderInfrastructureMarkers(GuiGraphics gui) {
-        if (snapshot == null) return;
-        for (var mark : snapshot.markers()) {
-            if (!markerVisible(mark)) continue;
-            int px = markerScreenX(mark), py = markerScreenY(mark);
-            if (px < gridX + 3 || py < gridY + 3
-                    || px >= gridX + gridWidth - 3 || py >= gridY + gridHeight - 3) continue;
-            boolean chosen = mark.equals(selectedMarker);
-            int dark = 0xFF352819;
-            int tint = markerColor(mark);
-            gui.fill(px - 3, py - 3, px + 4, py + 4, dark);
-            gui.fill(px - 2, py - 2, px + 3, py + 3, tint);
-            if (chosen) {
-                gui.fill(px - 4, py - 4, px + 5, py - 3, 0xFFFFFFFF);
-                gui.fill(px - 4, py + 4, px + 5, py + 5, 0xFFFFFFFF);
+        if(snapshot==null)return;
+        java.util.List<int[]> captions=new java.util.ArrayList<>();
+        for(var mark:snapshot.markers()){
+            if(!markerVisible(mark))continue;
+            int px=markerScreenX(mark),py=markerScreenY(mark);
+            if(px<gridX+6||py<gridY+6
+                    ||px>=gridX+gridWidth-6||py>=gridY+gridHeight-6)continue;
+            boolean chosen=mark.equals(selectedMarker);
+            int dark=0xFF241B15,tint=markerColor(mark);
+            gui.fill(px-5,py-5,px+6,py+6,dark);
+            gui.fill(px-4,py-4,px+5,py+5,tint);
+            gui.drawCenteredString(font,markerSymbol(mark.kind()),px,py-4,dark);
+            if(chosen){
+                gui.fill(px-6,py-6,px+7,py-5,0xFFFFFFFF);
+                gui.fill(px-6,py+6,px+7,py+7,0xFFFFFFFF);
+                gui.fill(px-6,py-6,px-5,py+7,0xFFFFFFFF);
+                gui.fill(px+6,py-6,px+7,py+7,0xFFFFFFFF);
             }
+            if(layer!=KingdomGraphicAtlasData.Layer.ENTERPRISES
+                    ||mark.kind()!=KingdomAtlasInfrastructure.Kind.ENTERPRISE
+                    ||captions.size()>=6||cell<8)continue;
+            String name=font.plainSubstrByWidth(mark.label(),Math.min(104,gridWidth-32));
+            int w=font.width(name)+9;
+            int lx=px+9,ly=py-7;
+            if(lx+w>gridX+gridWidth-3)lx=px-w-9;
+            if(lx<gridX+3||ly<gridY+19||ly+14>gridY+gridHeight-19)continue;
+            boolean clash=false;
+            for(int[] box:captions)
+                if(lx<box[2]+3&&lx+w+3>box[0]
+                        &&ly<box[3]+3&&ly+17>box[1])clash=true;
+            if(clash)continue;
+            gui.fill(lx,ly,lx+w,ly+14,0xEC302319);
+            gui.fill(lx,ly,lx+2,ly+14,tint);
+            gui.drawString(font,name,lx+5,ly+3,0xFFFFEACC,false);
+            captions.add(new int[]{lx,ly,lx+w,ly+14});
         }
     }
 
