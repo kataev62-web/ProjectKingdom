@@ -55,6 +55,7 @@ public final class KingdomNpcMod {
         KingdomConstructionRegistry.register();
         KingdomAdministrationRegistry.register();
         KingdomSettlementRegistry.register();
+        KingdomCreativeTabs.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomNetwork.register();
         new KingdomFemaleOutfitSync();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
