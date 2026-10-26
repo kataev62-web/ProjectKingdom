@@ -64,6 +64,11 @@ public final class KingdomSettlementFounding {
         for(var plot:civic.mapPlots(dimension))
             if(Math.abs((long)plot.x()-cx)<=3 && Math.abs((long)plot.z()-cz)<=3)
                 return Result.TOO_CLOSE;
+        // Repair only a truly EMPTY legacy ghost town. Check before reserving
+        // the chunk in the legacy claim mirror to avoid orphan claims on refusal.
+        if(recoverGhost && (!civic.townPlots(oldTown.id(),0,1).isEmpty()
+                ||civic.townMembers(oldTown.id(),0,2).size()!=1))
+            return Result.ALREADY_FOUNDER;
         // Legacy ownership mirror first, then the civic registry; reusing the
         // same authenticated UUID avoids anyone claiming an unowned stranger's land.
         if(!old.claimByChunk(dimension,cx,cz,player.getUUID()))return Result.NEED_FREE_LAND;
