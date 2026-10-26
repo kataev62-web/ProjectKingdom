@@ -174,7 +174,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             selectedFood=menu.foodView().offers().get(0).itemId();
     }
     private Button officeButton(String name,int x,int y,int w,int h,java.util.function.Consumer<Button> onClick){
-        Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(name),onClick)
+        Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(name),button->onClick.accept(button))
                 .bounds(leftPos+x,topPos+y,w,h).build());
         roleControls.add(button);return button;
     }
