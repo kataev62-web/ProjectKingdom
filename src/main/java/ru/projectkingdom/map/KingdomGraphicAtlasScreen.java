@@ -66,7 +66,6 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gridX=layout.gridX();
         gridY=layout.gridY();
         int navX=left+6,navButtonWidth=navWidth-12;
-        boolean compact=layout.compact();
         boolean tiny=panelHeight<224;
         int tabY=tiny?27:29,tabStep=tiny?21:23,tabHeight=tiny?19:21;
         int controlY=tiny?114:128,controlStep=tiny?21:23,controlHeight=tiny?19:20;
@@ -296,9 +295,13 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                     + "  Z " + minecraft.player.blockPosition().getZ()),
                     gridX, top + panelHeight - 17, INK, false);
         }
-        if(gridWidth>=235)
-            gui.drawString(font,Component.literal("1:" + KingdomGraphicAtlasData.SCALES[scaleIndex]),
-                    gridX+gridWidth-26,top+panelHeight-17,MUTED,false);
+        // "1:1" looked like an unexplained map ratio. Our scale is
+        // Minecraft chunks per map cell, not a paper-map distance scale.
+        if(gridWidth>=235){
+            String scaleText=KingdomGraphicAtlasData.SCALES[scaleIndex]+" чанк/клетка";
+            gui.drawString(font,scaleText,gridX+gridWidth-font.width(scaleText)-3,
+                    top+panelHeight-17,MUTED,false);
+        }
         if (snapshot != null) {
             renderTiles(gui);
             renderSurveyedRoads(gui);
