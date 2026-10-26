@@ -44,6 +44,8 @@ final class KingdomTavernFoodAndGrowthTest {
         String menu=code("enterprise/KingdomHospitalityMenu.java");
         assertTrue(pantry.contains("KingdomNpcNutrition.spoiled(stack)"));
         assertTrue(pantry.contains("EnterpriseBindingRole.RAW_STORAGE"));
+        assertTrue(pantry.contains("pantryInsideTavern(level,enterprise,view.position())"));
+        assertTrue(pantry.contains("properties.atRoom("));
         assertTrue(pantry.contains("box.removeItem(portion.slot(),1)"));
         assertTrue(immigration.contains("KingdomTavernProvisions.consume(serving)"));
         assertTrue(immigration.contains("created.job=\"free\""));
