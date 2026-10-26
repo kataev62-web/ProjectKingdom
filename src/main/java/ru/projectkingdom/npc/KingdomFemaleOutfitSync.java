@@ -30,6 +30,18 @@ public final class KingdomFemaleOutfitSync {
         return "female".equals(worker.gender) && worker.ageYears >= 18;
     }
 
+    /** Pushes edited gender/age to all tracking clients immediately. */
+    public static void notifyChanged(net.minecraft.server.MinecraftServer server, KingdomNpcData.Worker worker) {
+        if (server == null || worker == null) return;
+        var dim = net.minecraft.resources.ResourceLocation.tryParse(worker.dimension);
+        if (dim == null) return;
+        var level = server.getLevel(net.minecraft.resources.ResourceKey.create(
+                net.minecraft.core.registries.Registries.DIMENSION, dim));
+        if (level == null || !(level.getEntity(worker.entityId) instanceof Villager villager)) return;
+        KingdomNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> villager),
+                new KingdomFemaleOutfitPacket(worker.entityId, eligible(worker)));
+    }
+
     @SubscribeEvent
     public void onTracking(PlayerEvent.StartTracking event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
