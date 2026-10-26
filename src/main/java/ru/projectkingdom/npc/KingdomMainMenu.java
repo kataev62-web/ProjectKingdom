@@ -387,7 +387,7 @@ public final class KingdomMainMenu extends ChestMenu {
                         town==null?"Основание: изготовьте и установите Блок основания поселения":
                         ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(db,
                                 KingdomConstructionData.get(viewer.getServer()),town.id(),
-                                viewer.serverLevel().dimension().location().toString()).title()+" «"+town.name()+"»");
+                                viewer.serverLevel().dimension().location().toString(),viewer.getServer()).title()+" «"+town.name()+"»");
                 icon(11,Items.GOLD_INGOT,nation==null?"Основать нацию":"Нация: "+nation.name());
                 var plot=db.plot(viewer.serverLevel(),viewer.blockPosition());
                 icon(12,Items.MAP,plot==null?"Открыть земельную карту":"Земельная карта | зона: "+plot.zone());
