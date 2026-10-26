@@ -117,10 +117,26 @@ public final class KingdomGraphicAtlasData {
                 .view(player.serverLevel(), centerX, centerZ, scale);
         var projected = project(requestId, centerX, centerZ, scale, layer, dimension,
                 ownId, civic, businesses, planned, terrain);
+        // UI names grow naturally without renaming the actual Town key.
+        java.util.Map<String,String> labels=new java.util.HashMap<>();
+        var buildings=ru.projectkingdom.npc.KingdomConstructionData.get(player.getServer());
+        for(var town:civic.towns()){
+            var stage=ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(
+                    civic,buildings,town.id(),dimension);
+            labels.put(town.name(),stage.title()+" "+town.name());
+        }
+        java.util.List<Tile> labeled=new java.util.ArrayList<>(MAX_CELLS);
+        for(var tile:projected.tiles()){
+            String name=labels.getOrDefault(tile.town(),tile.town());
+            labeled.add(name.equals(tile.town())?tile:new Tile(tile.claims(),tile.own(),
+                    tile.mixed(),tile.planned(),tile.townColor(),tile.nationColor(),
+                    tile.enterprises(),name,tile.nation(),tile.business(),
+                    tile.terrain(),tile.elevation()));
+        }
         var markers = KingdomAtlasInfrastructure.forPlayer(player, centerX, centerZ, scale);
         var outlines = KingdomAtlasBuildingOutlines.forPlayer(player, centerX, centerZ, scale);
         return new Snapshot(projected.requestId(), projected.centerX(), projected.centerZ(),
-                projected.scale(), projected.layer(), projected.tiles(), markers, outlines);
+                projected.scale(), projected.layer(), labeled, markers, outlines);
     }
 
     /** Pure projection for tests; does not load world chunks or expose ore. */
