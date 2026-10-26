@@ -48,10 +48,14 @@ public final class KingdomMunicipalDietPlan {
      * Unknown stock is UNKNOWN, never fabricated as zero or missing stock.
      */
     public static Demand calculate(KingdomMunicipalFoodReserves.Forecast forecast) {
-        List<Integer> stock=forecast==null
-                ?List.of(0,0,0,0,0):forecast.groups();
-        boolean known=forecast!=null && forecast.complete();
-        long total=known?forecast.target():0;
+        return calculate(forecast!=null&&forecast.complete(),
+            forecast==null?0:forecast.target(),
+            forecast==null?List.of(0,0,0,0,0):forecast.groups());
+    }
+    public static Demand calculate(boolean known,long total,List<Integer> stock) {
+        if(stock==null||stock.size()!=KingdomNpcNutrition.COUNT||total<0)
+            throw new IllegalArgumentException("Invalid municipal diet forecast");
+        if(!known)total=0;
         long each=known?(total/KingdomNpcNutrition.COUNT
                 +(total%KingdomNpcNutrition.COUNT==0?0:1)):0;
         List<Long> deficits=new ArrayList<>();
