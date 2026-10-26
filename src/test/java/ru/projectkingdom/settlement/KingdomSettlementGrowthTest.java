@@ -14,6 +14,27 @@ final class KingdomSettlementGrowthTest {
         assertEquals(KingdomSettlementGrowth.Rank.CITY,KingdomSettlementGrowth.rank(32,12));
         assertEquals("Город",KingdomSettlementGrowth.Rank.CITY.title());
     }
+    @Test void canRestoreOnlyEmptyGhostTownWithoutLosingItsIdentity() {
+        var civics=new ru.projectkingdom.npc.KingdomCivicsData();
+        java.util.UUID founder=java.util.UUID.randomUUID();
+        var old=civics.foundTown(founder,"Город_старый");
+        assertNotNull(old);
+        assertTrue(civics.bootstrapEmptyLegacyTown(founder,"Новая Дубрава",
+                "minecraft:overworld",5,7));
+        assertEquals(old.id(),civics.townOf(founder).id());
+        assertEquals("Новая Дубрава",civics.townOf(founder).name());
+        assertEquals(1,civics.mapPlots("minecraft:overworld").size());
+        assertEquals(old.id(),civics.mapPlots("minecraft:overworld").iterator().next().town());
+        assertFalse(civics.bootstrapEmptyLegacyTown(founder,"Второй город",
+                "minecraft:overworld",8,7));
+        java.util.UUID second=java.util.UUID.randomUUID();
+        var another=civics.foundTown(second,"Старый хутор");
+        assertNotNull(another);
+        assertTrue(civics.joinTown(java.util.UUID.randomUUID(),another.id()));
+        assertFalse(civics.bootstrapEmptyLegacyTown(second,"Чужая территория",
+                "minecraft:overworld",12,12));
+    }
+
     @Test void foundationNamesAreValidated() {
         assertNull(KingdomSettlementFounding.cleanName(""));
         assertNull(KingdomSettlementFounding.cleanName("  "));
