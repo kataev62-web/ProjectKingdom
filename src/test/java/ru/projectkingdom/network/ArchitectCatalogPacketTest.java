@@ -46,6 +46,29 @@ class ArchitectCatalogPacketTest {
         }
     }
 
+    @Test void materialsLongerThanOldTwelveItemLimitArePreserved() {
+        var design=KingdomArchitectDesignRotation.rotate(
+            KingdomBuildingTypes.design(KingdomBuildingTypes.Type.HOUSE),0);
+        var token=UUID.randomUUID();
+        var preview=ArchitectPreviewPacket.fromDesign(design,token,
+            new BlockPos(0,64,0),"Жилой дом");
+        assertNotNull(preview);
+        var materials=new java.util.ArrayList<ArchitectCatalogPacket.Material>();
+        for(int i=0;i<28;i++)
+            materials.add(new ArchitectCatalogPacket.Material("minecraft:stone_"+i,i+1));
+        var packet=new ArchitectCatalogPacket(token,List.of(
+            new ArchitectCatalogPacket.Entry("b:HOUSE","Жилой дом",
+                design.width(),design.height(),design.length(),design.blocks().size())),
+            0,preview,List.copyOf(materials));
+        var buffer=new FriendlyByteBuf(Unpooled.buffer());
+        try {
+            ArchitectCatalogPacket.encode(packet,buffer);
+            var decoded=ArchitectCatalogPacket.decode(buffer);
+            assertEquals(28,decoded.materials().size());
+            assertEquals(materials,decoded.materials());
+        } finally {buffer.release();}
+    }
+
     @Test void actionsRoundtripMaintainServerTokenAndCopyName(){
         var packet=new ArchitectCatalogActionPacket(UUID.randomUUID(),
             ArchitectCatalogActionPacket.COPY,2,"moy_dom");
