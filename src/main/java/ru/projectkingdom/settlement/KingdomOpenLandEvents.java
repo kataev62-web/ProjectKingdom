@@ -23,6 +23,12 @@ public final class KingdomOpenLandEvents {
         var pos=event.getPos();
         if(!KingdomTemporaryLand.temporaryArea(level,pos,player))return;
         BlockState state=level.getBlockState(pos);
+        // An unregistered charter must be recoverable by its actual placer.
+        // Otherwise a rejected founding site becomes a permanent world obstacle.
+        if(level.getBlockEntity(pos) instanceof KingdomSettlementCharterEntity marker){
+            if(!marker.founded()&&player.getUUID().equals(marker.placer()))return;
+            event.setCanceled(true);return;
+        }
         if(!KingdomTemporaryLand.safeToBreak(level,pos,state)){event.setCanceled(true);return;}
         // Vanilla break drops / XP do NOT run for this action. Ordinary land
         // is destructible but cannot become a free mining/farming resource.
