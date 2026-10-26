@@ -23,12 +23,38 @@ public final class KingdomTavernProvisions {
                           KingdomNpcNutrition.Meal nutrition) {}
     private KingdomTavernProvisions() {}
 
+    /** Supplies must actually be stored inside the tavern, not at a remote
+     * warehouse or a rented guest room. Shared double chests are checked too. */
+    private static boolean pantryInsideTavern(ServerLevel level,UUID enterprise,
+                                              net.minecraft.core.BlockPos storage){
+        var companies=KingdomEnterpriseData.get(level.getServer());
+        var registered=companies.core(enterprise);
+        if(registered==null||!registered.active()||storage==null
+                ||!registered.dimension().equals(level.dimension().location().toString()))
+            return false;
+        var desk=net.minecraft.core.BlockPos.of(registered.packedPos());
+        if(desk.distSqr(storage)>144)return false;
+        var properties=ru.projectkingdom.property.KingdomRentalsData.get(level.getServer());
+        var inn=properties.atBuilding(registered.dimension(),desk);
+        if(inn!=null&&!inn.bounds().contains(storage))return false;
+        if(properties.atRoom(registered.dimension(),storage)!=null)return false;
+        for(var direction:net.minecraft.core.Direction.Plane.HORIZONTAL) {
+            var other=storage.relative(direction);
+            if(ru.projectkingdom.npc.KingdomContainerAccess.samePhysicalStorage(level,storage,other)
+                    &&properties.atRoom(registered.dimension(),other)!=null)
+                return false;
+        }
+        return true;
+    }
+
     public static Stock inspect(ServerLevel level,UUID enterprise){
         var firms=KingdomEnterpriseData.get(level.getServer());
         if(firms.kind(enterprise)!=EnterpriseKind.TAVERN)return new Stock(0,false,"Не таверна");
         var view=EnterpriseAccessService.snapshot(level,firms,enterprise,EnterpriseBindingRole.RAW_STORAGE);
         if(view.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE || view.container()==null)
             return new Stock(0,false,"Привяжите к таверне сундук с продуктами");
+        if(!pantryInsideTavern(level,enterprise,view.position()))
+            return new Stock(0,false,"Продуктовый сундук должен находиться внутри таверны, до 12 блоков от стойки");
         Container storage=view.container();
         int quantity=0;
         for(int slot=0;slot<storage.getContainerSize();slot++){
@@ -45,7 +71,8 @@ public final class KingdomTavernProvisions {
         var firms=KingdomEnterpriseData.get(level.getServer());
         if(firms.kind(enterprise)!=EnterpriseKind.TAVERN)return null;
         var view=EnterpriseAccessService.snapshot(level,firms,enterprise,EnterpriseBindingRole.RAW_STORAGE);
-        if(view.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||view.container()==null)return null;
+        if(view.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||view.container()==null
+                ||!pantryInsideTavern(level,enterprise,view.position()))return null;
         Container box=view.container();
         int slot=-1;
         long earliest=Long.MAX_VALUE;
@@ -62,7 +89,11 @@ public final class KingdomTavernProvisions {
 
     public static boolean edible(ItemStack stack) {
         if(stack==null||stack.isEmpty()||KingdomNpcNutrition.spoiled(stack))return false;
-        return KingdomNpcNutrition.inspect(stack)!=null || stack.isEdible();
+        if(KingdomNpcNutrition.inspect(stack)!=null)return true;
+        // When TFC reflection is unavailable, do not accidentally treat its
+        // modded spoiled/unknown stacks as safe vanilla food.
+        return stack.isEdible() && "minecraft".equals(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).getNamespace());
     }
 
     /**

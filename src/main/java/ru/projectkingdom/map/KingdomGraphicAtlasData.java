@@ -122,7 +122,7 @@ public final class KingdomGraphicAtlasData {
         var buildings=ru.projectkingdom.npc.KingdomConstructionData.get(player.getServer());
         for(var town:civic.towns()){
             var stage=ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(
-                    civic,buildings,town.id(),dimension);
+                    civic,buildings,town.id(),dimension,player.getServer());
             labels.put(town.name(),stage.title()+" "+town.name());
         }
         java.util.List<Tile> labeled=new java.util.ArrayList<>(MAX_CELLS);

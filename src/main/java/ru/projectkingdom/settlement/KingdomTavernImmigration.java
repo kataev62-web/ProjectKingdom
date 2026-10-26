@@ -43,23 +43,23 @@ public final class KingdomTavernImmigration {
                 ||firms.kind(enterprise)!=EnterpriseKind.TAVERN
                 ||binding.kind()!=EnterpriseKind.TAVERN
                 ||!firm.owner().equals(binding.owner()))
-            return new Capacity(0,0,0,false,"Нет действующей таверны");
+            return new Capacity(0,0,0,0,false,"Нет действующей таверны");
         ServerLevel level=null;
         for(ServerLevel candidate:server.getAllLevels())
             if(candidate.dimension().location().toString().equals(binding.dimension())) {
                 level=candidate;break;
             }
-        if(level==null)return new Capacity(0,0,0,false,"Измерение недоступно");
+        if(level==null)return new Capacity(0,0,0,0,false,"Измерение недоступно");
         BlockPos core=BlockPos.of(binding.packedPos());
         if(!level.hasChunkAt(core)||!(level.getBlockEntity(core) instanceof EnterpriseCoreBlockEntity block)
                 ||!block.bound()||!enterprise.equals(block.enterpriseId())
                 ||!firm.owner().equals(block.owner())||block.kind()!=EnterpriseKind.TAVERN)
-            return new Capacity(0,0,0,false,"Загрузите настоящую стойку таверны");
+            return new Capacity(0,0,0,0,false,"Загрузите настоящую стойку таверны");
         var civics=KingdomCivicsData.get(server);
         var town=civics.townAt(level,core);
         if(town==null||!firm.owner().equals(civics.plotOwner(binding.dimension(),
                 core.getX()>>4,core.getZ()>>4)))
-            return new Capacity(0,0,0,false,"Таверна должна стоять на земле своего владельца в городе");
+            return new Capacity(0,0,0,0,false,"Таверна должна стоять на земле своего владельца в городе");
         int beds=countBeds(level,core,firm.owner());
         int people=countResidents(server,town.id());
         int places=Math.min(MAX_SETTLEMENT_RESIDENTS,beds);
@@ -130,6 +130,9 @@ public final class KingdomTavernImmigration {
      */
     private static List<BlockPos> withIndependentHousing(ServerLevel level,BlockPos tavern,
                                                          UUID owner,List<BlockPos> existing){
+        // An inn must have at least one REAL sheltered bed itself.
+        // A remote house cannot replace the tavern in the starting hamlet.
+        if(existing.isEmpty())return existing;
         var civic=KingdomCivicsData.get(level.getServer());
         var town=civic.townAt(level,tavern);
         if(town==null)return existing;
@@ -263,6 +266,7 @@ public final class KingdomTavernImmigration {
             created.homeZ=home.getZ();
             created.order="wander";
             created.hunger=80;
+            created.lastMealDay=ru.projectkingdom.npc.KingdomSeasonCalendar.totalDays(server);
             created.morale=65;
             created.job="free"; // no profession is assigned on immigration
             created.employer=null; // free citizen, not an unpaid tavern employee
@@ -280,21 +284,42 @@ public final class KingdomTavernImmigration {
     }
     private static BlockPos safeSpawn(ServerLevel level,BlockPos tavern,UUID town){
         var civic=KingdomCivicsData.get(level.getServer());
-        for(int r=2;r<=6;r++)
-            for(int dx=-r;dx<=r;dx++)
-                for(int dz=-r;dz<=r;dz++){
-                    if(Math.max(Math.abs(dx),Math.abs(dz))!=r)continue;
-                    BlockPos candidate=tavern.offset(dx,0,dz);
-                    if(!level.hasChunkAt(candidate)||!level.hasChunkAt(candidate.above())
-                            ||!level.hasChunkAt(candidate.below()))continue;
-                    var plot=civic.plot(level,candidate);
-                    if(plot==null||!town.equals(plot.town()))continue;
-                    if(!level.getBlockState(candidate).isAir()
-                            ||!level.getBlockState(candidate.above()).isAir())continue;
-                    var floor=candidate.below();
-                    if(!level.getBlockState(floor).isFaceSturdy(level,floor,Direction.UP))continue;
-                    if(!level.getWorldBorder().isWithinBounds(candidate))continue;
-                    return candidate;
+        String dim=level.dimension().location().toString();
+        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(level.getServer());
+        for(int radius=2;radius<=6;radius++)
+            for(int dx=-radius;dx<=radius;dx++)
+                for(int dz=-radius;dz<=radius;dz++){
+                    if(Math.max(Math.abs(dx),Math.abs(dz))!=radius)continue;
+                    // Uneven TFC terrain: accept a safe street up to two blocks
+                    // above or below the reception desk, never force-load it.
+                    for(int dy=0;dy>=-2;dy--){
+                        BlockPos candidate=tavern.offset(dx,dy,dz);
+                        if(!level.hasChunkAt(candidate)||!level.hasChunkAt(candidate.above())
+                                ||!level.hasChunkAt(candidate.below()))continue;
+                        var plot=civic.plot(level,candidate);
+                        if(plot==null||!town.equals(plot.town())
+                                ||rentals.atRoom(dim,candidate)!=null)continue;
+                        if(!level.getBlockState(candidate).isAir()
+                                ||!level.getBlockState(candidate.above()).isAir())continue;
+                        var floor=candidate.below();
+                        if(!level.getBlockState(floor).isFaceSturdy(level,floor,Direction.UP))continue;
+                        if(!level.getWorldBorder().isWithinBounds(candidate))continue;
+                        return candidate;
+                    }
+                    for(int dy=1;dy<=2;dy++){
+                        BlockPos candidate=tavern.offset(dx,dy,dz);
+                        if(!level.hasChunkAt(candidate)||!level.hasChunkAt(candidate.above())
+                                ||!level.hasChunkAt(candidate.below()))continue;
+                        var plot=civic.plot(level,candidate);
+                        if(plot==null||!town.equals(plot.town())
+                                ||rentals.atRoom(dim,candidate)!=null)continue;
+                        if(!level.getBlockState(candidate).isAir()
+                                ||!level.getBlockState(candidate.above()).isAir())continue;
+                        var floor=candidate.below();
+                        if(!level.getBlockState(floor).isFaceSturdy(level,floor,Direction.UP))continue;
+                        if(!level.getWorldBorder().isWithinBounds(candidate))continue;
+                        return candidate;
+                    }
                 }
         return null;
     }

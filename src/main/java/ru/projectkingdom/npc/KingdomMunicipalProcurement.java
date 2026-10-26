@@ -211,7 +211,7 @@ public final class KingdomMunicipalProcurement {
         List<String> results=new ArrayList<>();
         for(String id:ids) {
             if(select(level,town,id,1,buyer)!=null)results.add(id);
-            if(results.size()>=Math.min(8,limit))break;
+            if(results.size()>=Math.min(24,limit))break;
         }
         return List.copyOf(results);
     }

@@ -35,11 +35,12 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private Button foodReload;
     private final List<Button> foodOffers=new ArrayList<>();
     private EditBox foodResidents,foodQuantity;
-    private Button foodSave,foodBuy;
+    private Button foodSave,foodBuy,foodRations;
     private String selectedFood;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
-        if(!menu.foodView().notice().isBlank())
+        if(!menu.foodView().notice().isBlank()
+                && !menu.foodView().notice().startsWith("Городские пайки NPC:"))
             selected=AdministrativeMenuLayout.Tab.FOOD;
         else if(menu.kind()==AdministrativeKind.TREASURY || menu.kind()==AdministrativeKind.BANK)
             selected=AdministrativeMenuLayout.Tab.FINANCE;
@@ -170,6 +171,9 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     .bounds(leftPos+257,topPos+108+i*15,53,14).build());
             foodOffers.add(button);
         }
+        foodRations=addRenderableWidget(Button.builder(KingdomFonts.readable("Пайки NPC: вкл/выкл"),
+                ignored->sendText("food_rations","toggle"))
+                .bounds(leftPos+125,topPos+182,178,17).build());
         if(!menu.foodView().offers().isEmpty())
             selectedFood=menu.foodView().offers().get(0).itemId();
     }
@@ -270,6 +274,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         if(foodQuantity!=null)foodQuantity.setVisible(food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager());
         if(foodBuy!=null){foodBuy.visible=food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager();
             foodBuy.active=selectedFood!=null&&menu.foodView().complete();}
+        if(foodRations!=null)foodRations.visible=food&&foodPage==2
+            &&menu.foodView().canConfigure();
 
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
         if(officeCategory!=null)syncOfficePicker();
@@ -383,13 +389,18 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 else{
                     line(g,"Годных порций: "+v.edible()+" / цель: "+v.target(),58,125,INK);
                     line(g,"Испорчено: "+v.rotten()+" | не хватает: "+v.missing(),58,141,v.missing()>0?ACCENT:MUTED);
-                    line(g,"Питание: зерно "+v.groups().get(0)+" / фрукты "+v.groups().get(1),58,157,MUTED);
-                    line(g,"Овощи "+v.groups().get(2)+" / белки "+v.groups().get(3)+" / молоко "+v.groups().get(4),58,169,MUTED);
+                    var diet=v.diet();
+                    line(g,"Рацион: цель "+diet.groupTarget()+" на группу, нехватка: "+
+                        (diet.greatestDeficit()<0?"нет":ru.projectkingdom.npc.KingdomMunicipalDietPlan
+                            .groupName(diet.greatestDeficit())),58,157,diet.greatestDeficit()<0?MUTED:ACCENT);
+                    line(g,"З "+v.groups().get(0)+" Ф "+v.groups().get(1)
+                        +" О "+v.groups().get(2)+" Б "+v.groups().get(3)
+                        +" М "+v.groups().get(4),58,169,INK);
                 }
             }
             if(v.canConfigure())line(g,"Население:",58,177,MUTED);
         }else if(foodPage==1){
-            line(g,"Реальные товары рынка — цена за 1 шт.",58,103,MUTED);
+            line(g,"По дефициту рациона — проверенные товары рынка",58,103,MUTED);
             for(int i=0;i<v.offers().size();i++){
                 var offer=v.offers().get(i);
                 String prefix=offer.itemId().equals(selectedFood)?"● ":"  ";

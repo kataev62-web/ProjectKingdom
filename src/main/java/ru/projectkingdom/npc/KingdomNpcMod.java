@@ -914,6 +914,8 @@ public final class KingdomNpcMod {
         if (server.getTickCount() % 10 == 0) KingdomNpcBuilder.tick(server);
         if (server.getTickCount() % 200 == 0)
             ru.projectkingdom.settlement.KingdomTavernImmigration.tick(server);
+        if (server.getTickCount() % 1200 == 0)
+            ru.projectkingdom.settlement.KingdomTavernMeals.tick(server);
         // Revoke expired land access even when nobody opens the map or visits a bank.
         if (server.getTickCount() % 1200 == 0)
             KingdomCivicsData.get(server).expireDueLeases(System.currentTimeMillis());
@@ -1100,7 +1102,8 @@ public final class KingdomNpcMod {
                         boolean needsHome = "SEEK_SHELTER".equals(w.autonomousIntent)
                             || "REST".equals(w.autonomousIntent)
                             || ("EAT".equals(w.autonomousIntent)
-                                && KingdomNpcFarmOwner.ownedFarm(server,w)==null);
+                                && KingdomNpcFarmOwner.ownedFarm(server,w)==null
+                                && !KingdomMunicipalCanteen.walkingForMeal(server,w));
                         if (needsHome && w.hasHome) {
                             BlockPos home = new BlockPos(w.homeX, w.homeY, w.homeZ);
                             if (level.hasChunkAt(home)) {
