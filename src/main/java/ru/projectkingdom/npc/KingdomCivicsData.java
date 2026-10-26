@@ -340,6 +340,32 @@ public final class KingdomCivicsData extends SavedData {
         setDirty();return true;
     }
 
+    public Town adminFoundTown(UUID npcOwner,String name){
+        if(name==null || towns.values().stream().anyMatch(t->t.name().equalsIgnoreCase(name)))
+            return null;
+        Town created=foundTown(npcOwner,name);
+        if(created!=null&&runtimeServer!=null)
+            KingdomAdministrationData.get(runtimeServer).ensureFounder(created.id(),npcOwner);
+        return created;
+    }
+    public Nation adminFoundNation(UUID npcRuler,String name){
+        if(name==null || nations.values().stream().anyMatch(n->n.name().equalsIgnoreCase(name)))
+            return null;
+        return foundNation(npcRuler,name);
+    }
+    public boolean adminClaimTown(UUID townId,String dimension,int x,int z){
+        Town town=towns.get(townId);
+        String k=key(dimension,x,z);
+        if(town==null||runtimeServer==null||plots.containsKey(k))return false;
+        var territory=KingdomTerritories.get(runtimeServer);
+        // A personal/foreign legacy claim is not forcibly overridden.
+        var already=territory.legacyClaimOwner(dimension,x,z);
+        if(already!=null && !already.equals(town.mayor()))return false;
+        if(!territory.claimByChunk(dimension,x,z,town.mayor()))return false;
+        plots.put(k,new Plot(dimension,x,z,townId,null,Zone.PUBLIC,false));
+        setDirty();return true;
+    }
+
     public Nation nationById(UUID id){return nations.get(id);}
 
     public String adminTownDeletionBlocker(UUID townId){
