@@ -20,13 +20,15 @@ public final class KingdomBookItem extends Item {
         if (!level.isClientSide && player instanceof ServerPlayer serverPlayer) {
             KingdomBookGuardian.bind(stack, serverPlayer.getUUID());
             BookModel.Finance finance = Stage1FinanceAdapter.snapshot(serverPlayer);
+            var social = ru.projectkingdom.social.KingdomSocialBookSnapshot.of(serverPlayer);
             MenuProvider provider = new SimpleMenuProvider(
                     (containerId, inventory, ignored) -> new KingdomBookMenu(containerId, inventory,
-                            finance.bankBalance(), finance.totalCapital()),
+                            finance.bankBalance(), finance.totalCapital(), social),
                     Component.translatable("screen.kingdomnpc.player_book"));
             NetworkHooks.openScreen(serverPlayer, provider, buffer -> {
                 buffer.writeLong(finance.bankBalance());
                 buffer.writeLong(finance.totalCapital());
+                social.write(buffer);
             });
         }
         return InteractionResultHolder.sidedSuccess(stack, level.isClientSide);

@@ -21,7 +21,7 @@ class KingdomNetworkPacketRegistryTest {
             count++;
         }
         assertTrue(count>=18);
-        assertTrue(source.contains("private static final String PROTOCOL=\"5\""),
-                "Municipal food screen requires packet version 5");
+        assertTrue(source.contains("private static final String PROTOCOL=\"6\""),
+                "Player book profile requires packet version 6");
     }
 }
