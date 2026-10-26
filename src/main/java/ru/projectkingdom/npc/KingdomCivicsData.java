@@ -377,6 +377,8 @@ public final class KingdomCivicsData extends SavedData {
         String reason=administration.adminRetirementBlocker(townId);
         if(reason!=null)return reason;
         // Personal land titles, leases and debts must be settled rather than lost.
+        UUID initialOwner=administration.founder(townId);
+        var legacy=KingdomTerritories.get(runtimeServer);
         for(var e:plots.entrySet()){
             if(!townId.equals(e.getValue().town()))continue;
             String k=e.getKey();
@@ -384,6 +386,10 @@ public final class KingdomCivicsData extends SavedData {
                     ||sales.containsKey(k)||e.getValue().tenant()!=null
                     ||plotOwners.containsKey(k))
                 return "Есть арендованные/проданные участки или договоры. Сначала закрой земельные обязательства.";
+            Plot plot=e.getValue();
+            UUID old=legacy.legacyClaimOwner(plot.dimension(),plot.x(),plot.z());
+            if(old!=null&&!old.equals(town.mayor())&&!old.equals(initialOwner))
+                return "Участок защищён старым реестром на другого владельца; сначала урегулируй права.";
         }
         return null;
     }
