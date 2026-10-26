@@ -27,6 +27,7 @@ public final class KingdomAdminDashboardScreen extends Screen {
     private UUID selectedTown;
     private UUID selectedNation;
     private int selectedNpc=-1;
+    private int cityRowOffset,nationRowOffset,npcRowOffset;
     private int left,top,widthUi,heightUi,listWidth,rows;
     private Button toggle,create,mayor,founder,claim,delete,confirm,cancel,refresh,cityTab,nationTab;
 
@@ -39,6 +40,9 @@ public final class KingdomAdminDashboardScreen extends Screen {
         if(mc.player==null)return;
         if(mc.screen instanceof KingdomAdminDashboardScreen active
                 &&active.state.session().equals(next.session())){
+            if(active.state.cityPage()!=next.cityPage())active.cityRowOffset=0;
+            if(active.state.nationPage()!=next.nationPage())active.nationRowOffset=0;
+            if(active.state.npcPage()!=next.npcPage())active.npcRowOffset=0;
             active.state=next;
             active.ensureSelection();
             active.updateButtons();
@@ -54,6 +58,8 @@ public final class KingdomAdminDashboardScreen extends Screen {
     }
     private void submit(int action){submit(action,selected(),selectedNpc,name==null?"":name.getValue(),0);}
     private UUID selected(){return nationsTab?selectedNation:selectedTown;}
+    private int currentOffset(){return nationsTab?nationRowOffset:cityRowOffset;}
+    private int currentSize(){return nationsTab?state.nations().size():state.cities().size();}
     private void ensureSelection(){
         if(selectedTown==null ||
             state.cities().stream().noneMatch(x->x.id().equals(selectedTown))){
@@ -152,14 +158,16 @@ public final class KingdomAdminDashboardScreen extends Screen {
         if(button==0&&state.enabled()&&!state.confirming()){
             int rowY=top+50;
             if(my>=rowY&&my<rowY+rows*17){
-                int index=(int)((my-rowY)/17);
+                int row=(int)((my-rowY)/17);
                 if(mx>=left+8&&mx<left+listWidth-4){
+                    int index=row+currentOffset();
                     if(nationsTab){
                         if(index<state.nations().size())selectedNation=state.nations().get(index).id();
                     }else if(index<state.cities().size())selectedTown=state.cities().get(index).id();
                     updateButtons();return true;
                 }
                 if(mx>=left+listWidth+12&&mx<left+widthUi-8){
+                    int index=row+npcRowOffset;
                     if(index<state.npcs().size())selectedNpc=state.npcs().get(index).id();
                     updateButtons();return true;
                 }
@@ -171,14 +179,23 @@ public final class KingdomAdminDashboardScreen extends Screen {
         if(!state.enabled())return super.mouseScrolled(mx,my,delta);
         int change=delta>0?-1:1;
         if(mx>=left+8&&mx<left+listWidth-4){
-            int page=nationsTab?state.nationPage():state.cityPage();
-            submit(nationsTab?KingdomAdminActionPacket.NATION_PAGE:
-                KingdomAdminActionPacket.CITY_PAGE,EMPTY,-1,"",Math.max(0,page+change));
+            int offset=currentOffset();
+            int updated=Math.max(0,Math.min(Math.max(0,currentSize()-rows),offset+change));
+            if(updated!=offset){
+                if(nationsTab)nationRowOffset=updated;else cityRowOffset=updated;
+            }else{
+                int page=nationsTab?state.nationPage():state.cityPage();
+                submit(nationsTab?KingdomAdminActionPacket.NATION_PAGE:
+                    KingdomAdminActionPacket.CITY_PAGE,EMPTY,-1,"",Math.max(0,page+change));
+            }
             return true;
         }
         if(mx>=left+listWidth+12&&mx<left+widthUi-8){
-            submit(KingdomAdminActionPacket.NPC_PAGE,EMPTY,-1,"",
-                Math.max(0,state.npcPage()+change));return true;
+            int updated=Math.max(0,Math.min(Math.max(0,state.npcs().size()-rows),npcRowOffset+change));
+            if(updated!=npcRowOffset)npcRowOffset=updated;
+            else submit(KingdomAdminActionPacket.NPC_PAGE,EMPTY,-1,"",
+                Math.max(0,state.npcPage()+change));
+            return true;
         }
         return super.mouseScrolled(mx,my,delta);
     }
@@ -196,18 +213,19 @@ public final class KingdomAdminDashboardScreen extends Screen {
         for(int row=0;row<rows;row++){
             int y=top+50+row*17;
             if(nationsTab){
-                if(row<state.nations().size()){
-                    var record=state.nations().get(row);
+                int idx=row+nationRowOffset;
+                if(idx<state.nations().size()){
+                    var record=state.nations().get(idx);
                     drawRow(gfx,left+8,y,listWidth-12,record.id().equals(selectedNation),
                         record.name()+"  ("+record.cities()+")");
                 }
-            }else if(row<state.cities().size()){
-                var record=state.cities().get(row);
+            }else if(row+cityRowOffset<state.cities().size()){
+                var record=state.cities().get(row+cityRowOffset);
                 drawRow(gfx,left+8,y,listWidth-12,record.id().equals(selectedTown),
                     record.name()+"  ["+record.plots()+" участков]");
             }
-            if(row<state.npcs().size()){
-                var npc=state.npcs().get(row);
+            if(row+npcRowOffset<state.npcs().size()){
+                var npc=state.npcs().get(row+npcRowOffset);
                 drawRow(gfx,left+listWidth+12,y,widthUi-listWidth-21,
                     npc.id()==selectedNpc,"#"+npc.id()+" "+npc.name()+" ("+npc.age()+")");
             }
