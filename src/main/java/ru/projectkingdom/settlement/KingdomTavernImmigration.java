@@ -266,6 +266,7 @@ public final class KingdomTavernImmigration {
             created.homeZ=home.getZ();
             created.order="wander";
             created.hunger=80;
+            created.lastMealDay=ru.projectkingdom.npc.KingdomSeasonCalendar.totalDays(server);
             created.morale=65;
             created.job="free"; // no profession is assigned on immigration
             created.employer=null; // free citizen, not an unpaid tavern employee
