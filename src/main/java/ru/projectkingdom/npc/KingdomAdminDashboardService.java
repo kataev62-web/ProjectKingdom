@@ -52,6 +52,11 @@ public final class KingdomAdminDashboardService {
         sessions.put(p.getUUID(),session);
         send(p,session,"Управление городами, королевствами и NPC");
     }
+    private static String clean(String text,int max){
+        if(text==null)return "";
+        String value=text.replace('\n',' ').replace('\r',' ').replace('\t',' ');
+        return value.length()>max?value.substring(0,max):value;
+    }
     private static String npcName(UUID id,Map<UUID,String> names) {
         return id==null?"Не назначен":names.getOrDefault(id,
             "Игрок/UUID "+id.toString().substring(0,8));
