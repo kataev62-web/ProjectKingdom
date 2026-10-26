@@ -77,7 +77,11 @@ public record MunicipalFoodView(boolean configured,boolean complete,boolean canC
                 forecast==null?0:forecast.edible(),forecast==null?0:forecast.rotten(),
                 forecast==null?0:forecast.target(),forecast==null?0:forecast.missing(),
                 forecast==null?List.of(0,0,0,0,0):forecast.groups(),
-                offers,shipments,notice==null?"":notice.substring(0,Math.min(110,notice.length())));
+                offers,shipments,
+                notice==null||notice.isBlank()
+                    ? "Городские пайки NPC: "+(KingdomMunicipalRationPolicy.get(player.getServer())
+                        .enabled(town)?"включены":"выключены")
+                    : notice.substring(0,Math.min(110,notice.length())));
     }
     public static void write(FriendlyByteBuf b,MunicipalFoodView v){
         b.writeBoolean(v.configured);b.writeBoolean(v.complete);b.writeBoolean(v.canConfigure);
