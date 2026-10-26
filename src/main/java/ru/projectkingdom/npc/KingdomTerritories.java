@@ -32,6 +32,18 @@ public final class KingdomTerritories extends SavedData {
         claims.put(key,owner); setDirty(); return true;
     }
     public UUID owner(ServerLevel level, BlockPos pos) { return claims.get(chunkKey(level,pos)); }
+    /** Does not require the target chunk to be loaded. No overwrite of existing claims. */
+    public UUID legacyClaimOwner(String dimension,int cx,int cz){
+        return claims.get(dimension+":"+cx+":"+cz);
+    }
+    public boolean claimByChunk(String dimension,int cx,int cz,UUID owner){
+        if(dimension==null||owner==null)return false;
+        String key=dimension+":"+cx+":"+cz;
+        UUID existing=claims.get(key);
+        if(existing!=null)return existing.equals(owner);
+        claims.put(key,owner);setDirty();return true;
+    }
+
     /**
      * Retirement of a Kingdom city can only release a legacy claim if the
      * expected recorded owner still matches. Never unclaim a different holder.
