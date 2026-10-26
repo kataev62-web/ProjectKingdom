@@ -1,6 +1,5 @@
 package ru.projectkingdom.settlement;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
@@ -8,7 +7,6 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.entity.player.Inventory;
 import ru.projectkingdom.network.KingdomNetwork;
-import ru.projectkingdom.core.KingdomFonts;
 
 /** A real, keyboard-accessible Minecraft settlement founding screen. */
 public final class KingdomSettlementScreen extends AbstractContainerScreen<KingdomSettlementMenu> {
