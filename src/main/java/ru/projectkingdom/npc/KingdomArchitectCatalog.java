@@ -124,7 +124,6 @@ public final class KingdomArchitectCatalog {
             var materials=KingdomConstructionPlans.bill(design).entrySet().stream()
                 .sorted(Comparator.<Map.Entry<String,Integer>>comparingInt(Map.Entry::getValue)
                     .reversed())
-                .limit(12)
                 .map(e->new ArchitectCatalogPacket.Material(e.getKey(),e.getValue()))
                 .toList();
             KingdomNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(()->player),
