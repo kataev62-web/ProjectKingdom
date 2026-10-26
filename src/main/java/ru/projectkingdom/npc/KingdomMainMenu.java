@@ -383,7 +383,11 @@ public final class KingdomMainMenu extends ChestMenu {
             case CIVICS -> {
                 var db=KingdomCivicsData.get(viewer.getServer());
                 var town=db.townOf(viewer.getUUID());var nation=db.nationOf(viewer.getUUID());
-                icon(10,Items.OAK_SIGN,town==null?"Основать город":"Город: "+town.name());
+                icon(10,ru.projectkingdom.settlement.KingdomSettlementRegistry.CHARTER_ITEM.get(),
+                        town==null?"Основание: изготовьте и установите Блок основания поселения":
+                        ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(db,
+                                KingdomConstructionData.get(viewer.getServer()),town.id(),
+                                viewer.serverLevel().dimension().location().toString()).title()+" «"+town.name()+"»");
                 icon(11,Items.GOLD_INGOT,nation==null?"Основать нацию":"Нация: "+nation.name());
                 var plot=db.plot(viewer.serverLevel(),viewer.blockPosition());
                 icon(12,Items.MAP,plot==null?"Открыть земельную карту":"Земельная карта | зона: "+plot.zone());
@@ -704,7 +708,12 @@ public final class KingdomMainMenu extends ChestMenu {
                 var db=KingdomCivicsData.get(viewer.getServer());
                 var pos=viewer.blockPosition();var dim=viewer.level().dimension().location().toString();
                 int cx=pos.getX()>>4,cz=pos.getZ()>>4;
-                if(slot==10){var t=db.foundTown(viewer.getUUID(),"Город_"+viewer.getScoreboardName());say(t==null?"Ты уже состоишь в городе":"Основан город: "+t.name());draw();}
+                if(slot==10){
+                    say(db.townOf(viewer.getUUID())==null
+                        ?"Создайте Блок основания поселения (колокол, каменные кирпичи, доски), установите на свободной земле и нажмите ПКМ. В открывшемся окне введите название."
+                        :"Ваше поселение уже основано. Рост зависит от освоенных чанков и завершённых зданий.");
+                    draw();
+                }
                 if(slot==11){var n=db.foundNation(viewer.getUUID(),"Королевство_"+viewer.getScoreboardName());say(n==null?"Нацию может основать мэр независимого города":"Основана нация: "+n.name());draw();}
                 if(slot==12){openMaps(viewer);break;}
                 if(slot==13){var plot=db.plot(viewer.serverLevel(),pos);if(plot==null){say("Сначала закрепи участок в разделе Территории");break;}
