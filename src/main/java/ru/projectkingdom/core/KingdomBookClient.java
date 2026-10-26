@@ -12,11 +12,16 @@ import ru.projectkingdom.enterprise.EnterpriseCoreScreen;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.administration.AdministrativeCoreScreen;
 import ru.projectkingdom.administration.KingdomAdministrationRegistry;
+import ru.projectkingdom.network.NpcSpeechClientBridge;
+import ru.projectkingdom.npc.voice.client.NpcVoiceClient;
+import ru.projectkingdom.npc.voice.client.NpcVoiceKeyHandler;
 
 @Mod.EventBusSubscriber(modid = KingdomNpcMod.MOD_ID, bus = Mod.EventBusSubscriber.Bus.MOD, value = Dist.CLIENT)
 public final class KingdomBookClient {
     private KingdomBookClient() {}
     @SubscribeEvent public static void setup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> NpcSpeechClientBridge.install(NpcVoiceClient::acceptSpeech));
+        event.enqueueWork(NpcVoiceKeyHandler::warmUp);
         event.enqueueWork(() -> MenuScreens.register(KingdomBookRegistry.PLAYER_BOOK_MENU.get(), KingdomBookScreen::new));
         event.enqueueWork(() -> MenuScreens.register(KingdomEconomyRegistry.PURSE_MENU.get(), MoneyPurseScreen::new));
         event.enqueueWork(() -> MenuScreens.register(KingdomEnterpriseRegistry.CORE_MENU.get(), EnterpriseCoreScreen::new));

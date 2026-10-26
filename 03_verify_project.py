@@ -7,7 +7,12 @@ assert (p/'src/main/resources/META-INF/mods.toml').is_file()
 toml=(p/'src/main/resources/META-INF/mods.toml').read_text()
 gradle=(p/'build.gradle').read_text()
 assert 'modId="kingdomnpc"' in toml
-assert "version = '0.1.0-stage0-dev'" in gradle
+gradle_version=re.search(r"(?m)^version\s*=\s*['\"]([^'\"]+)['\"]",gradle)
+mod_version=re.search(r'(?m)^version\s*=\s*"([^\"]+)"',toml)
+assert gradle_version and mod_version, 'Missing release version'
+assert gradle_version.group(1)==mod_version.group(1), 'Gradle and mods.toml versions disagree'
+installer=(p/'02_install_windows.bat').read_text()
+assert 'kingdomnpc-'+gradle_version.group(1)+'.jar' in installer, 'Installer selects a different release'
 for name in ['KingdomNpcMod','KingdomNpcData','KingdomNpcMenu','KingdomTerritories','NpcLogistics','NpcFieldWork','NpcAutonomyPlanner']:
  assert any(f.name==name+'.java' for f in sources),name
 assert 'level.hasChunkAt' in (p/'src/main/java/ru/projectkingdom/npc/NpcFieldWork.java').read_text()
