@@ -60,6 +60,54 @@ public final class KingdomAdministrationData extends SavedData {
     }
     public int dataVersion(){return dataVersion;}
     public UUID founder(UUID townId){return founders.get(townId);}
+
+    /** Privileged service only: transfers founding responsibility, not treasury or land title. */
+    public boolean adminChangeFounder(UUID townId,UUID founder){
+        if(townId==null||founder==null||!founders.containsKey(townId))return false;
+        for(var entry:founders.entrySet())
+            if(!entry.getKey().equals(townId)&&founder.equals(entry.getValue()))return false;
+        founders.put(townId,founder);setDirty();return true;
+    }
+
+    /** Keep the elected mayor role consistent with KingdomCivicsData.Town.mayor. */
+    public void adminChangeMayor(UUID townId,UUID former,UUID next){
+        if(townId==null||next==null)return;
+        Map<UUID,EnumSet<MunicipalRole>> roster=roles.computeIfAbsent(townId,k->new LinkedHashMap<>());
+        if(former!=null){
+            var old=roster.get(former);
+            if(old!=null){old.remove(MunicipalRole.MAYOR);if(old.isEmpty())roster.remove(former);}
+        }
+        roster.computeIfAbsent(next,k->EnumSet.noneOf(MunicipalRole.class))
+            .add(MunicipalRole.MAYOR);
+        setDirty();
+    }
+
+    /** A city with money, legacy liabilities or pending treasury recoveries is NEVER deleted. */
+    public String adminRetirementBlocker(UUID townId){
+        if(townId==null)return "Неизвестный город.";
+        if(bankReserve(townId)!=0||treasuryReserve(townId)!=0
+            ||legacyBankLiability(townId)!=0||legacyTreasuryLiability(townId)!=0
+            ||historicalTreasuryLiability(townId)!=0)
+            return "Существуют банковские резервы, казна или исторические обязательства.";
+        if(expansionDebits(townId).stream().anyMatch(e->!e.refunded()))
+            return "В реестре есть платежи расширения: сначала проведи финансовую сверку.";
+        if(justiceCases.containsKey(townId)||prisonRecords.containsKey(townId)
+            ||warrants.containsKey(townId))
+            return "Есть судебные дела, заключённые или ордера — перенеси или закрой их.";
+        return null;
+    }
+
+    /** Called only after checking all city finances and city/kingdom constraints. */
+    public boolean adminRetireTown(UUID townId){
+        if(!founders.containsKey(townId)||adminRetirementBlocker(townId)!=null)return false;
+        founders.remove(townId);roles.remove(townId);cores.remove(townId);
+        containers.remove(townId);logs.remove(townId);guardRecords.remove(townId);
+        bankReserves.remove(townId);treasuryReserves.remove(townId);
+        legacyBankLiabilities.remove(townId);legacyTreasuryLiabilities.remove(townId);
+        historicalTreasuries.remove(townId);
+        expansionDebits.values().removeIf(e->townId.equals(e.townId()));
+        setDirty();return true;
+    }
     public boolean ensureFounder(UUID townId,UUID founder){return migrateFounder(townId,founder)==1;}
     public int migrateFounder(UUID townId,UUID mayor){
         if(townId==null||mayor==null||founders.containsKey(townId))return 0;
