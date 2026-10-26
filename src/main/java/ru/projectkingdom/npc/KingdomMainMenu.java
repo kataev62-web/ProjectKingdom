@@ -136,6 +136,8 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(21,Items.FILLED_MAP,"Карты Kingdom: территория, политика, предприятия");
                 icon(22,KingdomCurrency.WALLET.get(),"Монеты и кошелёк");
                 icon(23,Items.EMERALD,"Моё предприятие и касса");
+                if(viewer.hasPermissions(4))
+                    icon(24,Items.COMMAND_BLOCK,"Администрирование сервера: города, королевства, NPC");
             }
             case RENTALS -> {
                 var properties=ru.projectkingdom.property.KingdomRentalsData.get(viewer.getServer());
