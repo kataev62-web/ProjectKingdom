@@ -68,38 +68,24 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         int navX=left+6,navButtonWidth=navWidth-12;
         boolean compact=layout.compact();
         KingdomGraphicAtlasData.Layer[] layers=KingdomGraphicAtlasData.Layer.values();
-        // Full labels become tooltips on compact 2x2 icon tabs.
-        String[] labels={"Местность","Государства","Предприятия","Стройки"};
+        // Four named, full-width sections replace the ambiguous 2x2 icon grid.
+        // Panning is by map dragging or arrow keys, not eight cryptic buttons.
+        String[] labels={"Местность","Королевства","Предприятия","Постройки"};
         Item[] icons={Items.FILLED_MAP,Items.BLUE_BANNER,Items.EMERALD,Items.BRICKS};
-        int half=(navButtonWidth-4)/2;
         for(int i=0;i<layers.length;i++){
             var chosen=layers[i];
-            int col=compact?i%2:0,row=compact?i/2:i;
-            int bw=compact?(col==0?half:navButtonWidth-half-4):navButtonWidth;
-            int bx=navX+(compact?col*(half+4):0);
-            int by=top+(compact?29+row*24:30+row*24);
-            atlasButton(bx,by,bw,21,labels[i],icons[i],
+            atlasButton(navX,top+29+i*23,navButtonWidth,21,labels[i],icons[i],
                     ()->setLayer(chosen),()->layer==chosen);
         }
-        int up=compact?82:145, cross=compact?104:167;
-        int down=compact?126:189, zoomY=compact?148:211;
-        int centerY=compact?170:233, pathY=compact?192:255;
-        atlasButton(navX,top+up,navButtonWidth,20,"Север",Items.COMPASS,
-                ()->pan(0,-1),null);
-        atlasButton(navX,top+cross,half,20,"←",null,
-                ()->pan(-1,0),null);
-        atlasButton(navX+half+4,top+cross,navButtonWidth-half-4,20,"→",null,
-                ()->pan(1,0),null);
-        atlasButton(navX,top+down,navButtonWidth,20,"Юг",Items.COMPASS,
-                ()->pan(0,1),null);
-        atlasButton(navX,top+zoomY,half,20,"−",null,()->zoom(-1),null);
-        atlasButton(navX+half+4,top+zoomY,navButtonWidth-half-4,20,"+",null,
-                ()->zoom(1),null);
-        atlasButton(navX,top+centerY,navButtonWidth,20,"Я здесь",Items.ENDER_EYE,
+        atlasButton(navX,top+128,navButtonWidth,20,"Моё место",Items.ENDER_EYE,
                 this::resetCenter,()->followPlayer);
-        atlasButton(navX,top+pathY,navButtonWidth,20,"Маршрут",Items.COMPASS,
+        atlasButton(navX,top+151,navButtonWidth,20,"Маршрут",Items.COMPASS,
                 this::planSelectedRoute,()->route!=null
                         && route.status()==KingdomAtlasNavigator.Status.ROUTE);
+        atlasButton(navX,top+174,navButtonWidth,20,"Приблизить +",null,
+                ()->zoom(-1),null);
+        atlasButton(navX,top+197,navButtonWidth,20,"Отдалить −",null,
+                ()->zoom(1),null);
 
         if(inspectorWidth>0){
             int x=gridX+gridWidth+8,w=inspectorWidth-13;
@@ -113,9 +99,9 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         }else{
             atlasButton(navX,top+5,navButtonWidth,20,"Меню",Items.BOOK,
                     ()->KingdomNetwork.CHANNEL.sendToServer(new OpenKingdomMapsHubPacket()),null);
-            atlasButton(gridX+gridWidth-106,top+4,52,20,"Город",Items.MAP,
+            atlasButton(gridX+gridWidth-106,top+4,52,20,"Город",null,
                     ()->KingdomNetwork.CHANNEL.sendToServer(new OpenCityPlanFromAtlasPacket()),null);
-            atlasButton(gridX+gridWidth-52,top+4,52,20,"Земли",Items.GRASS_BLOCK,
+            atlasButton(gridX+gridWidth-52,top+4,52,20,"Земли",null,
                     ()->KingdomNetwork.CHANNEL.sendToServer(new OpenLandMapFromAtlasPacket()),null);
         }
         if(requestId==0)resetCenter();
@@ -315,11 +301,13 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             renderSurveyedRoads(gui);
             renderBuildingOutlines(gui);
             renderRoute(gui);
+            renderMapLegend(gui);
             renderInfrastructureMarkers(gui);
         } else gui.fill(gridX, gridY, gridX + gridWidth, gridY + gridHeight, FREE);
         // The position and heading of THIS player are rendered every frame,
         // independently of the slower terrain/territory snapshot refresh.
         renderPlayerMarker(gui);
+        renderSelectionSummary(gui);
 
         renderKingdomInspector(gui);
         String mapHint=mapDrag && (Math.abs(dragEndX-dragStartX)>3
@@ -348,27 +336,65 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             var mark = infrastructureAt(mouseX, mouseY);
             if (mark != null) {
                 gui.renderTooltip(font, Component.literal(
-                        mark.label() + " • X " + mark.blockX() + " Z " + mark.blockZ()),
+                        markerTypeName(mark.kind()) + ": " + mark.label()
+                        + " | X " + mark.blockX() + " Z " + mark.blockZ()),
                         mouseX, mouseY);
             } else {
-                gui.renderTooltip(font, Component.literal("Чанк " + x + ", " + z
+                gui.renderTooltip(font, Component.literal("Участок (чанк) " + x + ", " + z
                         + " | " + terrain + " | " + (tile.town().isEmpty() ? "свободно" : tile.town())),
                         mouseX, mouseY);
             }
         }
     }
 
+    /** Visible on EVERY GUI scale; never requires hovering over an unknown icon. */
+    private void renderMapLegend(GuiGraphics gui) {
+        int x=gridX+3,y=gridY+3;
+        boolean narrow=gridWidth<178;
+        int w=narrow?Math.min(gridWidth-6,111):171;
+        gui.fill(x,y,x+w,y+(narrow?25:14),0xD92B241C);
+        if(narrow){
+            legendLabel(gui,x+4,y+4,0xFF19C9FF,"Вы");
+            legendLabel(gui,x+47,y+4,0xFFF0C551,"Фирма");
+            legendLabel(gui,x+4,y+15,0xFFCA7569,"Ратуша");
+        }else{
+            legendLabel(gui,x+4,y+4,0xFF19C9FF,"Вы");
+            legendLabel(gui,x+46,y+4,0xFFF0C551,"Фирма");
+            legendLabel(gui,x+105,y+4,0xFFCA7569,"Ратуша");
+        }
+    }
+    private void legendLabel(GuiGraphics gui,int x,int y,int color,String label){
+        gui.fill(x,y+1,x+7,y+8,0xFF211B16);
+        gui.fill(x+1,y+2,x+6,y+7,color);
+        gui.drawString(font,label,x+10,y,0xFFFFEDCB,false);
+    }
+
+    /** A real selected name is shown even at compact scales with no inspector. */
+    private void renderSelectionSummary(GuiGraphics gui){
+        if(snapshot==null)return;
+        String label;
+        if(selectedMarker!=null) {
+            label=markerTypeName(selectedMarker.kind())+": "+selectedMarker.label()
+                    +"  |  X "+selectedMarker.blockX()+" Z "+selectedMarker.blockZ();
+        } else if(selectedCol>=0 && selectedRow>=0){
+            var tile=snapshot.tile(selectedCol,selectedRow);
+            int x=centerX-(KingdomGraphicAtlasData.COLUMNS/2)*snapshot.scale()
+                    +selectedCol*snapshot.scale();
+            int z=centerZ-(KingdomGraphicAtlasData.ROWS/2)*snapshot.scale()
+                    +selectedRow*snapshot.scale();
+            label=(tile.town().isBlank()?"Свободная земля":tile.town())
+                    +"  |  чанк "+x+", "+z;
+        } else return;
+        int y=gridY+gridHeight-17;
+        gui.fill(gridX+2,y,gridX+gridWidth-2,y+15,0xE7292119);
+        gui.fill(gridX+2,y,gridX+4,y+15,0xFFFFD581);
+        gui.drawString(font,font.plainSubstrByWidth(label,gridWidth-13),
+                gridX+7,y+4,0xFFFFE5BB,false);
+    }
+
     /** Right information panel, shared by all map tabs (no separate chest menus). */
     private void renderKingdomInspector(GuiGraphics gui) {
-        if (inspectorWidth <= 0) {
-            if (snapshot != null && selectedCol >= 0 && selectedRow >= 0) {
-                var tile = snapshot.tile(selectedCol,selectedRow);
-                gui.drawString(font,font.plainSubstrByWidth(
-                        tile.town().isBlank() ? "Свободная земля" : tile.town(),
-                        gridWidth - 4),gridX + 2,top + panelHeight - 29,INK,false);
-            }
-            return;
-        }
+        if (inspectorWidth <= 0) return; // map summary handles compact screens
         int x=gridX+gridWidth+7;
         int w=inspectorWidth-10;
         int bottom=top+panelHeight-48;
