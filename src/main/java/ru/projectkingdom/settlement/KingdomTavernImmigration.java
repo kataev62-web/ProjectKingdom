@@ -43,23 +43,23 @@ public final class KingdomTavernImmigration {
                 ||firms.kind(enterprise)!=EnterpriseKind.TAVERN
                 ||binding.kind()!=EnterpriseKind.TAVERN
                 ||!firm.owner().equals(binding.owner()))
-            return new Capacity(0,0,0,false,"Нет действующей таверны");
+            return new Capacity(0,0,0,0,false,"Нет действующей таверны");
         ServerLevel level=null;
         for(ServerLevel candidate:server.getAllLevels())
             if(candidate.dimension().location().toString().equals(binding.dimension())) {
                 level=candidate;break;
             }
-        if(level==null)return new Capacity(0,0,0,false,"Измерение недоступно");
+        if(level==null)return new Capacity(0,0,0,0,false,"Измерение недоступно");
         BlockPos core=BlockPos.of(binding.packedPos());
         if(!level.hasChunkAt(core)||!(level.getBlockEntity(core) instanceof EnterpriseCoreBlockEntity block)
                 ||!block.bound()||!enterprise.equals(block.enterpriseId())
                 ||!firm.owner().equals(block.owner())||block.kind()!=EnterpriseKind.TAVERN)
-            return new Capacity(0,0,0,false,"Загрузите настоящую стойку таверны");
+            return new Capacity(0,0,0,0,false,"Загрузите настоящую стойку таверны");
         var civics=KingdomCivicsData.get(server);
         var town=civics.townAt(level,core);
         if(town==null||!firm.owner().equals(civics.plotOwner(binding.dimension(),
                 core.getX()>>4,core.getZ()>>4)))
-            return new Capacity(0,0,0,false,"Таверна должна стоять на земле своего владельца в городе");
+            return new Capacity(0,0,0,0,false,"Таверна должна стоять на земле своего владельца в городе");
         int beds=countBeds(level,core,firm.owner());
         int people=countResidents(server,town.id());
         int places=Math.min(MAX_SETTLEMENT_RESIDENTS,beds);
