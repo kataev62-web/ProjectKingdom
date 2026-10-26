@@ -38,7 +38,14 @@ public final class KingdomOpenLandEvents {
         var pos=event.getPos();
         if(!KingdomTemporaryLand.temporaryArea(level,pos,player))return;
         var state=level.getBlockState(pos);
-        if(KingdomTemporaryLand.permanentCharter(state))return;
+        if(KingdomTemporaryLand.permanentCharter(state)){
+            var civic=ru.projectkingdom.npc.KingdomCivicsData.get(player.getServer());
+            var legacy=ru.projectkingdom.npc.KingdomTerritories.get(player.getServer());
+            String dim=level.dimension().location().toString();
+            if(civic.plot(level,pos)!=null || legacy.legacyClaimOwner(dim,pos.getX()>>4,pos.getZ()>>4)!=null)
+                event.setCanceled(true);
+            return;
+        }
         var temporary=KingdomTemporaryBlocks.get(player.getServer());
         if(!KingdomTemporaryLand.safeTemporaryPlacement(level,pos,state)
                 ||!temporary.track(level,pos))event.setCanceled(true);
