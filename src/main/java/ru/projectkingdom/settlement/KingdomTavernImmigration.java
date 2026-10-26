@@ -74,6 +74,18 @@ public final class KingdomTavernImmigration {
         return n;
     }
 
+    /** Vanilla + TerraFirmaCraft straw-and-hide beds, without hard mod linkage. */
+    public static boolean isSleepingPlace(net.minecraft.world.level.block.state.BlockState state){
+        if(state.getBlock() instanceof BedBlock)
+            return state.getValue(BedBlock.PART)==BedPart.HEAD;
+        var id=net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock());
+        if(!"tfc:thatch_bed".equals(id.toString()))return false;
+        for(var property:state.getProperties())
+            if("part".equals(property.getName()))
+                return "head".equals(state.getValue(property).toString());
+        return false;
+    }
+
     /** Count only owned, sheltered, unloaded-safe bed HEAD blocks (one per bed). */
     private static int countBeds(ServerLevel level,BlockPos tavern,UUID owner) {
         var civics=KingdomCivicsData.get(level.getServer());
@@ -86,8 +98,7 @@ public final class KingdomTavernImmigration {
                     if(!level.hasChunkAt(pos)||!owner.equals(civics.plotOwner(dim,
                             pos.getX()>>4,pos.getZ()>>4)))continue;
                     var state=level.getBlockState(pos);
-                    if(!(state.getBlock() instanceof BedBlock)
-                            ||state.getValue(BedBlock.PART)!=BedPart.HEAD)continue;
+                    if(!isSleepingPlace(state))continue;
                     if(civics.leaseContract(dim,pos.getX()>>4,pos.getZ()>>4)!=null)continue;
                     if(ru.projectkingdom.property.KingdomRentalsData.get(level.getServer())
                             .atRoom(dim,pos)!=null)continue;
