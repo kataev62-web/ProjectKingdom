@@ -16,6 +16,7 @@ public final class KingdomExpansionCommands {
     private static void say(CommandSourceStack s,String text){s.sendSuccess(()->Component.literal("[Project Kingdom] "+text),false);}
     public static void register(RegisterCommandsEvent e) {
         var root=Commands.literal("kingdom");
+        root.then(KingdomServerAdminCommands.root());
         root.then(Commands.literal("architect")
             .then(Commands.literal("design")
                 .then(Commands.argument("width",IntegerArgumentType.integer(7,31))
