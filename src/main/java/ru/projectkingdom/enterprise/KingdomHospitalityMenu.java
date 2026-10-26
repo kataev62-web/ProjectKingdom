@@ -99,6 +99,12 @@ public final class KingdomHospitalityMenu extends ChestMenu {
                 EnterpriseBindingRole.CASHBOX);
         icon(2,Items.CHEST,"Касса предприятия: "+EnterpriseAccessService.display(cashier.status()));
         icon(3,Items.COPPER_INGOT,"Цена указана за весь срок. Оплата монетами из кошелька сразу в кассу предприятия.");
+        if(kind==EnterpriseKind.TAVERN){
+            var arrivals=ru.projectkingdom.settlement.KingdomTavernImmigration.inspect(viewer.getServer(),enterprise);
+            icon(6,Items.VILLAGER_SPAWN_EGG,"Переселенцы: "+arrivals.residents()+"/"+arrivals.places()+" | "+arrivals.message());
+            icon(7,Items.RED_BED,"Спальные места: "+arrivals.beds()+" | кровати должны быть под крышей на вашей земле");
+            icon(8,Items.CLOCK,"Жители появляются постепенно: не чаще одного за игровые сутки, при игроке рядом");
+        }
         if(manager){
             icon(4,Items.OAK_SIGN,"Владелец: привязать здание, в котором установлена стойка");
             icon(5,Items.WRITABLE_BOOK,"Разметить комнаты, менять цены и объявления через меню недвижимости");
