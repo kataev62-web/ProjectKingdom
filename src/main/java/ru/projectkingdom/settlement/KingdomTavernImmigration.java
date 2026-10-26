@@ -30,11 +30,11 @@ public final class KingdomTavernImmigration {
     public static final int MAX_TAVERN_RESIDENTS=4;
     public static final long ARRIVAL_INTERVAL_TICKS=24000L; // One Minecraft day
     public static final int BED_RADIUS=10;
-    public record Capacity(int beds,int residents,int places,boolean tavernReady,String message) {}
+    public record Capacity(int beds,int residents,int places,int meals,boolean tavernReady,String message) {}
 
     /** Calls may be made from a GUI; never intentionally load any chunk. */
     public static Capacity inspect(MinecraftServer server, UUID enterprise){
-        if(server==null||enterprise==null)return new Capacity(0,0,0,false,"Нет таверны");
+        if(server==null||enterprise==null)return new Capacity(0,0,0,0,false,"Нет таверны");
         var firms=KingdomEnterpriseData.get(server);
         var binding=firms.core(enterprise);
         var firm=firms.find(enterprise);
@@ -62,9 +62,11 @@ public final class KingdomTavernImmigration {
         int beds=countBeds(level,core,firm.owner());
         int people=countResidents(server,town.id());
         int places=Math.min(MAX_TAVERN_RESIDENTS,beds);
-        return new Capacity(beds,people,places,true,beds==0
+        var food=KingdomTavernProvisions.inspect(level,enterprise);
+        return new Capacity(beds,people,places,food.meals(),true,beds==0
                 ?"Для переселенцев нужны кровати под крышей на своей земле"
-                :people>=places?"Все спальные места заняты":"Ожидаются переселенцы");
+                :people>=places?"Все спальные места заняты"
+                :!food.ready()?food.issue():"Есть еда и кровати: ожидаются переселенцы");
     }
 
     public static int countResidents(MinecraftServer server,UUID town){
@@ -152,7 +154,8 @@ public final class KingdomTavernImmigration {
             if(town==null||!firm.owner().equals(civics.plotOwner(binding.dimension(),
                     tavern.getX()>>4,tavern.getZ()>>4)))continue;
             var available=inspect(server,firm.id());
-            if(!available.tavernReady()||available.places()<=available.residents())continue;
+            if(!available.tavernReady()||available.places()<=available.residents()
+                    ||available.meals()<KingdomTavernProvisions.MIN_MEALS_TO_ATTRACT)continue;
             long tick=server.overworld().getGameTime();
             if(!arrivals.ready(town.id(),tick))continue;
             BlockPos spawn=safeSpawn(level,tavern,town.id());
@@ -169,6 +172,11 @@ public final class KingdomTavernImmigration {
                 if(!taken){home=bed;break;}
             }
             if(home==null)continue;
+            // Reserve one edible REAL ItemStack, not a virtual visitor ration.
+            // The registration below happens only after one piece of food is
+            // successfully removed from the tavern's active food store.
+            var serving=KingdomTavernProvisions.choose(level,firm.id());
+            if(serving==null)continue;
             Villager villager=EntityType.VILLAGER.create(level);
             if(villager==null)continue;
             villager.moveTo(spawn.getX()+.5,spawn.getY(),spawn.getZ()+.5,level.random.nextFloat()*360f,0);
@@ -186,6 +194,9 @@ public final class KingdomTavernImmigration {
             if(!level.noCollision(villager))continue;
             // Ensure no NPC entity or citizen record is created on a failed spawn.
             if(!level.addFreshEntity(villager))continue;
+            if(!KingdomTavernProvisions.consume(serving)){
+                villager.discard();continue;
+            }
             var created=npcDb.add(villager.getUUID(),name,binding.dimension(),level.getDayTime()/24000L);
             created.settlement=town.id().toString();
             created.familyName=family;
@@ -198,14 +209,17 @@ public final class KingdomTavernImmigration {
             created.order="wander";
             created.hunger=80;
             created.morale=65;
+            created.job="free"; // no profession is assigned on immigration
             created.employer=null; // free citizen, not an unpaid tavern employee
+            if(serving.nutrition()!=null)
+                ru.projectkingdom.npc.KingdomNpcNutrition.eat(created,serving.nutrition());
             npcDb.setDirty();
             civics.joinTown(villager.getUUID(),town.id());
             ru.projectkingdom.npc.KingdomFemaleOutfitSync.notifyChanged(server,created);
             arrivals.record(town.id(),tick);
             witness.sendSystemMessage(Component.literal("[Kingdom] В таверну «"+firm.name()
                     +"» прибыл новый житель: "+name+". Население "+(available.residents()+1)
-                    +"/"+available.places()+"."));
+                    +"/"+available.places()+". В таверне осталось еды: "+(available.meals()-1)+"."));
             break; // At most ONE physical NPC per scan across the whole server.
         }
     }
