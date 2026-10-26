@@ -56,8 +56,9 @@ public final class KingdomTavernImmigration {
             return new Capacity(0,0,0,false,"Загрузите настоящую стойку таверны");
         var civics=KingdomCivicsData.get(server);
         var town=civics.townAt(level,core);
-        if(town==null||!town.mayor().equals(firm.owner()))
-            return new Capacity(0,0,0,false,"Таверна должна быть в поселении основателя");
+        if(town==null||!firm.owner().equals(civics.plotOwner(binding.dimension(),
+                core.getX()>>4,core.getZ()>>4)))
+            return new Capacity(0,0,0,false,"Таверна должна стоять на земле своего владельца в городе");
         int beds=countBeds(level,core,firm.owner());
         int people=countResidents(server,town.id());
         int places=Math.min(MAX_TAVERN_RESIDENTS,beds);
@@ -148,7 +149,8 @@ public final class KingdomTavernImmigration {
                 }
             if(witness==null)continue;
             var town=civics.townAt(level,tavern);
-            if(town==null||!firm.owner().equals(town.mayor()))continue;
+            if(town==null||!firm.owner().equals(civics.plotOwner(binding.dimension(),
+                    tavern.getX()>>4,tavern.getZ()>>4)))continue;
             var available=inspect(server,firm.id());
             if(!available.tavernReady()||available.places()<=available.residents())continue;
             long tick=server.overworld().getGameTime();
