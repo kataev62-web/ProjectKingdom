@@ -405,6 +405,25 @@ public final class KingdomMainMenu extends ChestMenu {
                     icon(18,Items.PLAYER_HEAD,"Льгота для "+target.getScoreboardName()+": "
                         +taxes.isExempt(town.id(),target.getUUID())+" | переключить (только мэр)");
                 }
+                if(town!=null){
+                    int residents=ru.projectkingdom.settlement.KingdomTavernImmigration
+                            .countResidents(viewer.getServer(),town.id());
+                    icon(19,Items.VILLAGER_SPAWN_EGG,"NPC-жители: "+residents+
+                            " | после открытия таверны с кроватями начнётся заселение");
+                    int inns=0;
+                    var firms=KingdomEnterpriseData.get(viewer.getServer());
+                    for(var firm:firms.all()){
+                        if(firms.kind(firm.id())!=ru.projectkingdom.enterprise.EnterpriseKind.TAVERN)continue;
+                        var core=firms.core(firm.id());
+                        if(core==null||!core.active()
+                                ||!core.dimension().equals(viewer.serverLevel().dimension().location().toString()))continue;
+                        var place=BlockPos.of(core.packedPos());
+                        var registered=db.plot(viewer.serverLevel(),place);
+                        if(registered!=null&&town.id().equals(registered.town()))inns++;
+                    }
+                    icon(20,Items.BARREL,"Действующие таверны: "+inns+
+                            " | местные NPC прибывают постепенно, не более одного за игровые сутки");
+                }
                 icon(22,Items.BOOK,"Казна города: "+(town==null?0:town.treasury())+" | нации: "+(nation==null?0:nation.treasury()));
             }
             case PEOPLE -> {
