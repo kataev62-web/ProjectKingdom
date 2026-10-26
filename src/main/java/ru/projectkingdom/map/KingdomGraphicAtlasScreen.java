@@ -67,6 +67,9 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         gridY=layout.gridY();
         int navX=left+6,navButtonWidth=navWidth-12;
         boolean compact=layout.compact();
+        boolean tiny=panelHeight<224;
+        int tabY=tiny?27:29,tabStep=tiny?21:23,tabHeight=tiny?19:21;
+        int controlY=tiny?114:128,controlStep=tiny?21:23,controlHeight=tiny?19:20;
         KingdomGraphicAtlasData.Layer[] layers=KingdomGraphicAtlasData.Layer.values();
         // Four named, full-width sections replace the ambiguous 2x2 icon grid.
         // Panning is by map dragging or arrow keys, not eight cryptic buttons.
@@ -74,17 +77,17 @@ public final class KingdomGraphicAtlasScreen extends Screen {
         Item[] icons={Items.FILLED_MAP,Items.BLUE_BANNER,Items.EMERALD,Items.BRICKS};
         for(int i=0;i<layers.length;i++){
             var chosen=layers[i];
-            atlasButton(navX,top+29+i*23,navButtonWidth,21,labels[i],icons[i],
+            atlasButton(navX,top+tabY+i*tabStep,navButtonWidth,tabHeight,labels[i],icons[i],
                     ()->setLayer(chosen),()->layer==chosen);
         }
-        atlasButton(navX,top+128,navButtonWidth,20,"Моё место",Items.ENDER_EYE,
+        atlasButton(navX,top+controlY,navButtonWidth,controlHeight,"Моё место",Items.ENDER_EYE,
                 this::resetCenter,()->followPlayer);
-        atlasButton(navX,top+151,navButtonWidth,20,"Маршрут",Items.COMPASS,
+        atlasButton(navX,top+controlY+controlStep,navButtonWidth,controlHeight,"Маршрут",Items.COMPASS,
                 this::planSelectedRoute,()->route!=null
                         && route.status()==KingdomAtlasNavigator.Status.ROUTE);
-        atlasButton(navX,top+174,navButtonWidth,20,"Приблизить +",null,
+        atlasButton(navX,top+controlY+2*controlStep,navButtonWidth,controlHeight,"Приблизить +",null,
                 ()->zoom(-1),null);
-        atlasButton(navX,top+197,navButtonWidth,20,"Отдалить −",null,
+        atlasButton(navX,top+controlY+3*controlStep,navButtonWidth,controlHeight,"Отдалить −",null,
                 ()->zoom(1),null);
 
         if(inspectorWidth>0){
