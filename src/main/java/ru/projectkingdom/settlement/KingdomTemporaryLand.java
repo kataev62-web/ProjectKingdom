@@ -19,7 +19,7 @@ import ru.projectkingdom.property.KingdomRentalsData;
 public final class KingdomTemporaryLand {
     private KingdomTemporaryLand(){}
     public static boolean temporaryArea(ServerLevel level,BlockPos pos,ServerPlayer actor){
-        if(actor==null||pos==null||level==null||actor.hasPermissions(2))return false;
+        if(actor==null||pos==null||level==null||(actor.hasPermissions(2)&&actor.isCreative()))return false;
         String dim=level.dimension().location().toString();
         var civic=KingdomCivicsData.get(level.getServer());
         if(KingdomRentalsData.get(level.getServer()).atRoom(dim,pos)!=null)return false;
