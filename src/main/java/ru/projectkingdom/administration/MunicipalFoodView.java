@@ -19,6 +19,10 @@ public record MunicipalFoodView(boolean configured,boolean complete,boolean canC
         if(offers.size()>5||shipments.size()>4||groups.size()>5
                 ||groups.size()!=5||notice.length()>110)throw new IllegalArgumentException("food menu bounds");
     }
+    /** Derived on both client and server, so no wire/schema or protocol change. */
+    public KingdomMunicipalDietPlan.Demand diet() {
+        return KingdomMunicipalDietPlan.calculate(complete,target,groups);
+    }
     public static MunicipalFoodView empty() {
         return new MunicipalFoodView(false,false,false,0,-1,0,0,0,0,0,
                 List.of(0,0,0,0,0),List.of(),List.of(),"");
@@ -34,12 +38,25 @@ public record MunicipalFoodView(boolean configured,boolean complete,boolean canC
         var reserve=KingdomMunicipalFoodReserves.get(player.getServer());
         var policy=reserve.policy(town);
         var forecast=policy==null?null:reserve.evaluate(player.getServer(),town);
-        var market=KingdomMunicipalProcurement.availableFoods(player.serverLevel(),town,player.getUUID(),5);
-        List<Offer> offers=new ArrayList<>();
+        // Score ONLY checked physical market quotes by the city's REAL shortage.
+        // This remains a proposal; physical coins can move only at the bank.
+        var market=KingdomMunicipalProcurement.availableFoods(
+            player.serverLevel(),town,player.getUUID(),24);
+        var demand=KingdomMunicipalDietPlan.calculate(forecast);
+        List<KingdomMunicipalDietPlan.Candidate> proposals=new ArrayList<>();
         for(String item:market) {
-            var p=KingdomMunicipalProcurement.select(player.serverLevel(),town,item,1,player.getUUID());
-            if(p!=null)offers.add(new Offer(item,p.price()));
+            var quote=KingdomMunicipalProcurement.select(
+                player.serverLevel(),town,item,1,player.getUUID());
+            if(quote==null)continue;
+            var food=KingdomNpcNutrition.inspect(quote.lot());
+            if(food==null)continue;
+            proposals.add(new KingdomMunicipalDietPlan.Candidate(
+                item,quote.price(),food.nutrients(),quote.lot().getCount(),
+                KingdomFoodFreshness.expiry(quote.lot())));
         }
+        List<Offer> offers=new ArrayList<>();
+        for(var best:KingdomMunicipalDietPlan.prioritize(demand,proposals,5))
+            offers.add(new Offer(best.itemId(),best.unitCopper()));
         List<String> shipments=new ArrayList<>();
         var orders=KingdomSupplyOrders.get(player.getServer());
         for(var receipt:KingdomMunicipalProcurementData.get(player.getServer()).all()) {
