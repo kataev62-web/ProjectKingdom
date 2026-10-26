@@ -28,6 +28,7 @@ public final class KingdomTavernImmigration {
 
     public static final int ALPHA_NPC_CAP=50;
     public static final int MAX_TAVERN_RESIDENTS=4;
+    public static final int MAX_SETTLEMENT_RESIDENTS=32;
     public static final long ARRIVAL_INTERVAL_TICKS=24000L; // One Minecraft day
     public static final int BED_RADIUS=10;
     public record Capacity(int beds,int residents,int places,int meals,boolean tavernReady,String message) {}
@@ -61,7 +62,7 @@ public final class KingdomTavernImmigration {
             return new Capacity(0,0,0,false,"Таверна должна стоять на земле своего владельца в городе");
         int beds=countBeds(level,core,firm.owner());
         int people=countResidents(server,town.id());
-        int places=Math.min(MAX_TAVERN_RESIDENTS,beds);
+        int places=Math.min(MAX_SETTLEMENT_RESIDENTS,beds);
         var food=KingdomTavernProvisions.inspect(level,enterprise);
         return new Capacity(beds,people,places,food.meals(),true,beds==0
                 ?"Для переселенцев нужны кровати под крышей на своей земле"
@@ -113,11 +114,65 @@ public final class KingdomTavernImmigration {
                                 &&!level.getBlockState(overhead).isAir()){roof=true;break;}
                     }
                     if(roof)beds.add(pos.immutable());
-                    if(beds.size()>=MAX_TAVERN_RESIDENTS)return beds;
+                    if(beds.size()>=MAX_TAVERN_RESIDENTS)
+                return withIndependentHousing(level,tavern,owner,beds);
                 }
             }
         }
-        return beds;
+        return withIndependentHousing(level,tavern,owner,beds);
+    }
+
+    /**
+     * A hamlet uses up to four tavern bunks. Every additional bunk must be
+     * sheltered inside a DIFFERENT, completed construction project on the
+     * same town's titled land. Moving a loose bed into a field does not count.
+     * Schematics serve as an immutable footprint, no chunks are force-loaded.
+     */
+    private static List<BlockPos> withIndependentHousing(ServerLevel level,BlockPos tavern,
+                                                         UUID owner,List<BlockPos> existing){
+        var civic=KingdomCivicsData.get(level.getServer());
+        var town=civic.townAt(level,tavern);
+        if(town==null)return existing;
+        var houseRegistry=ru.projectkingdom.property.KingdomRentalsData.get(level.getServer());
+        var inn=houseRegistry.atBuilding(level.dimension().location().toString(),tavern);
+        var plans=ru.projectkingdom.npc.KingdomConstructionData.get(level.getServer());
+        for(var project:plans.all()){
+            if(existing.size()>=MAX_SETTLEMENT_RESIDENTS)break;
+            if(project.status()!=ru.projectkingdom.npc.KingdomConstructionData.Status.COMPLETED
+                    ||!project.dimension().equals(level.dimension().location().toString()))continue;
+            BlockPos origin=new BlockPos(project.x(),project.y(),project.z());
+            if(origin.distSqr(tavern)<144 || origin.distSqr(tavern)>4096)continue;
+            var projectTown=civic.townAt(level,origin);
+            if(projectTown==null||!town.id().equals(projectTown.id()))continue;
+            if(inn!=null && inn.bounds().contains(origin))continue;
+            var design=ru.projectkingdom.npc.KingdomConstructionPlans.resolve(
+                    level.getServer(),project.design());
+            if(design==null||design.blocks().isEmpty())continue;
+            int minX=Integer.MAX_VALUE,minY=Integer.MAX_VALUE,minZ=Integer.MAX_VALUE;
+            int maxX=Integer.MIN_VALUE,maxY=Integer.MIN_VALUE,maxZ=Integer.MIN_VALUE;
+            for(var cell:design.blocks()){
+                minX=Math.min(minX,project.x()+cell.x());maxX=Math.max(maxX,project.x()+cell.x());
+                minY=Math.min(minY,project.y()+cell.y());maxY=Math.max(maxY,project.y()+cell.y());
+                minZ=Math.min(minZ,project.z()+cell.z());maxZ=Math.max(maxZ,project.z()+cell.z());
+            }
+            // A large frozen schematic is not allowed to cause a world-wide bed scan.
+            if(maxX-minX>31||maxZ-minZ>31||maxY-minY>15)continue;
+            for(int x=minX;x<=maxX && existing.size()<MAX_SETTLEMENT_RESIDENTS;x++)
+                for(int z=minZ;z<=maxZ && existing.size()<MAX_SETTLEMENT_RESIDENTS;z++)
+                    for(int y=minY;y<=maxY && existing.size()<MAX_SETTLEMENT_RESIDENTS;y++){
+                        BlockPos pos=new BlockPos(x,y,z);
+                        if(!level.hasChunkAt(pos)||existing.contains(pos)
+                                ||!owner.equals(civic.plotOwner(project.dimension(),x>>4,z>>4)))continue;
+                        if(!isSleepingPlace(level.getBlockState(pos)))continue;
+                        if(civic.leaseContract(project.dimension(),x>>4,z>>4)!=null)continue;
+                        if(houseRegistry.atRoom(project.dimension(),pos)!=null)continue;
+                        boolean roof=false;
+                        for(int h=2;h<=4;h++)if(level.hasChunkAt(pos.above(h))
+                                &&!level.getBlockState(pos.above(h)).isAir()){roof=true;break;}
+                        if(roof)existing.add(pos.immutable());
+                    }
+        }
+        return existing;
     }
 
     private static int countBeds(ServerLevel level,BlockPos tavern,UUID owner){
