@@ -459,11 +459,8 @@ public final class KingdomCivicsData extends SavedData {
         for(Town other:towns.values())
             if(!other.id().equals(town.id())&&other.name().equalsIgnoreCase(title))return false;
         for(Plot p:plots.values())if(town.id().equals(p.town()))return false;
-        for(UUID member:memberships.values()) {
-            // There must be exactly one member of this legacy town: the founder.
-            if(town.id().equals(member) && memberships.values().stream()
-                    .filter(town.id()::equals).count()!=1)return false;
-        }
+        // A populated city is never silently converted into a new founding.
+        if(memberships.values().stream().filter(town.id()::equals).count()!=1)return false;
         String plotKey=key(dim,cx,cz);
         if(plots.containsKey(plotKey))return false;
         towns.put(town.id(),new Town(town.id(),title,town.mayor(),town.nation(),town.treasury()));
