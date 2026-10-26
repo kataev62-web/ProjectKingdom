@@ -46,6 +46,12 @@ public final class KingdomNetwork {
                 ArchitectCatalogPacket::decode,ArchitectCatalogPacket::handle);
         CHANNEL.registerMessage(14,ArchitectCatalogActionPacket.class,ArchitectCatalogActionPacket::encode,
                 ArchitectCatalogActionPacket::decode,ArchitectCatalogActionPacket::handle);
+        CHANNEL.registerMessage(17,KingdomAdminDashboardPacket.class,
+                KingdomAdminDashboardPacket::encode,KingdomAdminDashboardPacket::decode,
+                KingdomAdminDashboardPacket::handle);
+        CHANNEL.registerMessage(18,KingdomAdminActionPacket.class,
+                KingdomAdminActionPacket::encode,KingdomAdminActionPacket::decode,
+                KingdomAdminActionPacket::handle);
         CHANNEL.registerMessage(20,OpenKingdomMapsFromBookPacket.class,OpenKingdomMapsFromBookPacket::encode,
                 OpenKingdomMapsFromBookPacket::decode,OpenKingdomMapsFromBookPacket::handle);
         CHANNEL.registerMessage(21,OpenKingdomMapsHubPacket.class,OpenKingdomMapsHubPacket::encode,
