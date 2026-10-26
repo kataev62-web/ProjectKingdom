@@ -29,6 +29,7 @@ public final class KingdomAdministrationData extends SavedData {
     public record WarrantEntry(UUID target,UUID caseId,String reason,long issuedAt) {}
     public record ExpansionDebit(UUID id,UUID townId,long copper,boolean refunded) {}
 
+    private transient MinecraftServer runtimeServer;
     private final Map<UUID,UUID> founders=new LinkedHashMap<>();
     private final Map<UUID,Map<UUID,EnumSet<MunicipalRole>>> roles=new LinkedHashMap<>();
     private final Map<UUID,EnumMap<AdministrativeKind,AdministrativeCoreBinding>> cores=new LinkedHashMap<>();
@@ -50,6 +51,7 @@ public final class KingdomAdministrationData extends SavedData {
     public static KingdomAdministrationData get(MinecraftServer server){
         KingdomAdministrationData data=server.overworld().getDataStorage()
                 .computeIfAbsent(KingdomAdministrationData::fromTag,KingdomAdministrationData::new,KEY);
+        data.runtimeServer=server;
         boolean changed=false;
         for(KingdomCivicsData.Town town:KingdomCivicsData.get(server).towns()){
             changed|=data.migrateFounder(town.id(),town.mayor())==1;
