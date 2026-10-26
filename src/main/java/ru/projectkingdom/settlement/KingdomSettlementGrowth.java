@@ -22,16 +22,18 @@ public final class KingdomSettlementGrowth {
     public static Rank forTown(KingdomCivicsData civics,KingdomConstructionData buildings,UUID townId,String dimension){
         var town=civics.townById(townId);
         if(town==null)return Rank.HAMLET;
-        int chunks=0, completed=0;
-        for(var p:civics.mapPlots(dimension))if(townId.equals(p.town()))chunks++;
-        // Only real FINISHED projects inside the same city's actual territorial chunks.
-        for(var project:buildings.all()){
+        java.util.Set<Long> owned=new java.util.HashSet<>();
+        for(var plot:civics.mapPlots(dimension))
+            if(townId.equals(plot.town()))
+                owned.add(((long)plot.x()<<32)|(plot.z()&0xffffffffL));
+        int completed=0;
+        // Only actual completed projects in the city's titled footprint count.
+        for(var project:buildings.all()) {
             if(project.status()!=KingdomConstructionData.Status.COMPLETED
                     ||!dimension.equals(project.dimension()))continue;
             int cx=project.x()>>4,cz=project.z()>>4;
-            if(civics.mapPlots(dimension).stream()
-                    .anyMatch(p->p.x()==cx&&p.z()==cz&&townId.equals(p.town())))completed++;
+            if(owned.contains(((long)cx<<32)|(cz&0xffffffffL)))completed++;
         }
-        return rank(chunks,completed);
+        return rank(owned.size(),completed);
     }
 }
