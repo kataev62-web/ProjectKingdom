@@ -12,6 +12,14 @@ public final class NpcIdentity {
             throw new IllegalArgumentException("Gender: male|female|unspecified");
         return g;
     }
+    /** Server-side gender cycle for the administrative NPC menu. */
+    public static String nextGender(String current) {
+        return switch (current) {
+            case "female" -> "male";
+            case "male" -> "unspecified";
+            default -> "female";
+        };
+    }
     public static int validAge(int value) {
         if (value < 0 || value > 120) throw new IllegalArgumentException("Age must be 0..120");
         return value;
