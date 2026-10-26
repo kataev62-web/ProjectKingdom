@@ -98,12 +98,15 @@ public final class KingdomHospitalityMenu extends ChestMenu {
         var cashier=EnterpriseAccessService.snapshot(viewer.serverLevel(),firms,enterprise,
                 EnterpriseBindingRole.CASHBOX);
         icon(2,Items.CHEST,"Касса предприятия: "+EnterpriseAccessService.display(cashier.status()));
-        icon(3,Items.COPPER_INGOT,"Цена указана за весь срок. Оплата монетами из кошелька сразу в кассу предприятия.");
+        if(kind==EnterpriseKind.TAVERN && manager)
+            icon(3,Items.BREAD,"Продукты таверны: ЛКМ — привязать сундук с настоящей едой");
+        else
+            icon(3,Items.COPPER_INGOT,"Цена за весь срок; оплата монетами прямо в кассу предприятия.");
         if(kind==EnterpriseKind.TAVERN){
             var arrivals=ru.projectkingdom.settlement.KingdomTavernImmigration.inspect(viewer.getServer(),enterprise);
-            icon(6,Items.VILLAGER_SPAWN_EGG,"Переселенцы: "+arrivals.residents()+"/"+arrivals.places()+" | "+arrivals.message());
-            icon(7,Items.RED_BED,"Спальные места: "+arrivals.beds()+" | кровати должны быть под крышей на вашей земле");
-            icon(8,Items.CLOCK,"Жители появляются постепенно: не чаще одного за игровые сутки, при игроке рядом");
+            icon(6,Items.VILLAGER_SPAWN_EGG,"Переселенцы без профессии: "+arrivals.residents()+"/"+arrivals.places()+" | "+arrivals.message());
+            icon(7,Items.RED_BED,"Кровати под крышей: "+arrivals.beds()+" | 1 место = 1 житель");
+            icon(8,Items.BREAD,"Свежие порции в таверне: "+arrivals.meals()+" | минимум 2 для приглашения");
         }
         if(manager){
             icon(4,Items.OAK_SIGN,"Владелец: привязать здание, в котором установлена стойка");
@@ -140,6 +143,14 @@ public final class KingdomHospitalityMenu extends ChestMenu {
         var rentals=KingdomRentalsData.get(viewer.getServer());
         if(slot==21){page=Math.max(0,page-1);selected=null;render();return;}
         if(slot==22){page++;selected=null;render();return;}
+        if(slot==3&&kind==EnterpriseKind.TAVERN&&manager()){
+            boolean started=EnterpriseAccessService.begin(viewer,enterprise,EnterpriseBindingRole.RAW_STORAGE);
+            if(started){
+                send("Сейчас нажмите ПКМ по своему сундуку с продуктами рядом с таверной. Только реальные свежие продукты привлекают жителей.");
+                viewer.closeContainer();
+            }else send("Не удалось начать привязку продуктов.");
+            return;
+        }
         if(slot==4&&manager()){
             var deeds=KingdomCivicsData.get(viewer.getServer());
             boolean ok=rentals.bindReception(deeds,viewer.getUUID(),enterprise,
