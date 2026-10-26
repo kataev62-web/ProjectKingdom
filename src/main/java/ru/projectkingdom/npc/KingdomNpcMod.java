@@ -830,6 +830,12 @@ public final class KingdomNpcMod {
             event.setCanceled(true);
     }
 
+    @SubscribeEvent
+    public void voiceLogout(PlayerEvent.PlayerLoggedOutEvent event) {
+        if(event.getEntity() instanceof ServerPlayer player)
+            ru.projectkingdom.network.NpcVoiceRequestPacket.forget(player.getUUID());
+    }
+
     /** Vanilla villager remains interactive; avoid opening its trade UI for tracked workers. */
     @SubscribeEvent
     public void interact(PlayerInteractEvent.EntityInteract event) {

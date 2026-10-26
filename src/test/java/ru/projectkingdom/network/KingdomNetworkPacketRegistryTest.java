@@ -20,8 +20,10 @@ class KingdomNetworkPacketRegistryTest {
             assertTrue(used.add(id),"Duplicate Kingdom packet id "+id);
             count++;
         }
-        assertTrue(count>=18);
-        assertTrue(source.contains("private static final String PROTOCOL=\"5\""),
-                "Municipal food screen requires packet version 5");
+        assertTrue(count>=21);
+        assertTrue(source.contains("private static final String PROTOCOL=\"6\""),
+                "Integrated voice and current UI require matching packet version 6");
+        assertTrue(source.contains("40,NpcVoiceRequestPacket.class"));
+        assertTrue(source.contains("41,NpcSpeechPacket.class"));
     }
 }

@@ -3,7 +3,7 @@ plugins {
     id 'idea'
     id 'net.minecraftforge.gradle' version '[6.0,6.2)'
 }
-version = '0.1.0-stage0-dev'
+version = '0.1.0-stage0-voice1'
 group = 'ru.projectkingdom'
 base { archivesName = 'kingdomnpc' }
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -15,11 +15,81 @@ minecraft {
     }
 }
 repositories { mavenCentral() }
+
+configurations {
+    voiceRuntime
+}
+
 dependencies {
     minecraft 'net.minecraftforge:forge:1.20.1-47.3.0'
+    compileOnly 'com.alphacephei:vosk:0.3.45'
+    // Forge runClient uses the source-set classpath rather than the shaded mod JAR.
+    runtimeOnly('com.alphacephei:vosk:0.3.45') { transitive = false }
+    voiceRuntime('com.alphacephei:vosk:0.3.45') { transitive = false }
     testImplementation platform('org.junit:junit-bom:5.10.3')
     testImplementation 'org.junit.jupiter:junit-jupiter'
 }
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 tasks.named('test') { useJUnitPlatform() }
-jar { manifest { attributes(['Specification-Title':'Kingdom NPC', 'Implementation-Version':project.version]) } }
+
+// Split only the source archive to stay below the GitHub connector request limit.
+// The installed mod still contains the original single, checksum-pinned model ZIP.
+def voskModelParts = (1..5).collect { index ->
+    layout.projectDirectory.file(String.format(
+            'voice-model/vosk-model-small-ru-0.22.zip.part%02d', index))
+}
+def voskModel = layout.buildDirectory.file('generated/voice/vosk-model-small-ru-0.22.zip')
+tasks.register('assembleVoskModel') {
+    inputs.files(voskModelParts)
+    outputs.file(voskModel)
+    doLast {
+        File archive = voskModel.get().asFile
+        archive.parentFile.mkdirs()
+        archive.withOutputStream { output ->
+            voskModelParts.each { part ->
+                part.asFile.withInputStream { input -> input.transferTo(output) }
+            }
+        }
+    }
+}
+def voskModelSize = 46236750L
+def voskModelSha256 = '961d5ff98a17f4aa6de69864d0aa71fa5bac682301d2b5d17a3f24c5c99a46d4'
+
+tasks.register('verifyVoskModel') {
+    dependsOn tasks.named('assembleVoskModel')
+    inputs.file(voskModel)
+    doLast {
+        File archive = voskModel.get().asFile
+        if (archive.length() != voskModelSize) {
+            throw new GradleException("Unexpected Vosk model size: ${archive.length()}")
+        }
+        def digest = java.security.MessageDigest.getInstance('SHA-256')
+        archive.withInputStream { input ->
+            byte[] buffer = new byte[8192]
+            for (int read = input.read(buffer); read >= 0; read = input.read(buffer)) {
+                if (read > 0) digest.update(buffer, 0, read)
+            }
+        }
+        String actual = digest.digest().collect { String.format('%02x', it) }.join()
+        if (actual != voskModelSha256) {
+            throw new GradleException("Unexpected Vosk model SHA-256: ${actual}")
+        }
+    }
+}
+
+tasks.named('processResources') {
+    dependsOn tasks.named('verifyVoskModel')
+    from(voskModel) { into 'assets/kingdomnpc/voice' }
+}
+
+jar {
+    dependsOn configurations.voiceRuntime
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.voiceRuntime.collect { dependency ->
+            dependency.isDirectory() ? dependency : zipTree(dependency)
+        }
+    }
+    exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
+    manifest { attributes(['Specification-Title':'Kingdom NPC', 'Implementation-Version':project.version]) }
+}

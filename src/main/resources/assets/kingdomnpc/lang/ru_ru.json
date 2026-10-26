@@ -35,5 +35,7 @@
   "block.kingdomnpc.managed_storage": "Складская ячейка",
   "item.kingdomnpc.managed_storage": "Складская ячейка",
   "block.kingdomnpc.demand_board": "Доска потребностей",
-  "item.kingdomnpc.demand_board": "Доска потребностей"
+  "item.kingdomnpc.demand_board": "Доска потребностей",
+  "key.categories.kingdomnpc": "Project Kingdom",
+  "key.kingdomnpc.talk": "Говорить с NPC"
 }
