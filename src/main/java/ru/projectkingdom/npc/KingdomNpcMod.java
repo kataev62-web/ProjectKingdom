@@ -1102,7 +1102,8 @@ public final class KingdomNpcMod {
                         boolean needsHome = "SEEK_SHELTER".equals(w.autonomousIntent)
                             || "REST".equals(w.autonomousIntent)
                             || ("EAT".equals(w.autonomousIntent)
-                                && KingdomNpcFarmOwner.ownedFarm(server,w)==null);
+                                && KingdomNpcFarmOwner.ownedFarm(server,w)==null
+                                && !KingdomMunicipalCanteen.walkingForMeal(server,w));
                         if (needsHome && w.hasHome) {
                             BlockPos home = new BlockPos(w.homeX, w.homeY, w.homeZ);
                             if (level.hasChunkAt(home)) {
