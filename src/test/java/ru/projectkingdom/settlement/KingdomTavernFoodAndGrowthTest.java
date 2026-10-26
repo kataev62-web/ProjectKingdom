@@ -52,5 +52,11 @@ final class KingdomTavernFoodAndGrowthTest {
         assertTrue(immigration.contains("KingdomConstructionData.Status.COMPLETED"));
         assertTrue(menu.contains("EnterpriseAccessService.begin(viewer,enterprise,EnterpriseBindingRole.RAW_STORAGE)"));
         assertTrue(menu.contains("arrivals.meals()"));
+        String service=code("settlement/KingdomTavernMeals.java");
+        assertTrue(service.contains("worker.lastMealDay>=day"));
+        assertTrue(service.contains("KingdomTavernProvisions.consume(food)"));
+        assertTrue(service.contains("KingdomNpcNutrition.eat(worker,food.nutrition())"));
+        assertTrue(service.contains("worker.employer!=null"));
+        assertTrue(code("npc/KingdomNpcMod.java").contains("KingdomTavernMeals.tick(server)"));
     }
 }
