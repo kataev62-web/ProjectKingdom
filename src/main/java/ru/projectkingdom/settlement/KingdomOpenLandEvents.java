@@ -44,7 +44,9 @@ public final class KingdomOpenLandEvents {
                 ||!temporary.track(level,pos))event.setCanceled(true);
     }
     @SubscribeEvent public static void tick(TickEvent.ServerTickEvent event){
-        if(event.phase!=TickEvent.Phase.END || event.getServer().getTickCount()%20!=0)return;
-        KingdomTemporaryBlocks.get(event.getServer()).tick(event.getServer());
+        if(event.phase!=TickEvent.Phase.END)return;
+        var server=net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
+        if(server==null||server.getTickCount()%20!=0)return;
+        KingdomTemporaryBlocks.get(server).tick(server);
     }
 }
