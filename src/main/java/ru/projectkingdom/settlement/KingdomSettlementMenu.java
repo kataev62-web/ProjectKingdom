@@ -34,7 +34,7 @@ public final class KingdomSettlementMenu extends AbstractContainerMenu {
         var town=core.townId()==null?null:civic.townById(core.townId());
         String name=town==null?"Новый хутор":
                 KingdomSettlementGrowth.forTown(civic,KingdomConstructionData.get(player.getServer()),
-                    town.id(),player.serverLevel().dimension().location().toString()).title()+" «"+town.name()+"»";
+                    town.id(),player.serverLevel().dimension().location().toString(),player.getServer()).title()+" «"+town.name()+"»";
         BlockPos pos=core.getBlockPos().immutable();
         boolean founded=core.founded();
         NetworkHooks.openScreen(player,new MenuProvider(){
