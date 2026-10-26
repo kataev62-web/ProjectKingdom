@@ -77,21 +77,31 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         drawPageHeading(graphics, right, rightHeading());
         renderLeftPage(graphics, left);
         renderRightPage(graphics, right);
-        drawPageNumber(graphics, left, "I");
-        drawPageNumber(graphics, right, "II");
+        // The identity spread uses the complete parchment height for essential details.
+        if(selected!=BookModel.Section.PLAYER) {
+            drawPageNumber(graphics, left, "I");
+            drawPageNumber(graphics, right, "II");
+        }
     }
 
     private void renderLeftPage(GuiGraphics graphics, KingdomBookLayout.Rect page) {
         int center = page.x() + page.width() / 2;
         int y = page.y() + 31;
-        graphics.renderItem(iconFor(selected), center - 8, y);
+        if(selected!=BookModel.Section.PLAYER)graphics.renderItem(iconFor(selected), center - 8, y);
 
         switch (selected) {
             case PLAYER -> {
-                centerText(graphics, playerName(), center, y + 23, INK);
-                centerText(graphics, "● ПЕРСОНАЖ АКТИВЕН", center, y + 37, SUCCESS);
-                divider(graphics, page, y + 54);
-                wrapped(graphics, "Эта книга навсегда связана с вашим персонажем.", page, y + 64);
+                var social=menu.social();
+                // The very first book spread is a character identity card, not a finance tab.
+                graphics.renderItem(new ItemStack(Items.PLAYER_HEAD),page.x()+10,page.y()+28);
+                clippedLine(graphics,playerName(),page.x()+30,page.y()+33,page.width()-40,INK);
+                divider(graphics,page,page.y()+55);
+                label(graphics,"СОЦИАЛЬНЫЙ СТАТУС",page.x()+10,page.y()+61);
+                profileLines(graphics,social.rankName(),page.x()+10,page.y()+74,page.width()-20,2,INK);
+                label(graphics,"ДОЛЖНОСТЬ",page.x()+10,page.y()+100);
+                profileLines(graphics,social.officeSummary(),page.x()+10,page.y()+113,page.width()-20,2,INK);
+                label(graphics,"ТИТУЛ",page.x()+10,page.y()+138);
+                clippedLine(graphics,social.legalTitle(),page.x()+10,page.y()+151,page.width()-20,INK);
             }
             case BANK -> {
                 centerText(graphics, "ЛИЧНЫЙ СЧЁТ", center, y + 24, INK);
@@ -118,13 +128,19 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
 
         switch (selected) {
             case PLAYER -> {
-                label(graphics, "ВЛАДЕЛЕЦ", x, y);
-                centerText(graphics, playerName(), center, y + 16, INK);
-                divider(graphics, page, y + 31);
-                label(graphics, "СТАТУС КНИГИ", x, y + 43);
-                graphics.drawString(font, KingdomFonts.readable("Выдана"), x, y + 58, SUCCESS, false);
-                label(graphics, "СЛЕДУЮЩИЕ ГЛАВЫ", x, y + 82);
-                wrapped(graphics, "Профессия, титул и репутация будут подключены позже.", page, y + 96);
+                var social=menu.social();
+                label(graphics,"ГРАЖДАНСТВО",x,page.y()+25);
+                clippedLine(graphics,social.city(),x,page.y()+36,page.width()-20,INK);
+                clippedLine(graphics,social.nation(),x,page.y()+47,page.width()-20,INK_MUTED);
+                divider(graphics,page,page.y()+61);
+                label(graphics,"РЕПУТАЦИЯ",x,page.y()+66);
+                clippedLine(graphics,social.cityReputation()+" / 200",x,page.y()+78,page.width()-20,INK);
+                clippedLine(graphics,social.standing(),x,page.y()+90,page.width()-20,INK_MUTED);
+                label(graphics,"ЗАНЯТОСТЬ",x,page.y()+106);
+                clippedLine(graphics,social.occupation(),x,page.y()+118,page.width()-20,INK);
+                label(graphics,"НАГРАДЫ",x,page.y()+133);
+                clippedLine(graphics,social.civicHonor(),x,page.y()+145,page.width()-20,INK);
+                clippedLine(graphics,social.nationalHonor(),x,page.y()+157,page.width()-20,INK_MUTED);
             }
             case BANK -> renderAmount(graphics, page, y, "БАЛАНС", menu.bankBalance(),
                     "Пополнение через лаунчер будет подключено после выбора провайдера.");
@@ -144,6 +160,23 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
                 wrapped(graphics, "Границы синхронизируются с сервером.", page, y + 70);
             }
         }
+    }
+
+    /** One- or two-line identity fields are bounded to the actual Minecraft book page. */
+    private void profileLines(GuiGraphics graphics,String value,int x,int y,int maxWidth,int maxLines,int color) {
+        var lines=font.split(KingdomFonts.readable(value==null?"Нет":value),maxWidth);
+        int show=Math.min(lines.size(),maxLines);
+        for(int index=0;index<show;index++)
+            graphics.drawString(font,lines.get(index),x,y+index*10,color,false);
+    }
+
+    private void clippedLine(GuiGraphics graphics,String value,int x,int y,int maxWidth,int color) {
+        String printable=value==null?"Нет":value;
+        if(font.width(KingdomFonts.readable(printable))>maxWidth) {
+            int available=Math.max(0,maxWidth-font.width("…"));
+            printable=font.plainSubstrByWidth(printable,available)+"…";
+        }
+        graphics.drawString(font,KingdomFonts.readable(printable),x,y,color,false);
     }
 
     private void renderAmount(GuiGraphics graphics, KingdomBookLayout.Rect page, int y,
@@ -235,6 +268,16 @@ public final class KingdomBookScreen extends AbstractContainerScreen<KingdomBook
         renderBackground(graphics);
         super.render(graphics, mouseX, mouseY, partialTick);
         renderTooltip(graphics, mouseX, mouseY);
+        // An inhabitant can hold several offices; show the complete server-known list on hover.
+        if(selected==BookModel.Section.PLAYER) {
+            var page=KingdomBookLayout.leftPage();
+            int minX=leftPos+page.x()+10, minY=topPos+page.y()+113;
+            if(mouseX>=minX&&mouseX<=minX+page.width()-20
+                    &&mouseY>=minY&&mouseY<=minY+26
+                    &&!"Нет".equals(menu.social().office())) {
+                graphics.renderTooltip(font,KingdomFonts.readable(menu.social().office()),mouseX,mouseY);
+            }
+        }
     }
 
     private final class SectionTab extends AbstractButton {

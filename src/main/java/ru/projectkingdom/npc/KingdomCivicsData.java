@@ -245,6 +245,12 @@ public final class KingdomCivicsData extends SavedData {
         KingdomCivicsData data=server.overworld().getDataStorage().computeIfAbsent(KingdomCivicsData::load, KingdomCivicsData::new, KEY);
         data.runtimeServer=server;return data;
     }
+    /** Read-only count of personally purchased plots, excluding leases and public town property. */
+    public Map<UUID,Long> purchasedPlotOwnerCounts() {
+        Map<UUID,Long> counts=new LinkedHashMap<>();
+        for(UUID owner:plotOwners.values())counts.merge(owner,1L,Long::sum);
+        return Collections.unmodifiableMap(counts);
+    }
     public Collection<Town> towns() { return Collections.unmodifiableCollection(towns.values()); }
     /** Read-only source of truth for map integrations. Never mutate claims from a map renderer. */
     public Collection<Plot> mapPlots(String dimension) {
