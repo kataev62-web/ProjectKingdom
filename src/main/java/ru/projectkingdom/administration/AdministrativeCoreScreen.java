@@ -302,17 +302,15 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     line(g,"Годных порций: "+v.edible()+" / цель: "+v.target(),58,125,INK);
                     line(g,"Испорчено: "+v.rotten()+" | не хватает: "+v.missing(),58,141,v.missing()>0?ACCENT:MUTED);
                     var diet=v.diet();
-                    long aim=diet.groupTarget();
-                    line(g,"Цель по питанию: "+aim+" в каждой группе TFC",58,153,MUTED);
-                    line(g,"Зерно "+v.groups().get(0)+" / Фрукты "+v.groups().get(1)
-                        +" / Овощи "+v.groups().get(2),58,164,INK);
-                    line(g,"Белки "+v.groups().get(3)+" / Молочное "+v.groups().get(4)
-                        +" | главный дефицит: "+(diet.greatestDeficit()<0?"нет":
-                            ru.projectkingdom.npc.KingdomMunicipalDietPlan.groupName(
-                                diet.greatestDeficit())),58,175,diet.greatestDeficit()<0?MUTED:ACCENT);
+                    line(g,"Рацион: цель "+diet.groupTarget()+" на группу, нехватка: "+
+                        (diet.greatestDeficit()<0?"нет":ru.projectkingdom.npc.KingdomMunicipalDietPlan
+                            .groupName(diet.greatestDeficit())),58,157,diet.greatestDeficit()<0?MUTED:ACCENT);
+                    line(g,"З "+v.groups().get(0)+" Ф "+v.groups().get(1)
+                        +" О "+v.groups().get(2)+" Б "+v.groups().get(3)
+                        +" М "+v.groups().get(4),58,169,INK);
                 }
             }
-            if(v.canConfigure())line(g,"Население:",58,193,MUTED);
+            if(v.canConfigure())line(g,"Население:",58,177,MUTED);
         }else if(foodPage==1){
             line(g,"По дефициту рациона — проверенные товары рынка",58,103,MUTED);
             for(int i=0;i<v.offers().size();i++){
