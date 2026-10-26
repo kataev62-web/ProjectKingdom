@@ -31,7 +31,9 @@ public final class KingdomArchitectCatalogScreen extends Screen {
     private KingdomArchitectModelRenderer.Model model;
     private EditBox copyName;
     private int x,y,w,h,listWidth,rows,offset;
-    private boolean allMaterials,expanded;
+    private boolean allMaterials;
+    private Button materialButton;
+    private Button rotateLeft,rotateRight;
     private int materialOffset;
     private float viewAngle=42,zoom=1;
 
@@ -51,7 +53,7 @@ public final class KingdomArchitectCatalogScreen extends Screen {
             screen.model=KingdomArchitectModelRenderer.decode(packet.miniature());
             screen.materialOffset=0;
             screen.allMaterials=false;
-            screen.expanded=false;
+            screen.refreshMaterialsButton();
             screen.viewAngle=42;screen.zoom=1;
             screen.revealSelected();
             return;
@@ -78,11 +80,14 @@ public final class KingdomArchitectCatalogScreen extends Screen {
         int rightX=x+listWidth+8;
         int rightW=w-listWidth-16;
         int footer=y+h-25;
-        int btnWidth=Math.max(68,(rightW-8)/2);
-
+        int btnWidth=Math.max(64,(rightW-8)/3);
+        materialButton=addRenderableWidget(Button.builder(Component.literal("Материалы"),b->{
+            allMaterials=!allMaterials;materialOffset=0;
+            refreshMaterialsButton();
+        }).bounds(rightX,footer,btnWidth,20).build());
         addRenderableWidget(Button.builder(Component.literal("Разместить"),b->
             send(ArchitectCatalogActionPacket.PLACE,data.selected(),""))
-            .bounds(rightX,footer,btnWidth,20).build());
+            .bounds(rightX+btnWidth+4,footer,btnWidth,20).build());
         addRenderableWidget(Button.builder(Component.literal("Копировать"),b->{
             String val=copyName.getValue();
             if(!val.matches("[a-z0-9_-]{1,48}")){
@@ -93,7 +98,7 @@ public final class KingdomArchitectCatalogScreen extends Screen {
             }
             send(ArchitectCatalogActionPacket.COPY,data.selected(),val);
             minecraft.setScreen(null);
-        }).bounds(rightX+btnWidth+8,footer,btnWidth,20).build());
+        }).bounds(rightX+(btnWidth+4)*2,footer,btnWidth,20).build());
 
         // The copy filename belongs to the left navigation column, not in
         // the valuable preview/material area.
@@ -109,21 +114,19 @@ public final class KingdomArchitectCatalogScreen extends Screen {
             offset=Math.min(Math.max(0,data.entries().size()-rows),offset+rows))
             .bounds(x+listWidth-26,footer,20,20).build());
 
-        // The full bill is an explicit button, not a hidden action on the
-        // building illustration as before.
-        int materialTabY=y+Math.max(107,h-91);
-        var materials=Button.builder(Component.literal("Все материалы ("+data.materials().size()+")"),
-            b->{allMaterials=!allMaterials;materialOffset=0;})
-            .bounds(rightX,materialTabY,rightW,17).build();
-        materials.setTooltip(Tooltip.create(Component.literal(
-            "Показать все материалы, включая редкие блоки; колесо мыши листает список")));
-        addRenderableWidget(materials);
-
         int miniTop=y+42;
-        addRenderableWidget(Button.builder(Component.literal("↶"),b->
+        rotateLeft=addRenderableWidget(Button.builder(Component.literal("↶"),b->
             viewAngle-=30).bounds(rightX+2,miniTop+2,18,17).build());
-        addRenderableWidget(Button.builder(Component.literal("↷"),b->
+        rotateRight=addRenderableWidget(Button.builder(Component.literal("↷"),b->
             viewAngle+=30).bounds(rightX+rightW-20,miniTop+2,18,17).build());
+        refreshMaterialsButton();
+    }
+
+    private void refreshMaterialsButton(){
+        if(materialButton!=null)materialButton.setMessage(
+            Component.literal(allMaterials?"К модели":"Материалы"));
+        if(rotateLeft!=null)rotateLeft.visible=!allMaterials;
+        if(rotateRight!=null)rotateRight.visible=!allMaterials;
     }
 
     private void revealSelected(){
@@ -134,7 +137,7 @@ public final class KingdomArchitectCatalogScreen extends Screen {
     private int rightX(){return x+listWidth+8;}
     private int rightWidth(){return w-listWidth-16;}
     private int previewTop(){return y+42;}
-    private int previewHeight(){return Math.max(55,h-154);}
+    private int previewHeight(){return Math.max(55,h-170);}
     private boolean inPreview(double mx,double my){
         return mx>=rightX()&&mx<rightX()+rightWidth()
             &&my>=previewTop()&&my<previewTop()+previewHeight();
@@ -212,29 +215,27 @@ public final class KingdomArchitectCatalogScreen extends Screen {
             rx+rw/2,y+28,GOLD);
 
         int pt=previewTop(),ph=previewHeight();
-        gfx.fill(rx,pt,rx+rw,pt+ph,0xFF151C18);
-        gfx.enableScissor(rx+2,pt+2,rx+rw-2,pt+ph-2);
         if(allMaterials){
-            gfx.drawString(font,"Полная ведомость блоков",rx+23,pt+5,GOLD,false);
-            renderMaterials(gfx,rx+3,pt+20,rw-6,Math.max(30,h-113),true);
+            gfx.fill(rx,pt,rx+rw,y+h-29,0xFF151C18);
+            gfx.drawString(font,"Список материалов ("+data.materials().size()+" видов)",
+                rx+3,pt+4,GOLD,false);
+            renderMaterials(gfx,rx+3,pt+17,rw-6,
+                Math.max(20,(y+h-30)-(pt+17)),true);
         }else{
+            gfx.fill(rx,pt,rx+rw,pt+ph,0xFF151C18);
+            gfx.enableScissor(rx+2,pt+2,rx+rw-2,pt+ph-2);
             KingdomArchitectModelRenderer.draw(gfx,model,rx+2,pt+2,rw-4,ph-4,
                 viewAngle,zoom);
-        }
-        gfx.disableScissor();
-
-        int infoY=pt+ph+4;
-        gfx.drawString(font,"Размер: "+current.width()+" × "+current.length()
-            +" × "+current.height(),rx+2,infoY,BEIGE,false);
-        gfx.drawString(font,"Всего блоков: "+current.blocks(),rx+2,infoY+12,GOLD,false);
-
-        // At least the major materials are always legible by icon and localized
-        // name, without knowing to click on a drawing.
-        int materialsY=y+Math.max(107,h-91);
-        if(!allMaterials){
-            gfx.drawString(font,"Основные материалы:",rx+2,materialsY-11,SOFT,false);
-            renderMaterials(gfx,rx+3,materialsY+18,rw-6,
-                Math.max(1,(y+h-28)-(materialsY+18)),false);
+            gfx.disableScissor();
+            int infoY=pt+ph+4;
+            gfx.drawString(font,"Размер: "+current.width()+" × "+current.length()
+                +" × "+current.height(),rx+2,infoY,BEIGE,false);
+            gfx.drawString(font,"Всего блоков: "+current.blocks(),rx+2,infoY+12,GOLD,false);
+            // Major materials are visible WITHOUT opening the full bill.
+            int materialStart=y+h-80;
+            gfx.drawString(font,"Основные материалы:",rx+2,materialStart-11,SOFT,false);
+            renderMaterials(gfx,rx+3,materialStart,rw-6,
+                Math.max(1,(y+h-29)-materialStart),false);
         }
         super.render(gfx,mouseX,mouseY,delta);
     }
