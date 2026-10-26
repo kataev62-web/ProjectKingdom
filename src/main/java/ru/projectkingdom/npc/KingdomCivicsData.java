@@ -445,6 +445,32 @@ public final class KingdomCivicsData extends SavedData {
         if(mayor==null || townOf(mayor)!=null || name==null || name.isBlank() || name.length()>48)return null;
         Town t=new Town(UUID.randomUUID(),name,mayor,null,0);towns.put(t.id(),t);memberships.put(mayor,t.id());setDirty();return t;
     }
+    /**
+     * Repair ONLY an older menu-created empty town that never received land.
+     * Preserve the Town UUID, mayor, nation and treasury. Never overwrite a
+     * populated/claimed town or silently create a second settlement.
+     * Caller has already checked the authoritative and legacy chunk claims.
+     */
+    public boolean bootstrapEmptyLegacyTown(UUID actor,String title,String dim,int cx,int cz){
+        Town town=townOf(actor);
+        if(town==null||actor==null||!actor.equals(town.mayor())
+                ||title==null||title.isBlank()||title.length()>32
+                ||dim==null||dim.isBlank())return false;
+        for(Town other:towns.values())
+            if(!other.id().equals(town.id())&&other.name().equalsIgnoreCase(title))return false;
+        for(Plot p:plots.values())if(town.id().equals(p.town()))return false;
+        for(UUID member:memberships.values()) {
+            // There must be exactly one member of this legacy town: the founder.
+            if(town.id().equals(member) && memberships.values().stream()
+                    .filter(town.id()::equals).count()!=1)return false;
+        }
+        String plotKey=key(dim,cx,cz);
+        if(plots.containsKey(plotKey))return false;
+        towns.put(town.id(),new Town(town.id(),title,town.mayor(),town.nation(),town.treasury()));
+        plots.put(plotKey,new Plot(dim,cx,cz,town.id(),null,Zone.PUBLIC,false));
+        setDirty();return true;
+    }
+
     public boolean joinTown(UUID player,UUID townId) {
         if(player==null||memberships.containsKey(player)||!towns.containsKey(townId))return false;
         memberships.put(player,townId);setDirty();return true;
