@@ -87,10 +87,10 @@ public final class KingdomTavernImmigration {
     }
 
     /** Count only owned, sheltered, unloaded-safe bed HEAD blocks (one per bed). */
-    private static int countBeds(ServerLevel level,BlockPos tavern,UUID owner) {
+    private static List<BlockPos> sleepingPlaces(ServerLevel level,BlockPos tavern,UUID owner) {
         var civics=KingdomCivicsData.get(level.getServer());
         String dim=level.dimension().location().toString();
-        int beds=0;
+        List<BlockPos> beds=new ArrayList<>();
         for(int dx=-BED_RADIUS;dx<=BED_RADIUS;dx++){
             for(int dz=-BED_RADIUS;dz<=BED_RADIUS;dz++){
                 for(int dy=-3;dy<=4;dy++){
@@ -109,12 +109,16 @@ public final class KingdomTavernImmigration {
                         if(level.hasChunkAt(overhead)
                                 &&!level.getBlockState(overhead).isAir()){roof=true;break;}
                     }
-                    if(roof)beds++;
-                    if(beds>=MAX_TAVERN_RESIDENTS)return beds;
+                    if(roof)beds.add(pos.immutable());
+                    if(beds.size()>=MAX_TAVERN_RESIDENTS)return beds;
                 }
             }
         }
         return beds;
+    }
+
+    private static int countBeds(ServerLevel level,BlockPos tavern,UUID owner){
+        return sleepingPlaces(level,tavern,owner).size();
     }
 
     /** Server-only, bounded, no chunk forcing. A nearby player witnesses arrival. */
@@ -151,6 +155,18 @@ public final class KingdomTavernImmigration {
             if(!arrivals.ready(town.id(),tick))continue;
             BlockPos spawn=safeSpawn(level,tavern,town.id());
             if(spawn==null)continue;
+            // Never assign the same physical bunk to multiple NPCs.
+            BlockPos home=null;
+            for(BlockPos bed:sleepingPlaces(level,tavern,firm.owner())){
+                boolean taken=false;
+                for(var worker:npcDb.all()){
+                    if(town.id().toString().equals(worker.settlement)&&worker.hasHome
+                            &&worker.homeX==bed.getX()&&worker.homeY==bed.getY()
+                            &&worker.homeZ==bed.getZ()) {taken=true;break;}
+                }
+                if(!taken){home=bed;break;}
+            }
+            if(home==null)continue;
             Villager villager=EntityType.VILLAGER.create(level);
             if(villager==null)continue;
             villager.moveTo(spawn.getX()+.5,spawn.getY(),spawn.getZ()+.5,level.random.nextFloat()*360f,0);
@@ -163,6 +179,10 @@ public final class KingdomTavernImmigration {
             if(!level.addFreshEntity(villager))continue;
             var created=npcDb.add(villager.getUUID(),name,binding.dimension(),level.getDayTime()/24000L);
             created.settlement=town.id().toString();
+            created.hasHome=true;
+            created.homeX=home.getX();
+            created.homeY=home.getY();
+            created.homeZ=home.getZ();
             created.order="wander";
             created.hunger=80;
             created.morale=65;
