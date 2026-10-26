@@ -29,11 +29,12 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private Button foodReload;
     private final List<Button> foodOffers=new ArrayList<>();
     private EditBox foodResidents,foodQuantity;
-    private Button foodSave,foodBuy;
+    private Button foodSave,foodBuy,foodRations;
     private String selectedFood;
     public AdministrativeCoreScreen(AdministrativeCoreMenu menu,Inventory inventory,Component title){
         super(menu,inventory,KingdomFonts.readable(title));imageWidth=AdministrativeMenuLayout.WIDTH;imageHeight=AdministrativeMenuLayout.HEIGHT;
-        if(!menu.foodView().notice().isBlank())
+        if(!menu.foodView().notice().isBlank()
+                && !menu.foodView().notice().startsWith("Городские пайки NPC:"))
             selected=AdministrativeMenuLayout.Tab.FOOD;
         else if(menu.kind()==AdministrativeKind.TREASURY || menu.kind()==AdministrativeKind.BANK)
             selected=AdministrativeMenuLayout.Tab.FINANCE;
@@ -159,6 +160,9 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         foodQuantity.setMaxLength(2);
         foodQuantity.setFilter(value->value.matches("[0-9]*"));
         foodQuantity.setValue("1");
+        foodRations=addRenderableWidget(Button.builder(KingdomFonts.readable("Пайки NPC: вкл/выкл"),
+                ignored->sendText("food_rations","toggle"))
+                .bounds(leftPos+125,topPos+182,178,17).build());
         foodBuy=addRenderableWidget(Button.builder(KingdomFonts.readable("Купить в казну"),
                 ignored->{
                     if(selectedFood!=null)
@@ -197,6 +201,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         if(foodResidents!=null)foodResidents.setVisible(food&&foodPage==0&&menu.foodView().canConfigure());
         if(foodSave!=null)foodSave.visible=food&&foodPage==0&&menu.foodView().canConfigure();
         if(foodQuantity!=null)foodQuantity.setVisible(food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager());
+        if(foodRations!=null)foodRations.visible=food&&foodPage==2
+            &&menu.foodView().canConfigure();
         if(foodBuy!=null){foodBuy.visible=food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager();
             foodBuy.active=selectedFood!=null&&menu.foodView().complete();}
 
