@@ -173,7 +173,14 @@ public final class KingdomTavernImmigration {
             if(villager==null)continue;
             villager.moveTo(spawn.getX()+.5,spawn.getY(),spawn.getZ()+.5,level.random.nextFloat()*360f,0);
             villager.setPersistenceRequired();
-            String name="Переселенец "+(available.residents()+1);
+            int nextId=npcDb.nextId;
+            boolean woman=(nextId&1)==0;
+            String[] first=woman?new String[]{"Марья","Анна","Дарья","Аглая","Варвара","Василиса"}
+                    :new String[]{"Мирон","Егор","Тихон","Степан","Илья","Фёдор"};
+            String[] families=woman?new String[]{"Соколова","Лескова","Мельникова","Кузнецова"}
+                    :new String[]{"Соколов","Лесков","Мельников","Кузнецов"};
+            String family=families[(nextId/first.length)%families.length];
+            String name=first[nextId%first.length]+" "+family;
             villager.setCustomName(Component.literal(name));
             villager.setCustomNameVisible(true);
             if(!level.noCollision(villager))continue;
@@ -181,6 +188,9 @@ public final class KingdomTavernImmigration {
             if(!level.addFreshEntity(villager))continue;
             var created=npcDb.add(villager.getUUID(),name,binding.dimension(),level.getDayTime()/24000L);
             created.settlement=town.id().toString();
+            created.familyName=family;
+            created.gender=woman?"female":"male";
+            created.ageYears=20+(nextId%35);
             created.hasHome=true;
             created.homeX=home.getX();
             created.homeY=home.getY();
@@ -191,6 +201,7 @@ public final class KingdomTavernImmigration {
             created.employer=null; // free citizen, not an unpaid tavern employee
             npcDb.setDirty();
             civics.joinTown(villager.getUUID(),town.id());
+            ru.projectkingdom.npc.KingdomFemaleOutfitSync.notifyChanged(server,created);
             arrivals.record(town.id(),tick);
             witness.sendSystemMessage(Component.literal("[Kingdom] В таверну «"+firm.name()
                     +"» прибыл новый житель: "+name+". Население "+(available.residents()+1)
