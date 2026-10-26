@@ -36,7 +36,7 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                     ||!(sender.containerMenu instanceof AdministrativeCoreMenu menu)||!packet.townId.equals(menu.townId())
                     ||packet.kind!=menu.kind()||!menu.stillValid(sender))return;
             if(field.equals("food_config")||field.equals("food_buy")
-                    ||field.equals("food_refresh")){
+                    ||field.equals("food_refresh")||field.equals("food_rations")){
                 var civics=KingdomCivicsData.get(sender.getServer());
                 var town=civics.townById(packet.townId);
                 if(town==null||!civics.isMember(packet.townId,sender.getUUID())
@@ -44,7 +44,13 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                             &&packet.kind!=AdministrativeKind.BANK
                             &&packet.kind!=AdministrativeKind.TOWN_HALL))return;
                 String notice="";
-                if(field.equals("food_config")){
+                if(field.equals("food_rations")){
+                    var policy=ru.projectkingdom.npc.KingdomMunicipalRationPolicy.get(sender.getServer());
+                    boolean next=!policy.enabled(town.id());
+                    if(!policy.setAuthorized(sender,town.id(),next))return;
+                    notice="Городские пайки NPC "+(next?"включены":"выключены")
+                        +". Только зарегистрированным жителям.";
+                }else if(field.equals("food_config")){
                     var admin=KingdomAdministrationData.get(sender.getServer());
                     if(!AdministrativePermissionService.mayManage(sender.getUUID(),
                             admin.founder(town.id()),town.mayor(),
