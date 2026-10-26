@@ -13,6 +13,8 @@ import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.administration.AdministrativeCoreScreen;
 import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 import ru.projectkingdom.network.NpcSpeechClientBridge;
+import ru.projectkingdom.settlement.KingdomSettlementRegistry;
+import ru.projectkingdom.settlement.KingdomSettlementScreen;
 import ru.projectkingdom.npc.voice.client.NpcVoiceClient;
 import ru.projectkingdom.npc.voice.client.NpcVoiceKeyHandler;
 
@@ -26,5 +28,6 @@ public final class KingdomBookClient {
         event.enqueueWork(() -> MenuScreens.register(KingdomEconomyRegistry.PURSE_MENU.get(), MoneyPurseScreen::new));
         event.enqueueWork(() -> MenuScreens.register(KingdomEnterpriseRegistry.CORE_MENU.get(), EnterpriseCoreScreen::new));
         event.enqueueWork(() -> MenuScreens.register(KingdomAdministrationRegistry.CORE_MENU.get(), AdministrativeCoreScreen::new));
+        event.enqueueWork(() -> MenuScreens.register(KingdomSettlementRegistry.MENU.get(), KingdomSettlementScreen::new));
     }
 }
