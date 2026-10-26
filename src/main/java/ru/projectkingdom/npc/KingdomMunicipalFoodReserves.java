@@ -153,12 +153,13 @@ public final class KingdomMunicipalFoodReserves extends SavedData {
                 if(meal==null)continue;
                 edible+=stack.getCount();
                 int[] nutrients=meal.nutrients();
-                int highest=0;
-                for(int g=1;g<nutrients.length;g++)
-                    if(nutrients[g]>nutrients[highest])highest=g;
-                if(nutrients[highest]>0)
-                    groups[highest]=(int)Math.min(Integer.MAX_VALUE,
-                            (long)groups[highest]+stack.getCount());
+                // Mixed TFC meals (e.g. soup) support EVERY real group they contain.
+                // One edible ItemStack remains one portion for the total forecast,
+                // but it can count toward multiple nutritional group coverage targets.
+                for(int g=0;g<Math.min(nutrients.length,groups.length);g++)
+                    if(nutrients[g]>0)
+                        groups[g]=(int)Math.min(Integer.MAX_VALUE,
+                            (long)groups[g]+stack.getCount());
             }
         }
         int available=(int)Math.min(Integer.MAX_VALUE,edible);
