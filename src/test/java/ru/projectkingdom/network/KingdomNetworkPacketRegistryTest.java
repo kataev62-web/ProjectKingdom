@@ -21,8 +21,8 @@ class KingdomNetworkPacketRegistryTest {
             count++;
         }
         assertTrue(count>=21);
-        assertTrue(source.contains("private static final String PROTOCOL=\"6\""),
-                "Integrated voice and current UI require matching packet version 6");
+        assertTrue(source.contains("private static final String PROTOCOL=\"7\""),
+                "Admin UI, voice and current menus require matching packet version 7");
         assertTrue(source.contains("40,NpcVoiceRequestPacket.class"));
         assertTrue(source.contains("41,NpcSpeechPacket.class"));
     }
