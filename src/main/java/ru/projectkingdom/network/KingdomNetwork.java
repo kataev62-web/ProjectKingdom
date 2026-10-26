@@ -6,6 +6,7 @@ import net.minecraftforge.network.simple.SimpleChannel;
 import ru.projectkingdom.npc.KingdomNpcMod;
 import ru.projectkingdom.administration.AdministrativeActionPacket;
 import ru.projectkingdom.administration.AdministrativeTextPacket;
+import ru.projectkingdom.settlement.KingdomSettlementFoundPacket;
 
 public final class KingdomNetwork {
     private static final String PROTOCOL="6";
@@ -57,6 +58,8 @@ public final class KingdomNetwork {
                 NpcVoiceRequestPacket::decode,NpcVoiceRequestPacket::handle);
         CHANNEL.registerMessage(41,NpcSpeechPacket.class,NpcSpeechPacket::encode,
                 NpcSpeechPacket::decode,NpcSpeechPacket::handle);
+        CHANNEL.registerMessage(52,KingdomSettlementFoundPacket.class,KingdomSettlementFoundPacket::encode,
+                KingdomSettlementFoundPacket::decode,KingdomSettlementFoundPacket::handle);
     }
 
     public static void sendNpcSpeech(net.minecraft.server.level.ServerPlayer player,NpcSpeechPacket packet){
