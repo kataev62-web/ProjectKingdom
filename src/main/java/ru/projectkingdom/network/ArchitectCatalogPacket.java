@@ -45,7 +45,7 @@ public record ArchitectCatalogPacket(UUID token, List<Entry> entries, int select
         if(selected<0||selected>=n)throw new IllegalArgumentException("Bad blueprint index");
         var model=ArchitectPreviewPacket.decode(buf);
         int matCount=buf.readVarInt();
-        if(matCount<0||matCount>12)throw new IllegalArgumentException("Invalid material count");
+        if(matCount<0||matCount>512)throw new IllegalArgumentException("Invalid material count");
         var materials=new ArrayList<Material>();
         for(int i=0;i<matCount;i++){
             String id=buf.readUtf(150);int count=buf.readVarInt();
