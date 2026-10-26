@@ -584,6 +584,34 @@ public final class KingdomNpcMod {
                 reply(src, "NPC #" + created.id + " created; job=" + job);
                 return 1;
             })));
+        // Creates a real persistent female NPC in one command (no cosmetic-only flag).
+        root.then(Commands.literal("spawnfemale").requires(s -> s.hasPermission(2))
+            .then(Commands.argument("job", StringArgumentType.word()).executes(ctx -> {
+                var src = ctx.getSource();
+                String job;
+                try { job = NpcEconomy.normalizeJob(StringArgumentType.getString(ctx, "job")); }
+                catch (IllegalArgumentException ex) { reply(src, ex.getMessage()); return 0; }
+                var db = KingdomNpcData.get(src.getServer());
+                if (db.workers.size() >= MAX_NPCS) { reply(src, "NPC limit reached: " + MAX_NPCS); return 0; }
+                var level = src.getLevel();
+                Villager npc = EntityType.VILLAGER.create(level);
+                if (npc == null) return 0;
+                var pos = src.getPosition();
+                npc.moveTo(pos.x, pos.y, pos.z, 0, 0);
+                npc.setCustomName(Component.literal("Kingdom " + job));
+                npc.setCustomNameVisible(true);
+                npc.setPersistenceRequired();
+                npc.setVillagerData(npc.getVillagerData().setProfession(profession(job)));
+                if (!level.addFreshEntity(npc)) return 0;
+                var worker = db.add(npc.getUUID(), "Kingdom " + job,
+                        level.dimension().location().toString(), level.getDayTime() / TICKS_PER_DAY);
+                worker.gender = "female";
+                worker.ageYears = 25;
+                db.setDirty();
+                KingdomFemaleOutfitSync.notifyChanged(src.getServer(), worker);
+                reply(src, "Создана женщина NPC #"+worker.id+"; профессия="+job);
+                return 1;
+            })));
         root.then(Commands.literal("integrations").executes(ctx -> {
             reply(ctx.getSource(), KingdomNpcIntegrations.report()); return 1;
         }));
@@ -601,7 +629,10 @@ public final class KingdomNpcMod {
                 if(w==null)return 0;
                 try{w.gender=NpcIdentity.gender(StringArgumentType.getString(ctx,"value"));}
                 catch(IllegalArgumentException ex){reply(src,ex.getMessage());return 0;}
-                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Identity updated");return 1;
+                KingdomNpcData.get(src.getServer()).setDirty();
+                KingdomFemaleOutfitSync.notifyChanged(src.getServer(),w);
+                reply(src,"Пол NPC #"+w.id+": "+(w.gender.equals("female")?"женщина":w.gender.equals("male")?"мужчина":"не указан"));
+                return 1;
             }))));
         root.then(Commands.literal("age").requires(src -> src.hasPermission(2))
             .then(Commands.argument("id",IntegerArgumentType.integer(1))
@@ -610,7 +641,9 @@ public final class KingdomNpcMod {
                 if(w.employer!=null && IntegerArgumentType.getInteger(ctx,"years")<18){reply(src,"End employment before changing to minor");return 0;}
                 w.ageYears=IntegerArgumentType.getInteger(ctx,"years");w.ageDaysAccumulated=0;
                 w.ageAnchorDay=src.getServer().overworld().getDayTime()/TICKS_PER_DAY;
-                KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Age updated");return 1;
+                KingdomNpcData.get(src.getServer()).setDirty();
+                KingdomFemaleOutfitSync.notifyChanged(src.getServer(),w);
+                reply(src,"Возраст NPC #"+w.id+" изменён: "+w.ageYears);return 1;
             }))));
         root.then(Commands.literal("workplace").requires(src -> src.hasPermission(2))
             .then(Commands.argument("id",IntegerArgumentType.integer(1))

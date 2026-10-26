@@ -94,7 +94,7 @@ public final class KingdomNpcMenu extends ChestMenu {
 
     private void redrawDialogue(KingdomNpcData.Worker w) {
         NpcSocialMemory memory=w.social(viewer.getUUID());
-        icon(4, Items.PLAYER_HEAD, w.name + " | " + profession(w.job));
+        icon(4, Items.PLAYER_HEAD, w.name + " | " + profession(w.job) + " | " + gender(w.gender));
         icon(0, Items.SUNFLOWER, "Поприветствовать");
         icon(1, Items.NAME_TAG, "Спросить: кто ты?");
         icon(2, Items.BREAD, "Спросить о нуждах");
@@ -137,7 +137,8 @@ public final class KingdomNpcMenu extends ChestMenu {
                 ? "РЕЦЕПТ (ЛКМ): выложи ингредиенты в первых 9 ячейках сырьевого склада"
                 : "РЕЦЕПТ "+plan.output()+" | ЛКМ: записать заново | ПКМ: цена "+plan.salePrice()+" мед./шт.");
         icon(10, Items.BOOK, "Профессия: " + profession(w.job));
-        icon(11, Items.CLOCK, "Возраст: " + w.ageYears + " лет | Пол: " + gender(w.gender));
+        icon(11, Items.CLOCK, "Возраст: " + w.ageYears + " лет | Пол: " + gender(w.gender)
+            + (viewer.hasPermissions(2) ? " | ЛКМ: изменить пол" : ""));
         icon(12, Items.BREAD, "Сытость: " + w.hunger + "/100 | "
             + KingdomNpcNutrition.summary(w));
         long wagesOwed=KingdomEnterprisePayrollData.get(viewer.getServer()).totalDue(viewer.getServer(),w.entityId);
@@ -218,6 +219,17 @@ public final class KingdomNpcMenu extends ChestMenu {
         boolean owner = controls(w);
         boolean changed = false;
         switch (slotId) {
+            case 11 -> {
+                if (!viewer.hasPermissions(2)) {
+                    info("Изменение пола доступно только администратору.");
+                    break;
+                }
+                w.gender = NpcIdentity.nextGender(w.gender);
+                info("Пол NPC №" + w.id + ": " + gender(w.gender) + ". Данные сохранены.");
+                changed = true;
+                db.setDirty();
+                KingdomFemaleOutfitSync.notifyChanged(viewer.getServer(), w);
+            }
             case 2 -> page=Page.DIALOGUE;
             case 9 -> {
                 if(!owner){info("Нужны права работодателя.");break;}

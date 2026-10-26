@@ -26,15 +26,28 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Vanilla Villager model + low-cost, textured blouse bust and long skirt.
+ * Vanilla Villager model + female face/hair/dress textures, blouse bust and long skirt.
  * Does not replace the entity renderer, face, vanilla animations or behavior.
  * Works only for server-approved adult female Kingdom NPCs.
  */
 public final class KingdomFemaleOutfitClient {
     private static final ModelLayerLocation OUTFIT_LAYER = new ModelLayerLocation(
             new ResourceLocation("kingdomnpc", "female_outfit"), "main");
-    private static final ResourceLocation CLOTH = new ResourceLocation(
-            "kingdomnpc", "textures/entity/female_outfit.png");
+    /** Four stable female skins: no villager entity replacement and no save migration. */
+    private static final ResourceLocation[] SKINS = new ResourceLocation[4];
+    private static final ResourceLocation[] OUTFITS = new ResourceLocation[4];
+    static {
+        for (int i = 0; i < 4; i++) {
+            SKINS[i] = new ResourceLocation("kingdomnpc",
+                    "textures/entity/female_skin_" + i + ".png");
+            OUTFITS[i] = new ResourceLocation("kingdomnpc",
+                    "textures/entity/female_outfit_" + i + ".png");
+        }
+    }
+    /** Stable within and across sessions for a given villager UUID. */
+    private static int variant(UUID uuid) {
+        return Math.floorMod(uuid.hashCode(), SKINS.length);
+    }
     private static final Set<UUID> FEMALE = new HashSet<>();
 
     private KingdomFemaleOutfitClient() {}
@@ -132,8 +145,19 @@ public final class KingdomFemaleOutfitClient {
                 Villager villager, float limbSwing, float limbAmount, float partialTick,
                 float ageTicks, float yaw, float pitch) {
             if (!FEMALE.contains(villager.getUUID()) || villager.isInvisible() || villager.isBaby()) return;
+            int variant = variant(villager.getUUID());
+            // Same animated vanilla VillagerModel, now with the approved female face,
+            // hair and dress texture. Tiny outward offset prevents coplanar z-fighting.
+            stack.pushPose();
+            stack.scale(1.025f, 1.013f, 1.025f);
+            getParentModel().renderToBuffer(stack,
+                    buffers.getBuffer(RenderType.entityCutoutNoCull(SKINS[variant])),
+                    light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY,
+                    1.0f, 1.0f, 1.0f, 1.0f);
+            stack.popPose();
+            // Only a modest blouse bust and long skirt extend the vanilla geometry.
             outfit.render(stack,
-                    buffers.getBuffer(RenderType.entityCutoutNoCull(CLOTH)),
+                    buffers.getBuffer(RenderType.entityCutoutNoCull(OUTFITS[variant])),
                     light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
         }
     }
