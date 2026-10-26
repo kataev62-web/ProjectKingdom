@@ -21,7 +21,13 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ParchmentIconButton> tabButtons=new ArrayList<>();
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
-    private EditBox roleTarget,taxAmount,bankAmount;
+    private EditBox taxAmount,bankAmount;
+    private final List<Button> officeRows=new ArrayList<>();
+    private Button officeCategory,officeBack,officeForward,officeRoleLeft,officeRoleRight;
+    private Button officeRoleName,officeAssign,officeRevoke;
+    private boolean officeShowNpc;
+    private int officePage,officeRoleIndex=1;
+    private java.util.UUID officeSelected;
     private Button joinButton,landPayButton,warehouseBack,warehouseForward;
     private int warehousePage;
     private int foodPage;
@@ -64,15 +70,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                             menu.townId(),AdministrativeKind.TOWN_HALL,AdministrativeActionPacket.JOIN_TOWN)))
                     .bounds(leftPos+74,topPos+132,204,22).build());
         }
-        if(menu.kind()==AdministrativeKind.TOWN_HALL&&menu.manager()){
-            roleTarget=addRenderableWidget(new EditBox(font,leftPos+58,topPos+90,242,18,KingdomFonts.readable(Component.literal("UUID гражданина"))));
-            roleTarget.setMaxLength(36);roleControls.add(roleTarget);
-            addRolePair(MunicipalRole.TREASURER,"Казна",58,114);addRolePair(MunicipalRole.LAND_MANAGER,"Земля",184,114);
-            addRolePair(MunicipalRole.JUDGE,"Суд",58,136);addRolePair(MunicipalRole.GUARD_CHIEF,"Стража",184,136);
-            addRolePair(MunicipalRole.WAREHOUSE_MANAGER,"Склад",58,158);
-            Button mayor=addRenderableWidget(Button.builder(KingdomFonts.readable("Назначить мэром"),ignored->sendText("appoint_mayor",roleTarget.getValue()))
-                    .bounds(leftPos+184,topPos+158,116,18).build());roleControls.add(mayor);
-        }
+        if(menu.kind()==AdministrativeKind.TOWN_HALL&&menu.manager())initOfficePicker();
         switch(menu.kind()){
             case TREASURY->{
                 taxAmount=new EditBox(font,leftPos+136,topPos+122,145,18,
@@ -160,9 +158,6 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         foodQuantity.setMaxLength(2);
         foodQuantity.setFilter(value->value.matches("[0-9]*"));
         foodQuantity.setValue("1");
-        foodRations=addRenderableWidget(Button.builder(KingdomFonts.readable("Пайки NPC: вкл/выкл"),
-                ignored->sendText("food_rations","toggle"))
-                .bounds(leftPos+125,topPos+182,178,17).build());
         foodBuy=addRenderableWidget(Button.builder(KingdomFonts.readable("Купить в казну"),
                 ignored->{
                     if(selectedFood!=null)
@@ -176,15 +171,91 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     .bounds(leftPos+257,topPos+108+i*15,53,14).build());
             foodOffers.add(button);
         }
+        foodRations=addRenderableWidget(Button.builder(KingdomFonts.readable("Пайки NPC: вкл/выкл"),
+                ignored->sendText("food_rations","toggle"))
+                .bounds(leftPos+125,topPos+182,178,17).build());
         if(!menu.foodView().offers().isEmpty())
             selectedFood=menu.foodView().offers().get(0).itemId();
     }
-    private void addRolePair(MunicipalRole role,String label,int x,int y){
-        Button add=addRenderableWidget(Button.builder(KingdomFonts.readable("+ "+label),ignored->sendText("appoint_role",roleTarget.getValue()+"|"+role.name()))
-                .bounds(leftPos+x,topPos+y,96,18).build());
-        Button remove=addRenderableWidget(Button.builder(Component.literal("−"),ignored->sendText("revoke_role",roleTarget.getValue()+"|"+role.name()))
-                .bounds(leftPos+x+100,topPos+y,20,18).build());
-        roleControls.add(add);roleControls.add(remove);
+    private Button officeButton(String name,int x,int y,int w,int h,java.util.function.Consumer<Button> onClick){
+        Button button=addRenderableWidget(Button.builder(KingdomFonts.readable(name),pressed->onClick.accept(pressed))
+                .bounds(leftPos+x,topPos+y,w,h).build());
+        roleControls.add(button);return button;
+    }
+    private void initOfficePicker(){
+        officeCategory=officeButton("Игроки",58,82,110,17,b->{
+            officeShowNpc=!officeShowNpc;officePage=0;officeSelected=null;syncOfficePicker();
+        });
+        officeBack=officeButton("◀",241,82,24,17,b->{officePage=Math.max(0,officePage-1);
+            officeSelected=null;syncOfficePicker();});
+        officeForward=officeButton("▶",273,82,24,17,b->{officePage++;officeSelected=null;syncOfficePicker();});
+        for(int i=0;i<3;i++){
+            int row=i;
+            officeRows.add(officeButton("—",58,103+i*18,240,17,b->{
+                var candidates=visibleCandidates();int position=officePage*3+row;
+                if(position<candidates.size()){officeSelected=candidates.get(position).id();syncOfficePicker();}
+            }));
+        }
+        officeRoleLeft=officeButton("◀",58,166,25,18,b->{
+            officeRoleIndex=Math.floorMod(officeRoleIndex-1,MunicipalRole.values().length);syncOfficePicker();
+        });
+        officeRoleName=officeButton("",86,166,178,18,b->{
+            officeRoleIndex=(officeRoleIndex+1)%MunicipalRole.values().length;syncOfficePicker();
+        });
+        officeRoleRight=officeButton("▶",271,166,27,18,b->{
+            officeRoleIndex=(officeRoleIndex+1)%MunicipalRole.values().length;syncOfficePicker();
+        });
+        officeAssign=officeButton("Назначить",58,188,116,18,b->sendSelectedOffice(true));
+        officeRevoke=officeButton("Снять",182,188,116,18,b->sendSelectedOffice(false));
+        syncOfficePicker();
+    }
+    private static String officeRoleName(MunicipalRole role){
+        return switch(role){
+            case MAYOR->"Мэр";
+            case TREASURER->"Казначей";
+            case LAND_MANAGER->"Земельный управляющий";
+            case JUDGE->"Судья";
+            case GUARD_CHIEF->"Начальник стражи";
+            case WAREHOUSE_MANAGER->"Управляющий складом";
+        };
+    }
+    private List<KingdomTownHallCandidates.Candidate> visibleCandidates(){
+        return menu.appointmentCandidates().stream().filter(c->c.npc()==officeShowNpc).toList();
+    }
+    private void syncOfficePicker(){
+        if(officeCategory==null)return;
+        var candidates=visibleCandidates();
+        int pages=Math.max(1,(candidates.size()+2)/3);
+        officePage=Math.max(0,Math.min(officePage,pages-1));
+        officeCategory.setMessage(KingdomFonts.readable(officeShowNpc?"NPC":"Игроки"));
+        officeBack.active=officePage>0;officeForward.active=officePage+1<pages;
+        for(int i=0;i<officeRows.size();i++){
+            int index=officePage*3+i;Button row=officeRows.get(i);
+            row.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&index<candidates.size();
+            if(index>=candidates.size())continue;
+            var c=candidates.get(index);
+            String name=(c.id().equals(officeSelected)?"● ":"  ")+c.name()+(c.mayor()?" (мэр)":"");
+            row.setMessage(KingdomFonts.readable(font.plainSubstrByWidth(name,218)));
+        }
+        var role=MunicipalRole.values()[officeRoleIndex];
+        officeRoleName.setMessage(KingdomFonts.readable(officeRoleName(role)));
+        var target=menu.appointmentCandidates().stream()
+                .filter(c->c.id().equals(officeSelected)).findFirst().orElse(null);
+        boolean selectedValid=target!=null&&target.npc()==officeShowNpc;
+        boolean mayorAllowed=role!=MunicipalRole.MAYOR
+                ||minecraft!=null&&minecraft.player!=null
+                        &&menu.founder().equals(minecraft.player.getUUID());
+        officeAssign.active=selectedValid&&mayorAllowed&&(role!=MunicipalRole.MAYOR||!target.mayor());
+        officeRevoke.active=selectedValid&&role!=MunicipalRole.MAYOR&&
+                (target.roleMask()&(1<<role.ordinal()))!=0;
+    }
+    private void sendSelectedOffice(boolean appoint){
+        if(officeSelected==null)return;
+        MunicipalRole role=MunicipalRole.values()[officeRoleIndex];
+        if(role==MunicipalRole.MAYOR){
+            if(appoint)sendText("appoint_mayor",officeSelected.toString());
+        }else sendText(appoint?"appoint_role":"revoke_role",
+                officeSelected.toString()+"|"+role.name());
     }
     private void sendText(String field,String value){KingdomNetwork.CHANNEL.sendToServer(new AdministrativeTextPacket(menu.townId(),menu.kind(),field,value));}
     private void addAction(String label,AdministrativeMenuLayout.Tab tab,int action,int x,int y,int width,boolean managerOnly){
@@ -201,12 +272,13 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         if(foodResidents!=null)foodResidents.setVisible(food&&foodPage==0&&menu.foodView().canConfigure());
         if(foodSave!=null)foodSave.visible=food&&foodPage==0&&menu.foodView().canConfigure();
         if(foodQuantity!=null)foodQuantity.setVisible(food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager());
-        if(foodRations!=null)foodRations.visible=food&&foodPage==2
-            &&menu.foodView().canConfigure();
         if(foodBuy!=null){foodBuy.visible=food&&foodPage==1&&menu.kind()==AdministrativeKind.BANK&&menu.manager();
             foodBuy.active=selectedFood!=null&&menu.foodView().complete();}
+        if(foodRations!=null)foodRations.visible=food&&foodPage==2
+            &&menu.foodView().canConfigure();
 
         for(AbstractWidget widget:roleControls)widget.visible=selected==AdministrativeMenuLayout.Tab.OFFICES&&menu.manager();
+        if(officeCategory!=null)syncOfficePicker();
         if(taxAmount!=null)taxAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
         if(bankAmount!=null)bankAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
         if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
@@ -253,7 +325,17 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     else line(g,"Вы уже состоите в другом городе.",58,112,MUTED);
                 } else renderRows(g,"Граждане города",menu.pageRows());
             }
-            case OFFICES->{if(menu.manager())line(g,"Укажите UUID гражданина:",58,78,MUTED);else placeholder(g,"Только просмотр должностей",90);}
+            case OFFICES->{
+                if(menu.manager()){
+                    var visible=visibleCandidates();
+                    line(g,"Выберите игрока или NPC:",58,74,MUTED);
+                    line(g,"Всего: "+visible.size()+" | страница "+(officePage+1),170,88,MUTED);
+                    var selectedCandidate=menu.appointmentCandidates().stream()
+                            .filter(c->c.id().equals(officeSelected)).findFirst().orElse(null);
+                    line(g,selectedCandidate==null?"Не выбран житель":
+                            "Выбран: "+font.plainSubstrByWidth(selectedCandidate.name(),215),58,157,INK);
+                }else placeholder(g,"Только просмотр должностей",90);
+            }
             case FINANCE->{
                 if(menu.kind()==AdministrativeKind.BANK){
                     line(g,"Ваш счёт: "+menu.bankAccount()+" медных",58,83,MUTED);

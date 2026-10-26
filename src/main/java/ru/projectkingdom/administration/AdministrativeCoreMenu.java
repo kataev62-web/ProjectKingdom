@@ -33,24 +33,26 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     private final List<String> pageRows;
     private final List<String> warehouseRooms;
     private final MunicipalFoodView foodView;
+    private final List<KingdomTownHallCandidates.Candidate> appointmentCandidates;
 
     public AdministrativeCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),AdministrativeKind.byId(buffer.readUtf(32)).orElseThrow(),
                 buffer.readUtf(48),buffer.readUUID(),buffer.readUUID(),buffer.readBoolean(),buffer.readBoolean(),
                 buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),readRows(buffer),buffer.readBoolean(),buffer.readBoolean(),buffer.readLong(),buffer.readLong(),
                 buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readUtf(96),buffer.readLong(),readWarehouseRows(buffer),
-                MunicipalFoodView.read(buffer));
+                MunicipalFoodView.read(buffer),KingdomTownHallCandidates.read(buffer));
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess){
-        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of(),false,false,0,0,0,0,0,"",0,List.of(),MunicipalFoodView.empty());
+        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of(),false,false,0,0,0,0,0,"",0,List.of(),MunicipalFoodView.empty(),List.of());
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess,
                                    long bankAccount,long bankReserve,long treasuryBalance,long treasuryReserve,long historicalTreasury,
                                    List<String> pageRows,boolean member,boolean canJoin,long taxDebt,long walletCoins,
                                    long legacyBank,long legacyTown,long legacyPersonal,String vaultRoomInfo,long vaultCopper,
-                                   List<String> warehouseRooms,MunicipalFoodView foodView){
+                                   List<String> warehouseRooms,MunicipalFoodView foodView,
+                                    List<KingdomTownHallCandidates.Candidate> appointmentCandidates){
         super(KingdomAdministrationRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=corePos;this.townId=townId;
         this.kind=kind;this.townName=townName;this.founder=founder;this.mayor=mayor;this.manager=manager;this.publicAccess=publicAccess;
         this.bankAccount=bankAccount;this.bankReserve=bankReserve;this.treasuryBalance=treasuryBalance;this.treasuryReserve=treasuryReserve;this.historicalTreasury=historicalTreasury;
@@ -59,6 +61,7 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
         this.vaultRoomInfo=vaultRoomInfo;this.vaultCopper=vaultCopper;
         this.warehouseRooms=List.copyOf(warehouseRooms);
         this.foodView=foodView;
+        this.appointmentCandidates=List.copyOf(appointmentCandidates);
     }
     private static List<String> readWarehouseRows(FriendlyByteBuf buffer){
         int n=buffer.readVarInt();
@@ -134,6 +137,10 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
             for(GuardRecord item:data.guards(town.id(),0,3))rows.add("Страж: "+item.name());
             for(KingdomAdministrationData.WarrantEntry item:data.wantedEntries(town.id(),0,3))rows.add("Розыск: "+item.target().toString().substring(0,8));
         }
+        List<KingdomTownHallCandidates.Candidate> appointmentCandidates=
+                core.kind()==AdministrativeKind.TOWN_HALL&&manager
+                        ?KingdomTownHallCandidates.snapshot(player.getServer(),town.id())
+                        :List.of();
         MunicipalFoodView foodView=(core.kind()==AdministrativeKind.CENTRAL_WAREHOUSE
                 || core.kind()==AdministrativeKind.BANK || core.kind()==AdministrativeKind.TOWN_HALL)
                 ?MunicipalFoodView.snapshot(player,town.id(),notice)
@@ -144,7 +151,8 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
                 return new AdministrativeCoreMenu(id,inv,core.getBlockPos(),town.id(),core.kind(),town.name(),founder,town.mayor(),manager,publicAccess,
                         account,manager?bankReserve:0L,manager?town.treasury():0L,manager?treasuryReserve:0L,
                         manager?historical:0L,rows,member,canJoin,taxDebt,walletCoins,
-                        legacyBank,legacyTown,legacyPersonal,roomInfo,physicalCoins,warehouseRooms,foodView);
+                        legacyBank,legacyTown,legacyPersonal,roomInfo,physicalCoins,warehouseRooms,foodView,
+                         appointmentCandidates);
             }
         },buffer->{buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(town.id());buffer.writeUtf(core.kind().id(),32);
             buffer.writeUtf(town.name(),48);buffer.writeUUID(founder);buffer.writeUUID(town.mayor());buffer.writeBoolean(manager);buffer.writeBoolean(publicAccess);
@@ -157,13 +165,15 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
             buffer.writeUtf(roomInfo,96);buffer.writeLong(physicalCoins);
             buffer.writeVarInt(warehouseRooms.size());
             for(String row:warehouseRooms)buffer.writeUtf(row,96);
-            MunicipalFoodView.write(buffer,foodView);});
+            MunicipalFoodView.write(buffer,foodView);
+            KingdomTownHallCandidates.write(buffer,appointmentCandidates);});
     }
     public BlockPos corePos(){return corePos;}public UUID townId(){return townId;}public AdministrativeKind kind(){return kind;}public String townName(){return townName;}
     public UUID founder(){return founder;}public UUID mayor(){return mayor;}public boolean manager(){return manager;}public boolean publicAccess(){return publicAccess;}
     public long bankAccount(){return bankAccount;}public long bankReserve(){return bankReserve;}public long treasuryBalance(){return treasuryBalance;}
     public long treasuryReserve(){return treasuryReserve;}public long historicalTreasury(){return historicalTreasury;}
     public List<String> pageRows(){return pageRows;}
+    public List<KingdomTownHallCandidates.Candidate> appointmentCandidates(){return appointmentCandidates;}
     public boolean member(){return member;}
     public boolean canJoin(){return canJoin;}
     public long taxDebt(){return taxDebt;}
