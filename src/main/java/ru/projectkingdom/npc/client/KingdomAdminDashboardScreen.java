@@ -77,7 +77,7 @@ public final class KingdomAdminDashboardScreen extends Screen {
         heightUi=Math.min(320,Math.max(202,height-10));
         left=(width-widthUi)/2;top=(height-heightUi)/2;
         listWidth=Math.max(136,(widthUi-22)*55/100);
-        rows=Math.max(3,Math.min(7,(heightUi-155)/17));
+        rows=Math.max(3,Math.min(6,(heightUi-208)/17));
         ensureSelection();
 
         int leftX=left+8, rightX=left+listWidth+12, rightW=widthUi-listWidth-20;
@@ -221,7 +221,7 @@ public final class KingdomAdminDashboardScreen extends Screen {
             Math.max(1,(state.npcTotal()+15)/16),left+listWidth+
                 (widthUi-listWidth)/2,pagination,TEXT);
 
-        int detailsY=top+heightUi-149;
+        int detailsY=top+heightUi-145;
         if(detailsY>pagination+12){
             if(nationsTab){
                 var nation=state.nations().stream().filter(n->n.id().equals(selectedNation))
