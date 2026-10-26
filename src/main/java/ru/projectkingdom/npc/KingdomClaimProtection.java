@@ -44,10 +44,20 @@ public final class KingdomClaimProtection {
                     ||block instanceof net.minecraft.world.level.block.LeverBlock)
                 return false;
         }
+        // Visitors may place only short-lived inert blocks or break ordinary
+        // natural materials without loot on state public or unclaimed land.
+        // Their actions are handled by KingdomOpenLandEvents after this check.
+        if(action==KingdomCivicsData.Action.BUILD||action==KingdomCivicsData.Action.BREAK)
+            if(ru.projectkingdom.settlement.KingdomTemporaryLand.temporaryArea(level,pos,p))return false;
         if(data.plot(level,pos)==null)return false;
         return !data.allowed(p.getUUID(),dimension,pos.getX(),pos.getZ(),action);
     }
     @SubscribeEvent public static void breakBlock(BlockEvent.BreakEvent event) {
+        if(event.getLevel() instanceof ServerLevel level
+                &&level.getBlockEntity(event.getPos()) instanceof ru.projectkingdom.settlement.KingdomSettlementCharterEntity charter
+                &&charter.founded()){
+            event.setCanceled(true);return;
+        }
         if(denied(event.getPlayer(),event.getPos(),KingdomCivicsData.Action.BREAK))event.setCanceled(true);
     }
     @SubscribeEvent public static void placeBlock(BlockEvent.EntityPlaceEvent event) {
