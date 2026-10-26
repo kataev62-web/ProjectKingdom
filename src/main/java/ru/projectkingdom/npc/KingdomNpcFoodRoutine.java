@@ -16,7 +16,8 @@ public final class KingdomNpcFoodRoutine {
         boolean staff=w.employer!=null && w.rationsEnabled
                 && KingdomNpcWorkday.employed(level.getServer(),w);
         UUID owner=farm!=null?w.entityId:staff?w.employer:null;
-        if(owner==null||w.contractPaused||!w.hasDestination||!npc.isAlive())return false;
+        if(owner==null)return KingdomMunicipalCanteen.tick(level,npc,w);
+        if(w.contractPaused||!w.hasDestination||!npc.isAlive())return false;
         // TFC year/day length may be changed in server settings.
         long today=KingdomSeasonCalendar.totalDays(level.getServer());
         if(today<0)return false;
