@@ -70,12 +70,20 @@ public final class KingdomTownHallCandidates {
         var town=KingdomCivicsData.get(server).townById(townId);
         if(town==null)return false;
         if(town.name().equalsIgnoreCase(npc.settlement))return true;
-        if(!npc.hasHome)return false;
+        // An NPC without a marked home is still selectable if the actual loaded
+        // entity is currently inside this city's legally claimed territory.
         for(var level:server.getAllLevels()){
             if(!level.dimension().location().toString().equals(npc.dimension))continue;
-            var found=KingdomCivicsData.get(server).townAt(level,
-                    new BlockPos(npc.homeX,npc.homeY,npc.homeZ));
-            return found!=null && townId.equals(found.id());
+            if(npc.hasHome){
+                var home=KingdomCivicsData.get(server).townAt(level,
+                        new BlockPos(npc.homeX,npc.homeY,npc.homeZ));
+                if(home!=null&&townId.equals(home.id()))return true;
+            }
+            var entity=level.getEntity(npc.entityId);
+            if(entity!=null){
+                var at=KingdomCivicsData.get(server).townAt(level,entity.blockPosition());
+                if(at!=null&&townId.equals(at.id()))return true;
+            }
         }
         return false;
     }
