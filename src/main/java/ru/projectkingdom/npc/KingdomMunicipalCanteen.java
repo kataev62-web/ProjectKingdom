@@ -30,7 +30,8 @@ public final class KingdomMunicipalCanteen {
                     level.dimension().location().toString()))return false;
         // Stagger registered residents so central storage is not scanned every NPC tick.
         long nowTick=level.getGameTime();
-        if(Math.floorMod(worker.entityId.hashCode(),600)!=(int)Math.floorMod(nowTick,600L))
+        if(Math.floorMod(worker.entityId.hashCode(),15)
+                !=(int)Math.floorMod(level.getServer().getTickCount()/40L,15L))
             return false;
         long today=KingdomSeasonCalendar.totalDays(level.getServer());
         if(today<0)return false;
