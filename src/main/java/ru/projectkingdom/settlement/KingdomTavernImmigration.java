@@ -284,21 +284,42 @@ public final class KingdomTavernImmigration {
     }
     private static BlockPos safeSpawn(ServerLevel level,BlockPos tavern,UUID town){
         var civic=KingdomCivicsData.get(level.getServer());
-        for(int r=2;r<=6;r++)
-            for(int dx=-r;dx<=r;dx++)
-                for(int dz=-r;dz<=r;dz++){
-                    if(Math.max(Math.abs(dx),Math.abs(dz))!=r)continue;
-                    BlockPos candidate=tavern.offset(dx,0,dz);
-                    if(!level.hasChunkAt(candidate)||!level.hasChunkAt(candidate.above())
-                            ||!level.hasChunkAt(candidate.below()))continue;
-                    var plot=civic.plot(level,candidate);
-                    if(plot==null||!town.equals(plot.town()))continue;
-                    if(!level.getBlockState(candidate).isAir()
-                            ||!level.getBlockState(candidate.above()).isAir())continue;
-                    var floor=candidate.below();
-                    if(!level.getBlockState(floor).isFaceSturdy(level,floor,Direction.UP))continue;
-                    if(!level.getWorldBorder().isWithinBounds(candidate))continue;
-                    return candidate;
+        String dim=level.dimension().location().toString();
+        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(level.getServer());
+        for(int radius=2;radius<=6;radius++)
+            for(int dx=-radius;dx<=radius;dx++)
+                for(int dz=-radius;dz<=radius;dz++){
+                    if(Math.max(Math.abs(dx),Math.abs(dz))!=radius)continue;
+                    // Uneven TFC terrain: accept a safe street up to two blocks
+                    // above or below the reception desk, never force-load it.
+                    for(int dy=0;dy>=-2;dy--){
+                        BlockPos candidate=tavern.offset(dx,dy,dz);
+                        if(!level.hasChunkAt(candidate)||!level.hasChunkAt(candidate.above())
+                                ||!level.hasChunkAt(candidate.below()))continue;
+                        var plot=civic.plot(level,candidate);
+                        if(plot==null||!town.equals(plot.town())
+                                ||rentals.atRoom(dim,candidate)!=null)continue;
+                        if(!level.getBlockState(candidate).isAir()
+                                ||!level.getBlockState(candidate.above()).isAir())continue;
+                        var floor=candidate.below();
+                        if(!level.getBlockState(floor).isFaceSturdy(level,floor,Direction.UP))continue;
+                        if(!level.getWorldBorder().isWithinBounds(candidate))continue;
+                        return candidate;
+                    }
+                    for(int dy=1;dy<=2;dy++){
+                        BlockPos candidate=tavern.offset(dx,dy,dz);
+                        if(!level.hasChunkAt(candidate)||!level.hasChunkAt(candidate.above())
+                                ||!level.hasChunkAt(candidate.below()))continue;
+                        var plot=civic.plot(level,candidate);
+                        if(plot==null||!town.equals(plot.town())
+                                ||rentals.atRoom(dim,candidate)!=null)continue;
+                        if(!level.getBlockState(candidate).isAir()
+                                ||!level.getBlockState(candidate.above()).isAir())continue;
+                        var floor=candidate.below();
+                        if(!level.getBlockState(floor).isFaceSturdy(level,floor,Direction.UP))continue;
+                        if(!level.getWorldBorder().isWithinBounds(candidate))continue;
+                        return candidate;
+                    }
                 }
         return null;
     }
