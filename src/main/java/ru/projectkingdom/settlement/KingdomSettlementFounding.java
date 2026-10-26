@@ -42,10 +42,17 @@ public final class KingdomSettlementFounding {
         if(title==null)return Result.BAD_NAME;
         var civic=KingdomCivicsData.get(server);
         var admin=KingdomAdministrationData.get(server);
-        if(civic.townOf(player.getUUID())!=null)return Result.ALREADY_FOUNDER;
-        for(var town:civic.towns())
-            if(player.getUUID().equals(admin.founder(town.id())))return Result.ALREADY_FOUNDER;
-        for(var town:civic.towns())if(town.name().equalsIgnoreCase(title))return Result.BAD_NAME;
+        var oldTown=civic.townOf(player.getUUID());
+        boolean recoverGhost=oldTown!=null
+                &&player.getUUID().equals(oldTown.mayor())
+                &&player.getUUID().equals(admin.founder(oldTown.id()));
+        if(oldTown!=null&&!recoverGhost)return Result.ALREADY_FOUNDER;
+        for(var town:civic.towns()){
+            if(!town.id().equals(oldTown==null?null:oldTown.id())
+                    &&player.getUUID().equals(admin.founder(town.id())))return Result.ALREADY_FOUNDER;
+            if(!town.id().equals(oldTown==null?null:oldTown.id())
+                    &&town.name().equalsIgnoreCase(title))return Result.BAD_NAME;
+        }
         int cx=pos.getX()>>4,cz=pos.getZ()>>4;
         BlockPos corner1=new BlockPos(cx<<4,pos.getY(),cz<<4);
         BlockPos corner2=new BlockPos((cx<<4)+15,pos.getY(),(cz<<4)+15);
@@ -60,10 +67,17 @@ public final class KingdomSettlementFounding {
         // Legacy ownership mirror first, then the civic registry; reusing the
         // same authenticated UUID avoids anyone claiming an unowned stranger's land.
         if(!old.claimByChunk(dimension,cx,cz,player.getUUID()))return Result.NEED_FREE_LAND;
-        var founded=civic.foundTown(player.getUUID(),title);
-        if(founded==null)return Result.REGISTER_ERROR;
-        if(!civic.claim(player.getUUID(),dimension,cx,cz))
-            throw new IllegalStateException("Settlement charter claim failed after title check");
+        KingdomCivicsData.Town founded;
+        if(recoverGhost){
+            if(!civic.bootstrapEmptyLegacyTown(player.getUUID(),title,dimension,cx,cz))
+                return Result.ALREADY_FOUNDER;
+            founded=civic.townById(oldTown.id());
+        }else{
+            founded=civic.foundTown(player.getUUID(),title);
+            if(founded==null)return Result.REGISTER_ERROR;
+            if(!civic.claim(player.getUUID(),dimension,cx,cz))
+                throw new IllegalStateException("Settlement charter claim failed after title check");
+        }
         if(!admin.ensureFounder(founded.id(),player.getUUID()))
             throw new IllegalStateException("Settlement charter founder register failed");
         core.establish(founded.id());
