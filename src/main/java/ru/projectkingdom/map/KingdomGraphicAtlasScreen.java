@@ -629,23 +629,29 @@ public final class KingdomGraphicAtlasScreen extends Screen {
             x = Math.max(gridX + 4, Math.min(gridX + gridWidth - 5, x));
             y = Math.max(gridY + 4, Math.min(gridY + gridHeight - 5, y));
         }
-        // Gold/dark outline contrasts with both water and forest. Point the
-        // nose in the player's actual Minecraft yaw direction.
-        int outline = 0xFF392315;
-        int white = 0xFFFFFFFF;
-        int blue = projection.onMap() ? 0xFF1376D3 : 0xFFF4B534;
-        gui.fill(x - 4, y - 4, x + 5, y + 5, outline);
-        gui.fill(x - 3, y - 3, x + 4, y + 4, white);
-        gui.fill(x - 2, y - 2, x + 3, y + 3, blue);
-        for (int step = 3; step <= 8; step++) {
-            int dx = (int)Math.round(projection.facingX() * step);
-            int dy = (int)Math.round(projection.facingY() * step);
-            gui.fill(x + dx - 1, y + dy - 1, x + dx + 2, y + dy + 2, outline);
-            gui.fill(x + dx, y + dy, x + dx + 1, y + dy + 1, blue);
+        // The cyan player position is drawn AFTER businesses and town halls.
+        // Its solid in-map caption stays readable beside nearby company pins.
+        int dark=0xFF1D2733,white=0xFFFFFFFF;
+        int cyan=projection.onMap()?0xFF17C7ED:0xFFFFC24D;
+        gui.fill(x-6,y-6,x+7,y+7,dark);
+        gui.fill(x-5,y-5,x+6,y+6,white);
+        gui.fill(x-4,y-4,x+5,y+5,cyan);
+        gui.fill(x-2,y-2,x+3,y+3,0xFF16465F);
+        for(int step=4;step<=9;step++){
+            int dx=(int)Math.round(projection.facingX()*step);
+            int dy=(int)Math.round(projection.facingY()*step);
+            gui.fill(x+dx-1,y+dy-1,x+dx+2,y+dy+2,dark);
+            gui.fill(x+dx,y+dy,x+dx+1,y+dy+1,cyan);
         }
-        // Fixed label: the map is always north-up, not player-rotated.
-        gui.drawCenteredString(font, projection.onMap() ? "ВЫ" : "ВНЕ КАРТЫ",
-                x, Math.max(gridY + 1, y - 17), outline);
+        String caption=projection.onMap()?"ВЫ":"ВНЕ КАРТЫ";
+        int w=font.width(caption)+10;
+        int tx=x+12;
+        if(tx+w>=gridX+gridWidth)tx=x-w-12;
+        tx=Math.max(gridX+1,Math.min(gridX+gridWidth-w-1,tx));
+        int ty=Math.max(gridY+16,Math.min(gridY+gridHeight-19,y-6));
+        gui.fill(tx,ty,tx+w,ty+14,0xEF182E3C);
+        gui.fill(tx,ty,tx+2,ty+14,cyan);
+        gui.drawString(font,caption,tx+5,ty+3,white,false);
     }
 
     private void shortText(GuiGraphics gui, String text, int x, int y) {
