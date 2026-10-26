@@ -77,8 +77,8 @@ public final class KingdomAdminDashboardService {
             var npcDb=KingdomNpcData.get(p.getServer());
             Map<UUID,String> npcNames=new HashMap<>();
             for(var npc:npcDb.all()){
-                npcNames.put(npc.entityId,"NPC #"+npc.id+" "+npc.name);
-                npcs.add(new KingdomAdminDashboardPacket.Npc(npc.id,npc.name,
+                npcNames.put(npc.entityId,clean("NPC #"+npc.id+" "+npc.name,70));
+                npcs.add(new KingdomAdminDashboardPacket.Npc(npc.id,clean(npc.name,70),
                     npc.entityId,npc.ageYears));
             }
             npcs.sort(Comparator.comparingInt(KingdomAdminDashboardPacket.Npc::id));
