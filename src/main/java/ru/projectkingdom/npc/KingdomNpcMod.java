@@ -32,6 +32,7 @@ import ru.projectkingdom.economy.KingdomEconomyRegistry;
 import ru.projectkingdom.enterprise.KingdomEnterpriseRegistry;
 import ru.projectkingdom.enterprise.EnterpriseAccessService;
 import ru.projectkingdom.network.KingdomNetwork;
+import ru.projectkingdom.settlement.KingdomSettlementRegistry;
 import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 import ru.projectkingdom.administration.AdministrativeAccessService;
 
@@ -53,6 +54,7 @@ public final class KingdomNpcMod {
         KingdomEnterpriseRegistry.register();
         KingdomConstructionRegistry.register();
         KingdomAdministrationRegistry.register();
+        KingdomSettlementRegistry.register();
         KingdomNetwork.register();
         new KingdomFemaleOutfitSync();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
