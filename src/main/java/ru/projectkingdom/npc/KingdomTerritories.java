@@ -32,6 +32,28 @@ public final class KingdomTerritories extends SavedData {
         claims.put(key,owner); setDirty(); return true;
     }
     public UUID owner(ServerLevel level, BlockPos pos) { return claims.get(chunkKey(level,pos)); }
+    /**
+     * Retirement of a Kingdom city can only release a legacy claim if the
+     * expected recorded owner still matches. Never unclaim a different holder.
+     */
+    public boolean adminReleaseClaim(String dimension,int chunkX,int chunkZ,UUID expectedOwner){
+        if(dimension==null||expectedOwner==null)return false;
+        String k=dimension+":"+chunkX+":"+chunkZ;
+        if(!expectedOwner.equals(claims.get(k)))return false;
+        claims.remove(k);
+        nodes.entrySet().removeIf(entry -> {
+            String prefix=dimension+":";
+            if(!entry.getKey().startsWith(prefix))return false;
+            try {
+                long packed=Long.parseLong(entry.getKey().substring(prefix.length()));
+                BlockPos pos=BlockPos.of(packed);
+                return pos.getX()>>4==chunkX && pos.getZ()>>4==chunkZ
+                    && expectedOwner.equals(entry.getValue().owner());
+            }catch(NumberFormatException ex){return false;}
+        });
+        setDirty();return true;
+    }
+
     public boolean canUse(ServerLevel level, BlockPos pos, UUID owner) {
         return owner!=null && owner.equals(owner(level,pos));
     }
