@@ -146,22 +146,47 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
             if(field.equals("appoint_role")||field.equals("revoke_role")||field.equals("appoint_mayor")){
                 if(menu.kind()!=AdministrativeKind.TOWN_HALL)return;
                 String command=validatedCommandValue(packet.value);if(command==null)return;
-                KingdomCivicsData civics=KingdomCivicsData.get(sender.getServer());var town=civics.townById(packet.townId);if(town==null)return;
-                boolean changed=false;
-                if(field.equals("appoint_mayor")){
-                    try{changed=civics.replaceMayorAuthorized(packet.townId,sender.getUUID(),UUID.fromString(command));}catch(IllegalArgumentException ignored){}
-                }else{
-                    int separator=command.indexOf('|');if(separator<1)return;
-                    try{
-                        UUID target=UUID.fromString(command.substring(0,separator));MunicipalRole role=MunicipalRole.valueOf(command.substring(separator+1));
+                KingdomCivicsData civics=KingdomCivicsData.get(sender.getServer());
+                var town=civics.townById(packet.townId);if(town==null)return;
+                KingdomAdministrationData admin=KingdomAdministrationData.get(sender.getServer());
+                // The menu was a server snapshot, but rights and the local residency must
+                // be checked anew. A previously valid mayor may have been replaced.
+                if(!AdministrativePermissionService.mayManage(sender.getUUID(),admin.founder(town.id()),
+                        town.mayor(),admin.roles(town.id(),sender.getUUID()),AdministrativeKind.TOWN_HALL))return;
+                UUID target;
+                MunicipalRole role;
+                try{
+                    if(field.equals("appoint_mayor")){
+                        target=UUID.fromString(command);role=MunicipalRole.MAYOR;
+                    }else{
+                        int separator=command.indexOf('|');if(separator<1)return;
+                        target=UUID.fromString(command.substring(0,separator));
+                        role=MunicipalRole.valueOf(command.substring(separator+1));
                         if(role==MunicipalRole.MAYOR)return;
-                        KingdomAdministrationData data=KingdomAdministrationData.get(sender.getServer());
-                        if(field.equals("appoint_role")&&civics.isMember(packet.townId,target))changed=data.appoint(packet.townId,sender.getUUID(),town.mayor(),target,role);
-                        else if(field.equals("revoke_role"))changed=data.revoke(packet.townId,sender.getUUID(),town.mayor(),target,role);
-                    }catch(IllegalArgumentException ignored){}
+                    }
+                }catch(IllegalArgumentException ignored){return;}
+                if(menu.appointmentCandidates().stream().noneMatch(c->c.id().equals(target))
+                        ||!KingdomTownHallCandidates.eligible(sender.getServer(),town.id(),target))return;
+                // The founder alone can replace the mayor. Do not enroll a candidate
+                // as a side effect of a mayor's unauthorized attempt.
+                if(role==MunicipalRole.MAYOR && !sender.getUUID().equals(admin.founder(town.id())))return;
+                // NPCs proven to live at a claimed city home or assigned to the
+                // city may be enrolled when first appointed. Foreign NPCs cannot.
+                if(!KingdomTownHallCandidates.enrollLocalNpc(sender.getServer(),town.id(),target)
+                        &&!civics.isMember(town.id(),target))return;
+                boolean changed;
+                if(role==MunicipalRole.MAYOR)
+                    changed=civics.replaceMayorAuthorized(packet.townId,sender.getUUID(),target);
+                else if(field.equals("appoint_role"))
+                    changed=admin.appoint(packet.townId,sender.getUUID(),town.mayor(),target,role);
+                else changed=admin.revoke(packet.townId,sender.getUUID(),town.mayor(),target,role);
+                sender.sendSystemMessage(Component.literal(changed
+                    ?"[Ратуша] Должность обновлена. Откройте ратушу снова для нового списка."
+                    :"[Ратуша] Не удалось изменить назначение: проверьте полномочия или прежнюю должность."));
+                if(changed){
+                    admin.record(packet.townId,sender.getUUID(),role,field,sender.level().getGameTime());
+                    sender.closeContainer();
                 }
-                if(changed)KingdomAdministrationData.get(sender.getServer()).record(packet.townId,sender.getUUID(),null,
-                        field,sender.level().getGameTime());
                 return;
             }
             String text=validatedText(packet.value);if(text==null)return;
