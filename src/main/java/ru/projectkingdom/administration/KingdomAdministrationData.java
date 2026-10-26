@@ -89,8 +89,10 @@ public final class KingdomAdministrationData extends SavedData {
             ||legacyBankLiability(townId)!=0||legacyTreasuryLiability(townId)!=0
             ||historicalTreasuryLiability(townId)!=0)
             return "Существуют банковские резервы, казна или исторические обязательства.";
-        if(expansionDebits(townId).stream().anyMatch(e->!e.refunded()))
-            return "В реестре есть платежи расширения: сначала проведи финансовую сверку.";
+        if(runtimeServer!=null && expansionDebits(townId).stream().anyMatch(e->
+                !e.refunded()
+                && KingdomCivicsData.get(runtimeServer).expansionReceipt(e.id())==null))
+            return "Есть незавершённые платежи расширения: сначала проведи финансовую сверку.";
         if(justiceCases.containsKey(townId)||prisonRecords.containsKey(townId)
             ||warrants.containsKey(townId))
             return "Есть судебные дела, заключённые или ордера — перенеси или закрой их.";
