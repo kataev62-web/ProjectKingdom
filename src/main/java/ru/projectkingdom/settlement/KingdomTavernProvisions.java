@@ -62,7 +62,11 @@ public final class KingdomTavernProvisions {
 
     public static boolean edible(ItemStack stack) {
         if(stack==null||stack.isEmpty()||KingdomNpcNutrition.spoiled(stack))return false;
-        return KingdomNpcNutrition.inspect(stack)!=null || stack.isEdible();
+        if(KingdomNpcNutrition.inspect(stack)!=null)return true;
+        // When TFC reflection is unavailable, do not accidentally treat its
+        // modded spoiled/unknown stacks as safe vanilla food.
+        return stack.isEdible() && "minecraft".equals(
+                net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem()).getNamespace());
     }
 
     /**
