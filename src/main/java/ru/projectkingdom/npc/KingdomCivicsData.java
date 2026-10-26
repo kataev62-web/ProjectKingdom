@@ -297,6 +297,114 @@ public final class KingdomCivicsData extends SavedData {
         return AdministrativePermissionService.mayManage(actor,administration.founder(townId),town.mayor(),administration.roles(townId,actor),AdministrativeKind.LAND_OFFICE);
     }
 
+    /**
+     * Operator-only service entry points. Commands enforce OP level 4 plus
+     * persisted admin mode. These methods do not grant command permissions.
+     */
+    public boolean adminSetMayor(UUID townId,UUID npcUuid){
+        Town town=towns.get(townId);
+        if(town==null||npcUuid==null||runtimeServer==null)return false;
+        UUID membership=memberships.get(npcUuid);
+        if(membership!=null && !townId.equals(membership))return false;
+        if(npcUuid.equals(town.mayor()))return true;
+        // Changing the mayor must not silently transfer historical freeholds.
+        for(Plot plot:plots.values())
+            if(townId.equals(plot.town())) {
+                String k=key(plot.dimension(),plot.x(),plot.z());
+                plotOwners.putIfAbsent(k,town.mayor());
+            }
+        towns.put(townId,new Town(town.id(),town.name(),npcUuid,town.nation(),town.treasury()));
+        memberships.put(npcUuid,townId);
+        KingdomAdministrationData.get(runtimeServer).adminChangeMayor(townId,town.mayor(),npcUuid);
+        setDirty();return true;
+    }
+
+    public boolean adminSetFounder(UUID townId,UUID npcUuid){
+        Town town=towns.get(townId);
+        if(town==null||npcUuid==null||runtimeServer==null)return false;
+        UUID member=memberships.get(npcUuid);
+        if(member!=null&&!townId.equals(member))return false;
+        var administration=KingdomAdministrationData.get(runtimeServer);
+        if(!administration.adminChangeFounder(townId,npcUuid))return false;
+        memberships.put(npcUuid,townId);
+        setDirty();return true;
+    }
+
+    public boolean adminSetRuler(UUID nationId,UUID npcUuid){
+        Nation nation=nations.get(nationId);
+        if(nation==null||npcUuid==null)return false;
+        // A ruler must belong to the kingdom through an existing city.
+        Town home=townOf(npcUuid);
+        if(home==null||!nationId.equals(home.nation()))return false;
+        nations.put(nationId,new Nation(nation.id(),nation.name(),npcUuid,nation.treasury()));
+        setDirty();return true;
+    }
+
+    public Nation nationById(UUID id){return nations.get(id);}
+
+    public String adminTownDeletionBlocker(UUID townId){
+        Town town=towns.get(townId);
+        if(town==null)return "Город не найден.";
+        if(town.treasury()!=0)return "Казна города не пуста. Деньги нельзя уничтожать.";
+        if(runtimeServer==null)return "Хранилище сервера недоступно.";
+        var administration=KingdomAdministrationData.get(runtimeServer);
+        String reason=administration.adminRetirementBlocker(townId);
+        if(reason!=null)return reason;
+        // Personal land titles, leases and debts must be settled rather than lost.
+        for(var e:plots.entrySet()){
+            if(!townId.equals(e.getValue().town()))continue;
+            String k=e.getKey();
+            if(leases.containsKey(k)||offers.containsKey(k)||leaseDebts.containsKey(k)
+                    ||sales.containsKey(k)||e.getValue().tenant()!=null
+                    ||plotOwners.containsKey(k))
+                return "Есть арендованные/проданные участки или договоры. Сначала закрой земельные обязательства.";
+        }
+        return null;
+    }
+
+    public boolean adminDeleteTown(UUID id){
+        Town town=towns.get(id);
+        if(town==null||adminTownDeletionBlocker(id)!=null)return false;
+        var admin=KingdomAdministrationData.get(runtimeServer);
+        // Remove administrative records while the city's metadata still exists.
+        UUID previousFounder=admin.founder(id);
+        if(!admin.adminRetireTown(id))return false;
+        var territory=KingdomTerritories.get(runtimeServer);
+        var obsolete=new ArrayList<>(plots.entrySet());
+        for(var entry:obsolete){
+            Plot plot=entry.getValue();
+            if(!id.equals(plot.town()))continue;
+            // Matching only: never unclaim land currently owned by somebody else.
+            territory.adminReleaseClaim(plot.dimension(),plot.x(),plot.z(),town.mayor());
+            if(previousFounder!=null&&!town.mayor().equals(previousFounder))
+                territory.adminReleaseClaim(plot.dimension(),plot.x(),plot.z(),previousFounder);
+            plots.remove(entry.getKey());
+            plotOwners.remove(entry.getKey());
+            sales.remove(entry.getKey());offers.remove(entry.getKey());
+            leases.remove(entry.getKey());leaseDebts.remove(entry.getKey());
+            workers.remove(entry.getKey());
+        }
+        memberships.values().removeIf(id::equals);
+        expansionReceipts.values().removeIf(r->id.equals(r.townId()));
+        towns.remove(id);
+        setDirty();return true;
+    }
+
+    public String adminNationDeletionBlocker(UUID id){
+        Nation nation=nations.get(id);
+        if(nation==null)return "Королевство не найдено.";
+        if(nation.treasury()!=0)return "Казна королевства не пуста.";
+        for(Town town:towns.values())
+            if(id.equals(town.nation()))return "В составе королевства ещё есть города.";
+        return null;
+    }
+    public boolean adminDeleteNation(UUID id){
+        if(adminNationDeletionBlocker(id)!=null)return false;
+        nations.remove(id);alliances.remove(id);
+        for(var values:alliances.values())values.remove(id);
+        setDirty();return true;
+    }
+
     public Collection<Nation> nations() { return Collections.unmodifiableCollection(nations.values()); }
     public Town townOf(UUID player) { return towns.get(memberships.get(player)); }
     public Nation nationOf(UUID player) { Town t=townOf(player);return t==null?null:nations.get(t.nation()); }
