@@ -18,9 +18,12 @@ public final class KingdomSettlementFounding {
 
     public static String cleanName(String name){
         if(name==null)return null;
+        // Reject control characters before normalizing whitespace: a line break
+        // must not be silently converted into an accepted settlement title.
+        if(name.indexOf('§')>=0 || name.chars().anyMatch(Character::isISOControl))
+            return null;
         String value=name.strip().replaceAll("\\s+"," ");
-        if(value.isBlank()||value.length()>32||value.indexOf('§')>=0
-                ||value.chars().anyMatch(Character::isISOControl))return null;
+        if(value.isBlank()||value.length()>32)return null;
         return value;
     }
     public static Result create(ServerPlayer player,BlockPos pos,String name){
