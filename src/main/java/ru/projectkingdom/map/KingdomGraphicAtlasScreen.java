@@ -671,11 +671,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                     gui.fill(x, y, x + 1, y + cell, 0xFF59432F);
                 if (row == 0 || different(tile,snapshot.tile(col,row - 1)))
                     gui.fill(x, y, x + cell, y + 1, 0xFF59432F);
-                if (tile.enterprises() > 0) {
-                    int m = Math.max(2, cell / 3);
-                    gui.fill(x + (cell-m)/2, y + (cell-m)/2,
-                            x + (cell+m)/2, y + (cell+m)/2, 0xFFEEC75C);
-                }
+                // Enterprise markers use their real server-reported coordinates.
+                // The generic yellow square per tile was a misleading duplicate.
                 if (selectedCol == col && selectedRow == row) {
                     gui.fill(x, y, x + cell, y + 1, 0xFFFFFFFF);
                     gui.fill(x, y + cell - 1, x + cell, y + cell, 0xFFFFFFFF);
@@ -684,6 +681,9 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 }
             }
         }
+        // City names belong to the political view. Leaving them off the
+        // navigation/business layers prevents nameplates covering the player.
+        if(layer!=KingdomGraphicAtlasData.Layer.POLITICAL)return;
         // Render a few readable settlement captions at their visible centroids.
         // Never fabricate villages for empty cells or reveal hidden ore.
         java.util.Map<String, int[]> captions = new java.util.LinkedHashMap<>();
