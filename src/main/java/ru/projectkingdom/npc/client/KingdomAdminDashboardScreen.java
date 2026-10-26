@@ -28,7 +28,7 @@ public final class KingdomAdminDashboardScreen extends Screen {
     private UUID selectedNation;
     private int selectedNpc=-1;
     private int left,top,widthUi,heightUi,listWidth,rows;
-    private Button toggle,create,mayor,founder,claim,delete,confirm,cancel,cityTab,nationTab;
+    private Button toggle,create,mayor,founder,claim,delete,confirm,cancel,refresh,cityTab,nationTab;
 
     public KingdomAdminDashboardScreen(KingdomAdminDashboardPacket initial){
         super(Component.literal("Project Kingdom · Администрирование"));
@@ -123,7 +123,7 @@ public final class KingdomAdminDashboardScreen extends Screen {
             submit(KingdomAdminActionPacket.CONFIRM_DELETE,state.confirmingTarget(),-1,"",0));
         cancel=add(leftX+half+gap,top+heightUi-30,half,20,"ОТМЕНА",()->
             submit(KingdomAdminActionPacket.CANCEL_DELETE));
-        add(leftX+half+gap,top+heightUi-30,half,20,"Обновить список",()->
+        refresh=add(leftX+half+gap,top+heightUi-30,half,20,"Обновить список",()->
             submit(KingdomAdminActionPacket.REFRESH));
         updateButtons();
     }
@@ -140,6 +140,7 @@ public final class KingdomAdminDashboardScreen extends Screen {
         delete.active=on&&!danger&&selected()!=null;
         confirm.visible=danger;confirm.active=danger;
         cancel.visible=danger;cancel.active=danger;
+        refresh.visible=!danger;refresh.active=on;
         delete.visible=!danger;
         founder.visible=!nationsTab;
         claim.visible=!nationsTab;
