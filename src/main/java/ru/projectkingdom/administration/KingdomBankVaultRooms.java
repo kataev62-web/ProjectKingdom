@@ -76,7 +76,7 @@ public final class KingdomBankVaultRooms extends SavedData {
             case NO_RIGHTS->"Границы банковской комнаты может менять только управляющий банка.";
             case WRONG_DIMENSION->"Оба угла комнаты должны находиться в том же измерении, что и банк.";
             case TOO_FAR->"Подойдите к выбранному углу; граница комнаты должна быть рядом с банком.";
-            case TOO_LARGE->"Максимальный размер комнаты: 17×9×17 блоков. Минимальный — 3×3×3.";
+            case TOO_LARGE->"Два угла должны задавать объём минимум 3×3×3 и максимум 17×9×17. Выбирайте противоположные углы на разной высоте.";
             case FOREIGN_PLOT->"Комната должна целиком находиться на земле этого города.";
             case OVERLAP->"Комната пересекается с банковским хранилищем другого города.";
             case BANK_DESK_INSIDE->"Стойка банка должна находиться снаружи защищённой комнаты, чтобы посетители могли пользоваться банком.";
@@ -138,7 +138,8 @@ public final class KingdomBankVaultRooms extends SavedData {
             SESSIONS.put(player.getUUID(),new Session(session.town(),session.dimension(),session.bank(),pos.immutable()));
             return Result.FIRST_CORNER;
         }
-        SESSIONS.remove(player.getUUID());
+        // Keep the first point until the geometry and all real containers validate.
+        // Invalid second clicks can be retried without losing the whole session.
         BlockPos p=session.first();
         BlockPos min=new BlockPos(Math.min(p.getX(),pos.getX()),
             Math.min(p.getY(),pos.getY()),Math.min(p.getZ(),pos.getZ()));
@@ -177,6 +178,7 @@ public final class KingdomBankVaultRooms extends SavedData {
         if(inventory.error()!=null)return inventory.error();
         if(conflictingBindings(level,proposed))return Result.INVALID_STORAGE;
         rooms.put(session.town(),proposed);setDirty();
+        SESSIONS.remove(player.getUUID());
         return old==null?Result.CREATED:Result.EXPANDED;
     }
 

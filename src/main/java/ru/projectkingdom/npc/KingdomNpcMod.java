@@ -65,7 +65,9 @@ public final class KingdomNpcMod {
     /** Register one of several central-warehouse rooms using two server-verified corners. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
     public void selectWarehouseCorners(PlayerInteractEvent.RightClickBlock event){
-        if(!(event.getEntity() instanceof ServerPlayer player))return;
+        // Forge can deliver both hands for one click; each survey needs two distinct clicks.
+        if(event.getHand()!=net.minecraft.world.InteractionHand.MAIN_HAND
+                ||!(event.getEntity() instanceof ServerPlayer player))return;
         var warehouse=ru.projectkingdom.administration.KingdomCentralWarehouseRooms.get(player.getServer());
         if(!warehouse.hasSession(player.getUUID()))return;
         if(!event.getItemStack().isEmpty()){
@@ -81,7 +83,9 @@ public final class KingdomNpcMod {
     /** Protected municipal bank vault: mark opposite corners with an empty-hand click. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
     public void selectBankVaultCorners(PlayerInteractEvent.RightClickBlock event){
-        if(!(event.getEntity() instanceof ServerPlayer player))return;
+        // Ignore the off-hand echo or the first corner is immediately reused as the second.
+        if(event.getHand()!=net.minecraft.world.InteractionHand.MAIN_HAND
+                ||!(event.getEntity() instanceof ServerPlayer player))return;
         var survey=ru.projectkingdom.administration.KingdomBankVaultRooms.get(player.getServer());
         if(!survey.hasSession(player.getUUID()))return;
         if(!event.getItemStack().isEmpty()){
@@ -89,7 +93,13 @@ public final class KingdomNpcMod {
             player.sendSystemMessage(Component.literal("[Банк] Для разметки освободите руку, затем нажмите кнопку разметки заново."));
         }else{
             var result=survey.select(player,event.getPos());
-            player.sendSystemMessage(Component.literal("[Банк] "+ru.projectkingdom.administration.KingdomBankVaultRooms.message(result)));
+            String notice=ru.projectkingdom.administration.KingdomBankVaultRooms.message(result);
+            if(result!=ru.projectkingdom.administration.KingdomBankVaultRooms.Result.CREATED
+                    &&result!=ru.projectkingdom.administration.KingdomBankVaultRooms.Result.EXPANDED
+                    &&result!=ru.projectkingdom.administration.KingdomBankVaultRooms.Result.FIRST_CORNER
+                    &&survey.hasSession(player.getUUID()))
+                notice+=" Первая точка сохранена; укажите вторую ещё раз.";
+            player.sendSystemMessage(Component.literal("[Банк] "+notice));
         }
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
