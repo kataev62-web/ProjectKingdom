@@ -39,5 +39,6 @@
   "item.kingdomnpc.demand_board": "Доска потребностей",
   "key.categories.kingdomnpc": "Project Kingdom",
   "key.kingdomnpc.talk": "Говорить с NPC",
-  "itemGroup.kingdomnpc.blocks": "Project Kingdom — Блоки"
+  "itemGroup.kingdomnpc.blocks": "Project Kingdom — Блоки",
+  "block.kingdomnpc.textile_core": "Ядро ткацкой мастерской"
 }
