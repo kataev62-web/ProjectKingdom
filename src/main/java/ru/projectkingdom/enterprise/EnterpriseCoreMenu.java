@@ -28,6 +28,7 @@ import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomEnterprisePayrollData;
 import ru.projectkingdom.npc.KingdomMainMenu;
 import ru.projectkingdom.npc.KingdomFarmFieldsMenu;
+import ru.projectkingdom.npc.KingdomForestMenu;
 
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
