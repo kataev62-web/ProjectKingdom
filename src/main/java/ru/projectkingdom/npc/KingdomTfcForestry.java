@@ -164,7 +164,12 @@ public final class KingdomTfcForestry {
     }
     private static boolean isPlantingSpot(ServerLevel level,BlockPos location,
                                            KingdomForestData.Area area,UUID owner,Block block) {
-        if(!authorized(level,location,owner,area)||!level.hasChunkAt(location.below())
+        if(!authorized(level,location,owner,area)
+           ||(KingdomCivicsData.get(level.getServer()).plot(level,location)!=null
+               &&!KingdomCivicsData.get(level.getServer()).allowed(
+                   owner,level.dimension().location().toString(),location.getX(),
+                   location.getZ(),KingdomCivicsData.Action.BUILD))
+           ||!level.hasChunkAt(location.below())
            ||!level.getBlockState(location).isAir()
            ||level.getMaxLocalRawBrightness(location.above())<9
            ||!block.defaultBlockState().canSurvive(level,location))return false;
