@@ -20,13 +20,13 @@ class KingdomNpcDutyTest {
             assertTrue(KingdomNpcDuty.hasPhysicalExecutor(job));
         }
         for (String job : new String[]{"smith", "baker", "cook", "butcher",
-                "potter", "carpenter", "mason"}) {
+                "potter", "carpenter", "mason", "weaver"}) {
             assertEquals(KingdomNpcDuty.Kind.WORKSHOP, KingdomNpcDuty.kind(job));
             assertTrue(KingdomNpcDuty.hasPhysicalExecutor(job), job);
         }
         assertEquals(KingdomNpcDuty.Kind.CONSTRUCTION, KingdomNpcDuty.kind("builder"));
         assertEquals(KingdomNpcDuty.Kind.DELIVERY, KingdomNpcDuty.kind("courier"));
-        for (String job : new String[]{"weaver", "guard", "priest"}) {
+        for (String job : new String[]{"guard", "priest"}) {
             assertEquals(KingdomNpcDuty.Kind.SERVICE, KingdomNpcDuty.kind(job));
             assertFalse(KingdomNpcDuty.hasPhysicalExecutor(job));
         }
@@ -42,7 +42,7 @@ class KingdomNpcDutyTest {
             assertFalse(KingdomNpcDuty.mayExecute(job, "wander", "REST", true), job);
             assertFalse(KingdomNpcDuty.mayExecute(job, "wander", "CONTINUE_ASSIGNED_JOB", false), job);
         }
-        assertFalse(KingdomNpcDuty.mayExecute("weaver", "work", "CONTINUE_ASSIGNED_JOB", true));
+        assertTrue(KingdomNpcDuty.mayExecute("weaver", "work", "CONTINUE_ASSIGNED_JOB", true));
     }
 
     @Test void allProfessionsFollowTheSameBasicGoalPriority() {
