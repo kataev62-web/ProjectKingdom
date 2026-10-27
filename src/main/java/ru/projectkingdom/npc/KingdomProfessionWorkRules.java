@@ -29,6 +29,9 @@ public final class KingdomProfessionWorkRules {
             || "cook".equals(job) || "butcher".equals(job));
     }
 
+    public static boolean loom(String job, EnterpriseKind kind) {
+        return "weaver".equals(job) && kind == EnterpriseKind.TEXTILE;
+    }
     public static boolean quern(String job, EnterpriseKind kind) {
         return "baker".equals(job) && kind == EnterpriseKind.BAKERY;
     }
@@ -37,7 +40,7 @@ public final class KingdomProfessionWorkRules {
     public static boolean executable(String job) {
         return switch (job == null ? "" : job) {
             case "farmer", "breeder", "miner", "lumberjack", "builder", "courier",
-                 "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason" -> true;
+                 "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason", "weaver" -> true;
             default -> false;
         };
     }
