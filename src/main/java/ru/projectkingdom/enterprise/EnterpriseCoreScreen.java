@@ -129,6 +129,9 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 if(menu.kind()==EnterpriseKind.FARM) {
                     line(g,"Поля, виды семян и рекомендации TFC.",54,90);
                     line(g,"Назначьте участки и проверьте влажность.",54,108);
+                } else if(menu.kind()==EnterpriseKind.LUMBER) {
+                    line(g,"Выделите лес, породу TFC и нормы древесины.",54,90);
+                    line(g,"NPC рубит деревья и сажает реальные саженцы.",54,108);
                 } else if(menu.kind()==EnterpriseKind.CONSTRUCTION) {
                     line(g,"Заказы, проекты, NPC-строители и молот",54,90);
                     line(g,"открываются в едином меню Kingdom.",54,108);
