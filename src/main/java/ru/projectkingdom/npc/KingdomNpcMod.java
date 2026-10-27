@@ -982,6 +982,7 @@ public final class KingdomNpcMod {
                         executed |= NpcFieldWork.tick(level,resident,w)
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
+                            | KingdomTfcLoomWork.tick(level,resident,w)
                             | KingdomTfcPotWork.tick(level,resident,w)
                             | KingdomTfcGrillWork.tick(level,resident,w)
                             | KingdomLivestockWork.tick(level,resident,w);
