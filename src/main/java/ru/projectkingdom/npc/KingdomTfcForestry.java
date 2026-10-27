@@ -215,8 +215,8 @@ public final class KingdomTfcForestry {
         if(!init()||!axe(w.fieldTool))return false;
         List<BlockPos> tree=safeTree(level,root,w.employer,area,wood(area.sapling()));
         if(tree.isEmpty()||tree.size()>MAX_TREE
-            ||NpcFieldWork.canFit(w,List.of(new ItemStack(Items.OAK_LOG,
-                Math.min(64,tree.size())) ) == false)return false;
+            ||!NpcFieldWork.canFit(w,List.of(new ItemStack(Items.OAK_LOG,
+                Math.min(64,tree.size())))))return false;
         if(!near(npc,root)){walk(npc,root);return false;}
         // Tree and land can change during pathfinding.
         tree=safeTree(level,root,w.employer,area,wood(area.sapling()));
