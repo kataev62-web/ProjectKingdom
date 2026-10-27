@@ -128,8 +128,12 @@ public final class KingdomNpcMenu extends ChestMenu {
             && KingdomTfcGrillWork.isGrill(viewer.serverLevel(), w);
         boolean tfcPot = viewer.level().dimension().location().toString().equals(w.dimension)
             && KingdomTfcPotWork.isPot(viewer.serverLevel(),w);
-        icon(9, tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE :
-            tfcPot ? Items.CAULDRON : Items.CRAFTING_TABLE, tfcQuern
+        boolean tfcLoom = viewer.level().dimension().location().toString().equals(w.dimension)
+            && KingdomTfcLoomWork.isLoom(viewer.serverLevel(),w);
+        icon(9, tfcLoom ? Items.LOOM : tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE :
+            tfcPot ? Items.CAULDRON : Items.CRAFTING_TABLE, tfcLoom
+            ? "TFC ТКАЦКИЙ СТАНОК: настоящие нити и шерсть со склада, пошаговое ткачество TFC, готовая ткань на складе"
+            : tfcQuern
             ? "TFC ЖЕРНОВ: реальный помол по рецептам TFC с настоящим ручным камнем"
             : tfcGrill ? "TFC ГРИЛЬ: жарка еды по настоящим рецептам TFC с расходом топлива"
             : tfcPot ? "TFC КОТЁЛ: обычная варка, супы и варенье. В сырьевом складе нужны еда, топливо, вода в настоящей ёмкости и миски или банки"
@@ -233,6 +237,11 @@ public final class KingdomNpcMenu extends ChestMenu {
             case 2 -> page=Page.DIALOGUE;
             case 9 -> {
                 if(!owner){info("Нужны права работодателя.");break;}
+                if(viewer.level().dimension().location().toString().equals(w.dimension)
+                        && KingdomTfcLoomWork.isLoom(viewer.serverLevel(),w)){
+                    info("Ткач TFC: поставь настоящий ткацкий станок на территории ткацкой мастерской, назначь его рабочим блоком NPC; нужен сырьевой склад с настоящей пряжей TFC, склад готовой ткани, действующий договор и приказ работать. NPC выполнит шаги штатного рецепта TFC.");
+                    break;
+                }
                 if(viewer.level().dimension().location().toString().equals(w.dimension)
                         && KingdomTfcQuernWork.isQuern(viewer.serverLevel(),w)){
                     info("Жернов TFC работает без ручного рецепта. Нужны ручной камень, сырьевой и готовый склады, приказ работать.");
