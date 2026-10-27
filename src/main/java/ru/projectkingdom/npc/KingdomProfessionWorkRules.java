@@ -43,7 +43,7 @@ public final class KingdomProfessionWorkRules {
     public static boolean executable(String job) {
         return switch (job == null ? "" : job) {
             case "farmer", "breeder", "miner", "lumberjack", "builder", "courier",
-                 "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason", "weaver" -> true;
+                 "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason", "weaver", "tanner" -> true;
             default -> false;
         };
     }
