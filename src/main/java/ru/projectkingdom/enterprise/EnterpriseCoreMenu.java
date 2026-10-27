@@ -232,6 +232,10 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
                 && action==OPEN_FARM_FIELDS) {
             KingdomFarmFieldsMenu.open(server,enterpriseId,corePos);return true;
         }
+        if(kind==EnterpriseKind.LUMBER && data.mayManage(server.getUUID(),enterpriseId)
+                && action==OPEN_FOREST){
+            KingdomForestMenu.open(server,enterpriseId,corePos);return true;
+        }
         if(kind==EnterpriseKind.CONSTRUCTION && manager && action==OPEN_ARCHITECT) {
             KingdomMainMenu.openArchitect(server,corePos);return true;
         }
