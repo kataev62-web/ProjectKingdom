@@ -114,7 +114,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 if(packet.kind!=AdministrativeKind.BANK || !menu.manager())return;
                 boolean ok=KingdomBankVaultRooms.get(sender.getServer()).begin(sender);
                 sender.sendSystemMessage(Component.literal(ok
-                    ?"[Банк] Отметьте два противоположных угла хранилища ПКМ с пустой рукой. Максимум 17×9×17 блоков; рядом с банком."
+                    ?"[Банк] Отметьте два противоположных угла хранилища ПКМ с пустой рукой. Максимум 17×9×17; выберите два угла по полу (высота 5 блоков) или по диагонали на разной высоте."
                     :"[Банк] Только управляющий может размечать хранилище через меню банка."));
                 if(ok)sender.closeContainer();
                 return;
