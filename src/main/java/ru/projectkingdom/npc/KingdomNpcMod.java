@@ -1140,7 +1140,8 @@ public final class KingdomNpcMod {
                                     case WORKSHOP -> 40.0 * 40.0;
                                     // Farmer decides which of multiple assigned plots needs attention.
                                     // Generic commute must not override crop/warehouse navigation.
-                                    case FIELD -> ("farmer".equals(w.job) || "breeder".equals(w.job))
+                                    case FIELD -> ("farmer".equals(w.job) || "breeder".equals(w.job)
+                                            || "lumberjack".equals(w.job))
                                         ? 40.0 * 40.0 : 10.0 * 10.0;
                                     case DELIVERY -> 10.0 * 10.0;
                                     case SERVICE -> 4.0;
