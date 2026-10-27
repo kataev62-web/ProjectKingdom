@@ -20,7 +20,7 @@ class KingdomNpcDutyTest {
             assertTrue(KingdomNpcDuty.hasPhysicalExecutor(job));
         }
         for (String job : new String[]{"smith", "baker", "cook", "butcher",
-                "potter", "carpenter", "mason", "weaver"}) {
+                "potter", "carpenter", "mason", "weaver", "tanner"}) {
             assertEquals(KingdomNpcDuty.Kind.WORKSHOP, KingdomNpcDuty.kind(job));
             assertTrue(KingdomNpcDuty.hasPhysicalExecutor(job), job);
         }
