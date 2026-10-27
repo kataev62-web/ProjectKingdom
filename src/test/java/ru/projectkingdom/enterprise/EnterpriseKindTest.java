@@ -8,11 +8,11 @@ import org.junit.jupiter.api.Test;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
 
 final class EnterpriseKindTest {
-    @Test void catalogHasTenUniquePrivateTypes() {
+    @Test void catalogHasElevenUniquePrivateTypes() {
         var placeable = EnterpriseKind.placeableKinds();
-        assertEquals(10, placeable.size());
+        assertEquals(11, placeable.size());
         Set<String> ids = placeable.stream().map(EnterpriseKind::id).collect(Collectors.toSet());
-        assertEquals(10, ids.size());
+        assertEquals(11, ids.size());
         assertTrue(ids.contains("hotel"));
         assertTrue(ids.contains("tavern"));
         assertFalse(ids.contains("warehouse"));
