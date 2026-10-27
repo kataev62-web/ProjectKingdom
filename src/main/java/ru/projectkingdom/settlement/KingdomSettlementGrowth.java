@@ -23,6 +23,19 @@ public final class KingdomSettlementGrowth {
         public String title(){return title;}
     }
     private KingdomSettlementGrowth(){}
+    public record Progress(int chunks,int buildings,int residents,boolean tavern){
+        public Rank eligible(){return rank(chunks,buildings,residents,tavern);}
+        public String requirements(Rank next){
+            return switch(next){
+                case HAMLET->"Хутор основан.";
+                case VILLAGE->"Нужно: 4 чанка, 1 здание, 3 жителя и таверна.";
+                case SETTLEMENT->"Нужно: 12 чанков, 4 здания, 8 жителей и таверна.";
+                case CITY->"Нужно: 32 чанка, 11 зданий, 20 жителей и таверна.";
+            };
+        }
+        public String summary(){return "Земля: "+chunks+" чанков | Здания: "+buildings
+                +" | Жители: "+residents+" | Таверна: "+(tavern?"есть":"нет");}
+    }
 
     /** Legacy structural preview for existing tests; live game uses population gate. */
     public static Rank rank(int ownedChunks,int completedBuildings){
@@ -44,8 +57,12 @@ public final class KingdomSettlementGrowth {
 
     public static Rank forTown(KingdomCivicsData civics,KingdomConstructionData buildings,
                                UUID townId,String dimension,MinecraftServer server){
+        return inspect(civics,buildings,townId,dimension,server).eligible();
+    }
+    public static Progress inspect(KingdomCivicsData civics,KingdomConstructionData buildings,
+                               UUID townId,String dimension,MinecraftServer server){
         var town=civics.townById(townId);
-        if(town==null||server==null)return Rank.HAMLET;
+        if(town==null||server==null)return new Progress(0,0,0,false);
         Set<Long> owned=new HashSet<>();
         for(var plot:civics.mapPlots(dimension))
             if(townId.equals(plot.town()))
@@ -78,7 +95,7 @@ public final class KingdomSettlementGrowth {
             independent++;
         }
         int population=KingdomTavernImmigration.countResidents(server,townId);
-        return rank(owned.size(),independent,population,tavern!=null);
+        return new Progress(owned.size(),independent,population,tavern!=null);
     }
 
     /** Pure structural fallback for old tool integrations without a server. */

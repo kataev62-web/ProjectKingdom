@@ -51,10 +51,10 @@ public final class KingdomSettlementScreen extends AbstractContainerScreen<Kingd
         g.fill(leftPos+12,topPos+60,leftPos+imageWidth-12,topPos+61,0xFFBA996A);
     }
     @Override protected void renderLabels(GuiGraphics g,int mx,int my){
-        g.drawCenteredString(font,"ОСНОВАНИЕ ПОСЕЛЕНИЯ",imageWidth/2,21,0xFF49311D);
+        g.drawCenteredString(font,"РАТУША — ОСНОВАНИЕ ХУТОРА",imageWidth/2,21,0xFF49311D);
         g.drawCenteredString(font,menu.title(),imageWidth/2,43,0xFF745332);
         if(menu.founded()) {
-            g.drawCenteredString(font,"Здесь уже основано поселение.",imageWidth/2,101,0xFF355E38);
+            g.drawCenteredString(font,"Поселение основано. Управление — в ратуше.",imageWidth/2,101,0xFF355E38);
             g.drawCenteredString(font,"Рост: хутор → деревня → посёлок → город",imageWidth/2,124,0xFF745332);
         }else{
             g.drawString(font,"Введите название нового поселения:",25,72,0xFF49311D,false);
