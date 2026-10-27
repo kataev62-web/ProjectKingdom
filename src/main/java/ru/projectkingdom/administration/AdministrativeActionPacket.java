@@ -12,7 +12,7 @@ import ru.projectkingdom.npc.KingdomPhysicalCash;
 import ru.projectkingdom.npc.KingdomLandReservations;
 
 public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int action) {
-    public static final int JOIN_TOWN=100,PAY_RESERVED_LAND=204,BIND_HALL_CASHBOX=115,CONSOLIDATE_BANK=205,RECONCILE_BANK=206;
+    public static final int JOIN_TOWN=100,PAY_RESERVED_LAND=204,BIND_HALL_CASHBOX=115,CONSOLIDATE_BANK=205,RECONCILE_BANK=206,PROMOTE_TOWN=400;
     public static final int BIND_TREASURY=110,BIND_BANK=111,BIND_WAREHOUSE=112,BIND_MARKET=113,BIND_PRISON_CELL=114;
     public static final int WAREHOUSE_ROOM_GENERAL=310,WAREHOUSE_ROOM_FOOD=311,WAREHOUSE_ROOM_COLD=312;
     public static final int BANK_DEPOSIT_100=200,BANK_WITHDRAW_100=201,TREASURY_DEPOSIT_100=202,TREASURY_WITHDRAW_100=203;
@@ -38,6 +38,15 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                     sender.sendSystemMessage(Component.literal("Вы вступили в город «"+town.name()+"»!"));
                     sender.closeContainer(); // Force a fresh permission snapshot on next opening.
                 }
+                return;
+            }
+            if(packet.action==PROMOTE_TOWN){
+                if(packet.kind!=AdministrativeKind.TOWN_HALL)return;
+                var result=ru.projectkingdom.settlement.KingdomTownHallPromotion.promote(sender,packet.townId);
+                sender.sendSystemMessage(Component.literal("[Ратуша] "+result.message()));
+                if(result==ru.projectkingdom.settlement.KingdomTownHallPromotion.Result.PROMOTED
+                        &&sender.serverLevel().getBlockEntity(menu.corePos()) instanceof AdministrativeCoreBlockEntity core)
+                    AdministrativeCoreMenu.open(sender,core);
                 return;
             }
             if(packet.action==PAY_RESERVED_LAND) {
@@ -105,7 +114,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 if(packet.kind!=AdministrativeKind.BANK || !menu.manager())return;
                 boolean ok=KingdomBankVaultRooms.get(sender.getServer()).begin(sender);
                 sender.sendSystemMessage(Component.literal(ok
-                    ?"[Банк] Отметьте два противоположных угла хранилища ПКМ с пустой рукой. Максимум 17×9×17 блоков; рядом с банком."
+                    ?"[Банк] Отметьте два противоположных угла хранилища ПКМ с пустой рукой. Максимум 17×9×17; выберите два угла по полу (высота 5 блоков) или по диагонали на разной высоте."
                     :"[Банк] Только управляющий может размечать хранилище через меню банка."));
                 if(ok)sender.closeContainer();
                 return;

@@ -23,10 +23,27 @@ public final class KingdomOpenLandEvents {
         var pos=event.getPos();
         if(!KingdomTemporaryLand.temporaryArea(level,pos,player))return;
         BlockState state=level.getBlockState(pos);
+        // Felling a TFC/vanilla tree can mutate neighbouring claimed blocks.
+        // Tree harvesting is not part of the temporary public-land clearing rule.
+        if(ru.projectkingdom.npc.KingdomClaimProtection.isTreePart(state)
+                &&ru.projectkingdom.npc.KingdomCivicsData.get(player.getServer()).plot(level,pos)!=null
+                &&!ru.projectkingdom.npc.KingdomCivicsData.get(player.getServer()).allowed(
+                    player.getUUID(),level.dimension().location().toString(),
+                    pos.getX(),pos.getZ(),ru.projectkingdom.npc.KingdomCivicsData.Action.BREAK)){
+            event.setCanceled(true);
+            return;
+        }
         // An unregistered charter must be recoverable by its actual placer.
         // Otherwise a rejected founding site becomes a permanent world obstacle.
         if(level.getBlockEntity(pos) instanceof KingdomSettlementCharterEntity marker){
             if(!marker.founded()&&player.getUUID().equals(marker.placer()))return;
+            event.setCanceled(true);return;
+        }
+        // A yet-unfounded town hall can be recovered by its original owner.
+        if(level.getBlockEntity(pos) instanceof
+                ru.projectkingdom.administration.AdministrativeCoreBlockEntity hall
+                &&state.is(ru.projectkingdom.administration.KingdomAdministrationRegistry.TOWN_HALL.get())){
+            if(!hall.bound()&&player.getUUID().equals(hall.placer()))return;
             event.setCanceled(true);return;
         }
         if(!KingdomTemporaryLand.safeToBreak(level,pos,state)){event.setCanceled(true);return;}

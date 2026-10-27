@@ -38,6 +38,12 @@ public final class AdministrativeCoreBlock extends Block implements EntityBlock 
         if(!(level instanceof ServerLevel server)||!(placer instanceof ServerPlayer player))return;
         KingdomCivicsData civics=KingdomCivicsData.get(server.getServer());
         KingdomCivicsData.Town town=civics.townAt(server,pos);
+        // The town hall doubles as the founding block on unclaimed land.
+        if(kind==AdministrativeKind.TOWN_HALL && town==null){
+            if(server.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core)
+                core.markFounding(player.getUUID());
+            return;
+        }
         if(town==null||!civics.isMember(town.id(),player.getUUID())){reject(server,pos,player,stack,"Блок можно поставить только в своём городе.");return;}
         KingdomAdministrationData data=KingdomAdministrationData.get(server.getServer());
         UUID founder=data.founder(town.id());
@@ -95,11 +101,18 @@ public final class AdministrativeCoreBlock extends Block implements EntityBlock 
         if(entity instanceof AdministrativeCoreBlockEntity core&&core.bound()&&actor instanceof Player player&&core.owner().equals(player.getUUID())){
             ItemStack result=new ItemStack(this);AdministrativeCoreItemData.write(result,core.townId(),core.owner(),core.kind());return List.of(result);
         }
+        if(entity instanceof AdministrativeCoreBlockEntity core&&!core.bound()
+                &&actor instanceof Player player&&player.getUUID().equals(core.placer()))
+            return List.of(new ItemStack(this));
         return List.of();
     }
     @Override public InteractionResult use(BlockState state,Level level,BlockPos pos,Player player,InteractionHand hand,BlockHitResult hit){
-        if(!level.isClientSide&&player instanceof ServerPlayer server&&level.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core&&core.bound())
-            AdministrativeCoreMenu.open(server,core);
+        if(!level.isClientSide&&player instanceof ServerPlayer server
+                &&level.getBlockEntity(pos) instanceof AdministrativeCoreBlockEntity core){
+            if(core.bound())AdministrativeCoreMenu.open(server,core);
+            else if(kind==AdministrativeKind.TOWN_HALL)
+                ru.projectkingdom.settlement.KingdomSettlementMenu.open(server,core);
+        }
         return InteractionResult.sidedSuccess(level.isClientSide);
     }
 }

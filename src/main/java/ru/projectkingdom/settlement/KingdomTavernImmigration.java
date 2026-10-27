@@ -239,6 +239,7 @@ public final class KingdomTavernImmigration {
             if(villager==null)continue;
             villager.moveTo(spawn.getX()+.5,spawn.getY(),spawn.getZ()+.5,level.random.nextFloat()*360f,0);
             villager.setPersistenceRequired();
+            villager.setSilent(true);
             int nextId=npcDb.nextId;
             boolean woman=(nextId&1)==0;
             String[] first=woman?new String[]{"Марья","Анна","Дарья","Аглая","Варвара","Василиса"}

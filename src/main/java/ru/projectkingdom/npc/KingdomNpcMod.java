@@ -55,6 +55,7 @@ public final class KingdomNpcMod {
         KingdomConstructionRegistry.register();
         KingdomAdministrationRegistry.register();
         KingdomSettlementRegistry.register();
+        KingdomCreativeTabs.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomNetwork.register();
         new KingdomFemaleOutfitSync();
         MinecraftForge.EVENT_BUS.register(new KingdomBookGuardian());
@@ -64,7 +65,9 @@ public final class KingdomNpcMod {
     /** Register one of several central-warehouse rooms using two server-verified corners. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
     public void selectWarehouseCorners(PlayerInteractEvent.RightClickBlock event){
-        if(!(event.getEntity() instanceof ServerPlayer player))return;
+        // Forge can deliver both hands for one click; each survey needs two distinct clicks.
+        if(event.getHand()!=net.minecraft.world.InteractionHand.MAIN_HAND
+                ||!(event.getEntity() instanceof ServerPlayer player))return;
         var warehouse=ru.projectkingdom.administration.KingdomCentralWarehouseRooms.get(player.getServer());
         if(!warehouse.hasSession(player.getUUID()))return;
         if(!event.getItemStack().isEmpty()){
@@ -80,7 +83,9 @@ public final class KingdomNpcMod {
     /** Protected municipal bank vault: mark opposite corners with an empty-hand click. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
     public void selectBankVaultCorners(PlayerInteractEvent.RightClickBlock event){
-        if(!(event.getEntity() instanceof ServerPlayer player))return;
+        // Ignore the off-hand echo or the first corner is immediately reused as the second.
+        if(event.getHand()!=net.minecraft.world.InteractionHand.MAIN_HAND
+                ||!(event.getEntity() instanceof ServerPlayer player))return;
         var survey=ru.projectkingdom.administration.KingdomBankVaultRooms.get(player.getServer());
         if(!survey.hasSession(player.getUUID()))return;
         if(!event.getItemStack().isEmpty()){
@@ -88,7 +93,13 @@ public final class KingdomNpcMod {
             player.sendSystemMessage(Component.literal("[Банк] Для разметки освободите руку, затем нажмите кнопку разметки заново."));
         }else{
             var result=survey.select(player,event.getPos());
-            player.sendSystemMessage(Component.literal("[Банк] "+ru.projectkingdom.administration.KingdomBankVaultRooms.message(result)));
+            String notice=ru.projectkingdom.administration.KingdomBankVaultRooms.message(result);
+            if(result!=ru.projectkingdom.administration.KingdomBankVaultRooms.Result.CREATED
+                    &&result!=ru.projectkingdom.administration.KingdomBankVaultRooms.Result.EXPANDED
+                    &&result!=ru.projectkingdom.administration.KingdomBankVaultRooms.Result.FIRST_CORNER
+                    &&survey.hasSession(player.getUUID()))
+                notice+=" Первая точка сохранена; укажите вторую ещё раз.";
+            player.sendSystemMessage(Component.literal("[Банк] "+notice));
         }
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
@@ -580,6 +591,7 @@ public final class KingdomNpcMod {
                 npc.setCustomName(Component.literal("Kingdom " + job));
                 npc.setCustomNameVisible(true);
                 npc.setPersistenceRequired();
+                npc.setSilent(true);
                 npc.setVillagerData(npc.getVillagerData().setProfession(profession(job)));
                 if (!level.addFreshEntity(npc)) { reply(src, "Failed to spawn villager"); return 0; }
                 var created = db.add(npc.getUUID(), "Kingdom " + job, level.dimension().location().toString(), level.getDayTime() / TICKS_PER_DAY);
@@ -603,6 +615,7 @@ public final class KingdomNpcMod {
                 npc.setCustomName(Component.literal("Kingdom " + job));
                 npc.setCustomNameVisible(true);
                 npc.setPersistenceRequired();
+                npc.setSilent(true);
                 npc.setVillagerData(npc.getVillagerData().setProfession(profession(job)));
                 if (!level.addFreshEntity(npc)) return 0;
                 var worker = db.add(npc.getUUID(), "Kingdom " + job,
@@ -841,6 +854,7 @@ public final class KingdomNpcMod {
     /** Vanilla villager remains interactive; avoid opening its trade UI for tracked workers. */
     @SubscribeEvent
     public void interact(PlayerInteractEvent.EntityInteract event) {
+        if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         if (!(event.getTarget() instanceof Villager npc) || !(event.getEntity() instanceof ServerPlayer p)) return;
         var db=KingdomNpcData.get(p.getServer());
         KingdomNpcData.Worker found=null;
@@ -863,6 +877,8 @@ public final class KingdomNpcMod {
             p.sendSystemMessage(Component.literal("[Королевство] Житель принят в систему, №" + found.id));
         }
         if(found==null)return;
+        npc.setSilent(true);
+        NpcDialogueService.respond(p, found, "привет");
         // Freeze immediately, not after the next simulation update.
         npc.getNavigation().stop();
         npc.setNoAi(true);
@@ -981,6 +997,7 @@ public final class KingdomNpcMod {
                         executed |= NpcFieldWork.tick(level,resident,w)
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
+                            | KingdomTfcLoomWork.tick(level,resident,w)
                             | KingdomTfcPotWork.tick(level,resident,w)
                             | KingdomTfcGrillWork.tick(level,resident,w)
                             | KingdomLivestockWork.tick(level,resident,w);

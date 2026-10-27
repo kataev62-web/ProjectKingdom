@@ -69,14 +69,14 @@ public final class KingdomBankVaultRooms extends SavedData {
     }
     public static String message(Result result){
         return switch(result){
-            case FIRST_CORNER->"Первый угол отмечен. Нажмите ПКМ по противоположному углу комнаты с пустой рукой.";
-            case CREATED->"Банковская комната закреплена. Все сундуки и бочки внутри объединены в один резерв.";
+            case FIRST_CORNER->"Первый угол отмечен. Нажмите ПКМ по противоположному углу пола; высота комнаты по умолчанию 5 блоков. Для другой высоты отметьте второй угол выше.";
+            case CREATED->"Границы банковской комнаты сохранены! Для операций с монетами установите внутри хотя бы один сундук или бочку.";
             case EXPANDED->"Границы банковского хранилища расширены без потери старых сундуков.";
             case NO_SESSION->"Откройте банк управляющим и нажмите «Отметить комнату хранилища».";
             case NO_RIGHTS->"Границы банковской комнаты может менять только управляющий банка.";
             case WRONG_DIMENSION->"Оба угла комнаты должны находиться в том же измерении, что и банк.";
             case TOO_FAR->"Подойдите к выбранному углу; граница комнаты должна быть рядом с банком.";
-            case TOO_LARGE->"Максимальный размер комнаты: 17×9×17 блоков. Минимальный — 3×3×3.";
+            case TOO_LARGE->"Размер банковской комнаты: от 3×3×3 до 17×9×17. Для двух углов на полу высота автоматически 5 блоков.";
             case FOREIGN_PLOT->"Комната должна целиком находиться на земле этого города.";
             case OVERLAP->"Комната пересекается с банковским хранилищем другого города.";
             case BANK_DESK_INSIDE->"Стойка банка должна находиться снаружи защищённой комнаты, чтобы посетители могли пользоваться банком.";
@@ -138,12 +138,17 @@ public final class KingdomBankVaultRooms extends SavedData {
             SESSIONS.put(player.getUUID(),new Session(session.town(),session.dimension(),session.bank(),pos.immutable()));
             return Result.FIRST_CORNER;
         }
-        SESSIONS.remove(player.getUUID());
+        // Keep the first point until the geometry and all real containers validate.
+        // Invalid second clicks can be retried without losing the whole session.
         BlockPos p=session.first();
+        // Most players mark two opposite FLOOR corners rather than wall diagonals.
+        // In that case build a five-block-high volume from the floor upwards.
+        int bottom=Math.min(p.getY(),pos.getY());
+        int top=p.getY()==pos.getY()?bottom+4:Math.max(p.getY(),pos.getY());
         BlockPos min=new BlockPos(Math.min(p.getX(),pos.getX()),
-            Math.min(p.getY(),pos.getY()),Math.min(p.getZ(),pos.getZ()));
+            bottom,Math.min(p.getZ(),pos.getZ()));
         BlockPos max=new BlockPos(Math.max(p.getX(),pos.getX()),
-            Math.max(p.getY(),pos.getY()),Math.max(p.getZ(),pos.getZ()));
+            top,Math.max(p.getZ(),pos.getZ()));
         Room proposed=new Room(session.town(),session.dimension(),min,max);
         if(proposed.contains(session.bank()))return Result.BANK_DESK_INSIDE;
         if(max.getX()-min.getX()+1>MAX_XZ || max.getZ()-min.getZ()+1>MAX_XZ
@@ -174,9 +179,13 @@ public final class KingdomBankVaultRooms extends SavedData {
         if(!level.hasChunkAt(max))return Result.UNLOADED;
         // Test with the candidate room before publishing its protected boundary.
         Scan inventory=scan(level,proposed);
-        if(inventory.error()!=null)return inventory.error();
+        // Empty rooms may be registered before the furniture arrives. Financial
+        // operations still fail closed: vault() refuses a room without chests.
+        if(inventory.error()!=null&&inventory.error()!=Result.NO_CHESTS)
+            return inventory.error();
         if(conflictingBindings(level,proposed))return Result.INVALID_STORAGE;
         rooms.put(session.town(),proposed);setDirty();
+        SESSIONS.remove(player.getUUID());
         return old==null?Result.CREATED:Result.EXPANDED;
     }
 

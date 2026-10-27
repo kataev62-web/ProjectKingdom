@@ -27,6 +27,8 @@ public final class KingdomEnterpriseRegistry {
     public static final RegistryObject<Block> SMITHY=block("smithy_core",EnterpriseKind.SMITHY);
     public static final RegistryObject<Block> BAKERY=block("bakery_core",EnterpriseKind.BAKERY);
     public static final RegistryObject<Block> POTTERY=block("pottery_core",EnterpriseKind.POTTERY);
+    public static final RegistryObject<Block> TEXTILE=block("textile_core",EnterpriseKind.TEXTILE);
+    public static final RegistryObject<Block> TANNERY=block("tannery_core",EnterpriseKind.TANNERY);
     public static final RegistryObject<Block> CONSTRUCTION=block("construction_core",EnterpriseKind.CONSTRUCTION);
     public static final RegistryObject<Block> COURIER=block("courier_core",EnterpriseKind.COURIER);
     public static final RegistryObject<Block> HOTEL=block("hotel_core",EnterpriseKind.HOTEL);
@@ -38,6 +40,8 @@ public final class KingdomEnterpriseRegistry {
     public static final RegistryObject<Item> SMITHY_ITEM=item("smithy_core",SMITHY);
     public static final RegistryObject<Item> BAKERY_ITEM=item("bakery_core",BAKERY);
     public static final RegistryObject<Item> POTTERY_ITEM=item("pottery_core",POTTERY);
+    public static final RegistryObject<Item> TEXTILE_ITEM=item("textile_core",TEXTILE);
+    public static final RegistryObject<Item> TANNERY_ITEM=item("tannery_core",TANNERY);
     public static final RegistryObject<Item> CONSTRUCTION_ITEM=item("construction_core",CONSTRUCTION);
     public static final RegistryObject<Item> COURIER_ITEM=item("courier_core",COURIER);
     public static final RegistryObject<Item> HOTEL_ITEM=item("hotel_core",HOTEL);
@@ -45,7 +49,7 @@ public final class KingdomEnterpriseRegistry {
 
     public static final RegistryObject<BlockEntityType<EnterpriseCoreBlockEntity>> CORE_ENTITY=ENTITIES.register("enterprise_core",()->
             BlockEntityType.Builder.of(EnterpriseCoreBlockEntity::new,FARM.get(),MINE.get(),LUMBER.get(),SMITHY.get(),
-                    BAKERY.get(),POTTERY.get(),CONSTRUCTION.get(),COURIER.get(),HOTEL.get(),TAVERN.get()).build(null));
+                    BAKERY.get(),POTTERY.get(),TEXTILE.get(),TANNERY.get(),CONSTRUCTION.get(),COURIER.get(),HOTEL.get(),TAVERN.get()).build(null));
     public static final RegistryObject<MenuType<EnterpriseCoreMenu>> CORE_MENU=MENUS.register("enterprise_core",()->IForgeMenuType.create(EnterpriseCoreMenu::new));
     private KingdomEnterpriseRegistry(){}
     private static RegistryObject<Block> block(String id,EnterpriseKind kind){
