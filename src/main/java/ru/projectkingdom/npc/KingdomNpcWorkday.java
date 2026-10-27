@@ -64,6 +64,10 @@ public final class KingdomNpcWorkday {
                 || KingdomNpcFarmOwner.workOwner(level,worker) == null) return null;
         var land = KingdomTerritories.get(server);
         var kind = KingdomNpcDuty.kind(worker.job);
+        if ("lumberjack".equals(worker.job)) {
+            BlockPos forest=KingdomTfcForestry.workSite(level,worker);
+            if(forest!=null)return forest;
+        }
         if ("breeder".equals(worker.job)) {
             BlockPos pen=KingdomLivestockWork.workSite(level,worker);
             if(pen!=null)return pen;
