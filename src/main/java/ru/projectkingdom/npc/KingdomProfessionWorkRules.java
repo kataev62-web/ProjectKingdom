@@ -29,6 +29,9 @@ public final class KingdomProfessionWorkRules {
             || "cook".equals(job) || "butcher".equals(job));
     }
 
+    public static boolean tanning(String job, EnterpriseKind kind) {
+        return "tanner".equals(job) && kind == EnterpriseKind.TANNERY;
+    }
     public static boolean loom(String job, EnterpriseKind kind) {
         return "weaver".equals(job) && kind == EnterpriseKind.TEXTILE;
     }
