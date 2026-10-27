@@ -31,7 +31,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     private int stockPage=0;
     private Button stockPrevious,stockNext;
     private EditBox rename;private Button renameButton,closeButton;
-    private Button fieldsButton;
+    private Button fieldsButton,forestButton;
     private boolean closureArmed;
     public EnterpriseCoreScreen(EnterpriseCoreMenu menu,Inventory inventory,Component title){super(menu,inventory,KingdomFonts.readable(title));imageWidth=EnterpriseMenuLayout.WIDTH;imageHeight=EnterpriseMenuLayout.HEIGHT;}
     @Override protected void init(){
