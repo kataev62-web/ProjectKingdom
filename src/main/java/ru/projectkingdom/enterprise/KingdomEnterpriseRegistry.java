@@ -41,6 +41,7 @@ public final class KingdomEnterpriseRegistry {
     public static final RegistryObject<Item> BAKERY_ITEM=item("bakery_core",BAKERY);
     public static final RegistryObject<Item> POTTERY_ITEM=item("pottery_core",POTTERY);
     public static final RegistryObject<Item> TEXTILE_ITEM=item("textile_core",TEXTILE);
+    public static final RegistryObject<Item> TANNERY_ITEM=item("tannery_core",TANNERY);
     public static final RegistryObject<Item> CONSTRUCTION_ITEM=item("construction_core",CONSTRUCTION);
     public static final RegistryObject<Item> COURIER_ITEM=item("courier_core",COURIER);
     public static final RegistryObject<Item> HOTEL_ITEM=item("hotel_core",HOTEL);
