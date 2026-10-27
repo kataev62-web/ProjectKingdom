@@ -35,7 +35,7 @@ final class EnterpriseKindTest {
         assertTrue(data.suspendCore(owner, firm.id(), "overworld", 10));
         assertEquals(EnterpriseActivation.ACTIVATED,
                 data.activateCore(owner, firm.id(), EnterpriseKind.SMITHY, "overworld", 11));
-        assertEquals(12, data.core(firm.id()).packedPos());
+        assertEquals(11, data.core(firm.id()).packedPos());
         assertTrue(data.core(firm.id()).active());
     }
 
