@@ -123,6 +123,7 @@ public final class KingdomNpcMod {
     }
 
     @SubscribeEvent public void chooseFarmCorner(PlayerInteractEvent.RightClickBlock event) {
+        if(KingdomForestSelection.select(event))return;
         KingdomFarmSelection.select(event);
     }
 
