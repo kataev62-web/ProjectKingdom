@@ -95,8 +95,12 @@ public final class KingdomTfcForestry {
     }
     private static boolean authorized(ServerLevel level,BlockPos at,
                                       UUID owner,KingdomForestData.Area area) {
-        return level.hasChunkAt(at)&&area.inside(at)
-            &&KingdomTerritories.get(level.getServer()).canUse(level,at,owner);
+        if(!level.hasChunkAt(at)||!area.inside(at)
+            ||!KingdomTerritories.get(level.getServer()).canUse(level,at,owner))return false;
+        var civic=KingdomCivicsData.get(level.getServer());
+        return civic.plot(level,at)==null
+            ||civic.allowed(owner,level.dimension().location().toString(),
+                at.getX(),at.getZ(),KingdomCivicsData.Action.BREAK);
     }
     /**
      * 26-neighbour BFS is deliberately MORE conservative than the native
@@ -126,8 +130,7 @@ public final class KingdomTfcForestry {
                     BlockState state=level.getBlockState(next);
                     // Protect the whole canopy, even where it overhangs plots.
                     if(state.is(BlockTags.LEAVES)
-                        &&!KingdomTerritories.get(level.getServer()).canUse(level,next,owner))
-                        return List.of();
+                        &&!authorized(level,next,owner,area))return List.of();
                     if(state.is(TFC_LOGS)){
                         if(!treeLog(level,next,species)||!authorized(level,next,owner,area))
                             return List.of();
