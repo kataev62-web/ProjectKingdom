@@ -669,11 +669,20 @@ public final class KingdomGraphicAtlasScreen extends Screen {
                 int x = gridX + col * cell, y = gridY + row * cell;
                 int fill = territoryColor(tile, layer);
                 gui.fill(x, y, x + cell, y + cell, fill);
-                // Separate adjacent sovereign parcels with crisp boundary lines.
-                if (col == 0 || different(tile,snapshot.tile(col - 1,row)))
-                    gui.fill(x, y, x + 1, y + cell, 0xFF59432F);
-                if (row == 0 || different(tile,snapshot.tile(col,row - 1)))
-                    gui.fill(x, y, x + cell, y + 1, 0xFF59432F);
+                // Thick high-contrast OUTER city edges, including right/bottom
+                // borders. Adjacent chunks of the same town have no internal seams.
+                if(tile.claims()>0){
+                    int border=tile.own()?0xFF39E76B:0xFFEC5950;
+                    int thick=cell>=7?2:1;
+                    if(col==0||different(tile,snapshot.tile(col-1,row)))
+                        gui.fill(x,y,x+thick,y+cell,border);
+                    if(row==0||different(tile,snapshot.tile(col,row-1)))
+                        gui.fill(x,y,x+cell,y+thick,border);
+                    if(col==KingdomGraphicAtlasData.COLUMNS-1||different(tile,snapshot.tile(col+1,row)))
+                        gui.fill(x+cell-thick,y,x+cell,y+cell,border);
+                    if(row==KingdomGraphicAtlasData.ROWS-1||different(tile,snapshot.tile(col,row+1)))
+                        gui.fill(x,y+cell-thick,x+cell,y+cell,border);
+                }
                 // Enterprise markers use their real server-reported coordinates.
                 // The generic yellow square per tile was a misleading duplicate.
                 if (selectedCol == col && selectedRow == row) {
@@ -724,9 +733,8 @@ public final class KingdomGraphicAtlasScreen extends Screen {
     private boolean different(KingdomGraphicAtlasData.Tile a, KingdomGraphicAtlasData.Tile b) {
         if (a.claims() == 0 && b.claims() == 0) return false;
         if (a.claims() == 0 || b.claims() == 0) return true;
-        return layer == KingdomGraphicAtlasData.Layer.POLITICAL
-                ? a.nationColor() != b.nationColor()
-                : a.townColor() != b.townColor();
+        // City limits stay visible even for two cities in the same nation.
+        return a.townColor()!=b.townColor() || a.mixed() || b.mixed();
     }
     private boolean insideMap(double x,double y){
         return x>=gridX && x<gridX+gridWidth && y>=gridY && y<gridY+gridHeight;
