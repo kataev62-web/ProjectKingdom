@@ -27,6 +27,10 @@ final class KingdomBankSurveyAndTreeClaimRegressionTest {
                 "Invalid second corner must not clear the first corner");
         assertTrue(vault.substring(commit).contains("SESSIONS.remove(player.getUUID());"),
                 "Success closes the bank survey");
+        assertTrue(vault.contains("int top=p.getY()==pos.getY()?bottom+4"),
+                "Two floor corners form a five-block-high room");
+        assertTrue(vault.contains("inventory.error()!=Result.NO_CHESTS"),
+                "Empty rooms can be marked before chests are installed");
     }
 
     @Test void aPublicCityPlotDoesNotLetVisitorsHarvestTfcTrees()throws Exception{
