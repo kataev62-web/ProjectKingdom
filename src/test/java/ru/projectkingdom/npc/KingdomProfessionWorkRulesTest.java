@@ -30,6 +30,9 @@ class KingdomProfessionWorkRulesTest {
         assertTrue(KingdomProfessionWorkRules.executable("baker"));
         assertTrue(KingdomProfessionWorkRules.executable("weaver"));
         assertTrue(KingdomProfessionWorkRules.loom("weaver",EnterpriseKind.TEXTILE));
+        assertTrue(KingdomProfessionWorkRules.tanning("tanner",EnterpriseKind.TANNERY));
+        assertFalse(KingdomProfessionWorkRules.tanning("tanner",EnterpriseKind.TEXTILE));
+        assertFalse(KingdomProfessionWorkRules.tanning("weaver",EnterpriseKind.TANNERY));
         assertFalse(KingdomProfessionWorkRules.loom("weaver",EnterpriseKind.POTTERY));
         assertFalse(KingdomProfessionWorkRules.loom("smith",EnterpriseKind.TEXTILE));
         assertFalse(KingdomProfessionWorkRules.executable("farrier"));
