@@ -148,6 +148,9 @@ public final class NpcFieldWork {
         for(int inv=0;inv<w.fieldInventory.size();){
             ItemStack s=w.fieldInventory.get(inv);
             if(reservedSeeds.contains(BuiltInRegistries.ITEM.getKey(s.getItem()).toString())
+                    || ("lumberjack".equals(w.job)
+                        && KingdomTfcForestry.validSapling(BuiltInRegistries.ITEM.getKey(
+                            s.getItem()).toString()))
                     || ("farmer".equals(w.job) && KingdomFarmNutrition.recognized(s))){
                 inv++;continue; // Keep genuine seeds in the NPC's persistent planting bag.
             }
