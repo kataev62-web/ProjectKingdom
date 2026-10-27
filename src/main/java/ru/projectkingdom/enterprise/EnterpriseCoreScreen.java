@@ -107,6 +107,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         if(stockNext!=null){stockNext.visible=selected==EnterpriseMenuLayout.Tab.STORAGE;stockNext.active=stockPage+1<Math.max(stockPages,1);}
         for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();
         if(fieldsButton!=null)fieldsButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.FARM;
+        if(forestButton!=null)forestButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.LUMBER;
         for(Button b:constructionButtons)b.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION
             &&menu.kind()==EnterpriseKind.CONSTRUCTION&&menu.manager();
         boolean settings=selected==EnterpriseMenuLayout.Tab.SETTINGS&&menu.manager();if(rename!=null)rename.setVisible(settings);if(renameButton!=null)renameButton.visible=settings;if(closeButton!=null)closeButton.visible=settings;}
