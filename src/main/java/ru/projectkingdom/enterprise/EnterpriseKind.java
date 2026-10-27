@@ -11,6 +11,7 @@ public enum EnterpriseKind {
     SMITHY("smithy", "Кузница", "Кузница", true),
     BAKERY("bakery", "Пекарня", "Пекарня", true),
     POTTERY("pottery", "Гончарная мастерская", "Гончарная", true),
+    TEXTILE("textile", "Ткацкая мастерская", "Ткацкая", true),
     CONSTRUCTION("construction", "Строительная контора", "Стройконтора", true),
     COURIER("courier", "Курьерская служба", "Курьерская служба", true),
     HOTEL("hotel", "Гостиница", "Гостиница", true),
