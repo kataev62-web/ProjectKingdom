@@ -377,6 +377,8 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(16,Items.BOOK,"Приказы сохраняются; военный ИИ ещё не подключён");
             }
             case TERRITORY -> {
+                icon(10,Items.GLOWSTONE_DUST,KingdomBorderOverlay.enabled(viewer)
+                        ?"Скрыть границы городов в мире (клавиша G)":"Показать границы городов в мире (клавиша G)");
                 icon(11,Items.FILLED_MAP,"Карты и управление территориями в разделе Карты Kingdom");
                 icon(15,Items.BOOK,"Перейти в раздел Карты");
             }
@@ -425,6 +427,8 @@ public final class KingdomMainMenu extends ChestMenu {
                     icon(20,Items.BARREL,"Действующие таверны: "+inns+
                             " | местные NPC прибывают постепенно, не более одного за игровые сутки");
                 }
+                icon(21,Items.GLOWSTONE_DUST,KingdomBorderOverlay.enabled(viewer)
+                        ?"Скрыть границы городов в мире (G)":"Показать границы городов в мире (G)");
                 icon(22,Items.BOOK,"Казна города: "+(town==null?0:town.treasury())+" | нации: "+(nation==null?0:nation.treasury()));
             }
             case PEOPLE -> {
@@ -725,6 +729,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 }
             }}
             case CIVICS -> {
+                if(slot==21){KingdomBorderOverlay.toggle(viewer);draw();break;}
                 var db=KingdomCivicsData.get(viewer.getServer());
                 var pos=viewer.blockPosition();var dim=viewer.level().dimension().location().toString();
                 int cx=pos.getX()>>4,cz=pos.getZ()>>4;
@@ -762,6 +767,7 @@ public final class KingdomMainMenu extends ChestMenu {
                     say(db.setPublicUse(viewer.getUUID(),dim,cx,cz,!plot.publicUse())?"Общественный доступ: "+!plot.publicUse():"Нет прав мэра");draw();}
             }
             case TERRITORY -> {
+                if(slot==10){KingdomBorderOverlay.toggle(viewer);draw();}
                 if(slot==15 || slot==11) openMaps(viewer);
             }
             case ARMY -> {

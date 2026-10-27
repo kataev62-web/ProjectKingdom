@@ -1,5 +1,6 @@
 {
   "itemGroup.kingdomnpc.blocks": "Project Kingdom — Blocks",
   "block.kingdomnpc.textile_core": "Textile Workshop Core",
-  "block.kingdomnpc.tannery_core": "Tannery Workshop Core"
+  "block.kingdomnpc.tannery_core": "Tannery Workshop Core",
+  "key.kingdomnpc.borders": "Show/hide city borders"
 }
