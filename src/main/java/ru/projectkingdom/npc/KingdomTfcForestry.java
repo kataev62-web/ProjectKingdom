@@ -43,7 +43,7 @@ public final class KingdomTfcForestry {
         new ResourceLocation("tfc","axes_that_log"));
     private static final int MAX_TREE=160;
     private static boolean initialized,available;
-    private static Method nativeLogging;
+    private static Method nativeLogging,nativeShouldLog;
     private record HarvestContext(ServerLevel level,List<ItemEntity> drops){}
     private static final ThreadLocal<HarvestContext> CURRENT=new ThreadLocal<>();
 
@@ -76,6 +76,8 @@ public final class KingdomTfcForestry {
             Class<?> helper=Class.forName("net.dries007.tfc.util.AxeLoggingHelper");
             nativeLogging=helper.getMethod("doLogging",LevelAccessor.class,BlockPos.class,
                 net.minecraft.world.entity.player.Player.class,ItemStack.class);
+            nativeShouldLog=helper.getMethod("shouldLog",LevelAccessor.class,BlockPos.class,
+                BlockState.class,ItemStack.class);
             available=true;
         }catch(ReflectiveOperationException|LinkageError ex){
             System.err.println("[Kingdom] TFC natural tree logging unavailable: "+ex);
@@ -225,6 +227,12 @@ public final class KingdomTfcForestry {
     private static boolean fell(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                 KingdomForestData.Area area,BlockPos root) {
         if(!init()||!axe(w.fieldTool))return false;
+        try{
+            if(!Boolean.TRUE.equals(nativeShouldLog.invoke(null,level,root,
+                level.getBlockState(root),w.fieldTool)))return false;
+        }catch(ReflectiveOperationException|RuntimeException ex){
+            available=false;return false;
+        }
         List<BlockPos> tree=safeTree(level,root,w.employer,area,wood(area.sapling()));
         if(tree.isEmpty()||tree.size()>MAX_TREE
             ||!NpcFieldWork.canFit(w,List.of(new ItemStack(Items.OAK_LOG,
