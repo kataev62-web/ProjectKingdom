@@ -15,7 +15,8 @@ final class KingdomSettlementSourceTest {
     @Test void foundationOnlyFromActualPlacedCoreThroughAuthenticatedMenu()throws Exception {
         String founding=source("settlement/KingdomSettlementFounding.java");
         String packet=source("settlement/KingdomSettlementFoundPacket.java");
-        assertTrue(founding.contains("core.placer()"));
+        assertTrue(founding.contains("((AdministrativeCoreBlockEntity)placed).placer()"));
+        assertTrue(founding.contains("((KingdomSettlementCharterEntity)placed).placer()"));
         assertTrue(founding.contains("legacyClaimOwner"));
         assertTrue(founding.contains("civic.foundTown("));
         assertTrue(founding.contains("civic.claim("));
