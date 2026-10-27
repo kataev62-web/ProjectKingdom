@@ -46,7 +46,8 @@ public final class KingdomNpcWorkday {
                 && (KingdomNpcWorkshopData.get(server).plan(worker.entityId) != null
                     || KingdomTfcQuernWork.isQuern(level, worker)
                     || KingdomTfcGrillWork.isGrill(level, worker)
-                    || KingdomTfcPotWork.isPot(level, worker));
+                    || KingdomTfcPotWork.isPot(level, worker)
+                    || KingdomTfcLoomWork.isLoom(level, worker));
             case CONSTRUCTION, SERVICE -> true;
         };
     }
