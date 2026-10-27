@@ -27,6 +27,7 @@ public final class KingdomEnterpriseRegistry {
     public static final RegistryObject<Block> SMITHY=block("smithy_core",EnterpriseKind.SMITHY);
     public static final RegistryObject<Block> BAKERY=block("bakery_core",EnterpriseKind.BAKERY);
     public static final RegistryObject<Block> POTTERY=block("pottery_core",EnterpriseKind.POTTERY);
+    public static final RegistryObject<Block> TEXTILE=block("textile_core",EnterpriseKind.TEXTILE);
     public static final RegistryObject<Block> CONSTRUCTION=block("construction_core",EnterpriseKind.CONSTRUCTION);
     public static final RegistryObject<Block> COURIER=block("courier_core",EnterpriseKind.COURIER);
     public static final RegistryObject<Block> HOTEL=block("hotel_core",EnterpriseKind.HOTEL);
