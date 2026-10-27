@@ -28,6 +28,19 @@ public final class KingdomForestData extends SavedData {
         public BlockPos center(){return new BlockPos((minX+maxX)/2,y+1,(minZ+maxZ)/2);}
     }
     private final Map<UUID,Area> areas=new LinkedHashMap<>();
+    private final Set<UUID> activelyCutting=new HashSet<>();
+    /** Persistent min/max hysteresis based on real warehouse stock. */
+    public boolean harvestAllowed(UUID areaId,EnterpriseStockPolicy.Thresholds limits,int physical){
+        if(!areas.containsKey(areaId)||physical<0)return false;
+        boolean old=activelyCutting.contains(areaId);
+        boolean next=EnterpriseStockPolicy.nextProduction(limits,physical,old);
+        if(next!=old){
+            if(next)activelyCutting.add(areaId);
+            else activelyCutting.remove(areaId);
+            setDirty();
+        }
+        return next;
+    }
     public static KingdomForestData get(MinecraftServer server) {
         return server.overworld().getDataStorage().computeIfAbsent(
             KingdomForestData::load,KingdomForestData::new,KEY);
@@ -95,7 +108,7 @@ public final class KingdomForestData extends SavedData {
         if(!allowed(actor,business))return false;
         Area a=areas.get(id);
         if(a==null||!a.lumber().equals(business))return false;
-        areas.remove(id);setDirty();return true;
+        areas.remove(id);activelyCutting.remove(id);setDirty();return true;
     }
     static KingdomForestData load(CompoundTag root){
         var data=new KingdomForestData();
@@ -111,6 +124,11 @@ public final class KingdomForestData extends SavedData {
                 if(data.of(a.lumber()).size()<MAX_AREAS)data.areas.put(a.id(),a);
             }catch(IllegalArgumentException ignored){}
         }
+        for(Tag row:root.getList("Running",Tag.TAG_COMPOUND)){
+            var record=(CompoundTag)row;
+            if(record.hasUUID("Area")&&data.areas.containsKey(record.getUUID("Area")))
+                data.activelyCutting.add(record.getUUID("Area"));
+        }
         return data;
     }
     @Override public CompoundTag save(CompoundTag root){
@@ -125,6 +143,11 @@ public final class KingdomForestData extends SavedData {
             tag.putInt("Minimum",a.minLogs());tag.putInt("Maximum",a.maxLogs());
             tag.putBoolean("Replant",a.replant());list.add(tag);
         }
-        root.put("Areas",list);return root;
+        root.put("Areas",list);
+        var active=new ListTag();
+        for(UUID id:activelyCutting){
+            var t=new CompoundTag();t.putUUID("Area",id);active.add(t);
+        }
+        root.put("Running",active);return root;
     }
 }
