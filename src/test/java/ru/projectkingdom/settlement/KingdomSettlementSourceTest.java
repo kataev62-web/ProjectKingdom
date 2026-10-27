@@ -28,6 +28,8 @@ final class KingdomSettlementSourceTest {
         var breakCode=source("settlement/KingdomOpenLandEvents.java");
         var queue=source("settlement/KingdomTemporaryBlocks.java");
         assertTrue(breakCode.contains("event.setCanceled(true)"));
+        assertTrue(breakCode.contains("AdministrativeCoreBlockEntity hall"));
+        assertTrue(source("settlement/KingdomTemporaryLand.java").contains("KingdomAdministrationRegistry.TOWN_HALL.get()"));
         assertTrue(breakCode.contains("Blocks.AIR.defaultBlockState()"));
         assertTrue(queue.contains("LIFETIME_MS=10_000L"));
         assertTrue(queue.contains("level.hasChunkAt(pos)"));

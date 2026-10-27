@@ -29,6 +29,13 @@ public final class KingdomOpenLandEvents {
             if(!marker.founded()&&player.getUUID().equals(marker.placer()))return;
             event.setCanceled(true);return;
         }
+        // A yet-unfounded town hall can be recovered by its original owner.
+        if(level.getBlockEntity(pos) instanceof
+                ru.projectkingdom.administration.AdministrativeCoreBlockEntity hall
+                &&state.is(ru.projectkingdom.administration.KingdomAdministrationRegistry.TOWN_HALL.get())){
+            if(!hall.bound()&&player.getUUID().equals(hall.placer()))return;
+            event.setCanceled(true);return;
+        }
         if(!KingdomTemporaryLand.safeToBreak(level,pos,state)){event.setCanceled(true);return;}
         // Vanilla break drops / XP do NOT run for this action. Ordinary land
         // is destructible but cannot become a free mining/farming resource.
