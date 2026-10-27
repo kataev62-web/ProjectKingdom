@@ -28,10 +28,11 @@ import ru.projectkingdom.npc.KingdomEnterpriseData;
 import ru.projectkingdom.npc.KingdomEnterprisePayrollData;
 import ru.projectkingdom.npc.KingdomMainMenu;
 import ru.projectkingdom.npc.KingdomFarmFieldsMenu;
+import ru.projectkingdom.npc.KingdomForestMenu;
 
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
-    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122;
+    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123;
     public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190,MIGRATE_CASH=191;
     private record Closing(UUID enterprise,long expiration) {}
     private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
@@ -230,6 +231,10 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         if(kind==EnterpriseKind.FARM && data.mayManage(server.getUUID(),enterpriseId)
                 && action==OPEN_FARM_FIELDS) {
             KingdomFarmFieldsMenu.open(server,enterpriseId,corePos);return true;
+        }
+        if(kind==EnterpriseKind.LUMBER && data.mayManage(server.getUUID(),enterpriseId)
+                && action==OPEN_FOREST){
+            KingdomForestMenu.open(server,enterpriseId,corePos);return true;
         }
         if(kind==EnterpriseKind.CONSTRUCTION && manager && action==OPEN_ARCHITECT) {
             KingdomMainMenu.openArchitect(server,corePos);return true;

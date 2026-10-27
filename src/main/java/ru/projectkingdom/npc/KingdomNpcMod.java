@@ -123,6 +123,7 @@ public final class KingdomNpcMod {
     }
 
     @SubscribeEvent public void chooseFarmCorner(PlayerInteractEvent.RightClickBlock event) {
+        if(KingdomForestSelection.select(event))return;
         KingdomFarmSelection.select(event);
     }
 
@@ -998,6 +999,7 @@ public final class KingdomNpcMod {
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
                             | KingdomTfcLoomWork.tick(level,resident,w)
+                            | KingdomTfcTanneryWork.tick(level,resident,w)
                             | KingdomTfcPotWork.tick(level,resident,w)
                             | KingdomTfcGrillWork.tick(level,resident,w)
                             | KingdomLivestockWork.tick(level,resident,w);
@@ -1143,7 +1145,8 @@ public final class KingdomNpcMod {
                                     case WORKSHOP -> 40.0 * 40.0;
                                     // Farmer decides which of multiple assigned plots needs attention.
                                     // Generic commute must not override crop/warehouse navigation.
-                                    case FIELD -> ("farmer".equals(w.job) || "breeder".equals(w.job))
+                                    case FIELD -> ("farmer".equals(w.job) || "breeder".equals(w.job)
+                                            || "lumberjack".equals(w.job))
                                         ? 40.0 * 40.0 : 10.0 * 10.0;
                                     case DELIVERY -> 10.0 * 10.0;
                                     case SERVICE -> 4.0;

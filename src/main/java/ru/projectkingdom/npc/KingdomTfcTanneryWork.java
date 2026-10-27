@@ -136,6 +136,73 @@ public final class KingdomTfcTanneryWork {
         return null;
     }
 
+    /** Real liquid reagents ONLY: never spawn water, limewater or tannin.
+     * One vessel at a time. Barrels receive exactly the fluid actually drained
+     * from a single physical Forge item container in the authorized RAW store. */
+    @SuppressWarnings({"rawtypes","unchecked"})
+    private static boolean supplyReagent(ServerLevel level,BlockPos station,Container raw,
+                                         IFluidHandler barrel){
+        FluidStack inside=barrel.getFluidInTank(0);
+        try{
+            for(int rawSlot=0;rawSlot<raw.getContainerSize();rawSlot++){
+                ItemStack candidate=raw.getItem(rawSlot);
+                if(candidate.isEmpty()||!raw.canTakeItem(raw,rawSlot,candidate)
+                    ||KingdomCurrency.value(candidate)>0)continue;
+                ItemStack one=candidate.copyWithCount(1);
+                for(var entry:level.getRecipeManager().getAllRecipesFor((RecipeType)sealedType)){
+                    if(!(entry instanceof Recipe<?> recipe)
+                        ||!supportedRecipe(recipe.getId().toString()))continue;
+                    Object itemRule=ingredientItem.invoke(entry);
+                    if(!Boolean.TRUE.equals(itemRule.getClass().getMethod("test",ItemStack.class)
+                        .invoke(itemRule,one)))continue;
+                    Object reagent=ingredientFluid.invoke(entry);
+                    int amount=((Number)reagent.getClass().getMethod("amount").invoke(reagent))
+                        .intValue();
+                    if(amount<=inside.getAmount())continue;
+                    Object fluidType=reagent.getClass().getMethod("ingredient").invoke(reagent);
+                    if(!(fluidType instanceof java.util.function.Predicate predicate))continue;
+                    for(int slot=0;slot<raw.getContainerSize();slot++){
+                        ItemStack vessel=raw.getItem(slot);
+                        if(vessel.isEmpty()||vessel.getCount()!=1||slot==rawSlot
+                            ||!raw.canTakeItem(raw,slot,vessel)
+                            ||KingdomCurrency.value(vessel)>0)continue;
+                        ItemStack copy=vessel.copy();
+                        var container=copy.getCapability(
+                            net.minecraftforge.common.capabilities.ForgeCapabilities.FLUID_HANDLER_ITEM)
+                            .orElse(null);
+                        if(container==null)continue;
+                        FluidStack held=container.drain(Integer.MAX_VALUE,
+                            IFluidHandler.FluidAction.SIMULATE);
+                        if(held.isEmpty()||!predicate.test(held.getFluid()))continue;
+                        if(!inside.isEmpty()&&!inside.isFluidEqual(held))continue;
+                        // Atomic whole-container transfer only. Partial nonstandard
+                        // drainage can destroy stackable vessels and is refused.
+                        int accepted=barrel.fill(held,IFluidHandler.FluidAction.SIMULATE);
+                        if(accepted!=held.getAmount())continue;
+                        FluidStack withdrawn=container.drain(held.getAmount(),
+                            IFluidHandler.FluidAction.EXECUTE);
+                        if(withdrawn.getAmount()!=held.getAmount()
+                            ||!withdrawn.isFluidEqual(held))continue;
+                        int delivered=barrel.fill(withdrawn,IFluidHandler.FluidAction.EXECUTE);
+                        if(delivered!=withdrawn.getAmount()){
+                            FluidStack leftover=withdrawn.copy();
+                            leftover.setAmount(Math.max(0,withdrawn.getAmount()-delivered));
+                            if(!leftover.isEmpty())
+                                container.fill(leftover,IFluidHandler.FluidAction.EXECUTE);
+                        }
+                        raw.setItem(slot,container.getContainer());
+                        raw.setChanged();
+                        return delivered>0;
+                    }
+                }
+            }
+        }catch(ReflectiveOperationException|RuntimeException ex){
+            available=false;
+            System.err.println("[Kingdom] Real TFC hide reagent transfer unavailable: "+ex);
+        }
+        return false;
+    }
+
     private static ItemStack[] storagePlan(Container storage,ItemStack product){
         var proposed=new ItemStack[storage.getContainerSize()];
         for(int i=0;i<proposed.length;i++)proposed[i]=storage.getItem(i).copy();
@@ -257,7 +324,7 @@ public final class KingdomTfcTanneryWork {
             }
             if(closed||!in.isEmpty())return false;
             FluidStack liquid=fluids.getFluidInTank(0);
-            if(liquid.isEmpty())return false;
+            if(liquid.isEmpty())return supplyReagent(level,pos,raw,fluids);
             for(int slot=0;slot<raw.getContainerSize();slot++){
                 ItemStack available=raw.getItem(slot);
                 if(available.isEmpty()||!raw.canTakeItem(raw,slot,available))continue;
@@ -281,7 +348,9 @@ public final class KingdomTfcTanneryWork {
                 block.setChanged();
                 return true;
             }
-            return false;
+            // A TFC hide recipe can require more liquid than one jug carries.
+            // Replenish only with an appropriate real fluid vessel, then retry.
+            return supplyReagent(level,pos,raw,fluids);
         }catch(ReflectiveOperationException|RuntimeException ex){
             available=false;
             System.err.println("[Kingdom] Native TFC hide barrel stopped: "+ex);

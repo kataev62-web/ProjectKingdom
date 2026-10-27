@@ -40,5 +40,7 @@
   "key.categories.kingdomnpc": "Project Kingdom",
   "key.kingdomnpc.talk": "Говорить с NPC",
   "itemGroup.kingdomnpc.blocks": "Project Kingdom — Блоки",
-  "block.kingdomnpc.textile_core": "Ядро ткацкой мастерской"
+  "block.kingdomnpc.textile_core": "Ядро ткацкой мастерской",
+  "block.kingdomnpc.tannery_core": "Ядро кожевенной мастерской",
+  "key.kingdomnpc.borders": "Показать/скрыть границы городов"
 }

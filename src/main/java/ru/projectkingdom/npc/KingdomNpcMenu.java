@@ -130,8 +130,12 @@ public final class KingdomNpcMenu extends ChestMenu {
             && KingdomTfcPotWork.isPot(viewer.serverLevel(),w);
         boolean tfcLoom = viewer.level().dimension().location().toString().equals(w.dimension)
             && KingdomTfcLoomWork.isLoom(viewer.serverLevel(),w);
-        icon(9, tfcLoom ? Items.LOOM : tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE :
-            tfcPot ? Items.CAULDRON : Items.CRAFTING_TABLE, tfcLoom
+        boolean tfcTannery = viewer.level().dimension().location().toString().equals(w.dimension)
+            && KingdomTfcTanneryWork.isBarrel(viewer.serverLevel(),w);
+        icon(9, tfcTannery ? Items.BARREL : tfcLoom ? Items.LOOM : tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE :
+            tfcPot ? Items.CAULDRON : Items.CRAFTING_TABLE, tfcTannery
+            ? "TFC КОЖЕВЕННАЯ БОЧКА: известковая вода, промывка и таннин, настоящие выдержки по времени. Заполни жидкостью заранее"
+            : tfcLoom
             ? "TFC ТКАЦКИЙ СТАНОК: настоящие нити и шерсть со склада, пошаговое ткачество TFC, готовая ткань на складе"
             : tfcQuern
             ? "TFC ЖЕРНОВ: реальный помол по рецептам TFC с настоящим ручным камнем"
@@ -237,6 +241,11 @@ public final class KingdomNpcMenu extends ChestMenu {
             case 2 -> page=Page.DIALOGUE;
             case 9 -> {
                 if(!owner){info("Нужны права работодателя.");break;}
+                if(viewer.level().dimension().location().toString().equals(w.dimension)
+                    &&KingdomTfcTanneryWork.isBarrel(viewer.serverLevel(),w)){
+                    info("Кожевник TFC: установи настоящую бочку TFC на своей земле, заранее налей нужную жидкость (известковая вода / чистая вода / таннин), назначь сырьевой и готовый склады и договор на кожевенную мастерскую. NPC запечатает бочку, дождётся реального рецепта и заберёт предмет. Очистку размоченных шкур ножом пока выполняй вручную.");
+                    break;
+                }
                 if(viewer.level().dimension().location().toString().equals(w.dimension)
                         && KingdomTfcLoomWork.isLoom(viewer.serverLevel(),w)){
                     info("Ткач TFC: поставь настоящий ткацкий станок на территории ткацкой мастерской, назначь его рабочим блоком NPC; нужен сырьевой склад с настоящей пряжей TFC, склад готовой ткани, действующий договор и приказ работать. NPC выполнит шаги штатного рецепта TFC.");

@@ -171,6 +171,9 @@ public final class NpcFieldWork {
         if(!eligible(w)||!w.dimension.equals(level.dimension().location().toString())||"stay".equals(w.order)||"haul".equals(w.order)||"follow".equals(w.order))return false;
         if (w.employer != null && !KingdomNpcDuty.autonomousOrder(w.order)) return false;
         if(!"farmer".equals(w.job)&&!"lumberjack".equals(w.job)&&!"miner".equals(w.job))return false;
+        // Employed lumberjacks may act ONLY on configured protected forest plots.
+        if("lumberjack".equals(w.job) && w.employer!=null)
+            return KingdomTfcForestry.tick(level,npc,w);
         // Farm employees must respect the explicit fields and TFC climate plan.
         if("farmer".equals(w.job) && (w.employer!=null
                 || KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)!=null))

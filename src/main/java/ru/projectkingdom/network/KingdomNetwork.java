@@ -66,6 +66,8 @@ public final class KingdomNetwork {
                 NpcSpeechPacket::decode,NpcSpeechPacket::handle);
         CHANNEL.registerMessage(52,KingdomSettlementFoundPacket.class,KingdomSettlementFoundPacket::encode,
                 KingdomSettlementFoundPacket::decode,KingdomSettlementFoundPacket::handle);
+        CHANNEL.registerMessage(53,ToggleCityBordersPacket.class,ToggleCityBordersPacket::encode,
+                ToggleCityBordersPacket::decode,ToggleCityBordersPacket::handle);
     }
 
     public static void sendNpcSpeech(net.minecraft.server.level.ServerPlayer player,NpcSpeechPacket packet){

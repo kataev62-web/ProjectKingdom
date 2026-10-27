@@ -41,13 +41,15 @@ public final class KingdomNpcWorkday {
             case NONE, DELIVERY -> false;
             case FIELD -> worker.hasSource && worker.hasDestination
                 && (!"farmer".equals(worker.job) || KingdomFarmWorker.site(level,worker)!=null)
-                && (!"breeder".equals(worker.job) || KingdomLivestockWork.workSite(level,worker)!=null);
+                && (!"breeder".equals(worker.job) || KingdomLivestockWork.workSite(level,worker)!=null)
+                && (!"lumberjack".equals(worker.job) || KingdomTfcForestry.workSite(level,worker)!=null);
             case WORKSHOP -> worker.hasSource && worker.hasDestination && worker.hasWorkstation
                 && (KingdomNpcWorkshopData.get(server).plan(worker.entityId) != null
                     || KingdomTfcQuernWork.isQuern(level, worker)
                     || KingdomTfcGrillWork.isGrill(level, worker)
                     || KingdomTfcPotWork.isPot(level, worker)
-                    || KingdomTfcLoomWork.isLoom(level, worker));
+                    || KingdomTfcLoomWork.isLoom(level, worker)
+                    || KingdomTfcTanneryWork.isBarrel(level, worker));
             case CONSTRUCTION, SERVICE -> true;
         };
     }
@@ -62,6 +64,10 @@ public final class KingdomNpcWorkday {
                 || KingdomNpcFarmOwner.workOwner(level,worker) == null) return null;
         var land = KingdomTerritories.get(server);
         var kind = KingdomNpcDuty.kind(worker.job);
+        if ("lumberjack".equals(worker.job)) {
+            BlockPos forest=KingdomTfcForestry.workSite(level,worker);
+            if(forest!=null)return forest;
+        }
         if ("breeder".equals(worker.job)) {
             BlockPos pen=KingdomLivestockWork.workSite(level,worker);
             if(pen!=null)return pen;
