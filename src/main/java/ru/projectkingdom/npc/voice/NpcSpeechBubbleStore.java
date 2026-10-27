@@ -48,6 +48,7 @@ public final class NpcSpeechBubbleStore {
 
     public synchronized int size(long nowTick){prune(nowTick);return active.size();}
     public synchronized void clear(){active.clear();}
+    public synchronized void remove(UUID entityId){active.remove(entityId);}
 
     public float alpha(Speech speech,long nowTick){
         long remaining=speech.endTick-nowTick;

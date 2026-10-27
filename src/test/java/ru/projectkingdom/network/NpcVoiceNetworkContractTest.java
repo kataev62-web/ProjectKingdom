@@ -37,6 +37,17 @@ final class NpcVoiceNetworkContractTest {
         } finally { buffer.release(); }
     }
 
+    @Test void automaticSpeechOriginSurvivesRoundTrip() {
+        var packet=new NpcSpeechPacket(UUID.randomUUID(),"Анна","","female",100,
+                ru.projectkingdom.npc.voice.NpcVoiceBank.FEMALE_1,
+                ru.projectkingdom.npc.voice.NpcVoiceLine.HOW_DAY,true);
+        var buffer=new FriendlyByteBuf(Unpooled.buffer());
+        try { NpcSpeechPacket.encode(packet,buffer);
+            var decoded=NpcSpeechPacket.decode(buffer);assertTrue(decoded.automatic());
+            assertEquals(packet,decoded);assertEquals(0,buffer.readableBytes());
+        } finally {buffer.release();}
+    }
+
     @Test void maliciousOversizedVoiceTextIsRejectedDuringDecode() {
         var buffer=new FriendlyByteBuf(Unpooled.buffer());
         try {

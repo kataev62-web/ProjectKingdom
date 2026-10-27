@@ -22,3 +22,18 @@ check that vanilla mumbling/hurt/trade sounds are absent for citizens, the
 recorded greeting/replies and their subtitle clouds are audible/visible, and
 ordinary villagers still make their normal sounds. Repeat with two clients and
 after restarting the server. Install the same voice2.1 JAR on both sides.
+
+
+# Voice3: automatic approach dialogue
+
+The original 156 Ogg clips remain unchanged. Six HOW_DAY recordings extend the
+catalog to 162; masters, provider IDs, settings and hashes are preserved under
+voice3-masters, with offline build_how_day.py for their preparation. Source
+recovery metadata above describes the historical voice2 snapshot, not the new
+voice3 sounds.json/duration entries. The runtime still uses only prepared Oggs.
+
+Approach checks run server-side at 1 Hz on loaded registered citizens. Range and
+quiet-period decisions, lifecycle behavior and manual acceptance are documented
+in NPC_VOICE_WINDOWS_TEST_RU.md and docs/superpowers/specs/2026-10-27-npc-approach-design.md.
+Protocol 10-voice3 adds the automatic-origin bit and HOW_DAY allowlist entry;
+client and server must both use the voice3 JAR.

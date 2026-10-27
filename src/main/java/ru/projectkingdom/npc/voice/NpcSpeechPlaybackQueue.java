@@ -42,6 +42,11 @@ public final class NpcSpeechPlaybackQueue<T extends AutoCloseable> {
 
     public synchronized int size(){return active.size();}
 
+    public synchronized void stopMatching(java.util.function.Predicate<? super T> predicate) {
+        for (var entry:Map.copyOf(active).entrySet())
+            if (predicate.test(entry.getValue())) stop(entry.getKey());
+    }
+
     public synchronized void clear(){
         var values=active.values().toArray(AutoCloseable[]::new);
         active.clear();

@@ -1402,5 +1402,59 @@
         "preload": true
       }
     ]
+  },
+  "voice.male_1.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
   }
 }

@@ -31,8 +31,8 @@ final class NpcRecordedVoiceTest {
   assertEquals(NpcVoiceLine.WAGES,NpcDialogueEngine.reply("Как работа?",state(90,90,90,true,true,true,true)).line());
   assertEquals(NpcVoiceLine.WORKSTATION,NpcDialogueEngine.reply("Как работа?",state(90,90,90,true,false,true,false)).line());
  }
- @Test void catalogContainsTwentySixBoundedUniqueLines(){
-  assertEquals(26,NpcVoiceLine.values().length);var ids=new HashSet<String>();
+ @Test void catalogContainsTwentySevenBoundedUniqueLines(){
+  assertEquals(27,NpcVoiceLine.values().length);var ids=new HashSet<String>();
   for(var l:NpcVoiceLine.values()){assertTrue(ids.add(l.id()));assertTrue(l.id().matches("[a-z_]+"));assertFalse(l.text().isBlank());assertTrue(l.text().length()<64);}
   assertThrows(IllegalArgumentException.class,()->NpcVoiceLine.fromId("../file"));assertNotEquals(NpcVoiceLine.BREAD_THANKS,NpcVoiceLine.BREAD_MISSING);
  }

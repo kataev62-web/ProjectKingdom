@@ -20,11 +20,13 @@ final class NpcRecordedSound extends AbstractTickableSoundInstance implements Au
     private final long createdAt=System.nanoTime();
     private final long deadline;
     private boolean closed;
+    private final boolean automatic;
 
-    NpcRecordedSound(Entity npc,NpcVoiceBank bank,NpcVoiceLine line,int durationTicks){
+    NpcRecordedSound(Entity npc,NpcVoiceBank bank,NpcVoiceLine line,int durationTicks,boolean automatic){
         super(SoundEvent.createVariableRangeEvent(new ResourceLocation(KingdomNpcMod.MOD_ID,
                 NpcVoiceRecordings.soundId(bank,line))),SoundSource.NEUTRAL,RandomSource.create());
         this.npc=npc;this.world=npc.level();
+        this.automatic=automatic;
         this.deadline=createdAt+durationTicks*50_000_000L;
         volume=1F;pitch=1F;looping=false;relative=false;
         updatePosition();
@@ -37,6 +39,7 @@ final class NpcRecordedSound extends AbstractTickableSoundInstance implements Au
                 &&minecraft.options.getSoundSourceVolume(SoundSource.NEUTRAL)>0F
                 &&System.nanoTime()-deadline<0;
     }
+    boolean automatic(){return automatic;}
     boolean finished(SoundManager manager){
         return System.nanoTime()-createdAt>1_000_000_000L&&!manager.isActive(this);
     }

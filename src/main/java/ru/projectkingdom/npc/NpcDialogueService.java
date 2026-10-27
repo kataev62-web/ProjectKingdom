@@ -14,6 +14,8 @@ import ru.projectkingdom.network.NpcSpeechPacket;
 import ru.projectkingdom.npc.voice.NpcVoiceLine;
 import ru.projectkingdom.npc.voice.NpcVoiceBank;
 import ru.projectkingdom.npc.voice.NpcVoiceRecordings;
+import ru.projectkingdom.npc.voice.NpcApproachSpeech;
+import ru.projectkingdom.npc.voice.NpcSpeechText;
 
 /** Forge-facing conversation boundary. All material effects are validated on the server. */
 public final class NpcDialogueService {
@@ -81,7 +83,7 @@ public final class NpcDialogueService {
 
         w.remember(player.getUUID(), memory);
         KingdomNpcData.get(player.getServer()).setDirty();
-        speak(player.serverLevel(), npc, w, text, line);
+        speak(player.serverLevel(), npc, w, text, line,false);
 
         if (reply.action() == NpcDialogueEngine.Action.OPEN_MANAGEMENT) {
             KingdomNpcMod.openNpcManagement(player, w.id);
@@ -121,14 +123,26 @@ public final class NpcDialogueService {
         return false;
     }
 
+    /** Automatic speech carries no gameplay actions or social-memory changes. */
+    public static void announce(Villager npc,KingdomNpcData.Worker worker,NpcVoiceLine line) {
+        if (npc.isAlive() && npc.level() instanceof ServerLevel level)
+            speak(level,npc,worker,"",line,true);
+    }
+
     private static void speak(ServerLevel level, Villager npc, KingdomNpcData.Worker worker,
-                              String details, NpcVoiceLine line) {
+                              String details, NpcVoiceLine line,boolean automatic) {
         var voice=NpcVoiceBank.forNpc(worker.entityId,worker.gender);
-        var speech=new NpcSpeechPacket(npc.getUUID(),worker.name,details,worker.gender,NpcVoiceRecordings.durationTicks(voice,line),voice,line);
+        var speech=new NpcSpeechPacket(npc.getUUID(),NpcSpeechText.limit(worker.name,64,"Житель"),
+                NpcSpeechText.limit(details,512,""),NpcSpeechText.limit(worker.gender,16,"unspecified"),
+                NpcVoiceRecordings.durationTicks(voice,line),voice,line,automatic);
+        var listeners=new ArrayList<UUID>();
         for (ServerPlayer listener : level.players()) {
-            if (listener.distanceToSqr(npc) <= LISTENER_RANGE_SQUARED)
+            if (listener.distanceToSqr(npc) <= LISTENER_RANGE_SQUARED) {
                 KingdomNetwork.sendNpcSpeech(listener,speech);
+                listeners.add(listener.getUUID());
+            }
         }
+        NpcApproachSpeech.spoken(level,npc.getUUID(),listeners);
     }
 }
 

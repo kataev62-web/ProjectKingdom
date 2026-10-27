@@ -878,7 +878,7 @@ public final class KingdomNpcMod {
         }
         if(found==null)return;
         npc.setSilent(true);
-        NpcDialogueService.respond(p, found, "привет");
+        ru.projectkingdom.npc.voice.NpcApproachSpeech.greetOnInteraction(p, found);
         // Freeze immediately, not after the next simulation update.
         npc.getNavigation().stop();
         npc.setNoAi(true);

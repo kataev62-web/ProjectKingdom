@@ -31,6 +31,12 @@ public final class NpcVoiceClient {
         Minecraft minecraft=Minecraft.getInstance();
         if(minecraft.level==null)return;
         ensureWorld(minecraft);
+        if(packet.automatic()&&PLAYBACK.entries().values().stream().anyMatch(sound->!sound.automatic()))return;
+        if(!packet.automatic()){
+            for(var entry:PLAYBACK.entries().entrySet())
+                if(entry.getValue().automatic())BUBBLES.remove(entry.getKey());
+            PLAYBACK.stopMatching(NpcRecordedSound::automatic);
+        }
         PLAYBACK.stop(packet.entityId());
         BUBBLES.put(packet.entityId(),packet.name(),packet.text(),packet.gender(),
                 minecraft.level.getGameTime(),packet.durationTicks(),packet.details());
@@ -48,7 +54,7 @@ public final class NpcVoiceClient {
             }
             return;
         }
-        var sound=new NpcRecordedSound(npc,packet.voice(),packet.line(),packet.durationTicks());
+        var sound=new NpcRecordedSound(npc,packet.voice(),packet.line(),packet.durationTicks(),packet.automatic());
         PLAYBACK.put(packet.entityId(),sound);
         minecraft.getSoundManager().play(sound);
     }

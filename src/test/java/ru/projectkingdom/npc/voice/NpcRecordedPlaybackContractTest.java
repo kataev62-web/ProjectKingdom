@@ -22,5 +22,12 @@ final class NpcRecordedPlaybackContractTest {
   var old=queue.entries().get(new UUID(0,4));queue.put(new UUID(0,4),new Probe());assertTrue(old.closed);
   var rest=queue.entries();queue.clear();assertTrue(rest.values().stream().allMatch(p->p.closed));
  }
+ @Test void explicitReplyCanStopAutomaticSpeechWithoutStoppingOtherExplicitSpeech(){
+  var queue=new NpcSpeechPlaybackQueue<Probe>(4);var automatic=new Probe();var explicit=new Probe();
+  var a=new UUID(0,1);var b=new UUID(0,2);queue.put(a,automatic);queue.put(b,explicit);
+  queue.stopMatching(p->p==automatic);
+  assertTrue(automatic.closed);assertFalse(explicit.closed);assertEquals(1,queue.size());
+  assertSame(explicit,queue.entries().get(b));
+ }
  private static final class Probe implements AutoCloseable{boolean closed;public void close(){closed=true;}}
 }

@@ -4,6 +4,7 @@ import java.util.Locale;
 
 public enum NpcVoiceLine {
     GREETING("Здравствуй."),
+    HOW_DAY("Как проходит твой день?"),
     IDENTITY("Расскажу о себе."),
     DANGER("Здесь опасно."),
     HUNGRY("Хочется есть."),

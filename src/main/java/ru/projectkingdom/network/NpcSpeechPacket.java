@@ -9,7 +9,10 @@ import ru.projectkingdom.npc.voice.NpcVoiceBank;
 import ru.projectkingdom.npc.voice.NpcVoiceLine;
 
 /** Bounded server-approved speech event delivered only to nearby clients. */
-public record NpcSpeechPacket(UUID entityId,String name,String details,String gender,int durationTicks, NpcVoiceBank voice,NpcVoiceLine line) {
+public record NpcSpeechPacket(UUID entityId,String name,String details,String gender,int durationTicks, NpcVoiceBank voice,NpcVoiceLine line,boolean automatic) {
+    public NpcSpeechPacket(UUID entityId,String name,String details,String gender,int durationTicks,NpcVoiceBank voice,NpcVoiceLine line) {
+        this(entityId,name,details,gender,durationTicks,voice,line,false);
+    }
     public NpcSpeechPacket {
         if(entityId==null)throw new IllegalArgumentException("NPC entity is required");
         name=name==null?"":name.strip();
@@ -33,12 +36,13 @@ public record NpcSpeechPacket(UUID entityId,String name,String details,String ge
         buf.writeUtf(packet.name,64);buf.writeUtf(packet.details,512);buf.writeUtf(packet.gender,16);
         buf.writeVarInt(packet.durationTicks);
         buf.writeUtf(packet.voice.id(),16);buf.writeUtf(packet.line.id(),32);
+        buf.writeBoolean(packet.automatic);
     }
 
     public static NpcSpeechPacket decode(FriendlyByteBuf buf){
         try {
             return new NpcSpeechPacket(buf.readUUID(),buf.readUtf(64),buf.readUtf(512),
-                    buf.readUtf(16),buf.readVarInt(),NpcVoiceBank.fromId(buf.readUtf(16)),NpcVoiceLine.fromId(buf.readUtf(32)));
+                    buf.readUtf(16),buf.readVarInt(),NpcVoiceBank.fromId(buf.readUtf(16)),NpcVoiceLine.fromId(buf.readUtf(32)),buf.readBoolean());
         } catch(RuntimeException malformed) {
             throw new IllegalArgumentException("Invalid NPC speech packet",malformed);
         }
