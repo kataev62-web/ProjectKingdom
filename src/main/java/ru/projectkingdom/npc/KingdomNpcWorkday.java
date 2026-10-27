@@ -41,7 +41,8 @@ public final class KingdomNpcWorkday {
             case NONE, DELIVERY -> false;
             case FIELD -> worker.hasSource && worker.hasDestination
                 && (!"farmer".equals(worker.job) || KingdomFarmWorker.site(level,worker)!=null)
-                && (!"breeder".equals(worker.job) || KingdomLivestockWork.workSite(level,worker)!=null);
+                && (!"breeder".equals(worker.job) || KingdomLivestockWork.workSite(level,worker)!=null)
+                && (!"lumberjack".equals(worker.job) || KingdomTfcForestry.workSite(level,worker)!=null);
             case WORKSHOP -> worker.hasSource && worker.hasDestination && worker.hasWorkstation
                 && (KingdomNpcWorkshopData.get(server).plan(worker.entityId) != null
                     || KingdomTfcQuernWork.isQuern(level, worker)
