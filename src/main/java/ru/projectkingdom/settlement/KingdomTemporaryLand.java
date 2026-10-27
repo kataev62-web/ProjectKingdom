@@ -36,7 +36,8 @@ public final class KingdomTemporaryLand {
     }
     /** Foundation block must be placeable on undeveloped land, not timed away. */
     public static boolean permanentCharter(BlockState state) {
-        return state.getBlock() instanceof KingdomSettlementCharterBlock;
+        return state.getBlock() instanceof KingdomSettlementCharterBlock
+                ||state.is(ru.projectkingdom.administration.KingdomAdministrationRegistry.TOWN_HALL.get());
     }
     /** Items, functional tile entities, explosives and valuable cores are out of bounds. */
     public static boolean safeToBreak(ServerLevel level,BlockPos pos,BlockState state){

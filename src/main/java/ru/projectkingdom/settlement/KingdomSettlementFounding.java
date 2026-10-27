@@ -5,6 +5,10 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import ru.projectkingdom.administration.KingdomAdministrationData;
+import ru.projectkingdom.administration.AdministrativeCoreBinding;
+import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
+import ru.projectkingdom.administration.AdministrativeKind;
+import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomTerritories;
 
@@ -34,10 +38,17 @@ public final class KingdomSettlementFounding {
         String dimension=level.dimension().location().toString();
         if(!"minecraft:overworld".equals(dimension))return Result.NOT_OVERWORLD;
         if(!level.hasChunkAt(pos)||pos.distSqr(player.blockPosition())>64)return Result.BROKEN_BLOCK;
-        if(!(level.getBlockEntity(pos) instanceof KingdomSettlementCharterEntity core)
-                ||!level.getBlockState(pos).is(KingdomSettlementRegistry.CHARTER.get())
-                ||core.founded())return Result.BROKEN_BLOCK;
-        if(!player.getUUID().equals(core.placer()))return Result.NOT_OWNER;
+        var placed=level.getBlockEntity(pos);
+        boolean legacy=placed instanceof KingdomSettlementCharterEntity charter
+                &&level.getBlockState(pos).is(KingdomSettlementRegistry.CHARTER.get())
+                &&!charter.founded();
+        boolean hall=placed instanceof AdministrativeCoreBlockEntity core
+                &&level.getBlockState(pos).is(KingdomAdministrationRegistry.TOWN_HALL.get())
+                &&!core.bound();
+        if(!legacy&&!hall)return Result.BROKEN_BLOCK;
+        UUID placer=legacy?((KingdomSettlementCharterEntity)placed).placer()
+                :((AdministrativeCoreBlockEntity)placed).placer();
+        if(!player.getUUID().equals(placer))return Result.NOT_OWNER;
         String title=cleanName(name);
         if(title==null)return Result.BAD_NAME;
         var civic=KingdomCivicsData.get(server);
@@ -85,7 +96,13 @@ public final class KingdomSettlementFounding {
         }
         if(!admin.ensureFounder(founded.id(),player.getUUID()))
             throw new IllegalStateException("Settlement charter founder register failed");
-        core.establish(founded.id());
+        if(hall){
+            var binding=new AdministrativeCoreBinding(founded.id(),AdministrativeKind.TOWN_HALL,dimension,pos.asLong());
+            if(!admin.activateCore(player.getUUID(),founded.mayor(),binding))
+                throw new IllegalStateException("New town hall registration failed");
+            ((AdministrativeCoreBlockEntity)placed).bind(founded.id(),player.getUUID(),AdministrativeKind.TOWN_HALL);
+        }else ((KingdomSettlementCharterEntity)placed).establish(founded.id());
+        KingdomSettlementRanks.get(server).initializeHamlet(founded.id());
         player.sendSystemMessage(Component.literal("[Kingdom] Основан хутор «"+title+
                 "». Стартовая земля 16×16 зарегистрирована. Постройте здания и расширяйтесь через карту."));
         return Result.CREATED;
@@ -100,7 +117,7 @@ public final class KingdomSettlementFounding {
             case TOO_CLOSE -> "Слишком близко к другому городу. Отойдите на 4 чанка.";
             case OUTSIDE_WORLD -> "Чанк находится за границей мира.";
             case NOT_OVERWORLD -> "Поселение можно основать только в обычном мире.";
-            case BROKEN_BLOCK -> "Блок основания перемещён или вы слишком далеко.";
+            case BROKEN_BLOCK -> "Ратуша не найдена, уже привязана или вы слишком далеко.";
             case REGISTER_ERROR -> "Не удалось зарегистрировать поселение. Проверьте сервер.";
         };
     }

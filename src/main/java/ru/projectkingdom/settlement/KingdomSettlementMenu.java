@@ -12,6 +12,8 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.network.NetworkHooks;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomConstructionData;
+import ru.projectkingdom.administration.AdministrativeCoreBlockEntity;
+import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 
 public final class KingdomSettlementMenu extends AbstractContainerMenu {
     private final BlockPos pos;
@@ -27,6 +29,23 @@ public final class KingdomSettlementMenu extends AbstractContainerMenu {
     public BlockPos pos(){return pos;}
     public String title(){return title;}
     public boolean founded(){return founded;}
+    /** New founding entry point: an unbound town hall. */
+    public static void open(ServerPlayer player,AdministrativeCoreBlockEntity hall){
+        if(player==null||hall==null||hall.bound()||hall.placer()==null
+                ||!player.serverLevel().hasChunkAt(hall.getBlockPos())
+                ||hall.getBlockPos().distSqr(player.blockPosition())>64
+                ||!player.serverLevel().getBlockState(hall.getBlockPos()).is(KingdomAdministrationRegistry.TOWN_HALL.get()))return;
+        openAt(player,hall.getBlockPos(),"Новый хутор",false);
+    }
+    private static void openAt(ServerPlayer player,BlockPos pos,String name,boolean founded){
+        NetworkHooks.openScreen(player,new MenuProvider(){
+            @Override public Component getDisplayName(){return Component.literal("Kingdom — Ратуша");}
+            @Override public AbstractContainerMenu createMenu(int id,Inventory inventory,Player ignored){
+                return new KingdomSettlementMenu(id,pos,name,founded);
+            }
+        },buf->{buf.writeBlockPos(pos);buf.writeUtf(name,80);buf.writeBoolean(founded);});
+    }
+    /** Historic founding monuments remain readable in existing saves. */
     public static void open(ServerPlayer player,KingdomSettlementCharterEntity core){
         if(player==null||core==null||!player.serverLevel().hasChunkAt(core.getBlockPos())
                 ||core.getBlockPos().distSqr(player.blockPosition())>64)return;
@@ -37,18 +56,17 @@ public final class KingdomSettlementMenu extends AbstractContainerMenu {
                     town.id(),player.serverLevel().dimension().location().toString(),player.getServer()).title()+" «"+town.name()+"»";
         BlockPos pos=core.getBlockPos().immutable();
         boolean founded=core.founded();
-        NetworkHooks.openScreen(player,new MenuProvider(){
-            @Override public Component getDisplayName(){return Component.literal("Kingdom — Основание поселения");}
-            @Override public AbstractContainerMenu createMenu(int id,Inventory inventory,Player ignored){
-                return new KingdomSettlementMenu(id,pos,name,founded);
-            }
-        },buf->{buf.writeBlockPos(pos);buf.writeUtf(name,80);buf.writeBoolean(founded);});
+        openAt(player,pos,name,founded);
     }
     @Override public ItemStack quickMoveStack(Player player,int slot){return ItemStack.EMPTY;}
     @Override public boolean stillValid(Player player) {
         if(!(player instanceof ServerPlayer server)||!player.isAlive()||pos.distSqr(player.blockPosition())>64
                 ||!server.serverLevel().hasChunkAt(pos))return false;
-        return server.serverLevel().getBlockEntity(pos) instanceof KingdomSettlementCharterEntity
-                &&server.serverLevel().getBlockState(pos).is(KingdomSettlementRegistry.CHARTER.get());
+        var entity=server.serverLevel().getBlockEntity(pos);
+        return entity instanceof KingdomSettlementCharterEntity
+                    &&server.serverLevel().getBlockState(pos).is(KingdomSettlementRegistry.CHARTER.get())
+                ||entity instanceof AdministrativeCoreBlockEntity hall
+                    &&!hall.bound()&&hall.placer()!=null
+                    &&server.serverLevel().getBlockState(pos).is(KingdomAdministrationRegistry.TOWN_HALL.get());
     }
 }

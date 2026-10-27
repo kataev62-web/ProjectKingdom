@@ -18,6 +18,9 @@ import ru.projectkingdom.npc.KingdomBankData;
 import ru.projectkingdom.npc.KingdomLandReservations;
 import ru.projectkingdom.npc.KingdomTaxData;
 import ru.projectkingdom.npc.KingdomCurrency;
+import ru.projectkingdom.npc.KingdomConstructionData;
+import ru.projectkingdom.settlement.KingdomSettlementGrowth;
+import ru.projectkingdom.settlement.KingdomSettlementRanks;
 
 public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     private final Inventory inventory;
@@ -34,17 +37,21 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     private final List<String> warehouseRooms;
     private final MunicipalFoodView foodView;
     private final List<KingdomTownHallCandidates.Candidate> appointmentCandidates;
+    private final int rankIndex;
+    private final boolean canPromote;
+    private final String growthSummary,growthRequirements;
 
     public AdministrativeCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),AdministrativeKind.byId(buffer.readUtf(32)).orElseThrow(),
                 buffer.readUtf(48),buffer.readUUID(),buffer.readUUID(),buffer.readBoolean(),buffer.readBoolean(),
                 buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readLong(),readRows(buffer),buffer.readBoolean(),buffer.readBoolean(),buffer.readLong(),buffer.readLong(),
                 buffer.readLong(),buffer.readLong(),buffer.readLong(),buffer.readUtf(96),buffer.readLong(),readWarehouseRows(buffer),
-                MunicipalFoodView.read(buffer),KingdomTownHallCandidates.read(buffer));
+                MunicipalFoodView.read(buffer),KingdomTownHallCandidates.read(buffer),
+                 buffer.readVarInt(),buffer.readBoolean(),buffer.readUtf(160),buffer.readUtf(160));
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess){
-        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of(),false,false,0,0,0,0,0,"",0,List.of(),MunicipalFoodView.empty(),List.of());
+        this(id,inventory,corePos,townId,kind,townName,founder,mayor,manager,publicAccess,0,0,0,0,0,List.of(),false,false,0,0,0,0,0,"",0,List.of(),MunicipalFoodView.empty(),List.of(),0,false,"","");
     }
     private AdministrativeCoreMenu(int id,Inventory inventory,BlockPos corePos,UUID townId,AdministrativeKind kind,
                                    String townName,UUID founder,UUID mayor,boolean manager,boolean publicAccess,
@@ -52,7 +59,8 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
                                    List<String> pageRows,boolean member,boolean canJoin,long taxDebt,long walletCoins,
                                    long legacyBank,long legacyTown,long legacyPersonal,String vaultRoomInfo,long vaultCopper,
                                    List<String> warehouseRooms,MunicipalFoodView foodView,
-                                    List<KingdomTownHallCandidates.Candidate> appointmentCandidates){
+                                    List<KingdomTownHallCandidates.Candidate> appointmentCandidates,
+                                     int rankIndex,boolean canPromote,String growthSummary,String growthRequirements){
         super(KingdomAdministrationRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=corePos;this.townId=townId;
         this.kind=kind;this.townName=townName;this.founder=founder;this.mayor=mayor;this.manager=manager;this.publicAccess=publicAccess;
         this.bankAccount=bankAccount;this.bankReserve=bankReserve;this.treasuryBalance=treasuryBalance;this.treasuryReserve=treasuryReserve;this.historicalTreasury=historicalTreasury;
@@ -62,6 +70,9 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
         this.warehouseRooms=List.copyOf(warehouseRooms);
         this.foodView=foodView;
         this.appointmentCandidates=List.copyOf(appointmentCandidates);
+        this.rankIndex=Math.max(0,Math.min(3,rankIndex));
+        this.canPromote=canPromote;
+        this.growthSummary=growthSummary;this.growthRequirements=growthRequirements;
     }
     private static List<String> readWarehouseRows(FriendlyByteBuf buffer){
         int n=buffer.readVarInt();
@@ -145,6 +156,18 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
                 || core.kind()==AdministrativeKind.BANK || core.kind()==AdministrativeKind.TOWN_HALL)
                 ?MunicipalFoodView.snapshot(player,town.id(),notice)
                 :MunicipalFoodView.empty();
+        var growth=core.kind()==AdministrativeKind.TOWN_HALL
+                ?KingdomSettlementGrowth.inspect(civics,KingdomConstructionData.get(player.getServer()),
+                    town.id(),player.serverLevel().dimension().location().toString(),player.getServer())
+                :null;
+        var rank=growth==null?KingdomSettlementGrowth.Rank.HAMLET
+                :KingdomSettlementRanks.get(player.getServer()).current(town.id(),growth.eligible());
+        int rankIndex=rank.ordinal();
+        boolean canPromote=growth!=null&&rankIndex+1<KingdomSettlementGrowth.Rank.values().length
+                &&growth.eligible().ordinal()>rankIndex;
+        String growthSummary=growth==null?"":growth.summary();
+        String growthRequirements=growth==null||rankIndex==3?"Максимальный уровень"
+                :growth.requirements(KingdomSettlementGrowth.Rank.values()[rankIndex+1]);
         NetworkHooks.openScreen(player,new MenuProvider(){
             @Override public Component getDisplayName(){return Component.literal(core.kind().russianName());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
@@ -152,7 +175,7 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
                         account,manager?bankReserve:0L,manager?town.treasury():0L,manager?treasuryReserve:0L,
                         manager?historical:0L,rows,member,canJoin,taxDebt,walletCoins,
                         legacyBank,legacyTown,legacyPersonal,roomInfo,physicalCoins,warehouseRooms,foodView,
-                         appointmentCandidates);
+                         appointmentCandidates,rankIndex,canPromote,growthSummary,growthRequirements);
             }
         },buffer->{buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(town.id());buffer.writeUtf(core.kind().id(),32);
             buffer.writeUtf(town.name(),48);buffer.writeUUID(founder);buffer.writeUUID(town.mayor());buffer.writeBoolean(manager);buffer.writeBoolean(publicAccess);
@@ -166,7 +189,9 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
             buffer.writeVarInt(warehouseRooms.size());
             for(String row:warehouseRooms)buffer.writeUtf(row,96);
             MunicipalFoodView.write(buffer,foodView);
-            KingdomTownHallCandidates.write(buffer,appointmentCandidates);});
+            KingdomTownHallCandidates.write(buffer,appointmentCandidates);
+            buffer.writeVarInt(rankIndex);buffer.writeBoolean(canPromote);
+            buffer.writeUtf(growthSummary,160);buffer.writeUtf(growthRequirements,160);});
     }
     public BlockPos corePos(){return corePos;}public UUID townId(){return townId;}public AdministrativeKind kind(){return kind;}public String townName(){return townName;}
     public UUID founder(){return founder;}public UUID mayor(){return mayor;}public boolean manager(){return manager;}public boolean publicAccess(){return publicAccess;}
@@ -185,6 +210,12 @@ public final class AdministrativeCoreMenu extends AbstractContainerMenu {
     public long vaultCopper(){return vaultCopper;}
     public List<String> warehouseRooms(){return warehouseRooms;}
     public MunicipalFoodView foodView(){return foodView;}
+    public int rankIndex(){return rankIndex;}
+    public String rankTitle(){return KingdomSettlementGrowth.Rank.values()[rankIndex].title();}
+    public String nextRankTitle(){return rankIndex>=3?"":KingdomSettlementGrowth.Rank.values()[rankIndex+1].title();}
+    public boolean canPromote(){return canPromote;}
+    public String growthSummary(){return growthSummary;}
+    public String growthRequirements(){return growthRequirements;}
     @Override public ItemStack quickMoveStack(Player player,int slot){return ItemStack.EMPTY;}
     @Override public boolean stillValid(Player player){
         if(player.level()!=inventory.player.level()||corePos.distSqr(player.blockPosition())>64||!player.level().hasChunkAt(corePos))return false;

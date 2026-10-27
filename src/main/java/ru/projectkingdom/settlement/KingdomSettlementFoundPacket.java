@@ -23,7 +23,10 @@ public record KingdomSettlementFoundPacket(BlockPos pos,String name) {
             var result=KingdomSettlementFounding.create(player,packet.pos,packet.name);
             player.sendSystemMessage(Component.literal("[Kingdom] "+KingdomSettlementFounding.notice(result)));
             if(result==KingdomSettlementFounding.Result.CREATED){
-                if(player.serverLevel().getBlockEntity(packet.pos) instanceof KingdomSettlementCharterEntity core)
+                var entity=player.serverLevel().getBlockEntity(packet.pos);
+                if(entity instanceof ru.projectkingdom.administration.AdministrativeCoreBlockEntity hall)
+                    ru.projectkingdom.administration.AdministrativeCoreMenu.open(player,hall);
+                else if(entity instanceof KingdomSettlementCharterEntity core)
                     KingdomSettlementMenu.open(player,core);
             }
         });
