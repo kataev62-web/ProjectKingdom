@@ -17,7 +17,7 @@ public final class KingdomNpcDuty {
         return switch (job) {
             case "free" -> Kind.NONE;
             case "farmer", "breeder", "miner", "lumberjack" -> Kind.FIELD;
-            case "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason" -> Kind.WORKSHOP;
+            case "smith", "baker", "cook", "butcher", "potter", "carpenter", "mason", "weaver" -> Kind.WORKSHOP;
             case "builder" -> Kind.CONSTRUCTION;
             case "courier" -> Kind.DELIVERY;
             default -> Kind.SERVICE;
