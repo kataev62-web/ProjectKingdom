@@ -123,6 +123,7 @@ public final class KingdomGraphicAtlasData {
         for(var town:civic.towns()){
             var stage=ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(
                     civic,buildings,town.id(),dimension,player.getServer());
+            stage=ru.projectkingdom.settlement.KingdomSettlementRanks.get(player.getServer()).current(town.id(),stage);
             labels.put(town.name(),stage.title()+" "+town.name());
         }
         java.util.List<Tile> labeled=new java.util.ArrayList<>(MAX_CELLS);

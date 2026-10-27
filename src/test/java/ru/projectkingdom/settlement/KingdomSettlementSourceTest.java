@@ -35,9 +35,9 @@ final class KingdomSettlementSourceTest {
         assertTrue(queue.contains("getDataStorage().computeIfAbsent("));
         assertTrue(queue.contains("setBlock(pos,net.minecraft.world.level.block.Blocks.AIR"));
     }
-    @Test void foundingBlockHasRecipeRussianNameAndDistinctImage()throws Exception {
+    @Test void legacyFoundingBlockHasAssetsButNoNewRecipe()throws Exception {
         assertNotNull(getClass().getResourceAsStream("/assets/kingdomnpc/models/item/settlement_charter.json"));
-        assertNotNull(getClass().getResourceAsStream("/data/kingdomnpc/recipes/settlement_charter.json"));
+        assertNull(getClass().getResourceAsStream("/data/kingdomnpc/recipes/settlement_charter.json"));
         try(InputStream in=getClass().getResourceAsStream("/assets/kingdomnpc/textures/block/settlement_charter.png")){
             assertNotNull(in);
             BufferedImage png=ImageIO.read(in);

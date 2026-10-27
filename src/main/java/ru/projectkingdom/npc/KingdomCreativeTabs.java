@@ -33,7 +33,8 @@ public final class KingdomCreativeTabs {
                     .displayItems((parameters, output) -> ForgeRegistries.BLOCKS.getValues().stream()
                             .filter(block -> {
                                 ResourceLocation id = ForgeRegistries.BLOCKS.getKey(block);
-                                return id != null && KingdomNpcMod.MOD_ID.equals(id.getNamespace());
+                                return id != null && KingdomNpcMod.MOD_ID.equals(id.getNamespace())
+                                        && !"settlement_charter".equals(id.getPath());
                             })
                             .sorted(Comparator.comparing(block -> ForgeRegistries.BLOCKS.getKey(block).getPath()))
                             .map(block -> block.asItem())

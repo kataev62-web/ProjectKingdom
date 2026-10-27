@@ -383,11 +383,12 @@ public final class KingdomMainMenu extends ChestMenu {
             case CIVICS -> {
                 var db=KingdomCivicsData.get(viewer.getServer());
                 var town=db.townOf(viewer.getUUID());var nation=db.nationOf(viewer.getUUID());
-                icon(10,ru.projectkingdom.settlement.KingdomSettlementRegistry.CHARTER_ITEM.get(),
-                        town==null?"Основание: изготовьте и установите Блок основания поселения":
-                        ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(db,
-                                KingdomConstructionData.get(viewer.getServer()),town.id(),
-                                viewer.serverLevel().dimension().location().toString(),viewer.getServer()).title()+" «"+town.name()+"»");
+                icon(10,ru.projectkingdom.administration.KingdomAdministrationRegistry.TOWN_HALL_ITEM.get(),
+                        town==null?"Основание: изготовьте и установите ратушу":
+                        ru.projectkingdom.settlement.KingdomSettlementRanks.get(viewer.getServer()).current(
+                                 town.id(),ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(db,
+                                 KingdomConstructionData.get(viewer.getServer()),town.id(),
+                                 viewer.serverLevel().dimension().location().toString(),viewer.getServer())).title()+" «"+town.name()+"»");
                 icon(11,Items.GOLD_INGOT,nation==null?"Основать нацию":"Нация: "+nation.name());
                 var plot=db.plot(viewer.serverLevel(),viewer.blockPosition());
                 icon(12,Items.MAP,plot==null?"Открыть земельную карту":"Земельная карта | зона: "+plot.zone());
@@ -729,8 +730,8 @@ public final class KingdomMainMenu extends ChestMenu {
                 int cx=pos.getX()>>4,cz=pos.getZ()>>4;
                 if(slot==10){
                     say(db.townOf(viewer.getUUID())==null
-                        ?"Создайте Блок основания поселения (8 досок и 1 палка), установите на свободной земле и нажмите ПКМ. В открывшемся окне введите название."
-                        :"Ваше поселение уже основано. Рост зависит от освоенных чанков и завершённых зданий.");
+                        ?"Изготовьте ратушу, установите на свободной земле и нажмите ПКМ. В открывшемся окне введите название хутора."
+                        :"Повысить статус поселения можно в ратуше при достаточной территории, постройках и населении.");
                     draw();
                 }
                 if(slot==11){var n=db.foundNation(viewer.getUUID(),"Королевство_"+viewer.getScoreboardName());say(n==null?"Нацию может основать мэр независимого города":"Основана нация: "+n.name());draw();}
