@@ -47,7 +47,7 @@ public final class KingdomEnterpriseRegistry {
 
     public static final RegistryObject<BlockEntityType<EnterpriseCoreBlockEntity>> CORE_ENTITY=ENTITIES.register("enterprise_core",()->
             BlockEntityType.Builder.of(EnterpriseCoreBlockEntity::new,FARM.get(),MINE.get(),LUMBER.get(),SMITHY.get(),
-                    BAKERY.get(),POTTERY.get(),CONSTRUCTION.get(),COURIER.get(),HOTEL.get(),TAVERN.get()).build(null));
+                    BAKERY.get(),POTTERY.get(),TEXTILE.get(),CONSTRUCTION.get(),COURIER.get(),HOTEL.get(),TAVERN.get()).build(null));
     public static final RegistryObject<MenuType<EnterpriseCoreMenu>> CORE_MENU=MENUS.register("enterprise_core",()->IForgeMenuType.create(EnterpriseCoreMenu::new));
     private KingdomEnterpriseRegistry(){}
     private static RegistryObject<Block> block(String id,EnterpriseKind kind){
