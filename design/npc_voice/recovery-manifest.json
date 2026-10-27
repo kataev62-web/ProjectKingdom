@@ -1,0 +1,638 @@
+{
+  "origin_jar_sha256": "85b0ece6c14f1d7a02bce0cf090b41ab07ffb3bd39fc3c536e5f3b951e5c1092",
+  "source_base": "a03d137a006e3faf862562ce78c796d4b0f7e47a",
+  "assets": [
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/bread_missing.ogg",
+      "sha256": "8d417b9385ba43ad58a30e96b892239584ea0cbab040f259f1a78e0bac0d22d5"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/bread_thanks.ogg",
+      "sha256": "552fa1908114fe8665d6abc335ef38f0d84405e8881ac454cac25954fc868aa0"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/contract.ogg",
+      "sha256": "0c7b1e498e71fef9f6dc7715f8f776aa51ad656593c1d65d7cd9ce5fd40305cd"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/danger.ogg",
+      "sha256": "d98e94fb2d5d0c457ad4c111b1f6748e1044b732256b7f5e53c65e28df5893f6"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/debt_help.ogg",
+      "sha256": "1652470c3d3da8bf08b1db8c90bde9f182d6372117f80603e7e4d29ffa9c0bfb"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/employed.ogg",
+      "sha256": "2f97a2cf074c862bdd5dc882e3e14155b92fd3bd84bc03f21e444ab7d16fc14b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/food_enough.ogg",
+      "sha256": "8bffc01936ed91c291577903fe5fee6a296251c4abcb45d4d18a377a869f5d33"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/food_help.ogg",
+      "sha256": "7caac6d1d627c04727e598e47068a325183ffeb2f0848fbc4f3abbe8ef169351"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/greeting.ogg",
+      "sha256": "73f3c7f4ce51c3f8122ee8b6274c04342eaa3be1837e6bab50c26c33900b78fc"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/hire.ogg",
+      "sha256": "8e067ed48704009f2270cd5fa85c378b5c649885a526613a1377ba28460e4038"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/home.ogg",
+      "sha256": "e33b440a8c0c892ef82f9843beb4ec38c6362a41a6c74549aaf9f2d73ade0d7f"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/hungry.ogg",
+      "sha256": "d119fced1f64cf83358544fac4e0271aaec4fc60eae2c1a15f8b7fb5cbf9bddd"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/identity.ogg",
+      "sha256": "a8c53544dc5ad7e38fde582019a7e734efc4cd0d3a9e9eaf774a73a3c4c46e86"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/job_seeking.ogg",
+      "sha256": "d5fd32e5e85bd93388dafde6c55874000caf3b6e5ccbdedfddf467e9357a8e84"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/management.ogg",
+      "sha256": "cda044d88e929fe3a4a30aa5b525b25a6e9455de7190fd97a68d19943589789b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/no_task.ogg",
+      "sha256": "4e74704585c503ca2187cb6c9af9703b6be6b2a9a07ebc74ec3dc1a3609830f8"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/no_trade.ogg",
+      "sha256": "27186c7de641387f3110faac58e1f1fbb312ce92709a58613d3383854f1ac809"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/relationship.ogg",
+      "sha256": "c649654b8440cd0afd9fb86a9276917c07e2568dd1e1ca953c8f328c1dbe2309"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/tired.ogg",
+      "sha256": "a29a9843f599f3e67c75cb2903d52db451680339129a755bf41220934aef9f9b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/trade.ogg",
+      "sha256": "7ff22cf910cdb53141742a7db77617b750eae77a83cc9b2af38ae1730c810125"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/unhappy.ogg",
+      "sha256": "8ace68d0f680829350012baa8dabd4d539f579772ee910eb188487ca264e67e9"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/unknown.ogg",
+      "sha256": "b701d59378237d057a03e32a98677b183aa1f8be72f91147db4d213982d6d63d"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/wages.ogg",
+      "sha256": "c783405a31011e691896ed0efd337caecfc4c7d5313eb1399709f7bc48170090"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/well.ogg",
+      "sha256": "22286dcef59e503609a51881257f97bfa0d28be5912e31620921f15e15f7fc0c"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/working.ogg",
+      "sha256": "e17020d054936e878ac6eda8a4eb8a35c305200c4498abbede1c45b8ed5b0f5b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_1/workstation.ogg",
+      "sha256": "4ac1961be5e29678397848a884ef29ada0e727825bedc7d54cb255b5879ac97a"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/bread_missing.ogg",
+      "sha256": "9bb0a9d63f8fc04d0b971446f491060a297087a56b8bfacd888a40b1811c1308"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/bread_thanks.ogg",
+      "sha256": "57468defa33503d077252ddfd0989d36ac097ffeaa11c84b75b1544ee000ab59"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/contract.ogg",
+      "sha256": "0d1ea55f6562162df3f36810c69f7d2d02ad7fea45b2dd6d664631b6aa4fcbe2"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/danger.ogg",
+      "sha256": "4f5413c154091e847ca1378d59cf97c88a88cf65962535699eb532e9ddf60bf1"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/debt_help.ogg",
+      "sha256": "8a2ef4d166face516323be2dc7d428b292272824918337361b77db5196cb2ce7"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/employed.ogg",
+      "sha256": "8a708e3737ca8548049d39d04087eedccdda276fa15dde47076a63bd882a937b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/food_enough.ogg",
+      "sha256": "898e000a35e0b368b100112b2d34729fe3135576589a44be0cf154da0474868b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/food_help.ogg",
+      "sha256": "d8d704cd982aad820828667594f698b409a9ecc7b91d508bf896a6cb2ff17ff8"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/greeting.ogg",
+      "sha256": "3454c9d5c682c587f8208f89ccb15dae972429873f3aced73277fcfa1944a2c2"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/hire.ogg",
+      "sha256": "fbad232ae35439a0cf2fe316d8026f98278892d8933c93fc67aac5020d00bfec"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/home.ogg",
+      "sha256": "08bf58146008796bd10ee4028d2aec523734ddc2de2dba231db6ef8b1bd3349a"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/hungry.ogg",
+      "sha256": "30f05aa458ca8dac7a8534f5bca745977abe89a0d1116fbe991142e73a02bd0c"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/identity.ogg",
+      "sha256": "da1b2d0b921014ae14b455f50063690b5b12f27d0f25b6a82226fdeb3c61261c"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/job_seeking.ogg",
+      "sha256": "d5d3518b954c6dff7bdfb61546819dc80b264d971ea13aec2fa16766fbba992e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/management.ogg",
+      "sha256": "f8c9ad3b8c24f1c848ac38f572450752756eab168f2b89e337d78195720ee55c"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/no_task.ogg",
+      "sha256": "cfc564a65596dad00d5e0d6b62b67326690156edb8bb888547bb7146e260d1d3"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/no_trade.ogg",
+      "sha256": "04cbd086ca289029edbde247de107d0472268a75ae169986d301273e6d7741ed"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/relationship.ogg",
+      "sha256": "2b651a0d508aad8e26910957e33435145e471d121c5c65bd49e36dd3bf307be9"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/tired.ogg",
+      "sha256": "087cdb5362963182bf5f30c5be5840b9601745931be2841fb98efe08ac8283d6"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/trade.ogg",
+      "sha256": "0f3ed0c8da0459e6beaf8d4b096abf73f46ebf698c39b6053e72bc90cd6b111c"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/unhappy.ogg",
+      "sha256": "ff13edd063b85fe0e21b1d6658ecb189b1c1fe2bfd5f243afc08f0f22b6d46a8"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/unknown.ogg",
+      "sha256": "5c8de5bf92d1535786a28788491d86663577e5423f2d91458ed92e2429ba4c1d"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/wages.ogg",
+      "sha256": "cf859ee64b26f18d863e6d90738b4ea3d51ace90c49a6af3768823aa03e67d29"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/well.ogg",
+      "sha256": "cc01c2a57ffd672391d2997696404feda68d2dd323c878009421791fc2ff2ac0"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/working.ogg",
+      "sha256": "7d8813b9ccf5cba719fbf0c3bbbb193ab3a8e3da6aa6820088a021b0ee786d79"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_2/workstation.ogg",
+      "sha256": "bf90ae8eaa9358a6b855c12fd72fdac2f346f7fb73621fa7a33e8d805d4efecc"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/bread_missing.ogg",
+      "sha256": "bb24a55441ecd89e75b18c81dc87537a9db5935f87f6443ad9b77846df53b777"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/bread_thanks.ogg",
+      "sha256": "608290eba3c2143570d7c7355db9576a496d0fa401461c54f190246f5ba06741"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/contract.ogg",
+      "sha256": "624355ad3c3726d7ca9768a3926af3d1fdc88af47638b4e5af99d4c913c80259"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/danger.ogg",
+      "sha256": "f3c977c512a00cacbfdcefef87ed492fac2223e29b210840090017ac66566b44"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/debt_help.ogg",
+      "sha256": "273a43549766019a377934314f2ac4aa2dcd740b51d278f6d853adfd0c273f5a"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/employed.ogg",
+      "sha256": "9a4cb062bba20c72d8a9807c350e3474f11939877f350ebec9bcabdf1962da5d"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/food_enough.ogg",
+      "sha256": "4f46c5e65b6d821b1bad4e58dfe6ed9bc6e3da725e7bf08fa3a6ff1ef4134600"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/food_help.ogg",
+      "sha256": "546ab99fbd11db8fcbffd426b5a0de37dd71f711ebcfa83a7527c6b572aa0646"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/greeting.ogg",
+      "sha256": "e7982e1a1743681cb90495ab37ee3ca844e460205dab0133dfd72c5fe437cb68"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/hire.ogg",
+      "sha256": "edc462d3dec4ba069ec2676ea8f9e6073219b41805d5cf426c01a8c1b0cfec59"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/home.ogg",
+      "sha256": "2e0797d99ce5936367e6cccab1f2f85951a67b0c47e30e19a39094e216a4393e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/hungry.ogg",
+      "sha256": "98d1a6f415c7d5f5d456d27f49a426c6b13335f99a5bf2bbcf82172d60b8c92b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/identity.ogg",
+      "sha256": "3d6bc3831254bc95babd12e9872d9d9ef38c231629eeb14e3d22b12be99f2b67"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/job_seeking.ogg",
+      "sha256": "8607b9e892088babd7366f1ef4266d3013b4212ec6d5f012014b26293577b225"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/management.ogg",
+      "sha256": "f05115599820add70041253c4b2104e7e3819ddf4c9f7e9a6e8f6c7b7f1b2697"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/no_task.ogg",
+      "sha256": "4ca06f46f8b913327a1e6781585850545c71a97eeda9414ed1a72e15f3da8e50"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/no_trade.ogg",
+      "sha256": "df02ded40c3644b52d6a8456c75d287a0fe92fab3f1b7dd451570b7a35216a4d"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/relationship.ogg",
+      "sha256": "e291d25851fbbc1bca3ad4d8ea5b46e9dc817dbe89b141a3812f4fef538e596f"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/tired.ogg",
+      "sha256": "f8db6795fc8a1c40a99d76e3c5c7b3734cd7ebffe5723d36ef9ba9858d45d0ec"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/trade.ogg",
+      "sha256": "318d7c71918c2e86d9dba545001f4f981da21aeb1be74bd56defcd3f68442fbf"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/unhappy.ogg",
+      "sha256": "b74b38ef6ce4253055eb3193f106bd61a50c60eae771c0652577d965cacdc484"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/unknown.ogg",
+      "sha256": "77e1b337a104dbcd3522e14c53816e54b8c258bbbc4e7b9e22f5a67f283140e8"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/wages.ogg",
+      "sha256": "4cbb82a3197cb981d79c1c972668486f9c5d1be2d60df48433ccca4dc89273a1"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/well.ogg",
+      "sha256": "b2ff92718043cb1072d3a87d4dabff234bbb661633d70c3581dd507514275258"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/working.ogg",
+      "sha256": "9ab966c6f96ff1c128db50c79c799552038f947539302189d1c702bf4355f612"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/female_3/workstation.ogg",
+      "sha256": "2322d4e3c205e215d69a171d1f6821eb439b55623be5e8a4936fd27536c8696b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/bread_missing.ogg",
+      "sha256": "21abf98269f8af784521440e8bce646b5f92cc72c5c8404b3bb073e50bc1cce1"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/bread_thanks.ogg",
+      "sha256": "cab6bc6b5fb92ef2d09fa653373184a8e2bebd8c7b9c836d9092eed3c1c5f5c2"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/contract.ogg",
+      "sha256": "7e85f882f1a7186607b32e85ab8a5341f41aea976b7e03ef93ef0a43affa0c62"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/danger.ogg",
+      "sha256": "2d5bb178bf483ae24ab73ac15fccbea3646d5ec6fe10ffa17b6f7f4a9a82a169"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/debt_help.ogg",
+      "sha256": "3521cc9dbb0aaf3760cc08dd421dfda7f37b6b78e5baef3a0f49818cc04663cb"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/employed.ogg",
+      "sha256": "83aae36cff44705002b45f6c001886267fd8451e1aefe5c2518faf9131b6c111"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/food_enough.ogg",
+      "sha256": "c4c21e7507dab11d43d6249e96063658581d89965aec1cf4f6244bc53bbad504"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/food_help.ogg",
+      "sha256": "14b5561f1b79da695d0c119620ae675da56fe70eb7246037d53a6777b10de216"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/greeting.ogg",
+      "sha256": "a3943523b3dd7ec1f55c495ce26b160555781f44037e090baa2955783acabad3"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/hire.ogg",
+      "sha256": "f715b67c9e7254d6b79eeea7f0e34e241487567f3e181322c3312783646c378e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/home.ogg",
+      "sha256": "8392806a68d0f3aa083b5ca19d635e8855b245755c6913e0cb421996ed4f3fc7"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/hungry.ogg",
+      "sha256": "0fd32659ddc622e54a20dfea09af8970766169ced22632b65a88c2dd1e87fbe7"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/identity.ogg",
+      "sha256": "312bfd0611c1a2a76b23eb79b3ae2dfcb09e9bc668d5a47d21abde12ed87f7b7"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/job_seeking.ogg",
+      "sha256": "961836a0534b3a1fb7fbfba2e730d9ffcfb592d82b66d7bb71f726353b41759a"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/management.ogg",
+      "sha256": "88a7b55773ef14d3aaf18bc262400f17efae37baf4910d458f005854797ef377"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/no_task.ogg",
+      "sha256": "3e4029d73ef24e311033f9534ddded5eddaf2b29d5bed38eb1e076ae85552148"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/no_trade.ogg",
+      "sha256": "93b29b658a85c87187f7d670e3e847c1cf5281e6722f6dd2e9496870ecaf63ec"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/relationship.ogg",
+      "sha256": "9469377efbd33f280eda2eaeab47748c363bfa3db7befb23caccf4da46140ece"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/tired.ogg",
+      "sha256": "a29db6f4a3f5f9175927ab33dab3bfc1e0a4fc1a6585797761f30aff7cff2940"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/trade.ogg",
+      "sha256": "b57d3f42d1310eace53bb232fdd0260a11abdb0e5e43db391556bb25efd98958"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/unhappy.ogg",
+      "sha256": "49d288e691c415cd69717ad997da279d671aeb3ff0dda10bdd0c88ab826a6056"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/unknown.ogg",
+      "sha256": "a709b1d4c80bd842525491867fc9f6782a984f9bdc1c30c731a95df2cddff6e9"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/wages.ogg",
+      "sha256": "ed9c63c04caf755ec4c99282b43802add3960501d30b5d879c2efb6782d0297e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/well.ogg",
+      "sha256": "54b1c171d831ce1a585c00d09c9d3145bc4156e9602ad96600b46f167ddcf2a1"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/working.ogg",
+      "sha256": "ee177c087cfb7508fe136ba463800c5804438cf6a2517077d9d7541367d538a1"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_1/workstation.ogg",
+      "sha256": "5dd7c3ff11c5af6eb0351713798f34a9fe1cb8a8eb449c8cacfaf54b567487ec"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/bread_missing.ogg",
+      "sha256": "fe74d63bb5db5889d30dd8a61c8350867fe41bd55e657b59dd96ffae4458f6a7"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/bread_thanks.ogg",
+      "sha256": "22254076660a470b79c6541444200343995fdb01c4283d612a33e7a66eaed298"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/contract.ogg",
+      "sha256": "a84101ae6b18ebb3d000ef3a632ed8ec53e2a64cf118d7e315a2cc852ae480e0"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/danger.ogg",
+      "sha256": "aec318a908052ed77ff4ece59e26c11a72ce27e417a2add40823d44cd97229a5"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/debt_help.ogg",
+      "sha256": "6ae284c27908c99ae0b8df148362df6509119aed719cad227e0c70431c5c71f0"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/employed.ogg",
+      "sha256": "f4f1c0539b790398b62d5b9c2df1de29b759cf2d44ae0877e0db7a2feca4848b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/food_enough.ogg",
+      "sha256": "861bf8446f5c1bc14f697a197946ccf16a4805a0db33ead3f93adea3ce41dc36"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/food_help.ogg",
+      "sha256": "9b8cefabeb8a1cf6a78e1951f8543df336a81aa270a8e0025770ef4d3d3e2d0f"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/greeting.ogg",
+      "sha256": "d471ab1ebeb0ef87004d74bed9418c86c6324599d6839e71105f1cb800cf5e15"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/hire.ogg",
+      "sha256": "df1a1dd874d6e7e44a370226734c2be413d935b364ede04a6cc7bc44e40d76c2"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/home.ogg",
+      "sha256": "5f7693a8736eb619d0586fedc48bc761a03eb1df2660e0ebd8a9e8116f827e00"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/hungry.ogg",
+      "sha256": "779ea5f09f066120f27c2e9a1cf9a120f909e9156eda365092eefc9693350e25"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/identity.ogg",
+      "sha256": "0834c373e68b3ab5969f24d4d2fb5c9541b44f8601f6705aa238c67ab3bc3b84"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/job_seeking.ogg",
+      "sha256": "19270c38c7be622e4e569b0a03aa7d80839338386f1d155485af8bad04eb5ed4"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/management.ogg",
+      "sha256": "100310ca80c4652a0749de4dbbd2ee63409b6e3872233027a9abb9fb90c20301"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/no_task.ogg",
+      "sha256": "81a4cfc63d040e4ba7d73b77de3bb41dce1197d826462017cde1c292dee5de85"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/no_trade.ogg",
+      "sha256": "a51cecde2a30dd39a6e8f2a55869aa62214891c54eaf591944f4b4bca818e45e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/relationship.ogg",
+      "sha256": "478c2a92862f08d91835c30f36ef81b64a7ed794a72020c3c1ba546356925b39"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/tired.ogg",
+      "sha256": "1bf34f823f9a621416b9a589eef0e06a0dd06005cf256355e224e3855a6f8b69"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/trade.ogg",
+      "sha256": "367f7fbd794d3708358422f96fe72871a501768e9bc184ef5551bd5e62866e46"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/unhappy.ogg",
+      "sha256": "11c31b58f7257bcea3bc5c8a6fd5d04635d651fc184fb37d421ae2a210f65d3e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/unknown.ogg",
+      "sha256": "f228daf5a3165d55e80c68dbfb2507b42d2d1acddac68909a6a523f20980bf3d"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/wages.ogg",
+      "sha256": "580c966026829dab8e0182d7bf8d9c27145f644803f74fe4d657012bf4737a60"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/well.ogg",
+      "sha256": "856b24b2d864e116794d98f721f47671245a193b21841e6f4ac0d0fc8783f35a"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/working.ogg",
+      "sha256": "a45e35d97f66052c5913663c2f1ea6f7c55158d77313b288b72f822906179693"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_2/workstation.ogg",
+      "sha256": "1a64ed00cc2fd65b3ecce111eec3d009f0ddbd19b509f5ac007ca95ea2f0ad7c"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/bread_missing.ogg",
+      "sha256": "6fcc01e6486421cb38e957795ffb07acef546eccbfd57f97fc28b599d9150e4c"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/bread_thanks.ogg",
+      "sha256": "0ae5d08dbaaf0eb1644ad3fbdad360eb0f3962e4665b00334f774c0f3a101033"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/contract.ogg",
+      "sha256": "6196a5633595e55e3b2e2b80f5dd8fa252ebef37670f4c62683ae5f11e50cf2e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/danger.ogg",
+      "sha256": "89f40abf90bba0b2ffc97bd4254998ba3dbc04eb0e17dcddf9d1832c81b0e2cc"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/debt_help.ogg",
+      "sha256": "b9b45842fcbe6b57c76f8da4233193e457e015b9f983d32e46495a13c45fa81f"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/employed.ogg",
+      "sha256": "5429069738013ffe145dfe931fb9c99ea25fb2fce9909057ed7047c967f29ea8"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/food_enough.ogg",
+      "sha256": "d92fba32d9f5375c66bf2a4f9ddd318144bab792f2fc91e1f2e88e6ced9a524a"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/food_help.ogg",
+      "sha256": "d9ea90fa6e8fb4579c8654a71f88fd7fca7da2ff9a0413b80292c6b4d23761ab"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/greeting.ogg",
+      "sha256": "e00af325a416e1a24a36c9878382981f1d943d33e1666f5eaa3c482e7c8d09e4"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/hire.ogg",
+      "sha256": "233e79b1c5862b5744061b81becd5d599c4a1dc9a39128dea65a50ce46b7ce6d"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/home.ogg",
+      "sha256": "f893ff14c9712bea807b1c5a3fc5141eeacde0e562a60e6373be4123f17f58e4"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/hungry.ogg",
+      "sha256": "97ca0da29b18c2b559d98ce2e218907d2111d6827b2dc64461afc273c009ecb5"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/identity.ogg",
+      "sha256": "ae50141b119a86029621234edff9972a868c81f48f995ea0e71699ee65a4a556"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/job_seeking.ogg",
+      "sha256": "00530130cd98a205e3941a5212d383bb23fdea723edd8dfd0dc5e7bcd07aa494"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/management.ogg",
+      "sha256": "c187d57a17b6aec5fefd468e8f2d9b64c57ceed90ac763b9127834cfa6e1f479"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/no_task.ogg",
+      "sha256": "277e10402c0e256036ca3937b7a4c937cd715c579f13981ce5dfba018a797c77"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/no_trade.ogg",
+      "sha256": "f341d0f65e861a00577992cb05f23721a9c1fe971d20c8124da33434ab58ba48"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/relationship.ogg",
+      "sha256": "fbb1b39fe9f9adbe15d9fb0a7142eb6ac1f0a401a5291ad7c8e3719c7e523850"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/tired.ogg",
+      "sha256": "3cc9cb851534d58e3677c749eeeedf8cb4c39fc5b3cd84b725767c577815c66e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/trade.ogg",
+      "sha256": "87cd4aed69ef6e80f7ced22836fb6e63264ec0b92b0f2a44a278c7dab1d21fa1"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/unhappy.ogg",
+      "sha256": "a6a9adad5f746b8bb20983d9c2ae0b49cc3b9fa3ad08641a2fa498b918bcaf8e"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/unknown.ogg",
+      "sha256": "5658758a072b1f2ef457745426265e19f5462302e83fd83817f9fc1b2441b89f"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/wages.ogg",
+      "sha256": "356500ccb2eea8e4bdd7e002ce1203eb1954d193647b4466c8151376273c753b"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/well.ogg",
+      "sha256": "554532fe39b0eccaa0c49cd6ba6f9e85ac79a0e7b81fe8a9b5dac341b6b02cdc"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/working.ogg",
+      "sha256": "4b79dd6202eb9b91ae7c57b4c3e46d08c67bd71f537c1e8c50974139fd2df22d"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds/voice/male_3/workstation.ogg",
+      "sha256": "d0fbbfe315723142fc7e844cec23c74bee2b6501a4b0b3ec061f508b34ed4afe"
+    },
+    {
+      "path": "assets/kingdomnpc/sounds.json",
+      "sha256": "2c1ff68149fddbee4ff6dd31b064f98f08d84a7d77a4db85c81aeaf5a940a649"
+    },
+    {
+      "path": "assets/kingdomnpc/voice/recordings.properties",
+      "sha256": "5c0974270f2a1e95fbf64bb6e90a3fa5e0632d1eb0eddb1649e42bd78bbcde78"
+    }
+  ]
+}

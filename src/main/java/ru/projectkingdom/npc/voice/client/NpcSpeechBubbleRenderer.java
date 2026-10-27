@@ -41,6 +41,9 @@ public final class NpcSpeechBubbleRenderer {
         var lines=new ArrayList<FormattedCharSequence>();
         lines.add(Component.literal(speech.name()).getVisualOrderText());
         lines.addAll(font.split(Component.literal(speech.text()),220));
+        int detailStart=lines.size();
+        if(!speech.details().isBlank()&&!speech.details().equals(speech.text()))
+            lines.addAll(font.split(Component.literal(speech.details()),220));
         int totalHeight=lines.size()*10;
 
         PoseStack pose=event.getPoseStack();
@@ -55,7 +58,7 @@ public final class NpcSpeechBubbleRenderer {
             FormattedCharSequence line=lines.get(i);
             float x=-font.width(line)/2.0F;
             float y=i*10-totalHeight;
-            int rgb=i==0?NAME_COLOR:TEXT_COLOR;
+            int rgb=i==0?NAME_COLOR:(i>=detailStart?0xFFB8C5CF:TEXT_COLOR);
             int color=(alpha<<24)|(rgb&0x00FFFFFF);
             font.drawInBatch(line,x,y,color,false,matrix,event.getMultiBufferSource(),
                     Font.DisplayMode.NORMAL,background,event.getPackedLight());

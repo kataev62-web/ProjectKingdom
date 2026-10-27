@@ -3,8 +3,6 @@ package ru.projectkingdom.npc;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvents;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -13,7 +11,9 @@ import java.util.ArrayList;
 import java.util.UUID;
 import ru.projectkingdom.network.KingdomNetwork;
 import ru.projectkingdom.network.NpcSpeechPacket;
-import ru.projectkingdom.npc.voice.NpcSpeechTiming;
+import ru.projectkingdom.npc.voice.NpcVoiceLine;
+import ru.projectkingdom.npc.voice.NpcVoiceBank;
+import ru.projectkingdom.npc.voice.NpcVoiceRecordings;
 
 /** Forge-facing conversation boundary. All material effects are validated on the server. */
 public final class NpcDialogueService {
@@ -65,22 +65,23 @@ public final class NpcDialogueService {
         long day = player.serverLevel().getDayTime() / 24000L;
         NpcSocialMemory memory = before.talked(reply.intent().name(), day);
         String text = reply.text();
-        boolean positive = false;
+        NpcVoiceLine line = reply.line();
 
         if (reply.action() == NpcDialogueEngine.Action.GIVE_BREAD) {
             if (consumeBread(player)) {
                 w.hunger = NpcLife.feed(w.hunger, 1);
                 memory = memory.helped(day);
                 text = "Спасибо за хлеб. Я запомню твою помощь.";
-                positive = true;
+                line = NpcVoiceLine.BREAD_THANKS;
             } else {
                 text = "У тебя нет настоящего хлеба. Сначала принеси его.";
+                line = NpcVoiceLine.BREAD_MISSING;
             }
         }
 
         w.remember(player.getUUID(), memory);
         KingdomNpcData.get(player.getServer()).setDirty();
-        speak(player.serverLevel(), npc, w.name, text, w.gender, positive);
+        speak(player.serverLevel(), npc, w, text, line);
 
         if (reply.action() == NpcDialogueEngine.Action.OPEN_MANAGEMENT) {
             KingdomNpcMod.openNpcManagement(player, w.id);
@@ -120,15 +121,14 @@ public final class NpcDialogueService {
         return false;
     }
 
-    private static void speak(ServerLevel level, Villager npc, String name, String text,
-                              String gender, boolean positive) {
-        var speech=new NpcSpeechPacket(npc.getUUID(),name,text,gender,NpcSpeechTiming.durationTicks(text));
+    private static void speak(ServerLevel level, Villager npc, KingdomNpcData.Worker worker,
+                              String details, NpcVoiceLine line) {
+        var voice=NpcVoiceBank.forNpc(worker.entityId,worker.gender);
+        var speech=new NpcSpeechPacket(npc.getUUID(),worker.name,details,worker.gender,NpcVoiceRecordings.durationTicks(voice,line),voice,line);
         for (ServerPlayer listener : level.players()) {
             if (listener.distanceToSqr(npc) <= LISTENER_RANGE_SQUARED)
                 KingdomNetwork.sendNpcSpeech(listener,speech);
         }
-        level.playSound(null, npc.blockPosition(), positive ? SoundEvents.VILLAGER_YES : SoundEvents.VILLAGER_TRADE,
-                SoundSource.NEUTRAL, 0.8F, positive ? 1.05F : 0.95F);
     }
 }
 

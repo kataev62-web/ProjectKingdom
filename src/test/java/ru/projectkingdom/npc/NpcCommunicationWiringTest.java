@@ -19,7 +19,7 @@ final class NpcCommunicationWiringTest {
         assertTrue(service.contains("w.remember(player.getUUID(), memory)"));
         assertTrue(service.contains("KingdomNetwork.sendNpcSpeech(listener,speech)"));
         assertFalse(service.contains("listener.sendSystemMessage"));
-        assertTrue(service.contains("level.playSound"));
+        assertFalse(service.contains("level.playSound"));
     }
 
     @Test void modWiresGreedyTalkCommandAndExplicitAddressedChatOnly() throws Exception {

@@ -58,7 +58,7 @@ final class TownHallAppointmentPickerTest {
         assertTrue(menu.contains("KingdomTownHallCandidates.read(buffer)"));
     }
     @Test void networkVersionAndBookRemainCompatible()throws Exception{
-        assertTrue(src("network/KingdomNetwork.java").contains("PROTOCOL=\"8\""));
+        assertTrue(src("network/KingdomNetwork.java").contains("PROTOCOL=\"9-voice2\""));
         String menu=src("administration/AdministrativeCoreMenu.java");
         assertTrue(menu.contains("MunicipalFoodView.write(buffer,foodView)"));
         assertTrue(menu.contains("KingdomTownHallCandidates.write(buffer,appointmentCandidates)"));

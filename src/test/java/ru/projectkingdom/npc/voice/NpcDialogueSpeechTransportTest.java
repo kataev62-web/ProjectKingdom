@@ -11,7 +11,7 @@ final class NpcDialogueSpeechTransportTest {
         String source=Files.readString(Path.of(
                 "src/main/java/ru/projectkingdom/npc/NpcDialogueService.java"));
         assertTrue(source.contains("new NpcSpeechPacket("));
-        assertTrue(source.contains("NpcSpeechTiming.durationTicks(text)"));
+        assertTrue(source.contains("NpcVoiceRecordings.durationTicks(voice,line)"));
         assertTrue(source.contains("KingdomNetwork.sendNpcSpeech(listener"));
         assertFalse(source.contains("listener.sendSystemMessage(subtitle)"));
     }

@@ -1,0 +1,5 @@
+# voice2 recovery provenance
+
+The working checkout was lost when the execution environment restarted before GitHub publication. Recovery uses the previously delivered and verified `ProjectKingdom_NPC_Recorded_Voice2_Forge_1.20.1.jar`, SHA-256 `85b0ece6c14f1d7a02bce0cf090b41ab07ffb3bd39fc3c536e5f3b951e5c1092`.
+
+All 156 OGG files plus sounds.json and measured-duration metadata are byte-for-byte extracts of that JAR, tracked in recovery-manifest.json. No paid audio regeneration occurred. Three pure catalog/selection classes were recovered from the actual compiled classes with CFR 0.152; the conversation, client, transport and rendering source was reconstructed from the preserved implementation and the unchanged a03d137 base. Gameplay behavior is intended to match the delivered JAR; a new CI build validates recovered source separately. The original packaged JAR previously passed 439 tests. This recovery does not claim to restore lost comments, original generation masters or word-alignment authoring files.
