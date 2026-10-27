@@ -44,14 +44,18 @@ public final class KingdomTfcForestry {
     private static final int MAX_TREE=160;
     private static boolean initialized,available;
     private static Method nativeLogging,nativeShouldLog;
-    private record HarvestContext(ServerLevel level,List<ItemEntity> drops){}
+    private static final String LOG_LOOT_OWNER="KingdomForestWorker";
+    private record HarvestContext(ServerLevel level,UUID worker,List<ItemEntity> drops){}
     private static final ThreadLocal<HarvestContext> CURRENT=new ThreadLocal<>();
 
     @SubscribeEvent public static void recordDrop(EntityJoinLevelEvent event){
         var context=CURRENT.get();
         if(context!=null&&event.getLevel()==context.level()
                 &&event.getEntity() instanceof ItemEntity item
-                &&item.isAlive())context.drops().add(item);
+                &&item.isAlive()){
+            item.getPersistentData().putUUID(LOG_LOOT_OWNER,context.worker());
+            context.drops().add(item);
+        }
     }
     public static boolean validSapling(String id){
         if(id==null||!id.startsWith("tfc:wood/sapling/"))return false;
@@ -251,7 +255,7 @@ public final class KingdomTfcForestry {
             "[KingdomLumberjack]"));
         fake.setItemInHand(InteractionHand.MAIN_HAND,w.fieldTool);
         var drops=new ArrayList<ItemEntity>();
-        CURRENT.set(new HarvestContext(level,drops));
+        CURRENT.set(new HarvestContext(level,w.entityId,drops));
         try{
             nativeLogging.invoke(null,level,root,fake,w.fieldTool);
         }catch(ReflectiveOperationException|RuntimeException ex){
@@ -276,6 +280,28 @@ public final class KingdomTfcForestry {
         w.workUnits++;w.skillXp++;w.energy=Math.max(0,w.energy-3);
         KingdomNpcData.get(level.getServer()).setDirty();
         return changed || !treeLog(level,root,wood(area.sapling()));
+    }
+    /** Pick only real tree drops marked by this NPC's native logging action. */
+    private static boolean recoverDrops(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
+                                        KingdomForestData.Area area){
+        var bounds=new AABB(area.minX(),area.y()-2,area.minZ(),
+            area.maxX()+1,area.y()+36,area.maxZ()+1);
+        for(ItemEntity item:level.getEntitiesOfClass(ItemEntity.class,bounds,
+                entity->entity.isAlive()&&entity.getPersistentData().hasUUID(LOG_LOOT_OWNER)
+                    &&w.entityId.equals(entity.getPersistentData().getUUID(LOG_LOOT_OWNER)))){
+            ItemStack stack=item.getItem();
+            if(stack.isEmpty()||!NpcFieldWork.canFit(w,List.of(stack)))return false;
+            if(npc.distanceToSqr(item)>8){
+                npc.getNavigation().moveTo(item,.8);
+                return false;
+            }
+            NpcFieldWork.put(w,stack.copy());
+            w.fieldHarvested+=stack.getCount();
+            item.discard();
+            KingdomNpcData.get(level.getServer()).setDirty();
+            return true;
+        }
+        return false;
     }
     private static boolean employedOnLumber(ServerLevel level,KingdomNpcData.Worker w){
         if(w.employer==null||!"lumberjack".equals(w.job)
@@ -344,6 +370,8 @@ public final class KingdomTfcForestry {
                 var stock=KingdomEnterpriseStock.inspect(level,contract.enterprise(),
                     log,EnterpriseBindingRole.FINISHED_STORAGE,dest);
                 if(!stock.complete())continue;
+                // Real leftovers stay as uniquely marked world drops until collected.
+                if(recoverDrops(level,npc,w,area))return true;
                 // Planting is permitted even after production stops at max inventory.
                 if(plant(level,npc,w,area,raw,source))return true;
                 var limits=new EnterpriseStockPolicy.Thresholds(area.minLogs(),area.maxLogs());
