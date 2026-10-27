@@ -61,6 +61,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         cashButtons.add(addRenderableWidget(action("Снять 100",178,132,90,EnterpriseCoreMenu.WITHDRAW_100)));
         cashButtons.add(addRenderableWidget(action("Перенести монеты старой кассы",68,166,235,EnterpriseCoreMenu.MIGRATE_CASH)));
         fieldsButton=addRenderableWidget(action("Поля и семена",72,132,205,EnterpriseCoreMenu.OPEN_FARM_FIELDS));
+        forestButton=addRenderableWidget(action("Лесные участки и посадки",72,132,205,EnterpriseCoreMenu.OPEN_FOREST));
         constructionButtons.add(addRenderableWidget(action("Архитектор",62,132,110,EnterpriseCoreMenu.OPEN_ARCHITECT)));
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
