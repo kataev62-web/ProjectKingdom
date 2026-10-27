@@ -70,7 +70,18 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                             menu.townId(),AdministrativeKind.TOWN_HALL,AdministrativeActionPacket.JOIN_TOWN)))
                     .bounds(leftPos+74,topPos+132,204,22).build());
         }
-        if(menu.kind()==AdministrativeKind.TOWN_HALL&&menu.manager())initOfficePicker();
+        if(menu.kind()==AdministrativeKind.TOWN_HALL&&menu.manager()){
+            initOfficePicker();
+            if(menu.rankIndex()<3){
+                Button promotion=addRenderableWidget(Button.builder(
+                        KingdomFonts.readable("Повысить до: "+menu.nextRankTitle()),
+                        ignored->KingdomNetwork.CHANNEL.sendToServer(new AdministrativeActionPacket(
+                                menu.townId(),AdministrativeKind.TOWN_HALL,AdministrativeActionPacket.PROMOTE_TOWN)))
+                        .bounds(leftPos+59,topPos+180,239,19).build());
+                promotion.active=menu.canPromote();
+                actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.INFO,promotion,true));
+            }
+        }
         switch(menu.kind()){
             case TREASURY->{
                 taxAmount=new EditBox(font,leftPos+136,topPos+122,145,18,
@@ -312,10 +323,14 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 }else{
                     line(g,"Основатель: "+menu.founder(),58,90,MUTED);
                     line(g,"Мэр: "+menu.mayor(),58,108,MUTED);
-                    line(g,"Состояние: активно",58,126,MUTED);
+                    if(menu.kind()==AdministrativeKind.TOWN_HALL){
+                        line(g,"Статус: "+menu.rankTitle(),58,123,INK);
+                        line(g,font.plainSubstrByWidth(menu.growthSummary(),271),58,141,MUTED);
+                        line(g,font.plainSubstrByWidth(menu.growthRequirements(),271),58,159,MUTED);
+                    }else line(g,"Состояние: активно",58,126,MUTED);
                 }
                 if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager())
-                    line(g,"Вкладка «Граждане» — вступление в город",58,148,MUTED);
+                    line(g,"Вкладка «Граждане» — вступление в город",58,181,MUTED);
             }
             case CITIZENS->{
                 if(menu.kind()==AdministrativeKind.TOWN_HALL&&!menu.manager()){
