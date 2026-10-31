@@ -106,13 +106,26 @@ final class EnterpriseBuildingRegistrationTest {
         var core=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseCoreBlock.java");
         var registry=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseBuildingRegistration.java");
         assertTrue(menu.contains("REGISTER_BUILDING=113"));
-        assertTrue(menu.contains(".register(server,enterpriseId,corePos)"));
-        assertTrue(gui.contains("Зарегистрировать здание"));
+        assertTrue(menu.contains("EnterpriseBuildingSelection.begin(server,enterpriseId)"));
+        assertTrue(gui.contains("Привязать здание: 2 угла"));
+        var chooser=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseBuildingSelection.java");
+        assertTrue(chooser.contains("registerSelected(player,old.enterprise(),old.first(),at)"));
+        assertTrue(chooser.contains("event.setCanceled(true)"));
+        assertTrue(registry.contains("room.contains(core)"));
+        assertTrue(registry.contains("civics.leaseContract(dim,cx,cz)"));
         assertTrue(core.contains("EnterpriseBuildingRegistration.get(server.getServer()).remove(core.enterpriseId())"));
         assertTrue(registry.contains("!player.getUUID().equals(be.owner())"));
         assertTrue(registry.contains("civic.plotOwner(dim,cx,cz)"));
         assertTrue(registry.contains("level.hasChunkAt(pos)"));
         assertTrue(registry.contains("root.put(\"Rooms\",entries)"));
+    }
+    @Test void selectedCuboidIncludesEveryFloorAndContents(){
+        var full=new EnterpriseBuildingRegistration.Room(FIRM,DIM,0,4,10,6,17,24,19,0,196);
+        assertTrue(full.contains(new BlockPos(4,10,6)));
+        assertTrue(full.contains(new BlockPos(12,20,12)));
+        assertTrue(full.contains(new BlockPos(17,24,19)));
+        assertFalse(full.contains(new BlockPos(18,20,12)));
+        assertEquals("14×15×14",full.dimensions());
     }
     private static String read(String path){
         try{return Files.readString(Path.of(path));}catch(Exception e){throw new AssertionError(e);}
