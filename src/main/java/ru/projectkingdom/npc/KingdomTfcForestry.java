@@ -89,8 +89,7 @@ public final class KingdomTfcForestry {
         return available;
     }
     private static boolean axe(ItemStack stack){
-        return !stack.isEmpty()&&stack.is(TFC_AXES)
-            &&(stack.is(ItemTags.AXES)||stack.getItem() instanceof AxeItem);
+        return !stack.isEmpty()&&stack.is(TFC_AXES); // TFC stone axes may lack vanilla axe tag
     }
     private static boolean treeLog(ServerLevel level,BlockPos at,String wood){
         if(!level.hasChunkAt(at))return false;
@@ -372,23 +371,34 @@ public final class KingdomTfcForestry {
                 if(!stock.complete())continue;
                 // Real leftovers stay as uniquely marked world drops until collected.
                 if(recoverDrops(level,npc,w,area))return true;
-                // Planting is permitted even after production stops at max inventory.
-                if(plant(level,npc,w,area,raw,source))return true;
+                // Harvest first; otherwise perpetual planting starves woodcutting.
                 var limits=new EnterpriseStockPolicy.Thresholds(area.minLogs(),area.maxLogs());
-                if(!KingdomForestData.get(level.getServer()).harvestAllowed(
-                    area.id(),limits,stock.physical()))continue;
-                if(!takeAxe(level,npc,w,raw,source))return false;
+                boolean allowedHarvest=KingdomForestData.get(level.getServer()).harvestAllowed(
+                    area.id(),limits,stock.physical());
+                if(!allowedHarvest){
+                    if(plant(level,npc,w,area,raw,source))return true;
+                    continue;
+                }
+                if(!takeAxe(level,npc,w,raw,source)){
+                    if(plant(level,npc,w,area,raw,source))return true;
+                    continue;
+                }
                 BlockPos best=null;double closest=Double.MAX_VALUE;
                 for(int x=area.minX();x<=area.maxX();x++)
                     for(int z=area.minZ();z<=area.maxZ();z++)
-                        for(int y=area.y()+1;y<=area.y()+10;y++){
+                        for(int y=area.y()-2;y<=area.y()+16;y++){
                             BlockPos p=new BlockPos(x,y,z);
                             if(!level.hasChunkAt(p)||!treeLog(level,p,wood))continue;
                             if(!authorized(level,p,w.employer,area))continue;
                             double distance=p.distSqr(npc.blockPosition());
                             if(distance<closest){closest=distance;best=p;}
                         }
-                if(best!=null)return fell(level,npc,w,area,best);
+                if(best!=null){
+                    if(fell(level,npc,w,area,best))return true;
+                    // An unharvestable adult tree is not a reason to plant forever.
+                    continue;
+                }
+                if(plant(level,npc,w,area,raw,source))return true;
             }
         }
         return false;

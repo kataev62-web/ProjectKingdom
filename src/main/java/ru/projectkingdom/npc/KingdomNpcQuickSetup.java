@@ -43,6 +43,8 @@ public final class KingdomNpcQuickSetup {
     }
     private static boolean station(String job,String id){
         if(!workshop(job))return false;
+        if("smith".equals(job))return "tfc:charcoal_forge".equals(id)
+            ||id.startsWith("tfc:metal/anvil/");
         if("weaver".equals(job))return "tfc:loom".equals(id);
         if("tanner".equals(job))return "tfc:barrel".equals(id);
         if("baker".equals(job))return "tfc:quern".equals(id)
@@ -55,6 +57,9 @@ public final class KingdomNpcQuickSetup {
     }
     /** Prefer the actual native TFC machine over a generic vanilla crafting table. */
     private static int stationPriority(String job,String id) {
+        if("smith".equals(job))
+            return "tfc:charcoal_forge".equals(id)?0
+                :id.startsWith("tfc:metal/anvil/")?1:50;
         if("minecraft:crafting_table".equals(id))return 10;
         return "tfc:quern".equals(id) ? 0 : "tfc:pot".equals(id) ? 1
             : "tfc:grill".equals(id) ? 2 : 0;
@@ -203,6 +208,15 @@ public final class KingdomNpcQuickSetup {
                 EnterpriseBindingRole.FINISHED_STORAGE)))
             return new Result(false,"Склады заняты другой ролью или предприятием. "
                 +"Выбери свободные сундуки на своей земле.");
+        if("smith".equals(worker.job)){
+            var building=ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(server)
+                    .room(business.id());
+            if(building==null)return new Result(false,
+                    "Сначала зарегистрируй здание кузницы через производственный блок.");
+            if(machine==null||!KingdomTfcSmithWork.inside(building,machine))
+                return new Result(false,
+                    "В зарегистрированном здании не найден горн TFC.");
+        }
         if(machine!=null && !land.register(level,machine,owner,"workstation"))
             machine=null;
         var payroll=KingdomEnterprisePayrollData.get(server);

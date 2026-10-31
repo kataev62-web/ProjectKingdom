@@ -286,6 +286,11 @@ public final class KingdomNpcMenu extends ChestMenu {
             case 2 -> page=Page.DIALOGUE;
             case 9 -> {
                 if(!owner){info("Нужны права работодателя.");break;}
+                if("smith".equals(w.job)){
+                    info("Кузнец TFC: сначала зарегистрируй кузницу, поставь настоящий горн TFC "
+                         +"и наковальню внутри, затем настрой профессию. Молот нельзя требовать в сундуке.");
+                    break;
+                }
                 if(viewer.level().dimension().location().toString().equals(w.dimension)
                     &&KingdomTfcTanneryWork.isBarrel(viewer.serverLevel(),w)){
                     info("Кожевник TFC: установи настоящую бочку TFC на своей земле, заранее налей нужную жидкость (известковая вода / чистая вода / таннин), назначь сырьевой и готовый склады и договор на кожевенную мастерскую. NPC запечатает бочку, дождётся реального рецепта и заберёт предмет. Очистку размоченных шкур ножом пока выполняй вручную.");
