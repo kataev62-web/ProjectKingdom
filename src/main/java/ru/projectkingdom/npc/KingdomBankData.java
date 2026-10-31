@@ -215,7 +215,8 @@ public final class KingdomBankData extends SavedData {
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         var admin=KingdomAdministrationData.get(player.getServer());
         if(vault==null||previous>Long.MAX_VALUE-amount||admin.bankReserve(town)>Long.MAX_VALUE-amount
-                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town))
+                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                        admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
                 ||!KingdomPhysicalCash.deposit(player,vault,amount))return false;
         if(!admin.depositBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical deposit");
@@ -230,7 +231,8 @@ public final class KingdomBankData extends SavedData {
         var admin=KingdomAdministrationData.get(player.getServer());
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null||admin.bankReserve(town)<amount
-                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town))
+                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                        admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
                 ||!KingdomPhysicalCash.withdraw(player,vault,amount))return false;
         if(!admin.withdrawBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical withdrawal");
