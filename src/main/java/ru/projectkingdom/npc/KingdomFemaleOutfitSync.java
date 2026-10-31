@@ -1,8 +1,14 @@
 package ru.projectkingdom.npc;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraftforge.common.MinecraftForge;
@@ -15,46 +21,58 @@ import ru.projectkingdom.network.KingdomFemaleOutfitPacket;
 import ru.projectkingdom.network.KingdomNetwork;
 
 /**
- * Keeps the vanilla Villager and its AI. Only registered adult female workers
- * receive a tiny client-side clothing overlay. No extra entities or block ticks.
+ * Keep villager entities, saves and AI unchanged while syncing player-model
+ * appearance for Kingdom NPCs. No player entities are created.
  */
 public final class KingdomFemaleOutfitSync {
-    private final Map<UUID, Boolean> lastBroadcast = new HashMap<>();
+    private final Map<UUID, Byte> lastBroadcast = new HashMap<>();
     private long ticks;
 
-    public KingdomFemaleOutfitSync() {
-        MinecraftForge.EVENT_BUS.register(this);
-    }
+    public KingdomFemaleOutfitSync() { MinecraftForge.EVENT_BUS.register(this); }
 
     public static boolean eligible(KingdomNpcData.Worker worker) {
         return "female".equals(worker.gender) && worker.ageYears >= 18;
     }
 
-    /** Pushes edited gender/age to all tracking clients immediately. */
-    public static void notifyChanged(net.minecraft.server.MinecraftServer server, KingdomNpcData.Worker worker) {
+    /** 0 = vanilla (not Kingdom), 1 = human male/unspecified, 2 = adult female, 3 = young female. */
+    public static byte appearance(KingdomNpcData.Worker worker) {
+        if (worker == null) return 0;
+        if ("female".equals(worker.gender)) return (byte)(worker.ageYears >= 18 ? 2 : 3);
+        return 1;
+    }
+
+    /** Push edited gender/age to tracking clients without waiting for periodic sync. */
+    public static void notifyChanged(MinecraftServer server, KingdomNpcData.Worker worker) {
         if (server == null || worker == null) return;
-        var dim = net.minecraft.resources.ResourceLocation.tryParse(worker.dimension);
-        if (dim == null) return;
-        var level = server.getLevel(net.minecraft.resources.ResourceKey.create(
-                net.minecraft.core.registries.Registries.DIMENSION, dim));
-        if (level == null || !(level.getEntity(worker.entityId) instanceof Villager villager)) return;
-        KingdomNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> villager),
-                new KingdomFemaleOutfitPacket(worker.entityId, eligible(worker)));
+        Villager entity = resolve(server, worker);
+        if (entity != null) {
+            KingdomNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> entity),
+                    new KingdomFemaleOutfitPacket(worker.entityId, appearance(worker)));
+        }
+    }
+
+    private static Villager resolve(MinecraftServer server, KingdomNpcData.Worker worker) {
+        ResourceLocation id = ResourceLocation.tryParse(worker.dimension);
+        if (id == null) return null;
+        var level = server.getLevel(ResourceKey.create(Registries.DIMENSION, id));
+        if (level == null) return null;
+        return level.getEntity(worker.entityId) instanceof Villager villager ? villager : null;
     }
 
     @SubscribeEvent
     public void onTracking(PlayerEvent.StartTracking event) {
         if (!(event.getEntity() instanceof ServerPlayer player)
-                || !(event.getTarget() instanceof Villager villager)) {
-            return;
-        }
+                || !(event.getTarget() instanceof Villager villager)) return;
         for (var worker : KingdomNpcData.get(player.getServer()).all()) {
             if (worker.entityId.equals(villager.getUUID())) {
                 KingdomNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
-                        new KingdomFemaleOutfitPacket(worker.entityId, eligible(worker)));
+                        new KingdomFemaleOutfitPacket(worker.entityId, appearance(worker)));
                 return;
             }
         }
+        // Explicitly revoke stale state when same UUID is no longer a Kingdom worker.
+        KingdomNetwork.CHANNEL.send(PacketDistributor.PLAYER.with(() -> player),
+                new KingdomFemaleOutfitPacket(villager.getUUID(), (byte)0));
     }
 
     @SubscribeEvent
@@ -63,23 +81,21 @@ public final class KingdomFemaleOutfitSync {
         var server = ServerLifecycleHooks.getCurrentServer();
         if (server == null) return;
         var workers = KingdomNpcData.get(server);
-        lastBroadcast.keySet().removeIf(uuid ->
-                workers.all().stream().noneMatch(worker -> worker.entityId.equals(uuid)));
+        Set<UUID> known = new HashSet<>();
         for (var worker : workers.all()) {
-            var dimensionId = net.minecraft.resources.ResourceLocation.tryParse(worker.dimension);
-            if (dimensionId == null) continue;
-            var level = server.getLevel(net.minecraft.resources.ResourceKey.create(
-                    net.minecraft.core.registries.Registries.DIMENSION, dimensionId));
-            if (level == null || !(level.getEntity(worker.entityId) instanceof Villager villager)) {
+            known.add(worker.entityId);
+            Villager villager = resolve(server, worker);
+            if (villager == null) {
                 lastBroadcast.remove(worker.entityId);
                 continue;
             }
-            boolean enabled = eligible(worker);
-            if (enabled == lastBroadcast.getOrDefault(worker.entityId, false)
+            byte state = appearance(worker);
+            if (lastBroadcast.getOrDefault(worker.entityId, (byte)0) == state
                     && lastBroadcast.containsKey(worker.entityId)) continue;
-            lastBroadcast.put(worker.entityId, enabled);
+            lastBroadcast.put(worker.entityId, state);
             KingdomNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY.with(() -> villager),
-                    new KingdomFemaleOutfitPacket(worker.entityId, enabled));
+                    new KingdomFemaleOutfitPacket(worker.entityId, state));
         }
+        lastBroadcast.keySet().retainAll(known);
     }
 }
