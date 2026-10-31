@@ -128,7 +128,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 };
                 boolean started=KingdomCentralWarehouseRooms.get(sender.getServer()).begin(sender,kind);
                 sender.sendSystemMessage(Component.literal(started
-                    ?"[Центральный склад] "+kind.title()+": заранее поставьте внутри сундук или бочку. ПКМ пустой рукой по двум противоположным углам пола: минимум 2×2, высота 3 блока. Для большей высоты отметьте второй угол выше. Максимум: длина/ширина 17, высота 9."
+                    ?"[Центральный склад] "+kind.title()+": ПУСТОЙ ОСНОВНОЙ РУКОЙ дважды ПКМ по противоположным углам ПОЛА. Комната минимум 2×2×3, максимум 17×9×17. Сундуки можно поставить после разметки. Если второй угол не подходит, первая точка сохраняется."
                     :"[Центральный склад] Нет доступа: откройте зарегистрированный склад как его управляющий."));
                 if(started)sender.closeContainer();
                 return;
