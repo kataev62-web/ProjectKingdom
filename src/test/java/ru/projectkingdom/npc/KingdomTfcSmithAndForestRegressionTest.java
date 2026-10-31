@@ -54,6 +54,8 @@ final class KingdomTfcSmithAndForestRegressionTest {
         assertTrue(core.contains("anvilInv.getStackInSlot(2).isEmpty()"));
         var server=source("npc/KingdomNpcMod.java");
         assertTrue(server.contains("KingdomTfcSmithWork.tick(level,resident,w)"));
+        assertTrue(source("npc/KingdomNpcWorkday.java")
+                .contains("KingdomTfcSmithWork.isForge(level,worker)"));
     }
     @Test void autoSetupBindsSmithToRegisteredBuildingNotVanillaCraftingTable()throws Exception{
         var quick=source("npc/KingdomNpcQuickSetup.java");

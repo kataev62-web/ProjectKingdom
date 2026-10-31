@@ -39,6 +39,13 @@ public final class KingdomTfcSmithWork {
                 &&pos.getY()>=room.minY()&&pos.getY()<=room.maxY()
                 &&pos.getZ()>room.minZ()&&pos.getZ()<room.maxZ();
     }
+    /** Native TFC forge is a real workshop assignment, not a crafting-table recipe. */
+    public static boolean isForge(ServerLevel level,KingdomNpcData.Worker w){
+        if(level==null||w==null||!"smith".equals(w.job)||!w.hasWorkstation
+                ||!level.dimension().location().toString().equals(w.dimension))return false;
+        var pos=new BlockPos(w.workX,w.workY,w.workZ);
+        return level.hasChunkAt(pos)&&FORGE.equals(id(level,pos));
+    }
     private static String id(ServerLevel level,BlockPos p){
         return BuiltInRegistries.BLOCK.getKey(level.getBlockState(p).getBlock()).toString();
     }
