@@ -33,7 +33,8 @@ public final class KingdomNpcQuickSetup {
             case "tanner" -> kind==EnterpriseKind.TANNERY;
             case "builder","carpenter","mason" -> kind==EnterpriseKind.CONSTRUCTION;
             case "courier" -> kind==EnterpriseKind.COURIER;
-            case "innkeeper" -> kind==EnterpriseKind.TAVERN||kind==EnterpriseKind.HOTEL;
+            // Innkeepers have schedules, but no safe physical executor yet.
+            case "innkeeper" -> false;
             default -> false;
         };
     }
@@ -222,6 +223,10 @@ public final class KingdomNpcQuickSetup {
             worker.sourceY=source.getY();worker.sourceZ=source.getZ();
             worker.hasDestination=true;worker.destX=dest.getX();
             worker.destY=dest.getY();worker.destZ=dest.getZ();
+        }else{
+            // Switching from a warehouse job must never retain stale personal
+            // chests from another company.
+            worker.hasSource=false;worker.hasDestination=false;
         }
         if(machine!=null){
             worker.hasWorkstation=true;worker.workX=machine.getX();
