@@ -26,9 +26,11 @@ final class NpcDialogueMenuContractTest {
         assertTrue(source.contains("management ? Page.MANAGEMENT : Page.DIALOGUE"));
 
         // Existing validated management actions must remain reachable.
-        assertTrue(source.contains("НАНЯТЬ жителя"));
-        assertTrue(source.contains("РАБОТАТЬ: по профессии, с физическими ресурсами и складом"));
-        assertTrue(source.contains("СКЛАД СЫРЬЯ"));
+        assertTrue(source.contains("НАНЯТЬ И НАСТРОИТЬ ПРОФЕССИЮ"));
+        assertTrue(source.contains("РАБОТАТЬ: автоматически настроить и начать"));
+        assertTrue(source.contains("СКЛАД СЫРЬЯ")==false); // obsolete mandatory multi-click flow
+        assertTrue(source.contains("РУЧНАЯ НАСТРОЙКА: указать склад сырья"));
+        assertTrue(source.contains("KingdomNpcQuickSetup.configure(viewer,w)"));
     }
 }
 
