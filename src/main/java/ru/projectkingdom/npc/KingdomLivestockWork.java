@@ -3,7 +3,10 @@ package ru.projectkingdom.npc;
 import java.lang.reflect.Method;
 import java.util.*;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.npc.Villager;
@@ -21,9 +24,11 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
  */
 public final class KingdomLivestockWork {
     private KingdomLivestockWork(){}
+    private static final TagKey<net.minecraft.world.entity.EntityType<?>> TFC_LIVESTOCK=
+        TagKey.create(Registries.ENTITY_TYPE,new ResourceLocation("tfc","livestock"));
     private static boolean loaded,compatible;
     private static Class<?> tfcAnimal;
-    private static Method hungry,isFood,getCalendar,lastFed,getFamiliarity,
+    private static Method hungry,isFood,getCalendar,getTotalDays,lastFed,getFamiliarity,
         setFamiliarity,getFamiliarityCap,setFamiliarityDecay;
     private static boolean init(){
         if(loaded)return compatible;
@@ -34,6 +39,10 @@ public final class KingdomLivestockWork {
             hungry=tfcAnimal.getMethod("isHungry");
             isFood=tfcAnimal.getMethod("isFood",ItemStack.class);
             getCalendar=tfcAnimal.getMethod("getCalendar");
+            // Invoke the public TFC interface, not the possibly package-private
+            // concrete calendar implementation returned by getCalendar().
+            Class<?> calendarApi=Class.forName("net.dries007.tfc.util.calendar.ICalendar");
+            getTotalDays=calendarApi.getMethod("getTotalDays");
             lastFed=tfcAnimal.getMethod("setLastFed",long.class);
             getFamiliarity=tfcAnimal.getMethod("getFamiliarity");
             setFamiliarity=tfcAnimal.getMethod("setFamiliarity",float.class);
@@ -52,16 +61,30 @@ public final class KingdomLivestockWork {
         try{return Boolean.TRUE.equals(hungry.invoke(animal));}
         catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
+    /** Called before native TFC interaction only to explain its once-per-day rule. */
+    public static String playerFeedNotice(Animal animal,ItemStack held){
+        if(!isTfc(animal)||!food(animal,held)||hungry(animal))return null;
+        return "[Животноводство] Это животное уже накормлено сегодня по календарю TFC. "
+            +"Повторное кормление станет доступно после смены игрового дня.";
+    }
     private static boolean food(Animal animal,ItemStack item) {
-        if(item.isEmpty()||item.hasCraftingRemainingItem())return false;
+        if(item.isEmpty())return false;
         try{return Boolean.TRUE.equals(isFood.invoke(animal,item));}
         catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
-    private static boolean feed(Animal animal,ItemStack item){
+    private static ItemStack feedRemainder(ItemStack food){
+        return food.hasCraftingRemainingItem()?food.getCraftingRemainingItem().copy():ItemStack.EMPTY;
+    }
+    private static boolean canCarryFeed(KingdomNpcData.Worker w,ItemStack food){
+        // The food unit is consumed before its one-item container is returned.
+        return NpcFieldWork.canFit(w,List.of(food.copyWithCount(1)));
+    }
+    private static boolean feed(Animal animal,ItemStack item,KingdomNpcData.Worker worker){
         if(!hungry(animal)||!food(animal,item))return false;
+        ItemStack remainder=feedRemainder(item);
         try{
             Object calendar=getCalendar.invoke(animal);
-            long day=((Number)calendar.getClass().getMethod("getTotalDays").invoke(calendar)).longValue();
+            long day=((Number)getTotalDays.invoke(calendar)).longValue();
             float familiar=((Number)getFamiliarity.invoke(animal)).floatValue();
             float cap=((Number)getFamiliarityCap.invoke(animal)).floatValue();
             // Native TFC properties, following its feed-state semantics.
@@ -70,6 +93,9 @@ public final class KingdomLivestockWork {
             setFamiliarity.invoke(animal,Math.min(cap,familiar+0.06f));
             animal.heal(1f);
             item.shrink(1);
+            // The consumed unit frees exactly the carrying space needed by a
+            // normal one-item crafting remainder (e.g. a bowl).
+            if(!remainder.isEmpty())NpcFieldWork.put(worker,remainder);
             return true;
         }catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
@@ -91,41 +117,66 @@ public final class KingdomLivestockWork {
         }
         return null;
     }
+    /** Returns an anchor inside an already-loaded chunk intersecting the pen. */
+    private static BlockPos loadedAnchor(ServerLevel level,KingdomRanchPenData.Pen pen){
+        BlockPos center=pen.center();
+        if(level.hasChunkAt(center))return center;
+        for(int cx=pen.minX()>>4;cx<=pen.maxX()>>4;cx++)
+            for(int cz=pen.minZ()>>4;cz<=pen.maxZ()>>4;cz++){
+                int x=Math.max(pen.minX(),Math.min(pen.maxX(),(cx<<4)+8));
+                int z=Math.max(pen.minZ(),Math.min(pen.maxZ(),(cz<<4)+8));
+                BlockPos candidate=new BlockPos(x,pen.y()+1,z);
+                if(level.hasChunkAt(candidate))return candidate;
+            }
+        return null;
+    }
+    private static boolean hasLoadedChunk(ServerLevel level,KingdomRanchPenData.Pen pen){
+        return loadedAnchor(level,pen)!=null;
+    }
     static BlockPos workSite(ServerLevel level,KingdomNpcData.Worker w){
         UUID farm=farm(level,w);if(farm==null)return null;
         for(var pen:KingdomRanchPenData.get(level.getServer()).of(farm)){
-            BlockPos center=pen.center();
-            if(pen.enabled()&&pen.dimension().equals(w.dimension)
-                &&level.hasChunkAt(center))return center;
+            if(!pen.enabled()||!pen.dimension().equals(w.dimension))continue;
+            BlockPos anchor=loadedAnchor(level,pen);
+            if(anchor!=null)return anchor;
         }
         return null;
     }
 
-    public record PenStatus(int animals,int hungry,int woolReady,int milkReady,int edibleEggs) {
+    public record PenStatus(int animals,int tfcAnimals,int hungry,int woolReady,
+                            int milkReady,int edibleEggs,boolean loaded) {
         public PenStatus(int animals,int hungry,int woolReady){
-            this(animals,hungry,woolReady,0,0);
+            this(animals,animals,hungry,woolReady,0,0,true);
+        }
+        public static PenStatus unloaded(){
+            return new PenStatus(0,0,0,0,0,0,false);
         }
     }
 
     /** Read-only, loaded-area diagnosis. Never changes TFC entity state. */
     public static PenStatus inspect(ServerLevel level,KingdomRanchPenData.Pen pen){
-        if(!pen.dimension().equals(level.dimension().location().toString())||!init()
-                ||!level.hasChunkAt(pen.center()))return new PenStatus(0,0,0);
-        AABB bounds=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
-            pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
-        int count=0,needsFood=0,ready=0,milkReady=0;
+        if(!pen.dimension().equals(level.dimension().location().toString())
+                ||!hasLoadedChunk(level,pen))return PenStatus.unloaded();
+        // Count all animals so vanilla/non-TFC livestock are not silently shown as zero.
+        // TFC count and production state remain separately identified and TFC-only.
+        AABB bounds=new AABB(pen.minX(),pen.y()-8,pen.minZ(),
+            pen.maxX()+1,pen.y()+17,pen.maxZ()+1);
+        int count=0,tfcCount=0,needsFood=0,ready=0,milkReady=0;
         for(Animal animal:level.getEntitiesOfClass(Animal.class,bounds,
                 entity->entity.isAlive()&&pen.contains(entity))){
-            if(!isTfc(animal))continue;
             count++;
+            // The official TFC entity tag identifies its whole livestock roster,
+            // including horses and other types even if an API adapter is unavailable.
+            if(animal.getType().is(TFC_LIVESTOCK))tfcCount++;
+            if(!isTfc(animal))continue;
             if(hungry(animal))needsFood++;
             if(KingdomTfcMilkWork.readyForMilking(animal))milkReady++;
             if(animal instanceof IForgeShearable shearable
                 && animal.getClass().getName().startsWith("net.dries007.tfc.common.entities.livestock")
                 && shearable.isShearable(new ItemStack(Items.SHEARS),level,animal.blockPosition()))ready++;
         }
-        return new PenStatus(count,needsFood,ready,milkReady,
-            KingdomTfcNestWork.availableEggs(level,pen));
+        return new PenStatus(count,tfcCount,needsFood,ready,milkReady,
+            KingdomTfcNestWork.availableEggs(level,pen),true);
     }
 
     private static boolean nearby(Villager npc,BlockPos pos){
@@ -141,7 +192,7 @@ public final class KingdomLivestockWork {
         for(int i=0;i<raw.getContainerSize();i++){
             ItemStack stack=raw.getItem(i);
             if(!stack.isEmpty() && raw.canTakeItem(raw,i,stack)
-                && food(target,stack) && NpcFieldWork.canFit(w,List.of(stack.copyWithCount(1)))){
+                && food(target,stack) && canCarryFeed(w,stack)){
                 ItemStack taken=raw.removeItem(i,1);
                 if(taken.isEmpty())return false;
                 NpcFieldWork.put(w,taken);raw.setChanged();
@@ -157,7 +208,7 @@ public final class KingdomLivestockWork {
         for(int i=0;i<w.fieldInventory.size();i++){
             ItemStack in=w.fieldInventory.get(i);
             if(!food(animal,in))continue;
-            if(!feed(animal,in))return false;
+            if(!feed(animal,in,w))return false;
             if(in.isEmpty())w.fieldInventory.remove(i);
             w.workUnits++;w.energy=Math.max(0,w.energy-1);w.skillXp++;
             KingdomNpcData.get(level.getServer()).setDirty();
@@ -253,10 +304,10 @@ public final class KingdomLivestockWork {
         // Bounded: maximum four pens, each 16 x 16 in loaded chunks.
         for(var pen:KingdomRanchPenData.get(level.getServer()).of(enterprise)){
             if(!pen.enabled()||!pen.dimension().equals(w.dimension))continue;
-            if(!level.hasChunkAt(pen.center()))continue;
-            if(!territory.canUse(level,pen.center(),owner))continue;
-            AABB area=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
-                pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
+            BlockPos anchor=loadedAnchor(level,pen);
+            if(anchor==null||!territory.canUse(level,anchor,owner))continue;
+            AABB area=new AABB(pen.minX(),pen.y()-8,pen.minZ(),
+                pen.maxX()+1,pen.y()+17,pen.maxZ()+1);
             var herd=level.getEntitiesOfClass(Animal.class,area,
                 entity->entity.isAlive()&&pen.contains(entity)&&isTfc(entity));
             for(Animal animal:herd){

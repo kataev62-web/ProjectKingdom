@@ -915,6 +915,23 @@ public final class KingdomNpcMod {
 
     }
 
+    /**
+     * Keep TFC's native hand-feeding interaction untouched. If the animal is
+     * already fed for the current TFC calendar day, explain why TFC rejects
+     * another food click instead of silently appearing to block the player.
+     */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.LOWEST)
+    public void explainTfcLivestockFeed(PlayerInteractEvent.EntityInteract event) {
+        if(event.getHand()!=net.minecraft.world.InteractionHand.MAIN_HAND
+                ||!(event.getEntity() instanceof ServerPlayer player)
+                ||!(event.getTarget() instanceof net.minecraft.world.entity.animal.Animal animal))
+            return;
+        String notice=KingdomLivestockWork.playerFeedNotice(
+                animal,player.getItemInHand(event.getHand()));
+        if(notice!=null)player.sendSystemMessage(Component.literal(notice));
+        // Deliberately do NOT cancel: TFC remains responsible for real feeding.
+    }
+
     public static void openNpcMenu(ServerPlayer player, int npcId) {
         openNpcMenu(player,npcId,false);
     }

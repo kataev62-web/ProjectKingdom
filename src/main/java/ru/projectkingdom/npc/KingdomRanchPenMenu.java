@@ -48,10 +48,13 @@ public final class KingdomRanchPenMenu extends ChestMenu {
         for(int i=0;i<pens.size()&&i<4;i++){
             var pen=pens.get(i);
             var status=KingdomLivestockWork.inspect(player.serverLevel(),pen);
+            String herd=status.loaded()
+                ?" | животных "+status.animals()+" (TFC "+status.tfcAnimals()
+                    +"), голодных TFC "+status.hungry()
+                :" | поголовье не проверено: чанки загона не загружены";
             icon(i,Items.OAK_FENCE,(i==selected?"[ВЫБРАН] ":"")+"Загон "+(i+1)
                 +" | "+(pen.maxX()-pen.minX()+1)+"x"+(pen.maxZ()-pen.minZ()+1)
-                +" | животных "+status.animals()+", голодных "+status.hungry()
-                +", шерсть готова "+status.woolReady()+", молоко "+status.milkReady()
+                +herd+", шерсть готова "+status.woolReady()+", молоко "+status.milkReady()
                 +", свежие яйца "+status.edibleEggs()
                 +" | "+(pen.enabled()?"работает":"остановлен"));
         }
@@ -70,7 +73,8 @@ public final class KingdomRanchPenMenu extends ChestMenu {
         icon(23,Items.EGG,"СБОР ЯИЦ: "+(eggCollection?"ВКЛ":"ВЫКЛ")
             +" — ЛКМ изменить. Только неоплодотворённые яйца из настоящих гнёзд TFC.");
         icon(24,Items.MILK_BUCKET,"Молоко: реальная жидкость из TFC в настоящую пустую тару со склада.");
-        icon(22,Items.SHEARS,"Уход: корм из сырьевого склада, шерсть в готовый склад. Требуются настоящие ножницы.");
+        icon(22,Items.SHEARS,"Уход NPC: видовой корм TFC из сырьевого склада, шерсть в готовый склад. Нужны настоящие ножницы.");
+        icon(25,Items.WHEAT,"КОРМЛЕНИЕ ИГРОКОМ: ПКМ по животному с кормом TFC. Коровы/овцы/яки — TFC-зерно (например tfc:food/wheat_grain, не обычная пшеница); козы — зерно/фрукты/овощи; свиньи — еда TFC; куры — зерно/фрукты/овощи/семена/хлеб. Одно кормление за игровой день.");
         icon(26,Items.OAK_DOOR,"ЗАКРЫТЬ");
         broadcastChanges();
     }
