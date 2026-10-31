@@ -113,9 +113,8 @@ public final class KingdomBankData extends SavedData {
         return ReconcileStatus.DONE;
     }
 
-    private static boolean covered(long cash,long bank,long city){
-        return cash>=0&&bank>=0&&city>=0&&bank<=Long.MAX_VALUE-city
-                &&cash>=bank+city;
+    private static boolean covered(long cash,long bank,long city,long sovereign){
+        return freePhysicalCopper(cash,bank,city,sovereign)>=0;
     }
     /** Exact human-readable deposit/withdrawal diagnostics for the city bank. */
     public enum LegacyTransferStatus {
@@ -180,7 +179,7 @@ public final class KingdomBankData extends SavedData {
         var cash=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(cash==null)return "Банковский сейф не подключён или его чанк выгружен. Управляющий должен привязать сундук.";
         var admin=KingdomAdministrationData.get(player.getServer());
-        if(!covered(KingdomPhysicalCash.value(cash),admin.bankReserve(town),admin.treasuryReserve(town)))
+        if(!covered(KingdomPhysicalCash.value(cash),admin.bankReserve(town),admin.treasuryReserve(town),admin.heldExpansionProceeds(town)))
             return "В сейфе не хватает реальных монет для уже записанных счетов и казны. Требуется сверка.";
         long wallet=KingdomCurrency.balance(player);
         if(wallet<amount)return "В кошельке "+wallet+" медных. Внесите монеты в кошелёк Kingdom: нужно "+amount+".";
@@ -201,7 +200,7 @@ public final class KingdomBankData extends SavedData {
         if(cash==null)return "Банковский сейф не подключён или не загружен.";
         var admin=KingdomAdministrationData.get(player.getServer());
         long physical=KingdomPhysicalCash.value(cash);
-        if(!covered(physical,admin.bankReserve(town),admin.treasuryReserve(town)))
+        if(!covered(physical,admin.bankReserve(town),admin.treasuryReserve(town),admin.heldExpansionProceeds(town)))
             return "В физическом хранилище меньше монет, чем зарегистрировано на счетах и в казне. Нужна сверка.";
         if(admin.bankReserve(town)<amount)return "Банковский резерв не подтверждает указанную сумму. Нужна сверка.";
         if(physical<amount)return "В сейфе физически недостаточно монет.";
@@ -216,7 +215,8 @@ public final class KingdomBankData extends SavedData {
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         var admin=KingdomAdministrationData.get(player.getServer());
         if(vault==null||previous>Long.MAX_VALUE-amount||admin.bankReserve(town)>Long.MAX_VALUE-amount
-                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town))
+                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                        admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
                 ||!KingdomPhysicalCash.deposit(player,vault,amount))return false;
         if(!admin.depositBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical deposit");
@@ -231,13 +231,88 @@ public final class KingdomBankData extends SavedData {
         var admin=KingdomAdministrationData.get(player.getServer());
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null||admin.bankReserve(town)<amount
-                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town))
+                ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                        admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
                 ||!KingdomPhysicalCash.withdraw(player,vault,amount))return false;
         if(!admin.withdrawBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical withdrawal");
         accounts.put(player.getUUID(),balance(player.getUUID())-amount);
         player.getInventory().setChanged();setDirty();return true;
     }
+    /** Coins physically placed in the bank but not booked to any citizen/city.
+     * Never spend bank balances that are already owned by someone.
+     */
+    public static long freePhysicalCopper(long physical,long bankReserve,long townReserve,long sovereign) {
+        if(physical<0||bankReserve<0||townReserve<0||sovereign<0
+                ||bankReserve>Long.MAX_VALUE-townReserve)return -1;
+        long allocated=bankReserve+townReserve;
+        if(allocated>Long.MAX_VALUE-sovereign)return -1;
+        allocated+=sovereign;
+        return physical<allocated?-1:physical-allocated;
+    }
+
+    /** A manager explicitly assigns unclaimed physical coins to the town account.
+     * Does NOT withdraw coins or touch any personal receipts.
+     */
+    public boolean assignFreeVaultCoinsToTown(ServerPlayer manager,UUID town,long amount) {
+        if(!mayUseMunicipalAccount(manager,town)||amount<1||amount>1_000_000)return false;
+        var vault=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return false;
+        var admin=KingdomAdministrationData.get(manager.getServer());
+        long free=freePhysicalCopper(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                admin.treasuryReserve(town),admin.heldExpansionProceeds(town));
+        if(free<amount)return false;
+        return KingdomCivicsData.get(manager.getServer()).creditTownBankFunds(town,amount);
+    }
+
+    public String freeVaultCoinsProblem(ServerPlayer manager,UUID town,long amount) {
+        if(!mayUseMunicipalAccount(manager,town))return "Нужны права управляющего банка и доступ к своему городскому банку.";
+        var vault=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return "Хранилище банка не загружено или не привязано.";
+        var admin=KingdomAdministrationData.get(manager.getServer());
+        long free=freePhysicalCopper(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                admin.treasuryReserve(town),admin.heldExpansionProceeds(town));
+        if(free<0)return "Физические монеты не покрывают зарегистрированные обязательства. Нужна сверка банка.";
+        return "Свободных монет: "+free+". Вклады игроков и уже зачисленные средства города нельзя списывать повторно.";
+    }
+
+    /** Explicit founder-approved personal-to-city transfer from the expansion map.
+     * Both receipts share a verified physical city vault. The player must own
+     * the personal receipt; no bank desk proximity is needed for an account transfer.
+     */
+    public boolean fundExpansionFromPersonal(ServerPlayer founder,UUID town,long amount) {
+        if(founder==null||town==null||amount<1||amount>1_000_000
+                ||founder.getServer()==null||!founder.getServer().isSameThread())return false;
+        var admin=KingdomAdministrationData.get(founder.getServer());
+        var civics=KingdomCivicsData.get(founder.getServer());
+        var city=civics.townOf(founder.getUUID());
+        if(city==null||!town.equals(city.id())||!founder.getUUID().equals(admin.founder(town)))
+            return false;
+        return transferPersonalToTown(founder,town,amount);
+    }
+
+    private boolean transferPersonalToTown(ServerPlayer player,UUID town,long amount) {
+        if(player==null||town==null||!payableAt(player.getUUID(),town))return false;
+        var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return false;
+        var admin=KingdomAdministrationData.get(player.getServer());
+        var civics=KingdomCivicsData.get(player.getServer());
+        if(!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                admin.treasuryReserve(town),admin.heldExpansionProceeds(town)))return false;
+        var next=TownBankFunds.plan(municipalSnapshot(player,town,vault),
+                TownBankFunds.Operation.DONATE,amount);
+        if(next==null)return false;
+        if(!civics.creditTownBankFunds(town,amount))return false;
+        if(!admin.withdrawBankReserve(town,amount)){
+            if(!civics.withdrawTownAuthorized(town,player.getUUID(),amount))
+                throw new IllegalStateException("Bank transfer compensation failed");
+            return false;
+        }
+        accounts.put(player.getUUID(),next.personal());
+        setDirty();
+        return true;
+    }
+
     /** A mayor/founder/treasurer manages town funds, never other citizens' personal receipts. */
     public boolean mayUseMunicipalAccount(ServerPlayer player,UUID town) {
         if(player==null||town==null||!town.equals(bankTown(player)))return false;
@@ -255,13 +330,16 @@ public final class KingdomBankData extends SavedData {
     }
     public boolean municipalOperation(ServerPlayer player,UUID town,long amount,TownBankFunds.Operation operation) {
         if(!mayUseMunicipalAccount(player,town)||operation==null)return false;
-        if(operation==TownBankFunds.Operation.DONATE&&!payableAt(player.getUUID(),town))return false;
+        if(operation==TownBankFunds.Operation.DONATE)
+            return transferPersonalToTown(player,town,amount);
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null)return false;
+        var admin=KingdomAdministrationData.get(player.getServer());
+        if(!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
+                admin.treasuryReserve(town),admin.heldExpansionProceeds(town)))return false;
         var next=TownBankFunds.plan(municipalSnapshot(player,town,vault),operation,amount);
         if(next==null)return false;
         var civics=KingdomCivicsData.get(player.getServer());
-        var admin=KingdomAdministrationData.get(player.getServer());
         if(operation==TownBankFunds.Operation.DEPOSIT){
             if(!KingdomPhysicalCash.deposit(player,vault,amount))return false;
             if(!civics.creditTownBankFunds(town,amount)){
@@ -274,15 +352,6 @@ public final class KingdomBankData extends SavedData {
                 if(!KingdomPhysicalCash.deposit(player,vault,amount))throw new IllegalStateException("Town withdrawal compensation failed");
                 return false;
             }
-        }else{
-            // Ownership transfer in the SAME vault: physical coins stay put.
-            // Only this player's personal receipt is debited, after all preflights.
-            if(!civics.creditTownBankFunds(town,amount))return false;
-            if(!admin.withdrawBankReserve(town,amount)){
-                if(!civics.withdrawTownAuthorized(town,player.getUUID(),amount))throw new IllegalStateException("Town donation compensation failed");
-                return false;
-            }
-            accounts.put(player.getUUID(),next.personal());setDirty();
         }
         player.getInventory().setChanged();return true;
     }
@@ -315,7 +384,7 @@ public final class KingdomBankData extends SavedData {
         if(physical==null)return false;
         var financial=KingdomAdministrationData.get(payer.getServer());
         if(!covered(KingdomPhysicalCash.value(physical),financial.bankReserve(bank),
-                financial.treasuryReserve(bank)))return false;
+                financial.treasuryReserve(bank),financial.heldExpansionProceeds(bank)))return false;
         var civics=KingdomCivicsData.get(payer.getServer());
         long now=System.currentTimeMillis();
         civics.clearExpiredLease(dimension,x,z,now);
@@ -357,7 +426,7 @@ public final class KingdomBankData extends SavedData {
         if(physical==null)return false;
         var financial=KingdomAdministrationData.get(payer.getServer());
         if(!covered(KingdomPhysicalCash.value(physical),financial.bankReserve(bank),
-                financial.treasuryReserve(bank)))return false;
+                financial.treasuryReserve(bank),financial.heldExpansionProceeds(bank)))return false;
         var civics=KingdomCivicsData.get(payer.getServer());
         civics.clearExpiredLease(dimension,x,z,System.currentTimeMillis());
         if(!civics.canPayLeaseDebt(payer.getUUID(),dimension,x,z,amount))return false;
@@ -388,7 +457,7 @@ public final class KingdomBankData extends SavedData {
         if(physical==null)return false;
         var financial=KingdomAdministrationData.get(buyer.getServer());
         if(!covered(KingdomPhysicalCash.value(physical),financial.bankReserve(bank),
-                financial.treasuryReserve(bank)))return false;
+                financial.treasuryReserve(bank),financial.heldExpansionProceeds(bank)))return false;
         var civics=KingdomCivicsData.get(buyer.getServer());
         if(!civics.canBuySale(buyer.getUUID(),dimension,x,z))return false;
         var offer=civics.saleOffer(dimension,x,z);

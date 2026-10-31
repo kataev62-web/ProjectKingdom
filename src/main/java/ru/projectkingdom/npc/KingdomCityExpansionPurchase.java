@@ -12,8 +12,8 @@ import ru.projectkingdom.administration.KingdomAdministrationData;
 /**
  * Server-thread coordinator for the two persistent ledgers.
  *
- * CivicsData owns the authoritative city balance and territorial plots in ONE
- * SavedData record; AdministrationData owns the physical treasury reserve.
+ * CivicsData owns the city account ledger and territorial plots in ONE
+ * SavedData record; AdministrationData owns the municipal BANK-backed reserve.
  * An idempotent debit ID + committed civic receipt allow reconciliation when
  * the two files were persisted at different points of a crash.
  */
@@ -93,8 +93,8 @@ public final class KingdomCityExpansionPurchase {
         var civics = KingdomCivicsData.get(player.getServer());
         var town = civics.townOf(player.getUUID());
         if (town == null || !founder(player, town)) return Result.NOT_FOUNDER;
-        // Free, unclaimed territory is bought remotely on the city map.
-        // The spend is still limited by the city's physically backed treasury.
+        // Free territory is bought on the city map from the explicit, physically
+        // backed municipal BANK account; personal receipts are never auto-debited.
         if (!reconcile(player, town.id())) return Result.RECONCILIATION_REQUIRED;
 
         String dimension = player.serverLevel().dimension().location().toString();
@@ -127,13 +127,14 @@ public final class KingdomCityExpansionPurchase {
         var admin = KingdomAdministrationData.get(player.getServer());
         var treasury=KingdomPhysicalCash.townVault(player,town.id(),
                 ru.projectkingdom.administration.AdministrativeBindingRole.BANK_VAULT);
-        // The acquisition fee is earmarked as sovereign revenue in the treasury;
+        // The acquisition fee is earmarked as sovereign revenue from the bank-backed town account;
         // the receipt prevents city members from re-spending its ledger balance.
         // Actual inter-vault transport to a separate sovereign capital treasury is
         // not enabled until that vault is configured, so do not fake a destination.
         long bankClaims=admin.bankReserve(town.id()),cityClaims=admin.treasuryReserve(town.id());
-        if(treasury==null||bankClaims>Long.MAX_VALUE-cityClaims
-                ||KingdomPhysicalCash.value(treasury)<bankClaims+cityClaims
+        long sovereign=admin.heldExpansionProceeds(town.id());
+        if(treasury==null||KingdomBankData.freePhysicalCopper(KingdomPhysicalCash.value(treasury),
+                        bankClaims,cityClaims,sovereign)<0
                 ||cityClaims<quote.price())
             return Result.INSUFFICIENT_FUNDS;
 

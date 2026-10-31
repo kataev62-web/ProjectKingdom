@@ -226,6 +226,19 @@ public final class KingdomAdministrationData extends SavedData {
         for(ExpansionDebit value:expansionDebits.values())if(value.townId().equals(townId))result.add(value);
         return List.copyOf(result);
     }
+    /** Spent expansion fees are held in the same real vault for the sovereign.
+     * Never recategorize these durable already-spent coins as fresh town revenue.
+     */
+    public long heldExpansionProceeds(UUID townId){
+        if(townId==null)return 0;
+        long total=0;
+        for(var value:expansionDebits.values()){
+            if(!townId.equals(value.townId())||value.refunded())continue;
+            if(total>Long.MAX_VALUE-value.copper())return Long.MAX_VALUE;
+            total+=value.copper();
+        }
+        return total;
+    }
     /** Idempotent debit of actual treasury backing; never debit one transaction twice. */
     public boolean debitExpansion(UUID townId,UUID transactionId,long copper){
         if(townId==null||transactionId==null||copper<=0||copper>25600)return false;

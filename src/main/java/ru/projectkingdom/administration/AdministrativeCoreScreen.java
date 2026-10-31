@@ -23,7 +23,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox taxAmount,bankAmount;
     private boolean municipalAccount;
-    private Button personalAccountButton,municipalAccountButton,bankDonate;
+    private Button personalAccountButton,municipalAccountButton,bankDonate,bankClaimFree;
     private final List<Button> officeRows=new ArrayList<>();
     private Button officeCategory,officeBack,officeForward,officeRoleLeft,officeRoleRight;
     private Button officeRoleName,officeAssign,officeRevoke;
@@ -119,9 +119,14 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                     .bounds(leftPos+180,topPos+158,108,20).build());
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,deposit,false));
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,withdraw,false));
-                if(menu.manager())bankDonate=addRenderableWidget(Button.builder(KingdomFonts.readable("Из личного — поселению"),
-                        ignored->sendText("bank_to_town",bankAmount.getValue()))
-                        .bounds(leftPos+58,topPos+183,246,20).build());
+                if(menu.manager()){
+                    bankDonate=addRenderableWidget(Button.builder(KingdomFonts.readable("Из личного — поселению"),
+                            ignored->sendText("bank_to_town",bankAmount.getValue()))
+                            .bounds(leftPos+58,topPos+181,246,18).build());
+                    bankClaimFree=addRenderableWidget(Button.builder(KingdomFonts.readable("Свободные монеты сейфа — поселению"),
+                            ignored->sendText("bank_vault_to_town",bankAmount.getValue()))
+                            .bounds(leftPos+58,topPos+201,246,17).build());
+                }
                 addAction("Отметить комнату хранилища",AdministrativeMenuLayout.Tab.INFO,
                     AdministrativeActionPacket.BIND_BANK,58,143,246,true);
                 addAction("Перенести монеты старой казны",AdministrativeMenuLayout.Tab.INFO,
@@ -305,6 +310,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         if(personalAccountButton!=null){personalAccountButton.visible=bankFinance;personalAccountButton.active=municipalAccount;}
         if(municipalAccountButton!=null){municipalAccountButton.visible=bankFinance;municipalAccountButton.active=!municipalAccount;}
         if(bankDonate!=null){bankDonate.visible=bankFinance;bankDonate.active=menu.bankAccount()>0;}
+        if(bankClaimFree!=null){bankClaimFree.visible=bankFinance;}
         if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
         if(landPayButton!=null)landPayButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS;
         int pages=Math.max(1,(menu.warehouseRooms().size()+1)/2);
