@@ -64,18 +64,18 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
     }
     public static String message(Result status){
         return switch(status){
-            case FIRST_CORNER->"Первый угол отмечен. Пустой рукой нажмите ПКМ по противоположному углу пола (высота 3 блока) или по диагонали на нужной высоте.";
-            case CREATED->"Вторая точка отмечена, комната центрального склада создана. Сундуки и бочки внутри включены в учёт.";
+            case FIRST_CORNER->"Первый угол отмечен. Пустой рукой нажмите ПКМ по ПРОТИВОПОЛОЖНОМУ УГЛУ ПОЛА. Второй клик завершает комнату; высота минимум 3 блока.";
+            case CREATED->"Оба угла отмечены. Комната центрального склада сохранена. Сундуки и бочки внутри учитываются автоматически после установки.";
             case NO_SESSION->"Откройте центральный склад управляющим и выберите тип новой комнаты.";
             case NO_RIGHTS->"Разметка доступна мэру, основателю или назначенному управляющему складом.";
             case WRONG_DIMENSION->"Оба угла должны быть в одном измерении, где расположен центральный склад.";
-            case TOO_FAR->"Выберите углы не дальше 32 блоков от здания склада, находясь рядом с ними.";
+            case TOO_FAR->"Угол слишком далеко от вас (8 блоков) или от склада (48 блоков). Первая точка СОХРАНЕНА; подойдите ближе и нажмите ПКМ по второй точке.";
             case TOO_LARGE->"Длина и ширина комнаты: от 2 до 17 блоков; высота: от 3 до 9 блоков. Оба угла включаются в размер.";
             case ROOM_LIMIT->"Достигнут предел 16 комнат центрального склада.";
             case OVERLAP->"Комната пересекается с уже зарегистрированным помещением.";
             case FOREIGN_TOWN->"Все участки под комнатой должны принадлежать городу центрального склада.";
             case UNLOADED->"Один из чанков комнаты не загружен; подойдите к складу и повторите.";
-            case NO_STORAGE->"В комнате нет подходящих сундуков или бочек. Сначала установите хранилище.";
+            case NO_STORAGE->"В комнате пока нет сундуков. Разметка возможна и без них; поставьте хранилища после создания.";
             case STORAGE_LIMIT->"В одной комнате допускается не более 128 отдельных хранилищ.";
             case INVALID_DOUBLE_CHEST->"Двойной сундук должен целиком находиться внутри одной комнаты.";
             case BANK_OVERLAP->"Здесь расположена банковская комната; смешивать продукты с деньгами нельзя.";
@@ -124,10 +124,11 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         if(!level.dimension().location().toString().equals(session.dimension())){
             SESSIONS.remove(player.getUUID());return Result.WRONG_DIMENSION;
         }
+        // Invalid positioning must NOT silently turn the next right-click
+        // into another FIRST_CORNER. Keep the active survey for a retry.
         if(position.distSqr(player.blockPosition())>64
-                ||position.distSqr(session.desk())>32*32){
-            SESSIONS.remove(player.getUUID());return Result.TOO_FAR;
-        }
+                ||position.distSqr(session.desk())>48*48)
+            return Result.TOO_FAR;
         if(session.first()==null){
             SESSIONS.put(player.getUUID(),new Session(session.town(),session.dimension(),
                 session.desk(),session.kind(),position.immutable()));
@@ -137,7 +138,9 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         // Two opposite floor corners define a three-block-high room by default.
         // Keep the first corner while an invalid second corner is retried.
         int bottom=Math.min(first.getY(),position.getY());
-        int top=first.getY()==position.getY()?bottom+2:Math.max(first.getY(),position.getY());
+        // A single elevation step is common on TFC floors. Enforce three
+        // blocks of room height without making players click a precise Y layer.
+        int top=Math.max(bottom+2,Math.max(first.getY(),position.getY()));
         BlockPos min=new BlockPos(Math.min(first.getX(),position.getX()),
             bottom,Math.min(first.getZ(),position.getZ()));
         BlockPos max=new BlockPos(Math.max(first.getX(),position.getX()),
@@ -148,7 +151,6 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
             ||max.getX()-min.getX()<1||max.getZ()-min.getZ()<1||max.getY()-min.getY()<2)
             return Result.TOO_LARGE;
         if(rooms(session.town()).size()>=MAX_ROOMS)return Result.ROOM_LIMIT;
-        if(proposed.contains(session.desk()))return Result.OVERLAP;
         for(var rooms:byTown.values())for(Room room:rooms)
             if(proposed.overlaps(room))return Result.OVERLAP;
         var bank=KingdomBankVaultRooms.get(player.getServer()).at(level,min);
@@ -217,7 +219,10 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
             containers++;
             if(containers>MAX_STORAGES)return Result.STORAGE_LIMIT;
         }
-        return containers==0?Result.NO_STORAGE:Result.CREATED;
+        // A room is a physical zone, not a chest. Allow planning an empty
+        // room now and adding real storage later; stock inspection stays 0
+        // until real chests are placed (never virtual inventory).
+        return Result.CREATED;
     }
 
     /** Only complete loaded real inventories. A partial room never appears as empty stock. */
