@@ -400,7 +400,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(12,Items.MAP,plot==null?"Открыть земельную карту":"Земельная карта | зона: "+plot.zone());
                 icon(13,Items.BRICKS,"Сменить назначение текущего участка");
                 icon(14,Items.OAK_DOOR,"Переключить общественный доступ (только использование)");
-                icon(15,KingdomCurrency.WALLET.get(),"Внести 100 медных из кошелька в казну города");
+                icon(15,KingdomCurrency.WALLET.get(),"Личный счёт и счёт поселения — открыть банк рядом");
                 icon(16,Items.GOLD_INGOT,"Перевести 1 единицу казны города в казну нации");
                 var taxes=KingdomTaxData.get(viewer.getServer());
                 long day=viewer.getServer().overworld().getDayTime()/24000L;
@@ -462,26 +462,6 @@ public final class KingdomMainMenu extends ChestMenu {
             }
         }
         if(selected==null)return false;ru.projectkingdom.enterprise.EnterpriseCoreMenu.open(viewer,selected);return true;
-    }
-    private void withdrawTownToWallet(long amount) {
-        if(KingdomCurrency.wallet(viewer).isEmpty()){say("Нужен денежный мешок со свободным местом");return;}
-        var db=KingdomCivicsData.get(viewer.getServer());
-        if(!db.withdrawTown(viewer.getUUID(),amount)){say("Недостаточно средств или нет прав мэра");return;}
-        if(!KingdomCurrency.credit(viewer,amount)) {
-            // Unreachable under server-thread preconditions, but never silently destroy funds.
-            db.depositTown(viewer.getUUID(),amount);
-            say("Ошибка перевода; средства возвращены в казну");return;
-        }
-        viewer.getInventory().setChanged();say("Из казны получено "+amount+" медных");
-    }
-    private void depositWallet(long amount) {
-        var db=KingdomCivicsData.get(viewer.getServer());
-        if(KingdomCurrency.balance(viewer)<amount){say("Недостаточно монет в денежных мешках");return;}
-        if(db.townOf(viewer.getUUID())==null){say("Ты не состоишь в городе");return;}
-        if(db.depositTown(viewer.getUUID(),amount)) {
-            if(!KingdomCurrency.debit(viewer,amount))throw new IllegalStateException("Purse debit after treasury credit failed");
-            say("В казну внесено "+amount+" медных монет");
-        } else say("Казна не принимает перевод");
     }
     @Override public void clicked(int slot,int button,ClickType type,Player player) {
         if(player!=viewer || viewer.level().isClientSide || type!=ClickType.PICKUP || (button!=0 && !(page==Page.PAYROLL && button==1) && !(page==Page.ENTERPRISE && button==1)) || slot<0 || slot>=27)return;
@@ -748,7 +728,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 if(slot==13){var plot=db.plot(viewer.serverLevel(),pos);if(plot==null){say("Сначала закрепи участок в разделе Территории");break;}
                     var zones=KingdomCivicsData.Zone.values();var next=zones[(plot.zone().ordinal()+1)%zones.length];
                     say(db.zone(viewer.getUUID(),dim,cx,cz,next)?"Зона: "+next:"Нет прав мэра");draw();}
-                if(slot==15){depositWallet(100);draw();break;}
+                if(slot==15){openBank(viewer);break;}
                 if(slot==16){say(db.townPaysNation(viewer.getUUID(),1)?"1 единица переведена в казну нации":"Нужны права мэра, нация и средства в казне");draw();break;}
                 if(slot==17){
                     var town=db.townOf(viewer.getUUID());
