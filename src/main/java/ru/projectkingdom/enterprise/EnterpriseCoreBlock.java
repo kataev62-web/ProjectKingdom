@@ -74,6 +74,7 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
             reject(server,pos,player,stack,reason);return;
         }
         if(server.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core)core.bind(identity.enterprise(),identity.owner(),kind);
+        player.sendSystemMessage(Component.literal("[Project Kingdom] Ядро установлено. Постройте помещение с полом, стенами, крышей и окном (можно забор), затем откройте вкладку «Сведения» → «Зарегистрировать здание»."));
     }
 
     private static boolean canPlaceBusiness(ServerLevel level,BlockPos pos,java.util.UUID owner){
@@ -97,6 +98,7 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
             // release real coin items instead of silently deleting their NBT.
             if(!core.cashInventory().isEmpty())
                 Containers.dropContents(server,pos,core.cashInventory());
+            EnterpriseBuildingRegistration.get(server.getServer()).remove(core.enterpriseId());
             KingdomEnterpriseData.get(server.getServer()).suspendCore(core.owner(),core.enterpriseId(),
                     server.dimension().location().toString(),pos.asLong());
         }

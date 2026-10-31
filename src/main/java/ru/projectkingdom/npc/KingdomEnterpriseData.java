@@ -202,6 +202,7 @@ public final class KingdomEnterpriseData extends SavedData {
                     if(!board.remove(notice.id()))return ClosureStatus.NOTICE_BOARD_ERROR;
         }catch(IOException error){return ClosureStatus.NOTICE_BOARD_ERROR;}
         // All preconditions checked before mutating accounting records.
+        ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(player.getServer()).remove(business);
         for(var contract:contracts)
             if(!payroll.dismiss(player.getServer(),firm.owner(),business,contract.worker()))
                 return ClosureStatus.STAFF_DEBT;

@@ -32,7 +32,7 @@ import ru.projectkingdom.npc.KingdomForestMenu;
 
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
-    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123;
+    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,REGISTER_BUILDING=113,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123;
     public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190,MIGRATE_CASH=191;
     private record Closing(UUID enterprise,long expiration) {}
     private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
@@ -82,23 +82,24 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     private final boolean applied;
     private final Inventory inventory;private final BlockPos corePos;private final UUID enterpriseId;private final EnterpriseKind kind;
     private final String enterpriseName;private final UUID owner;private final long cash;private final int workers;private final long debt;
-    private final String cashboxState,rawState,finishedState;private final boolean manager;
+    private final String cashboxState,rawState,finishedState,buildingState;private final boolean manager;
 
     public EnterpriseCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),EnterpriseKind.byId(buffer.readUtf(24)),buffer.readUtf(48),
                 buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(96),buffer.readUtf(96),buffer.readUtf(96),buffer.readBoolean(),
                 readOffers(buffer),buffer.readVarInt(),buffer.readUtf(32),buffer.readBoolean(),
-                readStockLines(buffer),readStockLines(buffer));
+                readStockLines(buffer),readStockLines(buffer),buffer.readUtf(180));
     }
     private EnterpriseCoreMenu(int id,Inventory inventory,BlockPos pos,UUID enterprise,EnterpriseKind kind,String name,UUID owner,
                                long cash,int workers,long debt,String cashbox,String raw,String finished,boolean manager,
                                List<ShopOffer> offers,int applications,String firstApplicant,boolean applied,
-                               List<StockLine> rawStocks,List<StockLine> finishedStocks){
+                               List<StockLine> rawStocks,List<StockLine> finishedStocks,String buildingState){
         super(KingdomEnterpriseRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=pos;this.enterpriseId=enterprise;this.kind=kind;
         this.enterpriseName=name;this.owner=owner;this.cash=cash;this.workers=workers;this.debt=debt;
         this.cashboxState=cashbox;this.rawState=raw;this.finishedState=finished;this.manager=manager;
         this.publicOffers=List.copyOf(offers);this.applications=applications;this.firstApplicant=firstApplicant;this.applied=applied;
         this.rawStocks=List.copyOf(rawStocks);this.finishedStocks=List.copyOf(finishedStocks);
+        this.buildingState=buildingState;
     }
     private static List<ShopOffer> readOffers(FriendlyByteBuf buffer) {
         int size=Math.min(4,Math.max(0,buffer.readVarInt()));
@@ -149,12 +150,15 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         final long visibleDebt=debt;
         final String cashState=cashbox,rawState=raw,finishedState=finished,applicant=firstApplicant;
         final List<StockLine> rawInventory=rawStocks,finishedInventory=finishedStocks;
+        final String actualBuilding=manager
+                ?EnterpriseBuildingRegistration.get(player.getServer()).status(player,firm.id(),core.getBlockPos())
+                :"";
         NetworkHooks.openScreen(player,new MenuProvider(){
             @Override public Component getDisplayName(){return Component.literal(firm.name());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
                 return new EnterpriseCoreMenu(id,inv,core.getBlockPos(),firm.id(),core.kind(),firm.name(),
                     firm.owner(),visibleCash,workerCount,visibleDebt,cashState,rawState,finishedState,manager,
-                    offers,count,applicant,applied,rawInventory,finishedInventory);
+                    offers,count,applicant,applied,rawInventory,finishedInventory,actualBuilding);
             }
         },buffer->{
             buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(firm.id());
@@ -168,6 +172,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             }
             buffer.writeVarInt(count);buffer.writeUtf(applicant,32);buffer.writeBoolean(applied);
             writeStockLines(buffer,rawInventory);writeStockLines(buffer,finishedInventory);
+            buffer.writeUtf(actualBuilding,180);
         });
     }
     private static String status(ServerPlayer player,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){
@@ -176,7 +181,8 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     }
     public UUID enterpriseId(){return enterpriseId;}public EnterpriseKind kind(){return kind;}public String enterpriseName(){return enterpriseName;}
     public UUID owner(){return owner;}public long cash(){return cash;}public int workers(){return workers;}public long debt(){return debt;}
-    public String cashboxState(){return cashboxState;}public String rawState(){return rawState;}public String finishedState(){return finishedState;}public boolean manager(){return manager;}
+    public String cashboxState(){return cashboxState;}public String rawState(){return rawState;}public String finishedState(){return finishedState;}
+    public String buildingState(){return buildingState;}public boolean manager(){return manager;}
     public List<ShopOffer> publicOffers(){return publicOffers;}
     public int applications(){return applications;}
     public String firstApplicant(){return firstApplicant;}
@@ -185,6 +191,16 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public List<StockLine> finishedStocks(){return finishedStocks;}
     @Override public boolean clickMenuButton(Player player,int action){
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
+        if(action==REGISTER_BUILDING){
+            if(!data.mayManage(server.getUUID(),enterpriseId))return false;
+            var result=EnterpriseBuildingRegistration.get(server.getServer())
+                    .register(server,enterpriseId,corePos);
+            server.sendSystemMessage(Component.literal("[Здание] "+result.status().message()
+                    +(result.success()?" | размер "+result.room().dimensions()
+                        +" | окон/заборов "+result.room().windows():"")));
+            if(result.success())server.closeContainer(); // reopen to see the saved status
+            return result.success();
+        }
         if(action==MIGRATE_CASH){
             if(!data.mayManage(server.getUUID(),enterpriseId))return false;
             var outcome=data.migrateLegacyCash(server,enterpriseId);

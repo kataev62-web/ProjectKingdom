@@ -30,7 +30,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     private boolean showFinishedStock=false;
     private int stockPage=0;
     private Button stockPrevious,stockNext;
-    private EditBox rename;private Button renameButton,closeButton;
+    private EditBox rename;private Button renameButton,closeButton,registerBuildingButton;
     private Button fieldsButton,forestButton;
     private boolean closureArmed;
     public EnterpriseCoreScreen(EnterpriseCoreMenu menu,Inventory inventory,Component title){super(menu,inventory,KingdomFonts.readable(title));imageWidth=EnterpriseMenuLayout.WIDTH;imageHeight=EnterpriseMenuLayout.HEIGHT;}
@@ -66,6 +66,8 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
         renameButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Сохранить"),b->KingdomNetwork.CHANNEL.sendToServer(new RenameEnterprisePacket(menu.enterpriseId(),rename.getValue()))).bounds(leftPos+264,topPos+94,44,20).build());
+        registerBuildingButton=addRenderableWidget(action("Зарегистрировать здание",70,169,236,
+                EnterpriseCoreMenu.REGISTER_BUILDING));
         closeButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Закрыть предприятие"),b->{
             if(minecraft==null||minecraft.gameMode==null)return;
             minecraft.gameMode.handleInventoryButtonClick(menu.containerId,EnterpriseCoreMenu.CLOSE_BUSINESS);
@@ -101,6 +103,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
             return;
         }
         if(acceptButton!=null)acceptButton.visible=selected==EnterpriseMenuLayout.Tab.WORKERS&&menu.applications()>0;
+        if(registerBuildingButton!=null)registerBuildingButton.visible=selected==EnterpriseMenuLayout.Tab.INFO;
         for(Button b:storageButtons)b.visible=selected==EnterpriseMenuLayout.Tab.STORAGE&&menu.manager();
         int stockPages=(activeStock().size()+3)/4;
         if(stockPrevious!=null){stockPrevious.visible=selected==EnterpriseMenuLayout.Tab.STORAGE;stockPrevious.active=stockPage>0;}
@@ -118,7 +121,13 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         g.drawCenteredString(font,KingdomFonts.readable(menu.kind().title()),174,18,ACCENT);
         g.drawString(font,KingdomFonts.readable(menu.enterpriseName()),54,48,INK,false);g.drawString(font,KingdomFonts.readable("Вкладка: "+title(selected)),54,64,MUTED,false);
         switch(selected){
-            case INFO->{line(g,"Владелец: "+menu.owner(),54,84);line(g,"Состояние: активно",54,100);line(g,"Ядро: "+menu.enterpriseId(),54,116);}
+            case INFO->{
+                line(g,"Владелец: "+menu.owner(),54,82);
+                line(g,"Состояние: активно",54,98);
+                line(g,"Ядро: "+menu.enterpriseId(),54,114);
+                line(g,menu.buildingState(),54,134);
+                line(g,"Пол + стены + крыша + окно/забор.",54,151);
+            }
             case WORKERS->{
                 line(g,"Работников: "+menu.workers(),54,82);
                 line(g,"Долг по зарплате: "+menu.debt()+" мед.",54,98);
