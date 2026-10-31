@@ -133,7 +133,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             && KingdomTfcLoomWork.isLoom(viewer.serverLevel(),w);
         boolean tfcTannery = viewer.level().dimension().location().toString().equals(w.dimension)
             && KingdomTfcTanneryWork.isBarrel(viewer.serverLevel(),w);
-        icon(9, tfcTannery ? Items.BARREL : tfcLoom ? Items.LOOM : tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE :
+        icon(9, "smith".equals(w.job)?Items.ANVIL:tfcTannery ? Items.BARREL : tfcLoom ? Items.LOOM : tfcQuern ? Items.STONE : tfcGrill ? Items.CAMPFIRE :
             tfcPot ? Items.CAULDRON : Items.CRAFTING_TABLE, tfcTannery
             ? "TFC КОЖЕВЕННАЯ БОЧКА: известковая вода, промывка и таннин, настоящие выдержки по времени. Заполни жидкостью заранее"
             : tfcLoom
@@ -142,6 +142,8 @@ public final class KingdomNpcMenu extends ChestMenu {
             ? "TFC ЖЕРНОВ: реальный помол по рецептам TFC с настоящим ручным камнем"
             : tfcGrill ? "TFC ГРИЛЬ: жарка еды по настоящим рецептам TFC с расходом топлива"
             : tfcPot ? "TFC КОТЁЛ: обычная варка, супы и варенье. В сырьевом складе нужны еда, топливо, вода в настоящей ёмкости и миски или банки"
+            : "smith".equals(w.job)
+                ? "КУЗНЕЦ TFC: ЛКМ выбрать изделие. Рецепт: "+(w.smithRecipeId.isBlank()?"не выбран":w.smithRecipeId)
             : plan==null
                 ? "РЕЦЕПТ (ЛКМ): выложи ингредиенты в первых 9 ячейках сырьевого склада"
                 : "РЕЦЕПТ "+plan.output()+" | ЛКМ: записать заново | ПКМ: цена "+plan.salePrice()+" мед./шт.");
@@ -286,6 +288,10 @@ public final class KingdomNpcMenu extends ChestMenu {
             case 2 -> page=Page.DIALOGUE;
             case 9 -> {
                 if(!owner){info("Нужны права работодателя.");break;}
+                if("smith".equals(w.job)){
+                    info(KingdomTfcSmithWork.cycleRecipe(viewer,w));
+                    break;
+                }
                 if(viewer.level().dimension().location().toString().equals(w.dimension)
                     &&KingdomTfcTanneryWork.isBarrel(viewer.serverLevel(),w)){
                     info("Кожевник TFC: установи настоящую бочку TFC на своей земле, заранее налей нужную жидкость (известковая вода / чистая вода / таннин), назначь сырьевой и готовый склады и договор на кожевенную мастерскую. NPC запечатает бочку, дождётся реального рецепта и заберёт предмет. Очистку размоченных шкур ножом пока выполняй вручную.");

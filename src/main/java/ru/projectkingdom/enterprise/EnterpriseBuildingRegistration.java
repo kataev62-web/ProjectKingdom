@@ -46,7 +46,7 @@ public final class EnterpriseBuildingRegistration extends SavedData {
     private static final TagKey<net.minecraft.world.level.block.Block> FORGE_FENCES=
             TagKey.create(Registries.BLOCK,new ResourceLocation("forge","fences"));
 
-    public enum Tile { AIR, SOLID, WINDOW, DOOR, UNLOADED }
+    public enum Tile { AIR, SOLID, WINDOW, DOOR, MACHINE, FORGE, UNLOADED }
     @FunctionalInterface public interface Cells { Tile at(int x,int y,int z); }
     public enum Status {
         REGISTERED("Здание зарегистрировано"),
@@ -141,6 +141,14 @@ public final class EnterpriseBuildingRegistration extends SavedData {
         if(!level.hasChunkAt(pos))return Tile.UNLOADED;
         BlockState state=level.getBlockState(pos);
         if(state.getBlock() instanceof DoorBlock)return Tile.DOOR;
+        String blockId=net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(state.getBlock()).toString();
+        if("tfc:charcoal_forge".equals(blockId))return Tile.FORGE;
+        if(blockId.startsWith("tfc:metal/anvil/")
+                ||state.getBlock() instanceof EnterpriseCoreBlock
+                ||state.getBlock() instanceof net.minecraft.world.level.block.CraftingTableBlock
+                ||level.getBlockEntity(pos) instanceof net.minecraft.world.Container)
+            return Tile.MACHINE;
         if(state.is(BlockTags.FENCES)||state.is(FORGE_FENCES)
                 ||state.getBlock() instanceof net.minecraft.world.level.block.IronBarsBlock||state.is(FORGE_GLASS_PANES)
                 ||state.is(FORGE_GLASS)
@@ -178,7 +186,7 @@ public final class EnterpriseBuildingRegistration extends SavedData {
                 return new Check(Status.UNLOADED,null);
             // The unique core occupies the central floor tile, but is interior.
             boolean isCore=p.getX()==core.getX()&&p.getZ()==core.getZ();
-            if(!isCore&&(ground!=Tile.AIR||upper!=Tile.AIR))continue;
+            if(!isCore&&!(ground==Tile.AIR||ground==Tile.MACHINE||ground==Tile.FORGE))continue;
             if(upper!=Tile.AIR)return new Check(Status.NO_ROOM,null);
             visited.add(key);
             minX=Math.min(minX,p.getX());maxX=Math.max(maxX,p.getX());
@@ -192,7 +200,9 @@ public final class EnterpriseBuildingRegistration extends SavedData {
                 if(ceiling==Tile.UNLOADED)return new Check(Status.UNLOADED,null);
                 if(ceiling==Tile.SOLID){roof=true;maxRoofY=Math.max(maxRoofY,baseY+height);break;}
             }
-            if(!roof)return new Check(Status.NO_ROOF,null);
+            // A charcoal forge needs a real open chimney: this single shaft
+            // is not a missing roof, provided the rest of the room is covered.
+            if(!roof&&ground!=Tile.FORGE)return new Check(Status.NO_ROOF,null);
             for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++){
                 if(Math.abs(dx)+Math.abs(dz)!=1)continue;
                 BlockPos neighbor=p.offset(dx,0,dz);
@@ -200,7 +210,8 @@ public final class EnterpriseBuildingRegistration extends SavedData {
                 Tile top=cells.at(neighbor.getX(),baseY+1,neighbor.getZ());
                 if(lower==Tile.UNLOADED||top==Tile.UNLOADED)
                     return new Check(Status.UNLOADED,null);
-                if(lower==Tile.AIR && top==Tile.AIR) {
+                if((lower==Tile.AIR||lower==Tile.MACHINE||lower==Tile.FORGE)
+                        &&top==Tile.AIR) {
                     // An already-visited interior cell is NOT a broken wall.
                     if(!visited.contains(neighbor.asLong()))todo.addLast(neighbor);
                 } else if(lower==Tile.AIR||top==Tile.AIR)

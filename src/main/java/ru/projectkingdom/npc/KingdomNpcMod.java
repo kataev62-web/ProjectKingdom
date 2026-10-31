@@ -1040,6 +1040,7 @@ public final class KingdomNpcMod {
                                     w.autonomousIntent,KingdomNpcWorkday.employed(server,w)))) {
                         executed |= NpcFieldWork.tick(level,resident,w)
                             | KingdomNpcWorkshop.tick(level,resident,w)
+                            | KingdomTfcSmithWork.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
                             | KingdomTfcLoomWork.tick(level,resident,w)
                             | KingdomTfcTanneryWork.tick(level,resident,w)

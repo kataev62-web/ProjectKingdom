@@ -136,6 +136,8 @@ public final class KingdomNpcData extends SavedData {
         public String originMod = "minecraft"; // Optional external origin; not an integration claim.
         public String workplaceMod = "kingdomnpc";
         public String workplaceId = "";
+        public String smithRecipeId = "";
+        public boolean smithOutputReady = false;
         // Real physical logistics: one small carried stack; persists on every save.
         public boolean hasSource=false, hasDestination=false;
         public int sourceX,sourceY,sourceZ,destX,destY,destZ;
@@ -210,6 +212,7 @@ public final class KingdomNpcData extends SavedData {
             w.originMod = t.contains("OriginMod", Tag.TAG_STRING) ? t.getString("OriginMod") : "minecraft";
             w.workplaceMod = t.contains("WorkplaceMod", Tag.TAG_STRING) ? t.getString("WorkplaceMod") : "kingdomnpc";
             w.workplaceId = t.contains("WorkplaceId", Tag.TAG_STRING) ? t.getString("WorkplaceId") : "";
+            w.smithRecipeId=t.getString("SmithRecipeId");w.smithOutputReady=t.getBoolean("SmithOutputReady");
             w.hasSource=t.getBoolean("HasSource"); w.hasDestination=t.getBoolean("HasDestination");
             w.sourceX=t.getInt("SourceX");w.sourceY=t.getInt("SourceY");w.sourceZ=t.getInt("SourceZ");
             w.destX=t.getInt("DestX");w.destY=t.getInt("DestY");w.destZ=t.getInt("DestZ");
@@ -284,6 +287,7 @@ public final class KingdomNpcData extends SavedData {
             t.putLong("AgeAnchorDay", ageAnchorDay); t.putInt("AgeDaysAccumulated", ageDaysAccumulated);
             t.putString("OriginMod", originMod); t.putString("WorkplaceMod", workplaceMod);
             t.putString("WorkplaceId", workplaceId);
+            t.putString("SmithRecipeId",smithRecipeId);t.putBoolean("SmithOutputReady",smithOutputReady);
             t.putBoolean("HasSource",hasSource);t.putBoolean("HasDestination",hasDestination);
             t.putInt("SourceX",sourceX);t.putInt("SourceY",sourceY);t.putInt("SourceZ",sourceZ);
             t.putInt("DestX",destX);t.putInt("DestY",destY);t.putInt("DestZ",destZ);

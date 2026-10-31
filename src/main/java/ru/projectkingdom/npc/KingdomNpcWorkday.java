@@ -45,6 +45,7 @@ public final class KingdomNpcWorkday {
                 && (!"lumberjack".equals(worker.job) || KingdomTfcForestry.workSite(level,worker)!=null);
             case WORKSHOP -> worker.hasSource && worker.hasDestination && worker.hasWorkstation
                 && (KingdomNpcWorkshopData.get(server).plan(worker.entityId) != null
+                    || KingdomTfcSmithWork.isForge(level,worker)
                     || KingdomTfcQuernWork.isQuern(level, worker)
                     || KingdomTfcGrillWork.isGrill(level, worker)
                     || KingdomTfcPotWork.isPot(level, worker)
