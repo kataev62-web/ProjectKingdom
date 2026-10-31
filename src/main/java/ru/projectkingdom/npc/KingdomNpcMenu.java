@@ -15,7 +15,7 @@ import net.minecraft.world.item.Items;
 
 /** Server-authoritative UI backed by the vanilla three-row chest menu. No client-side menu registration required. */
 public final class KingdomNpcMenu extends ChestMenu {
-    private enum Page { DIALOGUE, MANAGEMENT }
+    private enum Page { DIALOGUE, MANAGEMENT, PROFESSIONS }
     private final SimpleContainer display;
     private final int npcId;
     private final ServerPlayer viewer;
@@ -88,6 +88,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         display.clearContent();
         if (w == null) return;
         if(page==Page.DIALOGUE)redrawDialogue(w);
+        else if(page==Page.PROFESSIONS)redrawProfessions(w);
         else redrawManagement(w);
         broadcastChanges();
     }
@@ -113,7 +114,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         boolean owned = controls(w);
         icon(4, Items.PLAYER_HEAD, "NPC №" + w.id + " | " + w.name);
         icon(0, Items.RED_BED, "НАЗНАЧИТЬ ДОМ: здесь, где стоишь");
-        icon(1, Items.CRAFTING_TABLE, "СМЕНИТЬ ПРОФЕССИЮ");
+        icon(1, Items.CRAFTING_TABLE, "ВЫБРАТЬ ПРОФЕССИЮ: один клик по нужной работе");
         icon(2, Items.OAK_DOOR, "Назад к разговору");
         icon(3, Items.LIME_DYE, "НАСТРОИТЬ ПРОФЕССИЮ И ЗАПУСТИТЬ: автоматически выбрать своё предприятие, два склада и рабочий станок");
         icon(6, Items.HOPPER, "РУЧНАЯ НАСТРОЙКА: указать склад сырья (обычно находится автоматически)");
@@ -173,6 +174,26 @@ public final class KingdomNpcMenu extends ChestMenu {
         icon(26, KingdomCurrency.COPPER.get(), "ВНЕСТИ 1 медную из кошелька на зарплатный счёт");
     }
 
+    /** All 26 trades on one page; the last slot returns to management. */
+    private void redrawProfessions(KingdomNpcData.Worker w) {
+        var trades=KingdomProfessionRegistry.all();
+        for(int i=0;i<trades.size() && i<26;i++){
+            var job=trades.get(i);
+            boolean real=KingdomNpcDuty.hasPhysicalExecutor(job.id());
+            Item item=switch(KingdomNpcDuty.kind(job.id())){
+                case FIELD -> Items.IRON_AXE;
+                case WORKSHOP -> Items.CRAFTING_TABLE;
+                case CONSTRUCTION -> Items.BRICKS;
+                case DELIVERY -> Items.MINECART;
+                case SERVICE -> Items.EMERALD;
+                default -> Items.PAPER;
+            };
+            icon(i,item,(w.job.equals(job.id())?"[ВЫБРАНА] ":"")
+                +job.title()+(real?" | физическая работа":" | производство пока не подключено"));
+        }
+        icon(26,Items.OAK_DOOR,"НАЗАД к управлению NPC");
+    }
+
     private static NpcAutonomyPlanner.Intention safeIntent(String value) {
         try {return NpcAutonomyPlanner.Intention.valueOf(value);}
         catch(IllegalArgumentException e) {return NpcAutonomyPlanner.Intention.IDLE;}
@@ -207,6 +228,30 @@ public final class KingdomNpcMenu extends ChestMenu {
         KingdomNpcData db = KingdomNpcData.get(viewer.getServer());
         KingdomNpcData.Worker w = worker();
         if (!nearby(w)) { viewer.closeContainer(); return; }
+        if(page==Page.PROFESSIONS){
+            if(slotId==26){page=Page.MANAGEMENT;}
+            else if(slotId<KingdomProfessionRegistry.all().size()){
+                if(w.employer!=null&&!controls(w)){
+                    info("Менять профессию нанятого жителя может только работодатель.");
+                }else if(w.ageYears<18){
+                    info("Профессию можно назначить взрослому NPC.");
+                }else{
+                    String selected=KingdomProfessionRegistry.all().get(slotId).id();
+                    w.job=selected;
+                    db.setDirty();
+                    page=Page.MANAGEMENT;
+                    if(w.employer!=null && controls(w)
+                        &&KingdomNpcDuty.hasPhysicalExecutor(selected))
+                        info(KingdomNpcQuickSetup.configure(viewer,w).message());
+                    else if(!KingdomNpcDuty.hasPhysicalExecutor(selected))
+                        info("Профессия выбрана, но её физическая работа ещё не подключена.");
+                    else info("Профессия выбрана: "+profession(selected)
+                        +". Нажми «Нанять и настроить профессию».");
+                }
+            }
+            if(viewer.containerMenu==this)redraw();
+            return;
+        }
         if(page==Page.DIALOGUE){
             switch(slotId){
                 case 0 -> NpcDialogueService.respond(viewer,w,"Привет");
@@ -318,10 +363,10 @@ public final class KingdomNpcMenu extends ChestMenu {
                 changed = true;
             }
             case 1 -> {
-                if (!owner) { info("Сменить профессию может работодатель."); break; }
-                w.job = KingdomProfessionRegistry.next(w.job);
-                info("Новая профессия: " + profession(w.job));
-                changed = true;
+                if(w.employer!=null&&!owner){
+                    info("Сменить профессию может работодатель.");break;
+                }
+                page=Page.PROFESSIONS;
             }
             case 19 -> {
                 if (w.employer == null && w.ageYears >= 18) {
