@@ -199,9 +199,10 @@ public final class EnterpriseBuildingRegistration extends SavedData {
                 Tile top=cells.at(neighbor.getX(),baseY+1,neighbor.getZ());
                 if(lower==Tile.UNLOADED||top==Tile.UNLOADED)
                     return new Check(Status.UNLOADED,null);
-                if(lower==Tile.AIR && top==Tile.AIR && !visited.contains(neighbor.asLong()))
-                    todo.addLast(neighbor);
-                else if(lower==Tile.AIR||top==Tile.AIR)
+                if(lower==Tile.AIR && top==Tile.AIR) {
+                    // An already-visited interior cell is NOT a broken wall.
+                    if(!visited.contains(neighbor.asLong()))todo.addLast(neighbor);
+                } else if(lower==Tile.AIR||top==Tile.AIR)
                     return new Check(Status.NO_WALLS,null);
             }
         }
