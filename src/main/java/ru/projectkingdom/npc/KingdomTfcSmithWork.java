@@ -119,6 +119,24 @@ public final class KingdomTfcSmithWork {
         }
         return false;
     }
+    /** A filled TFC mold is removed only after the ACTUAL fluid has cooled.
+     * Empty molds never count as output, and no casting recipe is fabricated.
+     */
+    private static boolean cooledFilledMold(ItemStack stack){
+        if(stack.isEmpty())return false;
+        var handler=stack.getCapability(net.minecraftforge.common.capabilities.ForgeCapabilities.FLUID_HANDLER_ITEM)
+                .orElse(null);
+        if(handler==null)return false;
+        boolean metal=false;
+        for(int tank=0;tank<handler.getTanks();tank++)
+            if(!handler.getFluidInTank(tank).isEmpty())metal=true;
+        if(!metal)return false;
+        try{
+            Object value=Class.forName(TFC_HEAT).getMethod("getTemperature",ItemStack.class)
+                    .invoke(null,stack);
+            return value instanceof Number t&&t.floatValue()<150.0f;
+        }catch(ReflectiveOperationException|LinkageError|RuntimeException ex){return false;}
+    }
     private static boolean hotEnough(ItemStack stack){
         try{
             Class<?> type=Class.forName(TFC_HEAT);
@@ -383,6 +401,13 @@ public final class KingdomTfcSmithWork {
         if(!near(npc,forgePos)){walk(npc,forgePos);return false;}
         IItemHandlerModifiable forgeInv=inventory(forge);
         if(forgeInv==null||forgeInv.getSlots()<14)return false;
+        for(int slot=10;slot<=13;slot++){
+            ItemStack mold=forgeInv.getStackInSlot(slot);
+            if(cooledFilledMold(mold)&&intoChest(finished,mold)){
+                forgeInv.setStackInSlot(slot,ItemStack.EMPTY);
+                forge.setChanged();return true;
+            }
+        }
         // 1: fuel is consumed from the actual raw warehouse, by native TFC forge.
         if(fromChest(raw,forge,forgeInv,0,KingdomTfcSmithWork::forgeFuel)){
             KingdomNpcData.get(server).setDirty();return true;
