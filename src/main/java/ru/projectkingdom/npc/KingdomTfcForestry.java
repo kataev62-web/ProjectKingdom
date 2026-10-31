@@ -134,8 +134,17 @@ public final class KingdomTfcForestry {
                     if(!level.hasChunkAt(next))return List.of();
                     BlockState state=level.getBlockState(next);
                     // Protect the whole canopy, even where it overhangs plots.
+                    // A natural canopy often crosses the selected 16x16 forest
+                    // work area; leaves may overhang it while remaining on this
+                    // owner's legally protected land. Do not require area.inside
+                    // for leaves, but never touch another citizen's chunk.
                     if(state.is(BlockTags.LEAVES)
-                        &&!authorized(level,next,owner,area))return List.of();
+                        &&(!KingdomTerritories.get(level.getServer()).canUse(level,next,owner)
+                            ||KingdomCivicsData.get(level.getServer()).plot(level,next)!=null
+                                &&!KingdomCivicsData.get(level.getServer()).allowed(
+                                    owner,level.dimension().location().toString(),
+                                    next.getX(),next.getZ(),KingdomCivicsData.Action.BREAK)))
+                        return List.of();
                     if(state.is(TFC_LOGS)){
                         if(!treeLog(level,next,species)||!authorized(level,next,owner,area))
                             return List.of();
