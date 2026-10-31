@@ -35,5 +35,5 @@ voice3 sounds.json/duration entries. The runtime still uses only prepared Oggs.
 Approach checks run server-side at 1 Hz on loaded registered citizens. Range and
 quiet-period decisions, lifecycle behavior and manual acceptance are documented
 in NPC_VOICE_WINDOWS_TEST_RU.md and docs/superpowers/specs/2026-10-27-npc-approach-design.md.
-Protocol 10-voice3 adds the automatic-origin bit and HOW_DAY allowlist entry;
+Protocol 11-voice3 adds the automatic-origin bit and HOW_DAY allowlist entry;
 client and server must both use the voice3 JAR.

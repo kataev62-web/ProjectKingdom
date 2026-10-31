@@ -1,24 +1,10 @@
 package ru.projectkingdom.npc.client;
 
-import com.mojang.blaze3d.vertex.PoseStack;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
-import net.minecraft.client.model.VillagerModel;
-import net.minecraft.client.model.geom.ModelLayerLocation;
-import net.minecraft.client.model.geom.ModelPart;
-import net.minecraft.client.model.geom.builders.CubeListBuilder;
-import net.minecraft.client.model.geom.builders.LayerDefinition;
-import net.minecraft.client.model.geom.builders.MeshDefinition;
-import net.minecraft.client.model.geom.PartPose;
-import net.minecraft.client.renderer.MultiBufferSource;
-import net.minecraft.client.renderer.RenderType;
-import net.minecraft.client.renderer.entity.VillagerRenderer;
-import net.minecraft.client.renderer.entity.layers.RenderLayer;
-import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.npc.Villager;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.ClientPlayerNetworkEvent;
 import net.minecraftforge.client.event.EntityRenderersEvent;
@@ -26,139 +12,74 @@ import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.common.Mod;
 
 /**
- * Vanilla Villager model + female face/hair/dress textures, blouse bust and long skirt.
- * Does not replace the entity renderer, face, vanilla animations or behavior.
- * Works only for server-approved adult female Kingdom NPCs.
+ * Visual state sent by the server. A Kingdom worker stays an ordinary Villager
+ * entity; the registered villager renderer delegates managed NPCs to PlayerModel.
  */
 public final class KingdomFemaleOutfitClient {
-    private static final ModelLayerLocation OUTFIT_LAYER = new ModelLayerLocation(
-            new ResourceLocation("kingdomnpc", "female_outfit"), "main");
-    /** Four stable female skins: no villager entity replacement and no save migration. */
-    private static final ResourceLocation[] SKINS = new ResourceLocation[4];
+    private static final Map<UUID, Byte> APPEARANCE = new HashMap<>();
+    private static final ResourceLocation[] FEMALE_SKINS = new ResourceLocation[4];
+    private static final ResourceLocation[] MALE_SKINS = new ResourceLocation[4];
     private static final ResourceLocation[] OUTFITS = new ResourceLocation[4];
+
     static {
         for (int i = 0; i < 4; i++) {
-            SKINS[i] = new ResourceLocation("kingdomnpc",
-                    "textures/entity/female_skin_" + i + ".png");
-            OUTFITS[i] = new ResourceLocation("kingdomnpc",
-                    "textures/entity/female_outfit_" + i + ".png");
+            FEMALE_SKINS[i] = new ResourceLocation("kingdomnpc", "textures/entity/player_female_" + i + ".png");
+            MALE_SKINS[i] = new ResourceLocation("kingdomnpc", "textures/entity/player_male_" + i + ".png");
+            OUTFITS[i] = new ResourceLocation("kingdomnpc", "textures/entity/female_outfit_" + i + ".png");
         }
     }
-    /** Stable within and across sessions for a given villager UUID. */
-    private static int variant(UUID uuid) {
-        return Math.floorMod(uuid.hashCode(), SKINS.length);
-    }
-    private static final Set<UUID> FEMALE = new HashSet<>();
 
     private KingdomFemaleOutfitClient() {}
 
-    public static void apply(UUID entityId, boolean enabled) {
-        if (enabled) FEMALE.add(entityId);
-        else FEMALE.remove(entityId);
+    public static void apply(UUID entityId, byte appearance) {
+        if (appearance <= 0 || appearance > 3) APPEARANCE.remove(entityId);
+        else APPEARANCE.put(entityId, appearance);
     }
 
+    public static byte appearance(UUID uuid) {
+        return APPEARANCE.getOrDefault(uuid, (byte)0);
+    }
+
+    public static boolean isHuman(UUID uuid) {
+        return appearance(uuid) != 0;
+    }
+
+    public static int variant(UUID uuid) {
+        return Math.floorMod(uuid.hashCode(), 4);
+    }
+
+    public static ResourceLocation skin(UUID uuid) {
+        byte kind = appearance(uuid);
+        return (kind == 2 || kind == 3 ? FEMALE_SKINS : MALE_SKINS)[variant(uuid)];
+    }
+
+    public static ResourceLocation outfit(UUID uuid) { return OUTFITS[variant(uuid)]; }
+
     @Mod.EventBusSubscriber(modid="kingdomnpc", bus=Mod.EventBusSubscriber.Bus.MOD, value=Dist.CLIENT)
-    public static final class ModelRegistration {
-        private ModelRegistration() {}
+    public static final class RendererRegistration {
+        private RendererRegistration() {}
 
         @SubscribeEvent
-        public static void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
-            event.registerLayerDefinition(OUTFIT_LAYER, KingdomFemaleOutfitClient::createLayer);
+        public static void replaceVillagerRenderer(EntityRenderersEvent.RegisterRenderers event) {
+            // Replaces the visual renderer for EntityType.VILLAGER, not the entity.
+            // Ordinary villagers continue to use the original vanilla renderer branch.
+            event.registerEntityRenderer(EntityType.VILLAGER,
+                    KingdomPlayerNpcRenderer.KingdomVillagerRenderer::new);
         }
 
         @SubscribeEvent
-        public static void addToVillager(EntityRenderersEvent.AddLayers event) {
-            if (event.getRenderer(EntityType.VILLAGER) instanceof VillagerRenderer renderer) {
-                renderer.addLayer(new OutfitLayer(renderer, event.getContext().bakeLayer(OUTFIT_LAYER)));
-            }
+        public static void registerLayers(EntityRenderersEvent.RegisterLayerDefinitions event) {
+            event.registerLayerDefinition(KingdomPlayerNpcRenderer.OUTFIT_LAYER,
+                    KingdomPlayerNpcRenderer::createOutfitLayer);
         }
     }
 
     @Mod.EventBusSubscriber(modid="kingdomnpc", bus=Mod.EventBusSubscriber.Bus.FORGE, value=Dist.CLIENT)
     public static final class SessionEvents {
         private SessionEvents() {}
-
         @SubscribeEvent
         public static void onDisconnect(ClientPlayerNetworkEvent.LoggingOut event) {
-            FEMALE.clear();
-        }
-    }
-
-    private static LayerDefinition createLayer() {
-        MeshDefinition mesh = new MeshDefinition();
-        var root = mesh.getRoot();
-
-        // White shirt sits over the front of the existing villager torso.
-        // Flat-sided, modest volume: breast shape comes from geometry, not the texture.
-        root.addOrReplaceChild("shirt_bust",
-                CubeListBuilder.create()
-                        .texOffs(0,0).addBox(-3.70f, 3.30f, -4.75f, 3.50f, 3.40f, 1.90f)
-                        .texOffs(0,0).addBox( 0.20f, 3.30f, -4.75f, 3.50f, 3.40f, 1.90f),
-                PartPose.ZERO);
-
-        // Waist: slim connection between original villager body and the skirt.
-        root.addOrReplaceChild("waist",
-                CubeListBuilder.create().texOffs(0,16)
-                        .addBox(-4.05f, 10.40f, -3.35f, 8.10f, 2.00f, 6.70f),
-                PartPose.ZERO);
-
-        // Tapered three-tier skirt: all parts are light Minecraft cuboids.
-        // Separate front/back and side panels allow the vanilla legs to animate.
-        root.addOrReplaceChild("skirt_front",
-                CubeListBuilder.create()
-                        .texOffs(0,33).addBox(-4.00f, 12.20f, -3.90f, 8.00f, 2.70f, 0.85f)
-                        .texOffs(0,42).addBox(-4.75f, 14.90f, -4.45f, 9.50f, 4.10f, 0.85f)
-                        .texOffs(0,52).addBox(-5.35f, 19.00f, -5.00f, 10.70f, 3.10f, 0.85f),
-                PartPose.ZERO);
-        root.addOrReplaceChild("skirt_back",
-                CubeListBuilder.create()
-                        .texOffs(0,33).addBox(-4.00f, 12.20f, 3.05f, 8.00f, 2.70f, 0.85f)
-                        .texOffs(0,42).addBox(-4.75f, 14.90f, 3.60f, 9.50f, 4.10f, 0.85f)
-                        .texOffs(0,52).addBox(-5.35f, 19.00f, 4.15f, 10.70f, 3.10f, 0.85f),
-                PartPose.ZERO);
-        root.addOrReplaceChild("skirt_left",
-                CubeListBuilder.create()
-                        .texOffs(34,33).addBox(3.30f, 12.20f, -3.30f, 0.85f, 2.70f, 6.60f)
-                        .texOffs(34,42).addBox(4.00f, 14.90f, -3.95f, 0.85f, 4.10f, 7.90f)
-                        .texOffs(34,52).addBox(4.70f, 19.00f, -4.65f, 0.85f, 3.10f, 9.30f),
-                PartPose.ZERO);
-        root.addOrReplaceChild("skirt_right",
-                CubeListBuilder.create()
-                        .texOffs(34,33).addBox(-4.15f, 12.20f, -3.30f, 0.85f, 2.70f, 6.60f)
-                        .texOffs(34,42).addBox(-4.85f, 14.90f, -3.95f, 0.85f, 4.10f, 7.90f)
-                        .texOffs(34,52).addBox(-5.55f, 19.00f, -4.65f, 0.85f, 3.10f, 9.30f),
-                PartPose.ZERO);
-
-        return LayerDefinition.create(mesh, 64, 64);
-    }
-
-    private static final class OutfitLayer extends RenderLayer<Villager, VillagerModel<Villager>> {
-        private final ModelPart outfit;
-
-        OutfitLayer(RenderLayerParent<Villager, VillagerModel<Villager>> parent, ModelPart outfit) {
-            super(parent);
-            this.outfit = outfit;
-        }
-
-        @Override
-        public void render(PoseStack stack, MultiBufferSource buffers, int light,
-                Villager villager, float limbSwing, float limbAmount, float partialTick,
-                float ageTicks, float yaw, float pitch) {
-            if (!FEMALE.contains(villager.getUUID()) || villager.isInvisible() || villager.isBaby()) return;
-            int variant = variant(villager.getUUID());
-            // Same animated vanilla VillagerModel, now with the approved female face,
-            // hair and dress texture. Tiny outward offset prevents coplanar z-fighting.
-            stack.pushPose();
-            stack.scale(1.025f, 1.013f, 1.025f);
-            getParentModel().renderToBuffer(stack,
-                    buffers.getBuffer(RenderType.entityCutoutNoCull(SKINS[variant])),
-                    light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY,
-                    1.0f, 1.0f, 1.0f, 1.0f);
-            stack.popPose();
-            // Only a modest blouse bust and long skirt extend the vanilla geometry.
-            outfit.render(stack,
-                    buffers.getBuffer(RenderType.entityCutoutNoCull(OUTFITS[variant])),
-                    light, net.minecraft.client.renderer.texture.OverlayTexture.NO_OVERLAY);
+            APPEARANCE.clear();
         }
     }
 }
