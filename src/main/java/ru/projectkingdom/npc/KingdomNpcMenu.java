@@ -115,11 +115,11 @@ public final class KingdomNpcMenu extends ChestMenu {
         icon(0, Items.RED_BED, "НАЗНАЧИТЬ ДОМ: здесь, где стоишь");
         icon(1, Items.CRAFTING_TABLE, "СМЕНИТЬ ПРОФЕССИЮ");
         icon(2, Items.OAK_DOOR, "Назад к разговору");
-        icon(3, Items.GRASS_BLOCK, "ЗАКРЕПИТЬ ТЕКУЩИЙ УЧАСТОК (чанк 16×16)");
-        icon(6, Items.HOPPER, "СКЛАД СЫРЬЯ (участок должен принадлежать работодателю)");
-        icon(7, Items.CHEST, "СКЛАД ГОТОВОЙ ПРОДУКЦИИ (участок работодателя)");
+        icon(3, Items.LIME_DYE, "НАСТРОИТЬ ПРОФЕССИЮ И ЗАПУСТИТЬ: автоматически выбрать своё предприятие, два склада и рабочий станок");
+        icon(6, Items.HOPPER, "РУЧНАЯ НАСТРОЙКА: указать склад сырья (обычно находится автоматически)");
+        icon(7, Items.CHEST, "РУЧНАЯ НАСТРОЙКА: указать склад продукции (обычно находится автоматически)");
         icon(8, Items.MINECART, "ПЕРЕВОЗИТЬ ПРЕДМЕТЫ МЕЖДУ СКЛАДАМИ");
-        icon(5, Items.ANVIL, "НАЗНАЧИТЬ РАБОЧУЮ СТАНЦИЮ (ПКМ по блоку)");
+        icon(5, Items.ANVIL, "РУЧНАЯ НАСТРОЙКА: выбрать станок (только если автоматический поиск не подошёл)");
         var workshop=KingdomNpcWorkshopData.get(viewer.getServer());
         var plan=workshop.plan(w.entityId);
         boolean tfcQuern = viewer.level().dimension().location().toString().equals(w.dimension)
@@ -158,12 +158,12 @@ public final class KingdomNpcMenu extends ChestMenu {
         icon(17, Items.BARREL, "Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
         icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
             + " (возврат /knpc refund_legacy <сумма> у банковской стойки)");
-        if (w.employer == null && w.ageYears >= 18) icon(19, Items.LIME_DYE, "НАНЯТЬ жителя");
+        if (w.employer == null && w.ageYears >= 18) icon(19, Items.LIME_DYE, "НАНЯТЬ И НАСТРОИТЬ ПРОФЕССИЮ: один клик");
         if (owned && w.employer != null) icon(19, Items.RED_DYE, "УВОЛИТЬ жителя");
         if (owned) {
             icon(20, Items.LEAD, "СЛЕДОВАТЬ за мной");
             icon(21, Items.BARRIER, "СТОЯТЬ на месте");
-            icon(22, Items.IRON_PICKAXE, "РАБОТАТЬ: по профессии, с физическими ресурсами и складом");
+            icon(22, Items.IRON_PICKAXE, "РАБОТАТЬ: автоматически настроить и начать; при ошибке покажет причину");
             icon(23, Items.OAK_DOOR, "ВЕРНУТЬСЯ ДОМОЙ");
             icon(24, Items.SUNFLOWER, "СВОБОДНАЯ ЖИЗНЬ");
             icon(25, Items.GOLD_NUGGET, "+1 к дневной зарплате");
@@ -293,10 +293,9 @@ public final class KingdomNpcMenu extends ChestMenu {
                 viewer.closeContainer();return;
             }
             case 3 -> {
-                var land=KingdomTerritories.get(viewer.getServer());
-                if(land.claim(viewer.serverLevel(),viewer.blockPosition(),viewer.getUUID())) {
-                    info("Участок закреплён за тобой. Его теперь можно использовать для складов и станций.");
-                } else info("У этого участка уже есть другой владелец.");
+                var result=KingdomNpcQuickSetup.configure(viewer,w);
+                info(result.message());
+                changed=true;
             }
             case 6, 7 -> {
                 if (!owner || w.employer == null) {info("Сначала найми жителя.");break;}
@@ -326,22 +325,9 @@ public final class KingdomNpcMenu extends ChestMenu {
             }
             case 19 -> {
                 if (w.employer == null && w.ageYears >= 18) {
-                    if(KingdomEnterpriseData.get(viewer.getServer()).owned(viewer.getUUID())==null){
-                        info("Сначала зарегистрируй предприятие: зарплата NPC выплачивается из его кассы.");break;
-                    }
-                    var firm=KingdomEnterpriseData.get(viewer.getServer()).owned(viewer.getUUID());
-                    if(firm==null || !KingdomEnterprisePayrollData.get(viewer.getServer())
-                            .hire(viewer.getServer(),viewer.getUUID(),firm.id(),w.entityId,w.dailyWage)){
-                        info("Не получилось оформить договор с предприятием.");break;
-                    }
-                    w.employer = viewer.getUUID();
-                    w.rationsEnabled=false; // New employer must explicitly opt into food provision.
-                    w.workplaceId=firm.id().toString();
-                    w.lastPaidDay = viewer.getServer().overworld().getDayTime() / 24000;
-                    w.unpaidDays = 0;
-                    w.contractPaused = false;
-                    info("Житель нанят на предприятие. Зарплата начисляется как долг и выплачивается у кассы.");
-                    changed = true;
+                    var result=KingdomNpcQuickSetup.configure(viewer,w);
+                    info(result.message());
+                    changed=true;
                 } else if (owner && w.employer != null) {
                     var jobs=KingdomEnterprisePayrollData.get(viewer.getServer());
                     for(var contract:new java.util.ArrayList<>(jobs.all()))
@@ -398,14 +384,17 @@ public final class KingdomNpcMenu extends ChestMenu {
                     case 23 -> "home";
                     default -> "wander";
                 };
-                if (next.equals("work") && (w.employer == null || w.contractPaused)) {
-                    info("Для работы нужен действующий трудовой договор и оплаченная зарплата.");break;
+                if(next.equals("work")){
+                    var result=KingdomNpcQuickSetup.configure(viewer,w);
+                    info(result.message());
+                    changed=true;
+                    break;
                 }
                 if (next.equals("home") && !w.hasHome) {
                     info("Дом ещё не назначен (для администратора: /knpc sethome " + npcId + ").");break;
                 }
                 w.order = next;
-                info("Новый приказ: " + order(next) + (next.equals("work") ? ". Для производства открой кнопку рецепта и назначь реальные склады." : ""));
+                info("Новый приказ: " + order(next));
                 changed = true;
             }
             case 25 -> {
