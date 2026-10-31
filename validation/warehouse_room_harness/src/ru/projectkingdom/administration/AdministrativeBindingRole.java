@@ -1,0 +1,1 @@
+package ru.projectkingdom.administration;public enum AdministrativeBindingRole{WAREHOUSE_STORAGE}

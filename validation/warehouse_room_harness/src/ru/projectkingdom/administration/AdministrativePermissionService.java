@@ -1,0 +1,1 @@
+package ru.projectkingdom.administration;import java.util.*;public class AdministrativePermissionService{public static boolean mayManage(UUID actor,UUID founder,UUID mayor,Set<String> roles,AdministrativeKind kind){return actor.equals(founder)||actor.equals(mayor);}}
