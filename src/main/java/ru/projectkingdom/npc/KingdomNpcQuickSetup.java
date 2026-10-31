@@ -234,6 +234,9 @@ public final class KingdomNpcQuickSetup {
                 Math.max(1,worker.dailyWage)))
             return new Result(false,"Не удалось оформить трудовой договор. Проверь права.");
         worker.employer=owner;
+        if("smith".equals(worker.job)&&!business.id().toString().equals(worker.workplaceId)){
+            worker.smithRecipeId="";worker.smithOutputReady=false;
+        }
         worker.workplaceId=business.id().toString();
         if(warehousesRequired){
             worker.hasSource=true;worker.sourceX=source.getX();
