@@ -76,6 +76,21 @@ final class EnterpriseBuildingRegistrationTest {
                     return AIR;
                 },FIRM,DIM,CORE).status());
     }
+    @Test void realForgeNeedsOpenChimneyAndInternalMachineryAreNotWalls(){
+        var original=home(true,true,true,false);
+        EnterpriseBuildingRegistration.Cells smith=(x,y,z)->{
+            if(x==1&&z==1&&y==0)return EnterpriseBuildingRegistration.Tile.FORGE;
+            if(x==1&&z==1&&y==3)return AIR; // TFC chimney vents through roof
+            if(x==3&&z==3&&y==0)return EnterpriseBuildingRegistration.Tile.MACHINE;
+            return original.at(x,y,z);
+        };
+        var result=EnterpriseBuildingRegistration.verify(smith,FIRM,DIM,CORE);
+        assertEquals(EnterpriseBuildingRegistration.Status.REGISTERED,result.status());
+        assertEquals(9,result.room().interiorArea());
+        var source=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseBuildingRegistration.java");
+        assertTrue(source.contains("tfc:charcoal_forge"));
+        assertTrue(source.contains("ground!=Tile.FORGE"));
+    }
     @Test void noOverlapBetweenDifferentEnterprises(){
         var first=EnterpriseBuildingRegistration.verify(home(true,true,true,false),FIRM,DIM,CORE).room();
         assertNotNull(first);

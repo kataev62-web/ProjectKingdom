@@ -21,6 +21,16 @@ final class KingdomTfcSmithAndForestRegressionTest {
                 new String[]{"HIT_LAST"}));
         assertEquals(-1,KingdomTfcSmithWork.nextStep(5,0,-1,-1,-1,new String[]{}));
     }
+    @Test void recipeStateSurvivesNpcSaveReload(){
+        var registry=new KingdomNpcData();
+        var worker=registry.add(java.util.UUID.randomUUID(),"Smith","minecraft:overworld",0);
+        worker.smithRecipeId="tfc:anvil/bronze_pickaxe_head";
+        worker.smithOutputReady=true;
+        var copy=KingdomNpcData.load(registry.save(new net.minecraft.nbt.CompoundTag()));
+        var saved=copy.all().iterator().next();
+        assertEquals(worker.smithRecipeId,saved.smithRecipeId);
+        assertTrue(saved.smithOutputReady);
+    }
     @Test void forgeMovesOnlyRealItemsAndNativeTfcWorks()throws Exception{
         var core=source("npc/KingdomTfcSmithWork.java");
         assertTrue(core.contains("IItemHandlerModifiable"));
@@ -33,6 +43,9 @@ final class KingdomTfcSmithAndForestRegressionTest {
         assertTrue(core.contains("getMethod(\"chooseRecipe\""));
         assertTrue(core.contains("company"));
         assertTrue(core.contains("contract.active()"));
+        assertTrue(core.contains("selectedRecipe("));
+        assertTrue(core.contains("cycleRecipe("));
+        assertTrue(core.contains("smithOutputReady"));
         assertTrue(core.contains("building==null"));
         assertTrue(core.contains("anvilInv.getStackInSlot(2).isEmpty()"));
         var server=source("npc/KingdomNpcMod.java");
