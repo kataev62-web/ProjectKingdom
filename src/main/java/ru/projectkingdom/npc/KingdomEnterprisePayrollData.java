@@ -47,6 +47,18 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         long total=c.owed()>Long.MAX_VALUE-add?Long.MAX_VALUE:c.owed()+add;
         entries.put(key,new Employment(enterprise,worker,c.dailyCopper(),day,total,true));setDirty();return total;
     }
+    /** Stop wages after a registered NPC dies. Preserve accrued debts, never mint or erase cash. */
+    public void retireDeceasedNpc(MinecraftServer server,UUID worker){
+        if(server==null||worker==null)return;
+        for(Employment e:new ArrayList<>(entries.values())){
+            if(!e.worker().equals(worker)||!e.active())continue;
+            accrue(server,e.enterprise(),worker);
+            Employment latest=entries.get(key(e.enterprise(),worker));
+            entries.put(key(e.enterprise(),worker),
+                    new Employment(e.enterprise(),worker,0,latest.lastDay(),latest.owed(),false));
+            setDirty();
+        }
+    }
     public long totalDue(MinecraftServer server,UUID worker){
         long sum=0;
         for(Employment c:new ArrayList<>(entries.values()))if(c.worker().equals(worker)){

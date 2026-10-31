@@ -63,6 +63,17 @@ public final class KingdomNpcData extends SavedData {
         return worker;
     }
 
+    /** A confirmed entity death removes its ACTIVE worker record. Chunk unloads never call this. */
+    public Worker removeByEntity(UUID entityId){
+        if(entityId==null)return null;
+        for(var entry:workers.entrySet()){
+            if(!entityId.equals(entry.getValue().entityId))continue;
+            Worker dead=entry.getValue();
+            workers.remove(entry.getKey());setDirty();return dead;
+        }
+        return null;
+    }
+
     public long balance(UUID playerId) { return accounts.getOrDefault(playerId, 0L); }
 
     public void deposit(UUID playerId, long count) {
@@ -92,6 +103,9 @@ public final class KingdomNpcData extends SavedData {
         public long lastWorkedDay;
         public int homeX, homeY, homeZ;
         public boolean hasHome = false;
+        /** Last actual observed position inside the legally owned city, not an invented home. */
+        public boolean hasLastSafe=false;
+        public int lastSafeX,lastSafeY,lastSafeZ;
         public long produced = 0; // Virtual test-resource ledger, not items or money.
         public int skillXp = 0;
         // Life simulation values 0..100 (persistent, server authoritative).
@@ -235,6 +249,12 @@ public final class KingdomNpcData extends SavedData {
             w.autonomousIntent=t.contains("AutonomousIntent",Tag.TAG_STRING)?t.getString("AutonomousIntent"):"IDLE";
             w.hasWorkstation=t.getBoolean("HasWorkstation");
             w.workX=t.getInt("WorkX");w.workY=t.getInt("WorkY");w.workZ=t.getInt("WorkZ");
+            w.hasLastSafe=t.getBoolean("HasLastSafe");
+            if(w.hasLastSafe){
+                w.lastSafeX=t.getInt("LastSafeX");
+                w.lastSafeY=t.getInt("LastSafeY");
+                w.lastSafeZ=t.getInt("LastSafeZ");
+            }
             w.hasHome = t.getBoolean("HasHome");
             if (w.hasHome) { w.homeX=t.getInt("HomeX"); w.homeY=t.getInt("HomeY"); w.homeZ=t.getInt("HomeZ"); }
             return w;
@@ -250,6 +270,8 @@ public final class KingdomNpcData extends SavedData {
             t.putString("Order", order); t.putLong("WorkUnits", workUnits);
             t.putLong("Produced", produced); t.putLong("LastWorked", lastWorkedDay);
             t.putInt("SkillXp", skillXp); t.putBoolean("HasHome", hasHome);
+            t.putBoolean("HasLastSafe",hasLastSafe);
+            if(hasLastSafe){t.putInt("LastSafeX",lastSafeX);t.putInt("LastSafeY",lastSafeY);t.putInt("LastSafeZ",lastSafeZ);}
             t.putInt("Hunger",hunger);t.putInt("Energy",energy);t.putInt("Morale",morale);t.putInt("Safety",safety);
             t.putInt("DietGrain",dietGrain);t.putInt("DietFruit",dietFruit);
             t.putInt("DietVegetables",dietVegetables);t.putInt("DietProtein",dietProtein);

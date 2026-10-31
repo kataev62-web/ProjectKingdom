@@ -582,6 +582,17 @@ public final class KingdomNpcMod {
         root.then(Commands.literal("bank").then(Commands.literal("register").executes(ctx -> {
             reply(ctx.getSource(),"Регистрация старых Lodestone-банков отключена. Установите блок банка; старые записи сохраняются для миграции.");return 0;
         })));
+        root.then(Commands.literal("residents").requires(s -> s.hasPermission(2))
+            .then(Commands.literal("audit").executes(ctx->{
+                var player=ctx.getSource().getPlayerOrException();
+                KingdomResidentSafety.audit(player,false);
+                return 1;
+            }))
+            .then(Commands.literal("repair").executes(ctx->{
+                var player=ctx.getSource().getPlayerOrException();
+                KingdomResidentSafety.audit(player,true);
+                return 1;
+            })));
         root.then(Commands.literal("spawn").requires(s -> s.hasPermission(2))
             .then(Commands.argument("job", StringArgumentType.word()).suggests((c,b) -> {
                 for (String job : new String[]{"free", "farmer", "smith", "miner", "lumberjack", "merchant", "guard", "builder"}) b.suggest(job);
@@ -605,6 +616,7 @@ public final class KingdomNpcMod {
                 npc.setVillagerData(npc.getVillagerData().setProfession(profession(job)));
                 if (!level.addFreshEntity(npc)) { reply(src, "Failed to spawn villager"); return 0; }
                 var created = db.add(npc.getUUID(), "Kingdom " + job, level.dimension().location().toString(), level.getDayTime() / TICKS_PER_DAY);
+                KingdomResidentSafety.recordSafe(created,npc.blockPosition(),db);
                 reply(src, "NPC #" + created.id + " created; job=" + job);
                 return 1;
             })));
@@ -630,6 +642,7 @@ public final class KingdomNpcMod {
                 if (!level.addFreshEntity(npc)) return 0;
                 var worker = db.add(npc.getUUID(), "Kingdom " + job,
                         level.dimension().location().toString(), level.getDayTime() / TICKS_PER_DAY);
+                KingdomResidentSafety.recordSafe(worker,npc.blockPosition(),db);
                 worker.gender = "female";
                 worker.ageYears = 25;
                 db.setDirty();
@@ -882,6 +895,7 @@ public final class KingdomNpcMod {
             found = db.add(npc.getUUID(), name, p.level().dimension().location().toString(),
                     p.serverLevel().getDayTime() / TICKS_PER_DAY);
             npc.setPersistenceRequired();
+            KingdomResidentSafety.recordSafe(found,npc.blockPosition(),db);
             npc.setCustomName(Component.literal(name + " #" + found.id));
             npc.setCustomNameVisible(true);
             p.sendSystemMessage(Component.literal("[Королевство] Житель принят в систему, №" + found.id));
@@ -926,6 +940,23 @@ public final class KingdomNpcMod {
             case "courier" -> VillagerProfession.LEATHERWORKER;
             default -> VillagerProfession.NONE;
         };
+    }
+
+    /** A real death or explicit removal retires the identity. Unloading a chunk does not. */
+    @SubscribeEvent
+    public void kingdomNpcDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event){
+        if(event.getEntity() instanceof Villager villager
+                &&villager.level() instanceof ServerLevel level)
+            KingdomResidentSafety.retire(level,villager.getUUID());
+    }
+    @SubscribeEvent
+    public void kingdomNpcRemoved(net.minecraftforge.event.entity.EntityLeaveLevelEvent event){
+        if(!(event.getEntity() instanceof Villager villager)
+                ||!(event.getLevel() instanceof ServerLevel level))return;
+        var reason=villager.getRemovalReason();
+        if(reason==net.minecraft.world.entity.Entity.RemovalReason.KILLED
+                ||reason==net.minecraft.world.entity.Entity.RemovalReason.DISCARDED)
+            KingdomResidentSafety.retire(level,villager.getUUID());
     }
 
     @SubscribeEvent
@@ -1099,6 +1130,7 @@ public final class KingdomNpcMod {
                 if (!level.dimension().location().toString().equals(w.dimension)) continue;
                 var entity = level.getEntity(w.entityId);
                 if (!(entity instanceof Villager npc) || !npc.isAlive()) continue;
+                if(KingdomResidentSafety.confine(server,level,npc,w,db))continue;
                 boolean talking = false;
                 for (ServerPlayer other : level.players()) {
                     if (other.containerMenu instanceof KingdomNpcMenu menu
