@@ -106,7 +106,8 @@ public final class KingdomCityExpansionPurchase {
         // Nothing is charged until all checks succeed.
         if (cells.isEmpty() || cells.size() > 256) return Result.INVALID_PLAN;
         var quote = KingdomExpansionQuote.evaluate(town.id(), dimension, cells,
-                civics.mapPlots(dimension), civics.townById(town.id()).treasury());
+                civics.mapPlots(dimension), Math.min(civics.townById(town.id()).treasury(),
+                    KingdomAdministrationData.get(player.getServer()).treasuryReserve(town.id())));
         if (quote.status() == KingdomExpansionQuote.Status.INSUFFICIENT_TREASURY)
             return Result.INSUFFICIENT_FUNDS;
         if (quote.status() != KingdomExpansionQuote.Status.READY) return Result.INVALID_PLAN;

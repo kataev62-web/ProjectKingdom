@@ -103,7 +103,8 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                     AdministrativeCoreMenu.open(sender,active,notice);
                 return;
             }
-            if(field.equals("bank_deposit")||field.equals("bank_withdraw")){
+            if(field.equals("bank_deposit")||field.equals("bank_withdraw")
+                    ||field.equals("bank_town_deposit")||field.equals("bank_town_withdraw")||field.equals("bank_to_town")){
                 if(packet.kind!=AdministrativeKind.BANK)return;
                 String value=packet.value==null?"":packet.value.trim();
                 if(!value.matches("[0-9]{1,7}")){
@@ -121,11 +122,27 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                     sender.sendSystemMessage(Component.literal("[Банк] Откройте банковский блок своего города и встаньте ближе к нему."));
                     return;
                 }
+                boolean municipal=field.equals("bank_town_deposit")||field.equals("bank_town_withdraw")||field.equals("bank_to_town");
                 boolean deposit=field.equals("bank_deposit");
-                boolean ok=deposit?bank.deposit(sender,amount):bank.withdraw(sender,amount);
-                sender.sendSystemMessage(Component.literal(ok
-                    ?"[Банк] "+(deposit?"Внесено ":"Снято ")+amount+" медных. Реальные монеты переведены."
-                    :"[Банк] "+(deposit?bank.depositProblem(sender,amount):bank.withdrawProblem(sender,amount))));
+                boolean ok;
+                String problem,success;
+                if(municipal){
+                    var operation=field.equals("bank_to_town")?ru.projectkingdom.npc.TownBankFunds.Operation.DONATE
+                            :field.equals("bank_town_deposit")?ru.projectkingdom.npc.TownBankFunds.Operation.DEPOSIT
+                            :ru.projectkingdom.npc.TownBankFunds.Operation.WITHDRAW;
+                    ok=bank.municipalOperation(sender,packet.townId,amount,operation);
+                    problem=ok?"":bank.municipalProblem(sender,packet.townId,amount,operation);
+                    success=operation==ru.projectkingdom.npc.TownBankFunds.Operation.DONATE
+                            ?"Из вашего личного счёта на счёт поселения передано "+amount+" медных."
+                            :operation==ru.projectkingdom.npc.TownBankFunds.Operation.DEPOSIT
+                            ?"Из кошелька на счёт поселения внесено "+amount+" медных."
+                            :"Со счёта поселения в ваш кошелёк выдано "+amount+" медных.";
+                }else{
+                    ok=deposit?bank.deposit(sender,amount):bank.withdraw(sender,amount);
+                    problem=ok?"":deposit?bank.depositProblem(sender,amount):bank.withdrawProblem(sender,amount);
+                    success=(deposit?"На ваш личный счёт внесено ":"С вашего личного счёта снято ")+amount+" медных.";
+                }
+                sender.sendSystemMessage(Component.literal("[Банк] "+(ok?success:problem)));
                 if(ok)sender.closeContainer();
                 return;
             }

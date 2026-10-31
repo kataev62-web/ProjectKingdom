@@ -52,15 +52,6 @@ public final class KingdomAdminDashboardService {
         sessions.put(p.getUUID(),session);
         send(p,session,"Управление городами, королевствами и NPC");
     }
-    private static String clean(String text,int max){
-        if(text==null)return "";
-        String value=text.replace('\n',' ').replace('\r',' ').replace('\t',' ');
-        return value.length()>max?value.substring(0,max):value;
-    }
-    private static String npcName(UUID id,Map<UUID,String> names) {
-        return id==null?"Не назначен":names.getOrDefault(id,
-            "Игрок/UUID "+id.toString().substring(0,8));
-    }
     private static <T> List<T> page(List<T> values,int page){
         int from=(int)Math.min(values.size(),(long)page*PAGE_SIZE);
         return List.copyOf(values.subList(from,Math.min(values.size(),from+PAGE_SIZE)));
@@ -75,16 +66,15 @@ public final class KingdomAdminDashboardService {
             var civics=KingdomCivicsData.get(p.getServer());
             var admin=KingdomAdministrationData.get(p.getServer());
             var npcDb=KingdomNpcData.get(p.getServer());
-            Map<UUID,String> npcNames=new HashMap<>();
             for(var npc:npcDb.all()){
-                npcNames.put(npc.entityId,clean("NPC #"+npc.id+" "+npc.name,70));
-                npcs.add(new KingdomAdminDashboardPacket.Npc(npc.id,clean(npc.name,70),
+                npcs.add(new KingdomAdminDashboardPacket.Npc(npc.id,KingdomIdentityNames.npcName(npc.name),
                     npc.entityId,npc.ageYears));
             }
             npcs.sort(Comparator.comparingInt(KingdomAdminDashboardPacket.Npc::id));
             for(var town:civics.towns())
                 cities.add(new KingdomAdminDashboardPacket.City(town.id(),town.name(),
-                    npcName(town.mayor(),npcNames),npcName(admin.founder(town.id()),npcNames),
+                    KingdomIdentityNames.name(p.getServer(),town.mayor()),
+                    KingdomIdentityNames.name(p.getServer(),admin.founder(town.id())),
                     civics.townPlots(town.id(),0,32).size()));
             cities.sort(Comparator.comparing(KingdomAdminDashboardPacket.City::name,
                 String.CASE_INSENSITIVE_ORDER).thenComparing(KingdomAdminDashboardPacket.City::id));
@@ -92,7 +82,7 @@ public final class KingdomAdminDashboardService {
                 int townCount=0;
                 for(var town:civics.towns())if(nation.id().equals(town.nation()))townCount++;
                 nations.add(new KingdomAdminDashboardPacket.Nation(nation.id(),nation.name(),
-                    npcName(nation.ruler(),npcNames),townCount));
+                    KingdomIdentityNames.name(p.getServer(),nation.ruler()),townCount));
             }
             nations.sort(Comparator.comparing(KingdomAdminDashboardPacket.Nation::name,
                 String.CASE_INSENSITIVE_ORDER).thenComparing(KingdomAdminDashboardPacket.Nation::id));

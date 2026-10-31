@@ -11,6 +11,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.server.MinecraftServer;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomNpcData;
+import ru.projectkingdom.npc.KingdomIdentityNames;
 
 /**
  * Server-owned picker of real registered citizens and NPCs living in this city.
@@ -21,7 +22,10 @@ public final class KingdomTownHallCandidates {
     public record Candidate(UUID id,String name,boolean npc,int roleMask,boolean mayor) {
         public Candidate {
             if(id==null || name==null)throw new IllegalArgumentException("Invalid town hall candidate");
-            if(name.length()>48)name=name.substring(0,48);
+            if(name.length()>48){
+                int end=Character.isHighSurrogate(name.charAt(47))?47:48;
+                name=name.substring(0,end);
+            }
         }
     }
     private KingdomTownHallCandidates(){}
@@ -45,13 +49,10 @@ public final class KingdomTownHallCandidates {
             if(worker.entityId==null || worker.ageYears<18)continue;
             if(!localIds.contains(worker.entityId) && !npcLivesInTown(server,townId,worker))continue;
             localIds.remove(worker.entityId);
-            result.add(candidate(admin,town,worker.entityId,worker.name,true));
+            result.add(candidate(admin,town,worker.entityId,KingdomIdentityNames.name(server,worker.entityId),true));
         }
         for(UUID id:localIds){
-            var online=server.getPlayerList().getPlayer(id);
-            String label=online!=null?online.getGameProfile().getName():
-                    server.getProfileCache().get(id).map(profile->profile.getName())
-                            .orElse("Игрок "+id.toString().substring(0,8));
+            String label=KingdomIdentityNames.name(server,id);
             result.add(candidate(admin,town,id,label,false));
         }
         result.sort(Comparator.comparing(Candidate::npc).thenComparing(c->c.name().toLowerCase(java.util.Locale.ROOT))

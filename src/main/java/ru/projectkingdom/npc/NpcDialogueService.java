@@ -131,6 +131,7 @@ public final class NpcDialogueService {
 
     private static void speak(ServerLevel level, Villager npc, KingdomNpcData.Worker worker,
                               String details, NpcVoiceLine line,boolean automatic) {
+        if (!npc.isSilent()) npc.setSilent(true);
         var voice=NpcVoiceBank.forNpc(worker.entityId,worker.gender);
         var speech=new NpcSpeechPacket(npc.getUUID(),NpcSpeechText.limit(worker.name,64,"Житель"),
                 NpcSpeechText.limit(details,512,""),NpcSpeechText.limit(worker.gender,16,"unspecified"),

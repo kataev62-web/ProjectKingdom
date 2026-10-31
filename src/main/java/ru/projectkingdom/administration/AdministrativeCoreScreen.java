@@ -22,6 +22,8 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
     private final List<ActionButton> actionButtons=new ArrayList<>();
     private final List<AbstractWidget> roleControls=new ArrayList<>();
     private EditBox taxAmount,bankAmount;
+    private boolean municipalAccount;
+    private Button personalAccountButton,municipalAccountButton,bankDonate;
     private final List<Button> officeRows=new ArrayList<>();
     private Button officeCategory,officeBack,officeForward,officeRoleLeft,officeRoleRight;
     private Button officeRoleName,officeAssign,officeRevoke;
@@ -100,25 +102,32 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,part,false));
             }
             case BANK->{
-                bankAmount=new EditBox(font,leftPos+150,topPos+118,132,18,KingdomFonts.readable("Сумма"));
+                personalAccountButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Личный счёт"),b->{municipalAccount=false;updateVisibility();})
+                        .bounds(leftPos+58,topPos+80,118,19).build());
+                if(menu.manager())municipalAccountButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Счёт поселения"),b->{municipalAccount=true;updateVisibility();})
+                        .bounds(leftPos+182,topPos+80,122,19).build());
+                bankAmount=new EditBox(font,leftPos+150,topPos+135,132,18,KingdomFonts.readable("Сумма"));
                 bankAmount.setMaxLength(7);
                 bankAmount.setFilter(value->value.matches("[0-9]*"));
                 bankAmount.setValue("100");
                 addRenderableWidget(bankAmount);
                 Button deposit=addRenderableWidget(Button.builder(KingdomFonts.readable("Внести"),
-                    ignored->sendText("bank_deposit",bankAmount.getValue()))
-                    .bounds(leftPos+58,topPos+151,108,20).build());
+                    ignored->sendText(municipalAccount?"bank_town_deposit":"bank_deposit",bankAmount.getValue()))
+                    .bounds(leftPos+58,topPos+158,108,20).build());
                 Button withdraw=addRenderableWidget(Button.builder(KingdomFonts.readable("Снять"),
-                    ignored->sendText("bank_withdraw",bankAmount.getValue()))
-                    .bounds(leftPos+180,topPos+151,108,20).build());
+                    ignored->sendText(municipalAccount?"bank_town_withdraw":"bank_withdraw",bankAmount.getValue()))
+                    .bounds(leftPos+180,topPos+158,108,20).build());
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,deposit,false));
                 actionButtons.add(new ActionButton(AdministrativeMenuLayout.Tab.FINANCE,withdraw,false));
-                addAction("Отметить комнату хранилища",AdministrativeMenuLayout.Tab.FINANCE,
-                    AdministrativeActionPacket.BIND_BANK,80,179,224,true);
+                if(menu.manager())bankDonate=addRenderableWidget(Button.builder(KingdomFonts.readable("Из личного — поселению"),
+                        ignored->sendText("bank_to_town",bankAmount.getValue()))
+                        .bounds(leftPos+58,topPos+183,246,20).build());
+                addAction("Отметить комнату хранилища",AdministrativeMenuLayout.Tab.INFO,
+                    AdministrativeActionPacket.BIND_BANK,58,143,246,true);
                 addAction("Перенести монеты старой казны",AdministrativeMenuLayout.Tab.INFO,
-                    AdministrativeActionPacket.CONSOLIDATE_BANK,58,158,246,true);
+                    AdministrativeActionPacket.CONSOLIDATE_BANK,58,165,246,true);
                 addAction("Сверить старые остатки (пустой сейф)",AdministrativeMenuLayout.Tab.INFO,
-                    AdministrativeActionPacket.RECONCILE_BANK,58,184,246,true);
+                    AdministrativeActionPacket.RECONCILE_BANK,58,187,246,true);
             }
             case CENTRAL_WAREHOUSE->{
                 warehouseBack=addRenderableWidget(Button.builder(KingdomFonts.readable("◀"),ignored->{
@@ -292,6 +301,10 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         if(officeCategory!=null)syncOfficePicker();
         if(taxAmount!=null)taxAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
         if(bankAmount!=null)bankAmount.setVisible(selected==AdministrativeMenuLayout.Tab.FINANCE);
+        boolean bankFinance=selected==AdministrativeMenuLayout.Tab.FINANCE&&menu.kind()==AdministrativeKind.BANK;
+        if(personalAccountButton!=null){personalAccountButton.visible=bankFinance;personalAccountButton.active=municipalAccount;}
+        if(municipalAccountButton!=null){municipalAccountButton.visible=bankFinance;municipalAccountButton.active=!municipalAccount;}
+        if(bankDonate!=null){bankDonate.visible=bankFinance;bankDonate.active=menu.bankAccount()>0;}
         if(joinButton!=null)joinButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS&&menu.canJoin();
         if(landPayButton!=null)landPayButton.visible=selected==AdministrativeMenuLayout.Tab.CITIZENS;
         int pages=Math.max(1,(menu.warehouseRooms().size()+1)/2);
@@ -318,11 +331,10 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
                         line(g,"Архив казны: "+menu.legacyTown()+" мед.",58,115,MUTED);
                         line(g,menu.vaultCopper()<0?"Комната недоступна — загрузи чанки.":
                                 "Настоящие монеты в комнате: "+menu.vaultCopper(),58,132,MUTED);
-                        line(g,"Архив нельзя снимать как наличные!",58,145,ACCENT);
                     }else line(g,"Архив — на сверке. Снять его нельзя.",58,105,ACCENT);
                 }else{
-                    line(g,"Основатель: "+menu.founder(),58,90,MUTED);
-                    line(g,"Мэр: "+menu.mayor(),58,108,MUTED);
+                    line(g,font.plainSubstrByWidth("Основатель: "+menu.founderName(),258),58,90,MUTED);
+                    line(g,font.plainSubstrByWidth("Мэр: "+menu.mayorName(),258),58,108,MUTED);
                     if(menu.kind()==AdministrativeKind.TOWN_HALL){
                         line(g,"Статус: "+menu.rankTitle(),58,123,INK);
                         line(g,font.plainSubstrByWidth(menu.growthSummary(),271),58,141,MUTED);
@@ -353,11 +365,10 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
             }
             case FINANCE->{
                 if(menu.kind()==AdministrativeKind.BANK){
-                    line(g,"Ваш счёт: "+menu.bankAccount()+" медных",58,83,MUTED);
-                    line(g,"Ваш кошелёк: "+menu.walletCoins()+" медных",58,101,MUTED);
-                    line(g,"Сумма:",58,122,MUTED);
-                    if(menu.manager())
-                        line(g,menu.vaultRoomInfo(),58,139,MUTED);
+                    line(g,(municipalAccount?"Поселение: "+menu.municipalAccount():"Личные деньги: "+menu.bankAccount())+" мед.",58,103,INK);
+                    if(menu.manager())line(g,(municipalAccount?"Личный счёт: "+menu.bankAccount():"Счёт поселения: "+menu.municipalAccount())+" мед.",58,115,MUTED);
+                    line(g,"Личный кошелёк: "+menu.walletCoins()+" мед.",58,126,MUTED);
+                    line(g,"Сумма:",58,140,MUTED);
                 }else if(menu.kind()==AdministrativeKind.TREASURY){
                     line(g,"Ваш долг городу: "+menu.taxDebt()+" медных",58,82,INK);
                     line(g,"Монет в кошельке: "+menu.walletCoins()+" медных",58,102,MUTED);
@@ -443,7 +454,7 @@ public final class AdministrativeCoreScreen extends AbstractContainerScreen<Admi
         }else line(g,"Проверки и оплата выполняются только сервером.",58,204,MUTED);
     }
     private void placeholder(GuiGraphics g,String text,int y){line(g,text,58,y,MUTED);line(g,"Подробные действия подключаются по этапам.",58,y+18,MUTED);}
-    private void renderRows(GuiGraphics g,String heading,List<String> rows){line(g,heading,58,82,MUTED);int y=100;for(String row:rows){line(g,row,58,y,MUTED);y+=15;}if(rows.isEmpty())line(g,"Нет записей.",58,y,MUTED);}
+    private void renderRows(GuiGraphics g,String heading,List<String> rows){line(g,heading,58,82,MUTED);int y=100;for(String row:rows){line(g,font.plainSubstrByWidth(row,258),58,y,MUTED);y+=15;}if(rows.isEmpty())line(g,"Нет записей.",58,y,MUTED);}
     private void line(GuiGraphics g,String text,int x,int y,int color){g.drawString(font,KingdomFonts.readable(text),x,y,color,false);}
     private static Item tabIcon(AdministrativeMenuLayout.Tab tab){return switch(tab){
         case INFO -> Items.BOOK;
