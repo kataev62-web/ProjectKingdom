@@ -53,7 +53,7 @@ final class EnterpriseBuildingRegistrationTest {
         assertTrue(result.success());
         var source=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseBuildingRegistration.java");
         assertTrue(source.contains("BlockTags.FENCES"));
-        assertTrue(source.contains("BlockTags.GLASS_PANES"));
+        assertTrue(source.contains("IronBarsBlock"));
         assertTrue(source.contains("FORGE_FENCES"));
         assertTrue(source.contains("new ResourceLocation(\"forge\",\"glass_panes\")"));
     }

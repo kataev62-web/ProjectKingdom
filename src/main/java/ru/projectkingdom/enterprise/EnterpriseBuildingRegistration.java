@@ -142,7 +142,7 @@ public final class EnterpriseBuildingRegistration extends SavedData {
         BlockState state=level.getBlockState(pos);
         if(state.getBlock() instanceof DoorBlock)return Tile.DOOR;
         if(state.is(BlockTags.FENCES)||state.is(FORGE_FENCES)
-                ||state.is(BlockTags.GLASS_PANES)||state.is(FORGE_GLASS_PANES)
+                ||state.getBlock() instanceof net.minecraft.world.level.block.IronBarsBlock||state.is(FORGE_GLASS_PANES)
                 ||state.is(FORGE_GLASS)
                 ||state.getBlock() instanceof net.minecraft.world.level.block.AbstractGlassBlock)
             return Tile.WINDOW;
