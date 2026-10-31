@@ -11,6 +11,10 @@ import static ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.Tile.*
 
 /** Deterministic no-world simulation of the same bounded physical building scan. */
 final class EnterpriseBuildingRegistrationTest {
+    @org.junit.jupiter.api.BeforeAll static void bootstrapMinecraftRegistries(){
+        net.minecraft.SharedConstants.tryDetectVersion();
+        net.minecraft.server.Bootstrap.bootStrap();
+    }
     private static final UUID FIRM=UUID.fromString("00000000-0000-0000-0000-000000000012");
     private static final BlockPos CORE=new BlockPos(2,0,2);
     private static final String DIM="minecraft:overworld";
