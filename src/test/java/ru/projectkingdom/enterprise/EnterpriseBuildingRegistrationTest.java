@@ -37,7 +37,7 @@ final class EnterpriseBuildingRegistrationTest {
         var result=EnterpriseBuildingRegistration.verify(home(true,true,true,false),FIRM,DIM,CORE);
         assertEquals(EnterpriseBuildingRegistration.Status.REGISTERED,result.status());
         assertTrue(result.success());
-        assertEquals("5×9×5",result.room().dimensions());
+        assertEquals("5×5×5",result.room().dimensions());
         assertTrue(result.room().windows()>0);
         assertEquals(9,result.room().interiorArea());
     }

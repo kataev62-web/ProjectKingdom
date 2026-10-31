@@ -164,6 +164,7 @@ public final class EnterpriseBuildingRegistration extends SavedData {
         ArrayDeque<BlockPos> todo=new ArrayDeque<>();
         todo.add(core.immutable());
         int minX=core.getX(),maxX=minX,minZ=core.getZ(),maxZ=minZ;
+        int maxRoofY=baseY+2;
         while(!todo.isEmpty()){
             BlockPos p=todo.removeFirst();
             long key=p.asLong();
@@ -189,7 +190,7 @@ public final class EnterpriseBuildingRegistration extends SavedData {
             for(int height=2;height<=MAX_HEIGHT;height++){
                 Tile ceiling=cells.at(p.getX(),baseY+height,p.getZ());
                 if(ceiling==Tile.UNLOADED)return new Check(Status.UNLOADED,null);
-                if(ceiling==Tile.SOLID){roof=true;break;}
+                if(ceiling==Tile.SOLID){roof=true;maxRoofY=Math.max(maxRoofY,baseY+height);break;}
             }
             if(!roof)return new Check(Status.NO_ROOF,null);
             for(int dx=-1;dx<=1;dx++)for(int dz=-1;dz<=1;dz++){
@@ -228,7 +229,7 @@ public final class EnterpriseBuildingRegistration extends SavedData {
         if(opaqueWalls<4)return new Check(Status.NO_WALLS,null);
         if(windows==0)return new Check(Status.NO_WINDOWS,null);
         Room room=new Room(enterprise,dimension,core.asLong(),minX-1,baseY-1,minZ-1,
-                maxX+1,baseY+MAX_HEIGHT,maxZ+1,windows,visited.size());
+                maxX+1,maxRoofY,maxZ+1,windows,visited.size());
         return new Check(Status.REGISTERED,room);
     }
 
