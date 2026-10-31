@@ -63,8 +63,11 @@ public final class KingdomFarmSelection {
             event.setCanceled(true);
             return true;
         }
-        if(!KingdomTerritories.get(p.getServer()).canUse(p.serverLevel(),soil,p.getUUID())){
-            p.sendSystemMessage(Component.literal("[Ферма] Земля должна принадлежать владельцу фермы."));
+        boolean legal=pending.pen()
+                ? KingdomRanchPenData.canRegisterAt(p.serverLevel(),soil,p.getUUID())
+                : KingdomTerritories.get(p.getServer()).canUse(p.serverLevel(),soil,p.getUUID());
+        if(!legal){
+            p.sendSystemMessage(Component.literal("[Ферма] Нужен свой участок или законное право работы на этой земле."));
         }else if(pending.first()==null){
             PENDING.put(p.getUUID(),new Pending(pending.farm(),pending.dimension(),soil.immutable(),pending.until(),pending.pen()));
             p.sendSystemMessage(Component.literal("[Ферма] Первый угол: "+soil.toShortString()+". Отметь второй угол."));
@@ -75,7 +78,9 @@ public final class KingdomFarmSelection {
             if(ok)PENDING.remove(p.getUUID());
             p.sendSystemMessage(Component.literal(ok
                 ? (pending.pen() ? "[Ферма] Загон зарегистрирован. Теперь NPC-животновод может работать с животными внутри него." : "[Ферма] Поле зарегистрировано. Назначь культуру в меню.")
-                : "[Ферма] Нельзя добавить: размер до 16×16, одна высота, нет пересечений, до 8 полей, вся земля собственная."));
+                : pending.pen()
+                    ? "[Загон] Не зарегистрирован: до 16×16, один уровень, без пересечений, максимум 4 загона и законные права на весь участок."
+                    : "[Ферма] Не зарегистрировано: до 16×16, один уровень, максимум 8 полей и собственная земля."));
         }
         event.setCancellationResult(InteractionResult.SUCCESS);
         event.setCanceled(true);

@@ -1,6 +1,9 @@
 package ru.projectkingdom.npc;
 
 import java.util.UUID;
+import java.util.List;
+import net.minecraft.nbt.ListTag;
+import net.minecraft.nbt.StringTag;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -41,6 +44,16 @@ public final class KingdomRanchPenMenu extends ChestMenu {
         var stack=new ItemStack(item);
         stack.setHoverName(Component.literal(label));items.setItem(slot,stack);
     }
+    /** Split long statuses across normal multiline vanilla tooltips instead of truncating. */
+    private void detail(int slot,Item item,String title,List<String> details){
+        var stack=new ItemStack(item);
+        stack.setHoverName(Component.literal(title));
+        var lore=new ListTag();
+        for(String line:details)lore.add(StringTag.valueOf(
+                Component.Serializer.toJson(Component.literal(line))));
+        stack.getOrCreateTagElement("display").put("Lore",lore);
+        items.setItem(slot,stack);
+    }
     private void redraw(){
         items.clearContent();
         var pens=KingdomRanchPenData.get(player.getServer()).of(farm);
@@ -48,18 +61,44 @@ public final class KingdomRanchPenMenu extends ChestMenu {
         for(int i=0;i<pens.size()&&i<4;i++){
             var pen=pens.get(i);
             var status=KingdomLivestockWork.inspect(player.serverLevel(),pen);
-            icon(i,Items.OAK_FENCE,(i==selected?"[ВЫБРАН] ":"")+"Загон "+(i+1)
-                +" | "+(pen.maxX()-pen.minX()+1)+"x"+(pen.maxZ()-pen.minZ()+1)
-                +" | животных "+status.animals()+", голодных "+status.hungry()
-                +", шерсть готова "+status.woolReady()+", молоко "+status.milkReady()
-                +", свежие яйца "+status.edibleEggs()
-                +" | "+(pen.enabled()?"работает":"остановлен"));
+            String title=(i==selected?"[ВЫБРАН] ":"")+"Загон "+(i+1)
+                +" ("+(pen.maxX()-pen.minX()+1)+"×"+(pen.maxZ()-pen.minZ()+1)+")";
+            if(!status.areaLoaded()){
+                detail(i,Items.OAK_FENCE,title,List.of(
+                    "Животные: НЕИЗВЕСТНО",
+                    "Не все чанки загона загружены.",
+                    "Подойдите к загону, затем откройте меню.",
+                    pen.enabled()?"Загон включён":"Загон остановлен"));
+            }else if(!status.tfcAvailable()){
+                detail(i,Items.OAK_FENCE,title,List.of(
+                    "Всего животных: "+status.animals(),
+                    "TFC-обработчик недоступен.",
+                    "Проверьте журнал сервера.",
+                    pen.enabled()?"Загон включён":"Загон остановлен"));
+            }else{
+                detail(i,Items.OAK_FENCE,title,List.of(
+                    "Всего животных: "+status.animals(),
+                    "Животных TFC: "+status.tfcAnimals(),
+                    "Другие животные: "+status.otherAnimals(),
+                    "Голодных TFC: "+status.hungry(),
+                    "Шерсть: "+status.woolReady()+" | Молоко: "+status.milkReady(),
+                    "Яйца в гнёздах: "+status.edibleEggs(),
+                    pen.enabled()?"Загон включён":"Загон остановлен"));
+            }
         }
-        icon(9,Items.BOOK,"Загоны "+pens.size()+"/4; NPC работает только внутри выбранной территории");
+        icon(9,Items.BOOK,"Загоны "+pens.size()+"/4. Наведи на загон для подсчёта животных."); 
+        var chosen=selected<pens.size()?pens.get(selected):null;
+        boolean autoFeed=chosen!=null&&KingdomRanchPolicyData.get(player.getServer())
+                .policy(chosen.id()).autoFeed();
+        detail(10,Items.WHEAT,"АВТОКОРМЛЕНИЕ: "+(autoFeed?"ВКЛ":"ВЫКЛ"),List.of(
+            "ЛКМ — изменить режим выбранного загона.",
+            "По умолчанию выключено: кормление TFC",
+            "возможно лишь один раз в игровой день.",
+            "При включении NPC может накормить раньше вас.",
+            "Вручную: Shift + ПКМ с подходящим кормом."));
         icon(18,Items.OAK_FENCE,"ДОБАВИТЬ ЗАГОН: два угла Shift+ПКМ пустой рукой");
         icon(19,Items.LEVER,"ВКЛЮЧИТЬ / ВЫКЛЮЧИТЬ выбранный загон");
         icon(20,Items.BARRIER,"УДАЛИТЬ загон из плана. Животные и блоки остаются.");
-        var chosen=selected<pens.size()?pens.get(selected):null;
         boolean enabled=chosen!=null
             &&KingdomRanchPolicyData.get(player.getServer()).policy(chosen.id()).cullOld();
         icon(21,Items.IRON_SWORD,"ПЛАНОВЫЙ ЗАБОЙ старых животных: "
@@ -91,6 +130,15 @@ public final class KingdomRanchPenMenu extends ChestMenu {
             case 18 -> {
                 if(KingdomFarmSelection.beginPen(player,farm))player.closeContainer();
                 return;
+            }
+            case 10 -> {
+                if(selected<pens.size()){
+                    var policy=KingdomRanchPolicyData.get(player.getServer());
+                    if(policy.toggleAutoFeed(player,farm,pens.get(selected).id()))
+                        player.sendSystemMessage(Component.literal("[Ферма] Автокормление "+
+                            (policy.policy(pens.get(selected).id()).autoFeed()?"включено":"выключено")+
+                            ". Ручное кормление TFC: Shift+ПКМ с подходящим кормом, раз в игровые сутки."));
+                }
             }
             case 19 -> {
                 if(selected<pens.size())data.toggle(player,farm,pens.get(selected).id());

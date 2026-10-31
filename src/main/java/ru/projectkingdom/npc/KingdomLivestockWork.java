@@ -101,31 +101,46 @@ public final class KingdomLivestockWork {
         return null;
     }
 
-    public record PenStatus(int animals,int hungry,int woolReady,int milkReady,int edibleEggs) {
+    /** Whole-herd count is independent of TFC compatibility; status is unknown in unloaded pens. */
+    public record PenStatus(int animals,int tfcAnimals,int hungry,int woolReady,int milkReady,
+                            int edibleEggs,boolean areaLoaded,boolean tfcAvailable) {
+        public int otherAnimals(){return animals-tfcAnimals;}
         public PenStatus(int animals,int hungry,int woolReady){
-            this(animals,hungry,woolReady,0,0);
+            this(animals,animals,hungry,woolReady,0,0,true,true);
+        }
+        public PenStatus(int animals,int hungry,int woolReady,int milkReady,int eggs){
+            this(animals,animals,hungry,woolReady,milkReady,eggs,true,true);
         }
     }
+    /** A pen can straddle up to four chunks. Never silently render unknown as zero. */
+    public static boolean areaLoaded(ServerLevel level,KingdomRanchPenData.Pen pen){
+        if(!pen.dimension().equals(level.dimension().location().toString()))return false;
+        for(int cx=pen.minX()>>4;cx<=pen.maxX()>>4;cx++)
+            for(int cz=pen.minZ()>>4;cz<=pen.maxZ()>>4;cz++)
+                if(!level.hasChunk(cx,cz))return false;
+        return true;
+    }
 
-    /** Read-only, loaded-area diagnosis. Never changes TFC entity state. */
+    /** Read-only diagnostic. Count every living Animal; only TFC animals support native ranch jobs. */
     public static PenStatus inspect(ServerLevel level,KingdomRanchPenData.Pen pen){
-        if(!pen.dimension().equals(level.dimension().location().toString())||!init()
-                ||!level.hasChunkAt(pen.center()))return new PenStatus(0,0,0);
+        if(!areaLoaded(level,pen))return new PenStatus(0,0,0,0,0,0,false,false);
+        boolean tfcReady=init();
         AABB bounds=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
             pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
-        int count=0,needsFood=0,ready=0,milkReady=0;
+        int count=0,tfcCount=0,needsFood=0,ready=0,milkReady=0;
         for(Animal animal:level.getEntitiesOfClass(Animal.class,bounds,
                 entity->entity.isAlive()&&pen.contains(entity))){
-            if(!isTfc(animal))continue;
             count++;
+            if(!tfcReady||!tfcAnimal.isInstance(animal))continue;
+            tfcCount++;
             if(hungry(animal))needsFood++;
             if(KingdomTfcMilkWork.readyForMilking(animal))milkReady++;
             if(animal instanceof IForgeShearable shearable
                 && animal.getClass().getName().startsWith("net.dries007.tfc.common.entities.livestock")
                 && shearable.isShearable(new ItemStack(Items.SHEARS),level,animal.blockPosition()))ready++;
         }
-        return new PenStatus(count,needsFood,ready,milkReady,
-            KingdomTfcNestWork.availableEggs(level,pen));
+        return new PenStatus(count,tfcCount,needsFood,ready,milkReady,
+            KingdomTfcNestWork.availableEggs(level,pen),true,tfcReady);
     }
 
     private static boolean nearby(Villager npc,BlockPos pos){
@@ -253,19 +268,22 @@ public final class KingdomLivestockWork {
         // Bounded: maximum four pens, each 16 x 16 in loaded chunks.
         for(var pen:KingdomRanchPenData.get(level.getServer()).of(enterprise)){
             if(!pen.enabled()||!pen.dimension().equals(w.dimension))continue;
-            if(!level.hasChunkAt(pen.center()))continue;
+            if(!areaLoaded(level,pen))continue;
             if(!territory.canUse(level,pen.center(),owner))continue;
             AABB area=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
                 pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
             var herd=level.getEntitiesOfClass(Animal.class,area,
                 entity->entity.isAlive()&&pen.contains(entity)&&isTfc(entity));
+            var policy=KingdomRanchPolicyData.get(level.getServer()).policy(pen.id());
             for(Animal animal:herd){
                 if(!isTfc(animal)||!territory.canUse(level,animal.blockPosition(),owner))continue;
-                if(hungry(animal)){
-                    if(feedAnimal(level,npc,w,animal,raw,rawPos))return true;
-                }else if(KingdomTfcMilkWork.tick(level,npc,w,animal,raw,rawPos,finished))
+                // TFC permits feeding once per day. Do not consume the player's
+                // opportunity to tame/feed animals unless the owner opts in.
+                if(policy.autoFeed()&&hungry(animal)
+                    &&feedAnimal(level,npc,w,animal,raw,rawPos))return true;
+                if(KingdomTfcMilkWork.tick(level,npc,w,animal,raw,rawPos,finished))
                     return true;
-                else if(shearAnimal(level,npc,w,animal,raw,rawPos))return true;
+                if(shearAnimal(level,npc,w,animal,raw,rawPos))return true;
             }
             if(KingdomTfcNestWork.tick(level,npc,w,pen,finished))return true;
             if(KingdomTfcButcheryWork.tick(level,npc,w,pen,herd))return true;

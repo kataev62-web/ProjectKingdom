@@ -26,6 +26,42 @@ class KingdomRanchPolicyDataTest {
         assertFalse(copy.policy(pen).cullOld());
         assertEquals(6,copy.policy(pen).minHerd());
     }
+    @Test void oldPensDoNotAutoFeedAndAllExistingFlagsRemainUnchanged(){
+        UUID id=UUID.randomUUID();
+        var root=new CompoundTag();
+        var row=new CompoundTag();
+        row.putUUID("Pen",id);row.putBoolean("CullOld",true);
+        row.putBoolean("CollectEggs",true);row.putInt("MinHerd",9);
+        row.putLong("LastCull",78L);
+        var rows=new net.minecraft.nbt.ListTag();rows.add(row);root.put("Policies",rows);
+        var state=KingdomRanchPolicyData.load(root);
+        var old=state.policy(id);
+        assertFalse(old.autoFeed(),"Existing worlds must leave player-controlled feeding enabled");
+        assertTrue(old.cullOld());
+        assertTrue(old.collectEggs());
+        assertEquals(9,old.minHerd());
+        state.markCull(id,79L);
+        var after=KingdomRanchPolicyData.load(state.save(new CompoundTag())).policy(id);
+        assertFalse(after.autoFeed());
+        assertTrue(after.cullOld());
+        assertTrue(after.collectEggs());
+        assertEquals(79L,after.lastCullDay());
+    }
+    @Test void savedAutoFeedSettingSurvivesAndDoesNotChangeOtherModes(){
+        UUID id=UUID.randomUUID();
+        var root=new CompoundTag();
+        var row=new CompoundTag();row.putUUID("Pen",id);
+        row.putBoolean("AutoFeed",true);row.putBoolean("CollectEggs",false);
+        row.putInt("MinHerd",6);row.putLong("LastCull",-1);
+        var rows=new net.minecraft.nbt.ListTag();rows.add(row);root.put("Policies",rows);
+        var state=KingdomRanchPolicyData.load(root);
+        assertTrue(state.policy(id).autoFeed());
+        assertFalse(state.policy(id).collectEggs());
+        assertFalse(state.policy(id).cullOld());
+        var after=KingdomRanchPolicyData.load(state.save(new CompoundTag()));
+        assertTrue(after.policy(id).autoFeed());
+        assertFalse(after.policy(id).cullOld());
+    }
     @Test void eggCollectionIsOffByDefaultAndPersistedSeparatelyFromCullConsent(){
         var old=new KingdomRanchPolicyData.Policy(true,6,22);
         assertFalse(old.collectEggs());
