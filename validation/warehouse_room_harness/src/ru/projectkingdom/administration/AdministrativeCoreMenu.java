@@ -1,0 +1,1 @@
+package ru.projectkingdom.administration;import java.util.*;import net.minecraft.core.*;import net.minecraft.server.level.*;public record AdministrativeCoreMenu(UUID townId,BlockPos corePos){public AdministrativeKind kind(){return AdministrativeKind.CENTRAL_WAREHOUSE;}public boolean manager(){return true;}public boolean stillValid(ServerPlayer player){return true;}}

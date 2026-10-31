@@ -75,7 +75,12 @@ public final class KingdomNpcMod {
             player.sendSystemMessage(Component.literal("[Центральный склад] Освободите руку и начните разметку заново."));
         }else{
             var outcome=warehouse.select(player,event.getPos());
-            player.sendSystemMessage(Component.literal("[Центральный склад] "+ru.projectkingdom.administration.KingdomCentralWarehouseRooms.message(outcome)));
+            String notice=ru.projectkingdom.administration.KingdomCentralWarehouseRooms.message(outcome);
+            if(outcome!=ru.projectkingdom.administration.KingdomCentralWarehouseRooms.Result.CREATED
+                    &&outcome!=ru.projectkingdom.administration.KingdomCentralWarehouseRooms.Result.FIRST_CORNER
+                    &&warehouse.hasSession(player.getUUID()))
+                notice+=" Первая точка сохранена; укажите вторую ещё раз.";
+            player.sendSystemMessage(Component.literal("[Центральный склад] "+notice));
         }
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }

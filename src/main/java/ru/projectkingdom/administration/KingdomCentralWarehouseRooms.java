@@ -64,13 +64,13 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
     }
     public static String message(Result status){
         return switch(status){
-            case FIRST_CORNER->"Первый угол отмечен. Теперь пустой рукой нажмите ПКМ по противоположному углу комнаты.";
-            case CREATED->"Комната центрального склада создана. Все реальные сундуки и бочки внутри включены в учёт.";
+            case FIRST_CORNER->"Первый угол отмечен. Пустой рукой нажмите ПКМ по противоположному углу пола (высота 3 блока) или по диагонали на нужной высоте.";
+            case CREATED->"Вторая точка отмечена, комната центрального склада создана. Сундуки и бочки внутри включены в учёт.";
             case NO_SESSION->"Откройте центральный склад управляющим и выберите тип новой комнаты.";
             case NO_RIGHTS->"Разметка доступна мэру, основателю или назначенному управляющему складом.";
             case WRONG_DIMENSION->"Оба угла должны быть в одном измерении, где расположен центральный склад.";
             case TOO_FAR->"Выберите углы не дальше 32 блоков от здания склада, находясь рядом с ними.";
-            case TOO_LARGE->"Размеры комнаты от 3×3×3 до 17×9×17 блоков.";
+            case TOO_LARGE->"Длина и ширина комнаты: от 2 до 17 блоков; высота: от 3 до 9 блоков. Оба угла включаются в размер.";
             case ROOM_LIMIT->"Достигнут предел 16 комнат центрального склада.";
             case OVERLAP->"Комната пересекается с уже зарегистрированным помещением.";
             case FOREIGN_TOWN->"Все участки под комнатой должны принадлежать городу центрального склада.";
@@ -133,16 +133,19 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
                 session.desk(),session.kind(),position.immutable()));
             return Result.FIRST_CORNER;
         }
-        SESSIONS.remove(player.getUUID());
         BlockPos first=session.first();
+        // Two opposite floor corners define a three-block-high room by default.
+        // Keep the first corner while an invalid second corner is retried.
+        int bottom=Math.min(first.getY(),position.getY());
+        int top=first.getY()==position.getY()?bottom+2:Math.max(first.getY(),position.getY());
         BlockPos min=new BlockPos(Math.min(first.getX(),position.getX()),
-            Math.min(first.getY(),position.getY()),Math.min(first.getZ(),position.getZ()));
+            bottom,Math.min(first.getZ(),position.getZ()));
         BlockPos max=new BlockPos(Math.max(first.getX(),position.getX()),
-            Math.max(first.getY(),position.getY()),Math.max(first.getZ(),position.getZ()));
+            top,Math.max(first.getZ(),position.getZ()));
         Room proposed=new Room(UUID.randomUUID(),session.town(),session.dimension(),min,max,session.kind());
         if(max.getX()-min.getX()+1>MAX_XZ||max.getZ()-min.getZ()+1>MAX_XZ
             ||max.getY()-min.getY()+1>MAX_Y
-            ||max.getX()-min.getX()<2||max.getZ()-min.getZ()<2||max.getY()-min.getY()<2)
+            ||max.getX()-min.getX()<1||max.getZ()-min.getZ()<1||max.getY()-min.getY()<2)
             return Result.TOO_LARGE;
         if(rooms(session.town()).size()>=MAX_ROOMS)return Result.ROOM_LIMIT;
         if(proposed.contains(session.desk()))return Result.OVERLAP;
@@ -165,6 +168,7 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         if(reservedStorage(level,proposed))return Result.RESERVED_STORAGE;
         byTown.computeIfAbsent(session.town(),id->new ArrayList<>()).add(proposed);
         setDirty();
+        SESSIONS.remove(player.getUUID());
         return Result.CREATED;
     }
     private boolean reservedStorage(ServerLevel level,Room room){

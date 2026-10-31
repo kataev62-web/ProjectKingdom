@@ -1,0 +1,1 @@
+package ru.projectkingdom.administration;public enum AdministrativeKind{CENTRAL_WAREHOUSE}

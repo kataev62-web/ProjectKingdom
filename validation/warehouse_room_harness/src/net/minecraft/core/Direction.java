@@ -1,0 +1,1 @@
+package net.minecraft.core; public enum Direction {NORTH(0,-1),SOUTH(0,1),EAST(1,0),WEST(-1,0);final int x,z;Direction(int x,int z){this.x=x;this.z=z;}public static class Plane{public static final Iterable<Direction> HORIZONTAL=java.util.List.of(values());}}

@@ -1,0 +1,1 @@
+package net.minecraft.world;public interface Container{default int getContainerSize(){return 27;}default net.minecraft.world.item.ItemStack getItem(int slot){return new net.minecraft.world.item.ItemStack();}}

@@ -1,0 +1,1 @@
+package net.minecraft.world.level.saveddata;public abstract class SavedData {public boolean dirty;public void setDirty(){dirty=true;}public abstract net.minecraft.nbt.CompoundTag save(net.minecraft.nbt.CompoundTag root);}
