@@ -24,13 +24,30 @@ public final class KingdomResidentSafety {
 
     public static UUID assignedCity(KingdomCivicsData civics,KingdomNpcData.Worker worker){
         if(worker==null||civics==null)return null;
+        var membership=civics.townOf(worker.entityId);
+        if(membership!=null)return membership.id();
         try{
             UUID id=UUID.fromString(worker.settlement);
             if(civics.townById(id)!=null)return id;
         }catch(IllegalArgumentException ignored){}
-        var membership=civics.townOf(worker.entityId);
-        return membership==null?null:membership.id();
+        return null;
     }
+    /** Only explicitly registered Kingdom villagers enter the citizen census and borders. */
+    public static void assignLocalCitizen(MinecraftServer server,ServerLevel level,Villager npc,
+                                          KingdomNpcData.Worker worker,KingdomNpcData registry){
+        if(server==null||level==null||npc==null||worker==null)return;
+        var civics=KingdomCivicsData.get(server);
+        if(assignedCity(civics,worker)!=null)return;
+        var town=civics.townAt(level,npc.blockPosition());
+        if(town==null&&worker.hasHome)
+            town=civics.townAt(level,new BlockPos(worker.homeX,worker.homeY,worker.homeZ));
+        if(town==null)return;
+        if(civics.joinTown(npc.getUUID(),town.id())||civics.isMember(town.id(),npc.getUUID())){
+            worker.settlement=town.id().toString();
+            registry.setDirty();
+        }
+    }
+
     public static boolean inside(KingdomCivicsData civics,ServerLevel level,BlockPos pos,UUID town){
         if(town==null||civics==null||level==null||pos==null)return false;
         var plot=civics.plot(level,pos);
@@ -75,7 +92,11 @@ public final class KingdomResidentSafety {
                                    KingdomNpcData.Worker worker,KingdomNpcData registry){
         var civics=KingdomCivicsData.get(server);
         UUID city=assignedCity(civics,worker);
-        if(city==null)return false; // Wild NPCs not yet accepted into a city.
+        if(city==null){
+            assignLocalCitizen(server,level,npc,worker,registry);
+            city=assignedCity(civics,worker);
+        }
+        if(city==null)return false; // True wilderness residents have no city limits.
         BlockPos here=npc.blockPosition();
         boolean inCity=inside(civics,level,here,city);
         if(inCity){
@@ -137,16 +158,39 @@ public final class KingdomResidentSafety {
         return true;
     }
 
-    /** Death/despawn is confirmed by Forge events. Never touch ordinary villagers. */
+    /**
+     * Confirmed death drops the NPC's real carried items exactly once. A missing
+     * legacy record with possessions cannot be silently discarded by an audit.
+     */
+    private static boolean hasCarriedItems(KingdomNpcData.Worker worker){
+        return worker!=null&&(!worker.cargo.isEmpty()||!worker.fieldTool.isEmpty()
+                ||!worker.fieldInventory.isEmpty()||!worker.wagePurse.isEmpty());
+    }
+    public static boolean retire(ServerLevel level,Villager npc){
+        return npc!=null&&retire(level,npc.getUUID(),npc);
+    }
     public static boolean retire(ServerLevel level,UUID uuid){
+        return retire(level,uuid,null);
+    }
+    private static boolean retire(ServerLevel level,UUID uuid,Villager npc){
         if(level==null||uuid==null)return false;
         MinecraftServer server=level.getServer();
         if(server==null)return false;
         var db=KingdomNpcData.get(server);
-        var worker=db.removeByEntity(uuid);
+        KingdomNpcData.Worker worker=null;
+        for(var w:db.all())if(uuid.equals(w.entityId)){worker=w;break;}
         if(worker==null)return false;
+        if(npc==null&&hasCarriedItems(worker))return false;
+        if(npc!=null){
+            if(!worker.cargo.isEmpty())npc.spawnAtLocation(worker.cargo.copy());
+            if(!worker.fieldTool.isEmpty())npc.spawnAtLocation(worker.fieldTool.copy());
+            for(var stack:worker.fieldInventory)if(!stack.isEmpty())npc.spawnAtLocation(stack.copy());
+            for(var stack:worker.wagePurse)if(!stack.isEmpty())npc.spawnAtLocation(stack.copy());
+        }
+        db.removeByEntity(uuid);
         KingdomEnterprisePayrollData.get(server).retireDeceasedNpc(server,uuid);
         KingdomCivicsData.get(server).removeDeceasedNpc(uuid);
+        ru.projectkingdom.administration.KingdomAdministrationData.get(server).removeDeceasedNpcRoles(uuid);
         return true;
     }
 
@@ -192,6 +236,6 @@ public final class KingdomResidentSafety {
         int removed=0;
         for(UUID id:suspects)if(retire(operator.serverLevel(),id))removed++;
         operator.sendSystemMessage(Component.literal("[Kingdom NPC] Удалены записи: "+removed
-                +". Незагруженные жители не затронуты."));
+                +". Неизвестные/выгруженные NPC и записи с реальными вещами не затронуты."));
     }
 }

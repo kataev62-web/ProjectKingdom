@@ -62,6 +62,13 @@ public final class KingdomAdministrationData extends SavedData {
     }
     public int dataVersion(){return dataVersion;}
     public UUID founder(UUID townId){return founders.get(townId);}
+    /** Revoke stale municipal office badges for confirmed deceased Kingdom citizens. */
+    public void removeDeceasedNpcRoles(UUID npcId){
+        if(npcId==null)return;
+        boolean changed=false;
+        for(var roster:roles.values())changed|=roster.remove(npcId)!=null;
+        if(changed)setDirty();
+    }
 
     /** Privileged service only: transfers founding responsibility, not treasury or land title. */
     public boolean adminChangeFounder(UUID townId,UUID founder){

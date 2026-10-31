@@ -50,6 +50,10 @@ final class KingdomResidentSafetyTest {
         assertTrue(safety.contains("npc.teleportTo("));
         assertTrue(safety.contains("KingdomCivicsData.get(server).removeDeceasedNpc(uuid)"));
         assertTrue(safety.contains("retireDeceasedNpc(server,uuid)"));
+        assertTrue(safety.contains("npc.spawnAtLocation(stack.copy())"));
+        assertTrue(safety.contains("assignLocalCitizen("));
+        assertTrue(safety.contains("hasCarriedItems(worker)"));
+        assertTrue(source("administration/KingdomAdministrationData.java").contains("removeDeceasedNpcRoles(UUID npcId)"));
         assertTrue(source("settlement/KingdomTavernImmigration.java").contains("KingdomResidentSafety.countsAsPresent"));
         assertTrue(mod.contains("Commands.literal(\"residents\")"));
         assertTrue(mod.contains("Commands.literal(\"repair\")"));

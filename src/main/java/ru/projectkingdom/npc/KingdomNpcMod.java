@@ -617,6 +617,7 @@ public final class KingdomNpcMod {
                 if (!level.addFreshEntity(npc)) { reply(src, "Failed to spawn villager"); return 0; }
                 var created = db.add(npc.getUUID(), "Kingdom " + job, level.dimension().location().toString(), level.getDayTime() / TICKS_PER_DAY);
                 KingdomResidentSafety.recordSafe(created,npc.blockPosition(),db);
+                KingdomResidentSafety.assignLocalCitizen(src.getServer(),level,npc,created,db);
                 reply(src, "NPC #" + created.id + " created; job=" + job);
                 return 1;
             })));
@@ -643,6 +644,7 @@ public final class KingdomNpcMod {
                 var worker = db.add(npc.getUUID(), "Kingdom " + job,
                         level.dimension().location().toString(), level.getDayTime() / TICKS_PER_DAY);
                 KingdomResidentSafety.recordSafe(worker,npc.blockPosition(),db);
+                KingdomResidentSafety.assignLocalCitizen(src.getServer(),level,npc,worker,db);
                 worker.gender = "female";
                 worker.ageYears = 25;
                 db.setDirty();
@@ -896,6 +898,7 @@ public final class KingdomNpcMod {
                     p.serverLevel().getDayTime() / TICKS_PER_DAY);
             npc.setPersistenceRequired();
             KingdomResidentSafety.recordSafe(found,npc.blockPosition(),db);
+            KingdomResidentSafety.assignLocalCitizen(p.getServer(),p.serverLevel(),npc,found,db);
             npc.setCustomName(Component.literal(name + " #" + found.id));
             npc.setCustomNameVisible(true);
             p.sendSystemMessage(Component.literal("[Королевство] Житель принят в систему, №" + found.id));
@@ -947,7 +950,7 @@ public final class KingdomNpcMod {
     public void kingdomNpcDeath(net.minecraftforge.event.entity.living.LivingDeathEvent event){
         if(event.getEntity() instanceof Villager villager
                 &&villager.level() instanceof ServerLevel level)
-            KingdomResidentSafety.retire(level,villager.getUUID());
+            KingdomResidentSafety.retire(level,villager);
     }
     @SubscribeEvent
     public void kingdomNpcRemoved(net.minecraftforge.event.entity.EntityLeaveLevelEvent event){
@@ -956,7 +959,7 @@ public final class KingdomNpcMod {
         var reason=villager.getRemovalReason();
         if(reason==net.minecraft.world.entity.Entity.RemovalReason.KILLED
                 ||reason==net.minecraft.world.entity.Entity.RemovalReason.DISCARDED)
-            KingdomResidentSafety.retire(level,villager.getUUID());
+            KingdomResidentSafety.retire(level,villager);
     }
 
     @SubscribeEvent
