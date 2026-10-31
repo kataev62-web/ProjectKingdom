@@ -38,9 +38,11 @@ public final class KingdomResidentSafety {
         if(server==null||level==null||npc==null||worker==null)return;
         var civics=KingdomCivicsData.get(server);
         if(assignedCity(civics,worker)!=null)return;
-        var town=civics.townAt(level,npc.blockPosition());
-        if(town==null&&worker.hasHome)
-            town=civics.townAt(level,new BlockPos(worker.homeX,worker.homeY,worker.homeZ));
+        // A recorded home takes precedence over where a previously free-roaming
+        // villager happened to wander. Do not adopt a foreign city accidentally.
+        var town=worker.hasHome
+                ?civics.townAt(level,new BlockPos(worker.homeX,worker.homeY,worker.homeZ)):null;
+        if(town==null)town=civics.townAt(level,npc.blockPosition());
         if(town==null)return;
         if(civics.joinTown(npc.getUUID(),town.id())||civics.isMember(town.id(),npc.getUUID())){
             worker.settlement=town.id().toString();
