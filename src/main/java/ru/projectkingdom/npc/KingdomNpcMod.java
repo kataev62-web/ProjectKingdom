@@ -1131,6 +1131,28 @@ public final class KingdomNpcMod {
         }
         if(changed)db.setDirty();
     }
+    /** Suspended workers visit a real, loaded company till to collect owed wages.
+     * No remote payout, teleportation or inventory fabrication. */
+    private static boolean seekBackpay(net.minecraft.server.MinecraftServer server,
+            ServerLevel level,Villager npc,KingdomNpcData.Worker worker){
+        if(!worker.contractPaused)return false;
+        var firms=KingdomEnterpriseData.get(server);
+        for(var debt:KingdomEnterprisePayrollData.get(server).all()){
+            if(!worker.entityId.equals(debt.worker())||debt.owed()<1)continue;
+            var firm=firms.find(debt.enterprise());
+            var core=firms.core(debt.enterprise());
+            if(firm==null||core==null||!core.active()
+                    ||!core.dimension().equals(worker.dimension)
+                    ||firm.cash()<=0)continue;
+            BlockPos dest=BlockPos.of(core.packedPos());
+            if(!level.hasChunkAt(dest))continue;
+            if(npc.distanceToSqr(dest.getX()+0.5,dest.getY()+0.5,dest.getZ()+0.5)>9)
+                npc.getNavigation().moveTo(dest.getX()+0.5,dest.getY(),dest.getZ()+0.5,0.8);
+            return true;
+        }
+        return false;
+    }
+
     /** Server-authoritative movement controller; never modifies non-Kingdom villagers. */
     private static void controlLoadedResidents(net.minecraft.server.MinecraftServer server) {
         KingdomNpcData db = KingdomNpcData.get(server);
@@ -1160,6 +1182,7 @@ public final class KingdomNpcMod {
                     // Restore vanilla goals, trading, wandering etc. after dialogue/STOP.
                     if (npc.isNoAi()) npc.setNoAi(false);
                     if (!pathUpdate) continue;
+                    if (seekBackpay(server,level,npc,w)) continue;
                     if ("haul".equals(w.order)) {
                         // Hauling path is managed by NpcLogistics (every second).
                     } else if ("home".equals(w.order) && w.hasHome) {
