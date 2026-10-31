@@ -132,8 +132,9 @@ public final class KingdomCityExpansionPurchase {
         // Actual inter-vault transport to a separate sovereign capital treasury is
         // not enabled until that vault is configured, so do not fake a destination.
         long bankClaims=admin.bankReserve(town.id()),cityClaims=admin.treasuryReserve(town.id());
-        if(treasury==null||bankClaims>Long.MAX_VALUE-cityClaims
-                ||KingdomPhysicalCash.value(treasury)<bankClaims+cityClaims
+        long sovereign=admin.heldExpansionProceeds(town.id());
+        if(treasury==null||KingdomBankData.freePhysicalCopper(KingdomPhysicalCash.value(treasury),
+                        bankClaims,cityClaims,sovereign)<0
                 ||cityClaims<quote.price())
             return Result.INSUFFICIENT_FUNDS;
 

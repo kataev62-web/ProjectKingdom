@@ -11,12 +11,15 @@ final class KingdomExpansionBankFundingTest {
         return Files.readString(Path.of("src/main/java/ru/projectkingdom/"+file));
     }
     @Test void surplusIsOnlyPhysicalMoneyNotAlreadyClaimed() {
-        assertEquals(250,KingdomBankData.freePhysicalCopper(1000,600,150));
-        assertEquals(0,KingdomBankData.freePhysicalCopper(750,600,150));
-        assertEquals(-1,KingdomBankData.freePhysicalCopper(700,600,150));
-        assertEquals(-1,KingdomBankData.freePhysicalCopper(1000,Long.MAX_VALUE,1));
-        assertEquals(-1,KingdomBankData.freePhysicalCopper(-1,0,0));
-        assertEquals(-1,KingdomBankData.freePhysicalCopper(100,-1,0));
+        assertEquals(250,KingdomBankData.freePhysicalCopper(1000,600,150,0));
+        assertEquals(0,KingdomBankData.freePhysicalCopper(750,600,150,0));
+        assertEquals(-1,KingdomBankData.freePhysicalCopper(700,600,150,0));
+        assertEquals(-1,KingdomBankData.freePhysicalCopper(1000,Long.MAX_VALUE,1,0));
+        assertEquals(-1,KingdomBankData.freePhysicalCopper(-1,0,0,0));
+        assertEquals(-1,KingdomBankData.freePhysicalCopper(100,-1,0,0));
+        assertEquals(50,KingdomBankData.freePhysicalCopper(1000,600,150,200));
+        assertEquals(-1,KingdomBankData.freePhysicalCopper(750,600,150,200));
+        assertTrue(src("administration/KingdomAdministrationData.java").contains("heldExpansionProceeds"));
     }
     @Test void movingPersonalBankReceiptChangesOwnershipWithoutCreatingCash() {
         var source=new TownBankFunds.Balances(700,700,0,0,700);

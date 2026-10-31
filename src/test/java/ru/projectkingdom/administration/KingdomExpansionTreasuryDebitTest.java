@@ -13,11 +13,13 @@ class KingdomExpansionTreasuryDebitTest {
         assertTrue(admin.debitExpansion(city, tx, 200));
         assertTrue(admin.debitExpansion(city, tx, 200));
         assertEquals(300, admin.treasuryReserve(city));
+        assertEquals(200,admin.heldExpansionProceeds(city));
         assertFalse(admin.debitExpansion(city, tx, 201));
         assertFalse(admin.debitExpansion(UUID.randomUUID(), tx, 200));
         assertTrue(admin.refundExpansion(tx));
         assertTrue(admin.refundExpansion(tx));
         assertEquals(500, admin.treasuryReserve(city));
+        assertEquals(0,admin.heldExpansionProceeds(city));
         assertFalse(admin.debitExpansion(city, tx, 200));
     }
 
@@ -29,6 +31,7 @@ class KingdomExpansionTreasuryDebitTest {
         assertTrue(admin.debitExpansion(city, tx, 100));
         var restored = KingdomAdministrationData.fromTag(admin.save(new CompoundTag()));
         assertEquals(300, restored.treasuryReserve(city));
+        assertEquals(100,restored.heldExpansionProceeds(city));
         assertNotNull(restored.expansionDebit(tx));
         assertFalse(restored.expansionDebit(tx).refunded());
         assertTrue(restored.refundExpansion(tx));
