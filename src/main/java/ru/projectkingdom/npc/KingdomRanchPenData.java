@@ -44,6 +44,17 @@ public final class KingdomRanchPenData extends SavedData {
         pens.put(pen,new Pen(p.id(),p.farm(),p.dimension(),p.minX(),p.maxX(),p.y(),
             p.minZ(),p.maxZ(),!p.enabled()));setDirty();return true;
     }
+    /** Modern municipal deeds have priority over legacy NPC territory claims.
+     * Only the current owner, lawful tenant or delegated worker may configure a pen.
+     */
+    public static boolean canRegisterAt(ServerLevel level,BlockPos pos,UUID actor){
+        if(level==null||pos==null||actor==null||!level.hasChunkAt(pos))return false;
+        var civics=KingdomCivicsData.get(level.getServer());
+        if(civics.plot(level,pos)!=null)
+            return civics.allowed(actor,level.dimension().location().toString(),
+                    pos.getX(),pos.getZ(),KingdomCivicsData.Action.BUILD);
+        return KingdomTerritories.get(level.getServer()).canUse(level,pos,actor);
+    }
     public boolean register(ServerPlayer player,UUID farm,BlockPos one,BlockPos two){
         if(!KingdomFarmFieldData.allowed(player,farm)||one.getY()!=two.getY()
             ||of(farm).size()>=MAX_PENS)return false;
@@ -57,10 +68,9 @@ public final class KingdomRanchPenData extends SavedData {
         String dimension=level.dimension().location().toString();
         for(Pen p:pens.values())if(p.dimension().equals(dimension)&&p.y()==one.getY()
             &&x1<=p.maxX()&&x2>=p.minX()&&z1<=p.maxZ()&&z2>=p.minZ())return false;
-        var land=KingdomTerritories.get(level.getServer());
         for(int x=x1;x<=x2;x++)for(int z=z1;z<=z2;z++){
             BlockPos soil=new BlockPos(x,one.getY(),z);
-            if(!level.hasChunkAt(soil)||!land.canUse(level,soil,player.getUUID()))return false;
+            if(!canRegisterAt(level,soil,player.getUUID()))return false;
         }
         Pen p=new Pen(UUID.randomUUID(),farm,dimension,x1,x2,one.getY(),z1,z2,true);
         pens.put(p.id(),p);setDirty();return true;
@@ -81,10 +91,9 @@ public final class KingdomRanchPenData extends SavedData {
         String dimension=level.dimension().location().toString();
         for(Pen p:pens.values())if(p.dimension().equals(dimension)&&p.y()==one.getY()
             &&x1<=p.maxX()&&x2>=p.minX()&&z1<=p.maxZ()&&z2>=p.minZ())return false;
-        var land=KingdomTerritories.get(level.getServer());
         for(int x=x1;x<=x2;x++)for(int z=z1;z<=z2;z++){
             BlockPos soil=new BlockPos(x,one.getY(),z);
-            if(!level.hasChunkAt(soil)||!land.canUse(level,soil,npcOwner))return false;
+            if(!canRegisterAt(level,soil,npcOwner))return false;
         }
         Pen pen=new Pen(UUID.randomUUID(),farm,dimension,x1,x2,one.getY(),z1,z2,true);
         pens.put(pen.id(),pen);setDirty();return true;
