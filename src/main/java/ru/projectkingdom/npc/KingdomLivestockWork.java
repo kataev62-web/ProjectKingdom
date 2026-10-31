@@ -3,7 +3,10 @@ package ru.projectkingdom.npc;
 import java.lang.reflect.Method;
 import java.util.*;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.Registries;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.TagKey;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.npc.Villager;
@@ -21,6 +24,8 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
  */
 public final class KingdomLivestockWork {
     private KingdomLivestockWork(){}
+    private static final TagKey<net.minecraft.world.entity.EntityType<?>> TFC_LIVESTOCK=
+        TagKey.create(Registries.ENTITY_TYPE,new ResourceLocation("tfc","livestock"));
     private static boolean loaded,compatible;
     private static Class<?> tfcAnimal;
     private static Method hungry,isFood,getCalendar,getTotalDays,lastFed,getFamiliarity,
@@ -160,8 +165,10 @@ public final class KingdomLivestockWork {
         for(Animal animal:level.getEntitiesOfClass(Animal.class,bounds,
                 entity->entity.isAlive()&&pen.contains(entity))){
             count++;
+            // The official TFC entity tag identifies its whole livestock roster,
+            // including horses and other types even if an API adapter is unavailable.
+            if(animal.getType().is(TFC_LIVESTOCK))tfcCount++;
             if(!isTfc(animal))continue;
-            tfcCount++;
             if(hungry(animal))needsFood++;
             if(KingdomTfcMilkWork.readyForMilking(animal))milkReady++;
             if(animal instanceof IForgeShearable shearable
