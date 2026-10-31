@@ -71,10 +71,6 @@ public final class KingdomLivestockWork {
         return food.hasCraftingRemainingItem()?food.getCraftingRemainingItem().copy():ItemStack.EMPTY;
     }
     private static boolean canCarryFeed(KingdomNpcData.Worker w,ItemStack food){
-        var cargo=new ArrayList<ItemStack>();
-        cargo.add(food.copyWithCount(1));
-        ItemStack remainder=feedRemainder(food);
-        if(!remainder.isEmpty())cargo.add(remainder);
         // The food unit is consumed before its one-item container is returned.
         return NpcFieldWork.canFit(w,List.of(food.copyWithCount(1)));
     }
