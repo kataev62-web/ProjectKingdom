@@ -9,6 +9,10 @@ import ru.projectkingdom.enterprise.EnterpriseBuildingRegistration;
 
 /** Production regressions for physical TFC woodcutting and smithing, never phantom crafts. */
 final class KingdomTfcSmithAndForestRegressionTest {
+    @org.junit.jupiter.api.BeforeAll static void initializeMinecraft(){
+        net.minecraft.SharedConstants.tryDetectVersion();
+        net.minecraft.server.Bootstrap.bootStrap();
+    }
     private static String source(String name)throws Exception{
         return Files.readString(Path.of("src/main/java/ru/projectkingdom/"+name));
     }
