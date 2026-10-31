@@ -25,6 +25,13 @@ public final class EnterpriseBuildingSelection {
         var core=data.core(enterprise);
         if(!core.active()||!core.dimension().equals(player.serverLevel().dimension().location().toString()))
             return false;
+        // Exactly one corner survey must consume each physical click.
+        ru.projectkingdom.property.KingdomRentalSelection.cancel(player.getUUID());
+        ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(player.getUUID());
+        ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(player.getUUID());
+        ru.projectkingdom.npc.KingdomFarmSelection.cancel(player.getUUID());
+        ru.projectkingdom.npc.KingdomForestSelection.cancel(player.getUUID());
+        ru.projectkingdom.npc.KingdomStructureCopy.cancel(player.getUUID());
         SESSIONS.put(player.getUUID(),new Pending(enterprise,core.dimension(),null,
                 player.serverLevel().getGameTime()+TTL));
         player.sendSystemMessage(Component.literal("[Здание] Пустой рукой Shift+ПКМ по двум противоположным углам здания: нижнему и верхнему. Вся область, включая TFC полки, сундуки, кровати и станки, войдёт в здание."));
