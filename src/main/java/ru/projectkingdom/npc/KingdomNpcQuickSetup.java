@@ -185,6 +185,15 @@ public final class KingdomNpcQuickSetup {
             }
             if(machine==null)machine=workstation(level,worker.job,center,owner);
         }
+        if("smith".equals(worker.job)){
+            var building=ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(server)
+                    .room(business.id());
+            if(building==null)return new Result(false,
+                    "Сначала зарегистрируй здание кузницы через производственный блок.");
+            if(machine==null||!KingdomTfcSmithWork.inside(building,machine))
+                return new Result(false,
+                    "В зарегистрированном здании не найден горн TFC.");
+        }
         // Real TFC work requires physical chests within six blocks of the machine.
         BlockPos storageCenter=machine!=null?machine:center;
         // Builders obtain their materials from a real construction project.
@@ -208,15 +217,6 @@ public final class KingdomNpcQuickSetup {
                 EnterpriseBindingRole.FINISHED_STORAGE)))
             return new Result(false,"Склады заняты другой ролью или предприятием. "
                 +"Выбери свободные сундуки на своей земле.");
-        if("smith".equals(worker.job)){
-            var building=ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(server)
-                    .room(business.id());
-            if(building==null)return new Result(false,
-                    "Сначала зарегистрируй здание кузницы через производственный блок.");
-            if(machine==null||!KingdomTfcSmithWork.inside(building,machine))
-                return new Result(false,
-                    "В зарегистрированном здании не найден горн TFC.");
-        }
         if(machine!=null && !land.register(level,machine,owner,"workstation"))
             machine=null;
         var payroll=KingdomEnterprisePayrollData.get(server);
