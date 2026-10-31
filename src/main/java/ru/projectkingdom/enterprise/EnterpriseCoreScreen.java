@@ -66,7 +66,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
         renameButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Сохранить"),b->KingdomNetwork.CHANNEL.sendToServer(new RenameEnterprisePacket(menu.enterpriseId(),rename.getValue()))).bounds(leftPos+264,topPos+94,44,20).build());
-        registerBuildingButton=addRenderableWidget(action("Зарегистрировать здание",70,169,236,
+        registerBuildingButton=addRenderableWidget(action("Привязать здание: 2 угла",70,169,236,
                 EnterpriseCoreMenu.REGISTER_BUILDING));
         closeButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Закрыть предприятие"),b->{
             if(minecraft==null||minecraft.gameMode==null)return;
@@ -126,7 +126,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 line(g,"Состояние: активно",54,98);
                 line(g,"Ядро: "+menu.enterpriseId(),54,114);
                 line(g,menu.buildingState(),54,134);
-                line(g,"Пол + стены + крыша + окно/забор.",54,151);
+                line(g,"Нижний и верхний углы — Shift+ПКМ.",54,151);
             }
             case WORKERS->{
                 line(g,"Работников: "+menu.workers(),54,82);

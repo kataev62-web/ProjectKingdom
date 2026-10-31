@@ -74,7 +74,7 @@ public final class EnterpriseCoreBlock extends Block implements EntityBlock {
             reject(server,pos,player,stack,reason);return;
         }
         if(server.getBlockEntity(pos) instanceof EnterpriseCoreBlockEntity core)core.bind(identity.enterprise(),identity.owner(),kind);
-        player.sendSystemMessage(Component.literal("[Project Kingdom] Ядро установлено. Постройте помещение с полом, стенами, крышей и окном (можно забор), затем откройте вкладку «Сведения» → «Зарегистрировать здание»."));
+        player.sendSystemMessage(Component.literal("[Project Kingdom] Ядро установлено. Откройте «Сведения» → «Привязать здание: 2 угла» и отметьте нижний и верхний углы всех этажей."));
     }
 
     private static boolean canPlaceBusiness(ServerLevel level,BlockPos pos,java.util.UUID owner){

@@ -193,13 +193,9 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
         if(action==REGISTER_BUILDING){
             if(!data.mayManage(server.getUUID(),enterpriseId))return false;
-            var result=EnterpriseBuildingRegistration.get(server.getServer())
-                    .register(server,enterpriseId,corePos);
-            server.sendSystemMessage(Component.literal("[Здание] "+result.status().message()
-                    +(result.success()?" | размер "+result.room().dimensions()
-                        +" | окон/заборов "+result.room().windows():"")));
-            if(result.success())server.closeContainer(); // reopen to see the saved status
-            return result.success();
+            boolean started=EnterpriseBuildingSelection.begin(server,enterpriseId);
+            if(started)server.closeContainer();
+            return started;
         }
         if(action==MIGRATE_CASH){
             if(!data.mayManage(server.getUUID(),enterpriseId))return false;

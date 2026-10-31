@@ -112,6 +112,12 @@ public final class KingdomNpcMod {
         }
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
+    /** Enterprise selection owns these two clicks, including canceled inventory clicks. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
+    public void selectEnterpriseCorners(PlayerInteractEvent.RightClickBlock event){
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.select(event);
+    }
+
     /** Room/building surveying is a private two-click server session. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
     public void selectRentalCorners(PlayerInteractEvent.RightClickBlock event) {
@@ -297,7 +303,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID());KingdomAdminDashboardService.close(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID());KingdomAdminDashboardService.close(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
@@ -1125,6 +1131,28 @@ public final class KingdomNpcMod {
         }
         if(changed)db.setDirty();
     }
+    /** Suspended workers visit a real, loaded company till to collect owed wages.
+     * No remote payout, teleportation or inventory fabrication. */
+    private static boolean seekBackpay(net.minecraft.server.MinecraftServer server,
+            ServerLevel level,Villager npc,KingdomNpcData.Worker worker){
+        if(!worker.contractPaused)return false;
+        var firms=KingdomEnterpriseData.get(server);
+        for(var debt:KingdomEnterprisePayrollData.get(server).all()){
+            if(!worker.entityId.equals(debt.worker())||debt.owed()<1)continue;
+            var firm=firms.find(debt.enterprise());
+            var core=firms.core(debt.enterprise());
+            if(firm==null||core==null||!core.active()
+                    ||!core.dimension().equals(worker.dimension)
+                    ||firm.cash()<=0)continue;
+            BlockPos dest=BlockPos.of(core.packedPos());
+            if(!level.hasChunkAt(dest))continue;
+            if(npc.distanceToSqr(dest.getX()+0.5,dest.getY()+0.5,dest.getZ()+0.5)>9)
+                npc.getNavigation().moveTo(dest.getX()+0.5,dest.getY(),dest.getZ()+0.5,0.8);
+            return true;
+        }
+        return false;
+    }
+
     /** Server-authoritative movement controller; never modifies non-Kingdom villagers. */
     private static void controlLoadedResidents(net.minecraft.server.MinecraftServer server) {
         KingdomNpcData db = KingdomNpcData.get(server);
@@ -1154,6 +1182,7 @@ public final class KingdomNpcMod {
                     // Restore vanilla goals, trading, wandering etc. after dialogue/STOP.
                     if (npc.isNoAi()) npc.setNoAi(false);
                     if (!pathUpdate) continue;
+                    if (seekBackpay(server,level,npc,w)) continue;
                     if ("haul".equals(w.order)) {
                         // Hauling path is managed by NpcLogistics (every second).
                     } else if ("home".equals(w.order) && w.hasHome) {

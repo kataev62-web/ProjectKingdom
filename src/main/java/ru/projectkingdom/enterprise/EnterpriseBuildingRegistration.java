@@ -53,8 +53,8 @@ public final class EnterpriseBuildingRegistration extends SavedData {
         NO_CORE("Нет действующего блока предприятия"),
         NO_ACCESS("Регистрация доступна только владельцу"),
         NO_ROOM("Нет закрытого помещения вокруг блока"),
-        TOO_LARGE("Здание слишком большое: максимум 20×20, высота 8 блоков"),
-        TOO_SMALL("Нужно помещение минимум 3×3 блока внутри"),
+        TOO_LARGE("Здание: область больше 64×48×64 или 32768 блоков"),
+        TOO_SMALL("Минимальный размер здания: 2×2×3 блока"),
         NO_FLOOR("В полу есть отверстие или вместо пола неполный блок"),
         NO_WALLS("Стены не замкнуты: заделайте проёмы дверями, окнами или забором"),
         NO_ROOF("Нет сплошной крыши над помещением"),
@@ -68,6 +68,8 @@ public final class EnterpriseBuildingRegistration extends SavedData {
     }
     public record Room(UUID enterprise,String dimension,long core,int minX,int minY,int minZ,
                        int maxX,int maxY,int maxZ,int windows,int interiorArea) {
+        public boolean contains(BlockPos pos){return pos!=null&&pos.getX()>=minX&&pos.getX()<=maxX
+                &&pos.getY()>=minY&&pos.getY()<=maxY&&pos.getZ()>=minZ&&pos.getZ()<=maxZ;}
         public String dimensions(){return (maxX-minX+1)+"×"+(maxY-minY+1)+"×"+(maxZ-minZ+1);}
         public boolean overlaps(Room other){
             return other!=null&&dimension.equals(other.dimension)
@@ -90,10 +92,11 @@ public final class EnterpriseBuildingRegistration extends SavedData {
     public String status(ServerPlayer viewer,UUID enterprise,BlockPos core){
         Room saved=room(enterprise);
         if(saved==null)return "Здание: не зарегистрировано";
-        Check live=inspect(viewer.serverLevel(),enterprise,core);
-        return live.success()&&saved.equals(live.room())
-                ?"Здание: зарегистрировано ("+saved.dimensions()+")"
-                :"Здание: требует повторной проверки ("+live.status().message()+")";
+        var binding=KingdomEnterpriseData.get(viewer.getServer()).core(enterprise);
+        return binding!=null&&binding.active()&&binding.packedPos()==core.asLong()
+                &&saved.core()==core.asLong()
+                ?"Здание: привязано по углам ("+saved.dimensions()+")"
+                :"Здание: ядро перенесено, требуется новая привязка";
     }
 
     /** Validates exact core ID, ownership, structure, city plot and nonoverlap. */
@@ -129,6 +132,93 @@ public final class EnterpriseBuildingRegistration extends SavedData {
             return new Check(Status.OVERLAP,null);
         rooms.put(enterprise,room);setDirty();
         return result;
+    }
+
+    /** Registered area: all interior blocks, TFC racks, beds and machinery belong to the site.
+     * No item is moved, no NBT is copied, and unloaded chunks always fail closed. */
+    public Check registerSelected(ServerPlayer actor,UUID enterprise,BlockPos first,BlockPos second){
+        if(actor==null||enterprise==null||first==null||second==null)
+            return new Check(Status.NO_CORE,null);
+        var enterprises=KingdomEnterpriseData.get(actor.getServer());
+        var firm=enterprises.find(enterprise);
+        if(firm==null||!enterprises.mayManage(actor.getUUID(),enterprise))
+            return new Check(Status.NO_ACCESS,null);
+        var binding=enterprises.core(enterprise);
+        ServerLevel level=actor.serverLevel();
+        String dim=level.dimension().location().toString();
+        if(binding==null||!binding.active()||!dim.equals(binding.dimension())
+                ||!firm.owner().equals(binding.owner()))
+            return new Check(Status.NO_CORE,null);
+        BlockPos core=BlockPos.of(binding.packedPos());
+        if(!level.hasChunkAt(core)
+                ||!(level.getBlockEntity(core) instanceof EnterpriseCoreBlockEntity entity)
+                ||!entity.bound()||!enterprise.equals(entity.enterpriseId())
+                ||!actor.getUUID().equals(entity.owner()))
+            return new Check(Status.NO_CORE,null);
+        int x1=Math.min(first.getX(),second.getX()),x2=Math.max(first.getX(),second.getX());
+        int y1=Math.min(first.getY(),second.getY()),y2=Math.max(first.getY(),second.getY());
+        int z1=Math.min(first.getZ(),second.getZ()),z2=Math.max(first.getZ(),second.getZ());
+        long dx=(long)x2-x1+1,dy=(long)y2-y1+1,dz=(long)z2-z1+1;
+        if(dx>64||dy>48||dz>64||dx*dy*dz>32768)return new Check(Status.TOO_LARGE,null);
+        if(dx<2||dy<3||dz<2)return new Check(Status.TOO_SMALL,null);
+        Room room=new Room(enterprise,dim,core.asLong(),x1,y1,z1,x2,y2,z2,0,(int)(dx*dz));
+        if(!room.contains(core))return new Check(Status.NO_CORE,null);
+        var civics=KingdomCivicsData.get(actor.getServer());
+        var legacy=KingdomTerritories.get(actor.getServer());
+        for(int cx=x1>>4;cx<=x2>>4;cx++)for(int cz=z1>>4;cz<=z2>>4;cz++){
+            BlockPos sample=new BlockPos(cx*16+8,core.getY(),cz*16+8);
+            if(!level.hasChunkAt(sample))return new Check(Status.UNLOADED,null);
+            UUID titled=civics.plotOwner(dim,cx,cz);
+            if(titled!=null){
+                if(!actor.getUUID().equals(titled)
+                        ||civics.leaseContract(dim,cx,cz)!=null)
+                    return new Check(Status.FOREIGN_LAND,null);
+            }else if(!actor.getUUID().equals(legacy.legacyClaimOwner(dim,cx,cz)))
+                return new Check(Status.FOREIGN_LAND,null);
+        }
+        for(Room prior:rooms.values())if(!enterprise.equals(prior.enterprise())&&room.overlaps(prior))
+            return new Check(Status.OVERLAP,null);
+        // A landlord cannot reclaim a prepaid tenant's room by redefining the
+        // surrounding enterprise boundary. Expired rentals need lawful turnover.
+        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(actor.getServer());
+        var bounds=new ru.projectkingdom.property.KingdomRentalsData.Bounds(
+                x1,y1,z1,x2,y2,z2);
+        for(var rented:rentals.rooms())if(rented.reserved()){
+            var building=rentals.building(rented.buildingId());
+            if(building!=null&&dim.equals(building.dimension())
+                    &&rented.bounds().overlaps(bounds))
+                return new Check(Status.NO_ACCESS,null);
+        }
+        rooms.put(enterprise,room);setDirty();
+        // Register in the existing property ledger when possible; never create a
+        // tenant, charge a rent or transfer ownership merely by drawing corners.
+        if(rentals.atBuilding(dim,core)==null){
+            rentals.registerBuilding(civics,actor.getUUID(),dim,
+                    ("Предприятие: "+firm.name()).substring(0,
+                            Math.min(48,("Предприятие: "+firm.name()).length())),bounds);
+        }
+        return new Check(Status.REGISTERED,room);
+    }
+
+    /** Statistics only; all compatible inventories stay physical and in their actual blocks. */
+    public record Contents(int beds,int inventories,int tfcBlocks) {}
+    public static Contents contents(ServerLevel level,Room room){
+        if(level==null||room==null||!room.dimension().equals(level.dimension().location().toString()))
+            return new Contents(0,0,0);
+        int beds=0,containers=0,tfc=0;
+        for(int x=room.minX();x<=room.maxX();x++)
+            for(int z=room.minZ();z<=room.maxZ();z++)
+                for(int y=room.minY();y<=room.maxY();y++){
+                    BlockPos at=new BlockPos(x,y,z);
+                    if(!level.hasChunkAt(at))continue;
+                    var block=level.getBlockState(at).getBlock();
+                    if(block instanceof net.minecraft.world.level.block.BedBlock)beds++;
+                    if(net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                            .getKey(block).getNamespace().equals("tfc"))tfc++;
+                    if(ru.projectkingdom.npc.KingdomContainerAccess.resolve(level,at)!=null)
+                        containers++;
+                }
+        return new Contents(beds,containers,tfc);
     }
 
     public Check inspect(ServerLevel level,UUID enterprise,BlockPos core){
