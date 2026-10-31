@@ -15,6 +15,8 @@ public final class KingdomForestSelection {
     private KingdomForestSelection(){}
     private record Session(UUID enterprise,String dimension,BlockPos first,long expiry){}
     private static final Map<UUID,Session> ACTIVE=new ConcurrentHashMap<>();
+    public static void cancel(UUID player){ACTIVE.remove(player);}
+
     public static boolean begin(ServerPlayer actor,UUID lumber){
         if(!KingdomForestData.allowed(actor,lumber))return false;
         ACTIVE.put(actor.getUUID(),new Session(lumber,
