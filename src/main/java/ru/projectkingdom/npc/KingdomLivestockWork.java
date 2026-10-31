@@ -56,6 +56,12 @@ public final class KingdomLivestockWork {
         try{return Boolean.TRUE.equals(hungry.invoke(animal));}
         catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
+    /** Called before native TFC interaction only to explain its once-per-day rule. */
+    public static String playerFeedNotice(Animal animal,ItemStack held){
+        if(!isTfc(animal)||!food(animal,held)||hungry(animal))return null;
+        return "[Животноводство] Это животное уже накормлено сегодня по календарю TFC. "
+            +"Повторное кормление станет доступно после смены игрового дня.";
+    }
     private static boolean food(Animal animal,ItemStack item) {
         if(item.isEmpty())return false;
         try{return Boolean.TRUE.equals(isFood.invoke(animal,item));}
@@ -69,7 +75,8 @@ public final class KingdomLivestockWork {
         cargo.add(food.copyWithCount(1));
         ItemStack remainder=feedRemainder(food);
         if(!remainder.isEmpty())cargo.add(remainder);
-        return NpcFieldWork.canFit(w,cargo);
+        // The food unit is consumed before its one-item container is returned.
+        return NpcFieldWork.canFit(w,List.of(food.copyWithCount(1)));
     }
     private static boolean feed(Animal animal,ItemStack item,KingdomNpcData.Worker worker){
         if(!hungry(animal)||!food(animal,item))return false;
@@ -85,14 +92,9 @@ public final class KingdomLivestockWork {
             setFamiliarity.invoke(animal,Math.min(cap,familiar+0.06f));
             animal.heal(1f);
             item.shrink(1);
-            // The consumed unit frees carrying capacity for a bowl/container.
-            if(!remainder.isEmpty()){
-                if(!NpcFieldWork.canFit(worker,List.of(remainder))){
-                    item.grow(1);
-                    return false;
-                }
-                NpcFieldWork.put(worker,remainder);
-            }
+            // The consumed unit frees exactly the carrying space needed by a
+            // normal one-item crafting remainder (e.g. a bowl).
+            if(!remainder.isEmpty())NpcFieldWork.put(worker,remainder);
             return true;
         }catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
