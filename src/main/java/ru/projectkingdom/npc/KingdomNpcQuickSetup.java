@@ -43,8 +43,9 @@ public final class KingdomNpcQuickSetup {
     }
     private static boolean station(String job,String id){
         if(!workshop(job))return false;
-        if("smith".equals(job))return "tfc:charcoal_forge".equals(id)
-            ||id.startsWith("tfc:metal/anvil/");
+        // The forge is the NPC's assigned station; the anvil is a separate
+        // device discovered INSIDE the same registered smithy building.
+        if("smith".equals(job))return "tfc:charcoal_forge".equals(id);
         if("weaver".equals(job))return "tfc:loom".equals(id);
         if("tanner".equals(job))return "tfc:barrel".equals(id);
         if("baker".equals(job))return "tfc:quern".equals(id)
