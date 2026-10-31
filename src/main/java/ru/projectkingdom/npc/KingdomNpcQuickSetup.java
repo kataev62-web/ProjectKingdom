@@ -102,12 +102,13 @@ public final class KingdomNpcQuickSetup {
         var registered=firms.storageBinding(enterprise,role);
         if(registered!=null&&registered.dimension().equals(level.dimension().location().toString())
                 &&!registered.pos().equals(excluded)
+                &&registered.pos().distSqr(center)<=36
                 &&acceptable(level,registered.pos(),owner,label,enterprise,firms)
                 &&NpcLogistics.isContainer(level,registered.pos()))return registered.pos();
         BlockPos best=null;double distance=Double.MAX_VALUE;
         for(int x=-7;x<=7;x++)for(int y=-3;y<=3;y++)for(int z=-7;z<=7;z++){
             BlockPos p=center.offset(x,y,z);
-            if(p.equals(excluded)||!level.hasChunkAt(p)
+            if(p.equals(excluded)||p.distSqr(center)>36||!level.hasChunkAt(p)
                 ||!NpcLogistics.isContainer(level,p)
                 ||!acceptable(level,p,owner,label,enterprise,firms))continue;
             double score=p.distSqr(center);
@@ -167,6 +168,20 @@ public final class KingdomNpcQuickSetup {
         var land=KingdomTerritories.get(server);
         if(!land.canUse(level,center,owner))
             return new Result(false,"Территория ядра не закреплена за владельцем. Оформи участок в ратуше.");
+        BlockPos machine=null;
+        if(workshop(worker.job)){
+            // Preserve a correctly assigned TFC machine, otherwise find one.
+            if(worker.hasWorkstation){
+                var previous=new BlockPos(worker.workX,worker.workY,worker.workZ);
+                if(level.hasChunkAt(previous)&&land.canUse(level,previous,owner)
+                    &&station(worker.job,BuiltInRegistries.BLOCK.getKey(
+                        level.getBlockState(previous).getBlock()).toString()))
+                    machine=previous;
+            }
+            if(machine==null)machine=workstation(level,worker.job,center,owner);
+        }
+        // Real TFC work requires physical chests within six blocks of the machine.
+        BlockPos storageCenter=machine!=null?machine:center;
         // Builders obtain their materials from a real construction project.
         // Couriers work with each real delivery order. Neither needs two fixed
         // personal warehouse bindings merely to start a shift.
@@ -174,10 +189,10 @@ public final class KingdomNpcQuickSetup {
             !=KingdomNpcDuty.Kind.CONSTRUCTION
             && KingdomNpcDuty.kind(worker.job)!=KingdomNpcDuty.Kind.DELIVERY;
         BlockPos source=warehousesRequired
-            ?storage(level,firms,business.id(),owner,center,
+            ?storage(level,firms,business.id(),owner,storageCenter,
                 EnterpriseBindingRole.RAW_STORAGE,null):null;
         BlockPos dest=warehousesRequired
-            ?storage(level,firms,business.id(),owner,center,
+            ?storage(level,firms,business.id(),owner,storageCenter,
                 EnterpriseBindingRole.FINISHED_STORAGE,source):null;
         if(warehousesRequired&&(source==null||dest==null))return new Result(false,
             "Возле «"+business.name()+"» не найдены ДВА разных склада на своей земле. "
@@ -188,18 +203,6 @@ public final class KingdomNpcQuickSetup {
                 EnterpriseBindingRole.FINISHED_STORAGE)))
             return new Result(false,"Склады заняты другой ролью или предприятием. "
                 +"Выбери свободные сундуки на своей земле.");
-        BlockPos machine=null;
-        if(workshop(worker.job)){
-            // Never discard an already valid manually selected TFC machine.
-            if(worker.hasWorkstation){
-                var old=new BlockPos(worker.workX,worker.workY,worker.workZ);
-                if(level.hasChunkAt(old)&&land.canUse(level,old,owner)
-                    &&station(worker.job,BuiltInRegistries.BLOCK.getKey(
-                        level.getBlockState(old).getBlock()).toString()))
-                    machine=old;
-            }
-            if(machine==null)machine=workstation(level,worker.job,center,owner);
-        }
         if(machine!=null && !land.register(level,machine,owner,"workstation"))
             machine=null;
         var payroll=KingdomEnterprisePayrollData.get(server);
