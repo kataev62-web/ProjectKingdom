@@ -74,7 +74,6 @@ public final class KingdomLivestockWork {
     private static boolean feed(Animal animal,ItemStack item,KingdomNpcData.Worker worker){
         if(!hungry(animal)||!food(animal,item))return false;
         ItemStack remainder=feedRemainder(item);
-        if(!remainder.isEmpty()&&!NpcFieldWork.canFit(worker,List.of(remainder)))return false;
         try{
             Object calendar=getCalendar.invoke(animal);
             long day=((Number)getTotalDays.invoke(calendar)).longValue();
@@ -86,7 +85,14 @@ public final class KingdomLivestockWork {
             setFamiliarity.invoke(animal,Math.min(cap,familiar+0.06f));
             animal.heal(1f);
             item.shrink(1);
-            if(!remainder.isEmpty())NpcFieldWork.put(worker,remainder);
+            // The consumed unit frees carrying capacity for a bowl/container.
+            if(!remainder.isEmpty()){
+                if(!NpcFieldWork.canFit(worker,List.of(remainder))){
+                    item.grow(1);
+                    return false;
+                }
+                NpcFieldWork.put(worker,remainder);
+            }
             return true;
         }catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
