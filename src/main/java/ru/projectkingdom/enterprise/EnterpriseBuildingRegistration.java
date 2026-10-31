@@ -178,15 +178,24 @@ public final class EnterpriseBuildingRegistration extends SavedData {
         }
         for(Room prior:rooms.values())if(!enterprise.equals(prior.enterprise())&&room.overlaps(prior))
             return new Check(Status.OVERLAP,null);
+        // A landlord cannot reclaim a prepaid tenant's room by redefining the
+        // surrounding enterprise boundary. Expired rentals need lawful turnover.
+        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(actor.getServer());
+        var bounds=new ru.projectkingdom.property.KingdomRentalsData.Bounds(
+                x1,y1,z1,x2,y2,z2);
+        for(var rented:rentals.rooms())if(rented.reserved()){
+            var building=rentals.building(rented.buildingId());
+            if(building!=null&&dim.equals(building.dimension())
+                    &&rented.bounds().overlaps(bounds))
+                return new Check(Status.NO_ACCESS,null);
+        }
         rooms.put(enterprise,room);setDirty();
         // Register in the existing property ledger when possible; never create a
         // tenant, charge a rent or transfer ownership merely by drawing corners.
-        var rentals=ru.projectkingdom.property.KingdomRentalsData.get(actor.getServer());
         if(rentals.atBuilding(dim,core)==null){
-            var bounds=new ru.projectkingdom.property.KingdomRentalsData.Bounds(
-                    x1,y1,z1,x2,y2,z2);
             rentals.registerBuilding(civics,actor.getUUID(),dim,
-                    "Предприятие: "+firm.name(),bounds);
+                    ("Предприятие: "+firm.name()).substring(0,
+                            Math.min(48,("Предприятие: "+firm.name()).length())),bounds);
         }
         return new Check(Status.REGISTERED,room);
     }
