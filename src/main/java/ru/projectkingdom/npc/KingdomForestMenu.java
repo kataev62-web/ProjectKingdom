@@ -65,6 +65,7 @@ public final class KingdomForestMenu extends ChestMenu {
         icon(21,Items.BARRIER,"УДАЛИТЬ выбранный план (деревья останутся)");
         icon(22,Items.CHEST,"НОРМЫ ДРЕВЕСИНЫ: изменить min/max 32/128 → 64/256 → 128/512");
         icon(23,Items.BONE_MEAL,"ВОССТАНОВЛЕНИЕ ЛЕСА: включить/выключить посадки из склада");
+        icon(24,Items.SPRUCE_SAPLING,"СЛЕДУЮЩАЯ ПОРОДА: перебрать реальные виды TFC без саженца в руке");
         icon(26,Items.OAK_DOOR,"ЗАКРЫТЬ");
         broadcastChanges();
     }
@@ -103,6 +104,17 @@ public final class KingdomForestMenu extends ChestMenu {
                 data.cycleStock(viewer,business,plots.get(selection).id());}
             case 23 -> {if(selection<plots.size())
                 data.toggleReplant(viewer,business,plots.get(selection).id());}
+            case 24 -> {
+                if(selection>=plots.size()){info("Сначала создай участок.");break;}
+                var available=BuiltInRegistries.ITEM.keySet().stream()
+                    .map(ResourceLocation::toString)
+                    .filter(KingdomTfcForestry::validSapling).sorted().toList();
+                if(available.isEmpty()){info("Совместимые саженцы TFC не зарегистрированы.");break;}
+                int at=available.indexOf(plots.get(selection).sapling());
+                String selected=available.get((at+1)%available.size());
+                if(data.setSapling(viewer,business,plots.get(selection).id(),selected))
+                    info("Выбран "+selected+". На сырьевом складе нужны реальные саженцы.");
+            }
             case 26 -> {viewer.closeContainer();return;}
             default -> {}
         }

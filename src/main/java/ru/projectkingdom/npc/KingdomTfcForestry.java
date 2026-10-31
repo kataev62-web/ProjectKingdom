@@ -43,15 +43,19 @@ public final class KingdomTfcForestry {
         new ResourceLocation("tfc","axes_that_log"));
     private static final int MAX_TREE=160;
     private static boolean initialized,available;
-    private static Method nativeLogging;
-    private record HarvestContext(ServerLevel level,List<ItemEntity> drops){}
+    private static Method nativeLogging,nativeShouldLog;
+    private static final String LOG_LOOT_OWNER="KingdomForestWorker";
+    private record HarvestContext(ServerLevel level,UUID worker,List<ItemEntity> drops){}
     private static final ThreadLocal<HarvestContext> CURRENT=new ThreadLocal<>();
 
     @SubscribeEvent public static void recordDrop(EntityJoinLevelEvent event){
         var context=CURRENT.get();
         if(context!=null&&event.getLevel()==context.level()
                 &&event.getEntity() instanceof ItemEntity item
-                &&item.isAlive())context.drops().add(item);
+                &&item.isAlive()){
+            item.getPersistentData().putUUID(LOG_LOOT_OWNER,context.worker());
+            context.drops().add(item);
+        }
     }
     public static boolean validSapling(String id){
         if(id==null||!id.startsWith("tfc:wood/sapling/"))return false;
@@ -76,6 +80,8 @@ public final class KingdomTfcForestry {
             Class<?> helper=Class.forName("net.dries007.tfc.util.AxeLoggingHelper");
             nativeLogging=helper.getMethod("doLogging",LevelAccessor.class,BlockPos.class,
                 net.minecraft.world.entity.player.Player.class,ItemStack.class);
+            nativeShouldLog=helper.getMethod("shouldLog",LevelAccessor.class,BlockPos.class,
+                BlockState.class,ItemStack.class);
             available=true;
         }catch(ReflectiveOperationException|LinkageError ex){
             System.err.println("[Kingdom] TFC natural tree logging unavailable: "+ex);
@@ -95,8 +101,12 @@ public final class KingdomTfcForestry {
     }
     private static boolean authorized(ServerLevel level,BlockPos at,
                                       UUID owner,KingdomForestData.Area area) {
-        return level.hasChunkAt(at)&&area.inside(at)
-            &&KingdomTerritories.get(level.getServer()).canUse(level,at,owner);
+        if(!level.hasChunkAt(at)||!area.inside(at)
+            ||!KingdomTerritories.get(level.getServer()).canUse(level,at,owner))return false;
+        var civic=KingdomCivicsData.get(level.getServer());
+        return civic.plot(level,at)==null
+            ||civic.allowed(owner,level.dimension().location().toString(),
+                at.getX(),at.getZ(),KingdomCivicsData.Action.BREAK);
     }
     /**
      * 26-neighbour BFS is deliberately MORE conservative than the native
@@ -126,8 +136,7 @@ public final class KingdomTfcForestry {
                     BlockState state=level.getBlockState(next);
                     // Protect the whole canopy, even where it overhangs plots.
                     if(state.is(BlockTags.LEAVES)
-                        &&!KingdomTerritories.get(level.getServer()).canUse(level,next,owner))
-                        return List.of();
+                        &&!authorized(level,next,owner,area))return List.of();
                     if(state.is(TFC_LOGS)){
                         if(!treeLog(level,next,species)||!authorized(level,next,owner,area))
                             return List.of();
@@ -159,7 +168,12 @@ public final class KingdomTfcForestry {
     }
     private static boolean isPlantingSpot(ServerLevel level,BlockPos location,
                                            KingdomForestData.Area area,UUID owner,Block block) {
-        if(!authorized(level,location,owner,area)||!level.hasChunkAt(location.below())
+        if(!authorized(level,location,owner,area)
+           ||(KingdomCivicsData.get(level.getServer()).plot(level,location)!=null
+               &&!KingdomCivicsData.get(level.getServer()).allowed(
+                   owner,level.dimension().location().toString(),location.getX(),
+                   location.getZ(),KingdomCivicsData.Action.BUILD))
+           ||!level.hasChunkAt(location.below())
            ||!level.getBlockState(location).isAir()
            ||level.getMaxLocalRawBrightness(location.above())<9
            ||!block.defaultBlockState().canSurvive(level,location))return false;
@@ -177,42 +191,57 @@ public final class KingdomTfcForestry {
                                   KingdomForestData.Area area,Container raw,BlockPos source){
         if(!area.replant()||!validSapling(area.sapling()))return false;
         var key=ResourceLocation.tryParse(area.sapling());
-        var seed=BuiltInRegistries.ITEM.get(key);
-        var block=((BlockItem)seed).getBlock();
-        int sourceSlot=-1;
-        for(int i=0;i<raw.getContainerSize();i++)
-            if(raw.getItem(i).is(seed)&&raw.canTakeItem(raw,i,raw.getItem(i))){
-                sourceSlot=i;break;
-            }
-        if(sourceSlot<0)return false;
+        Item seed=BuiltInRegistries.ITEM.get(key);
+        Block block=((BlockItem)seed).getBlock();
         BlockPos target=null;
-        // Place on the existing soil. No dirt, fences or buildings get destroyed.
+        // Plant only on approved natural soil. Space real tree trunks 4 blocks apart.
         for(int x=area.minX()+1;x<area.maxX() &&target==null;x+=4)
             for(int z=area.minZ()+1;z<area.maxZ();z+=4){
                 var pos=new BlockPos(x,area.y()+1,z);
                 if(isPlantingSpot(level,pos,area,w.employer,block)){target=pos;break;}
             }
         if(target==null)return false;
-        if(!near(npc,source)){walk(npc,source);return false;}
-        ItemStack consumed=raw.removeItem(sourceSlot,1);
+        int carried=-1;
+        for(int i=0;i<w.fieldInventory.size();i++)
+            if(w.fieldInventory.get(i).is(seed)){carried=i;break;}
+        if(carried<0){
+            if(!near(npc,source)){walk(npc,source);return false;}
+            for(int slot=0;slot<raw.getContainerSize();slot++){
+                ItemStack stack=raw.getItem(slot);
+                if(!stack.is(seed)||!raw.canTakeItem(raw,slot,stack))continue;
+                ItemStack taken=raw.removeItem(slot,1);
+                if(taken.isEmpty())return false;
+                NpcFieldWork.put(w,taken);
+                raw.setChanged();KingdomNpcData.get(level.getServer()).setDirty();
+                return true; // The NPC must physically carry its seed to the forest.
+            }
+            return false;
+        }
+        if(!near(npc,target)){walk(npc,target);return false;}
+        if(!isPlantingSpot(level,target,area,w.employer,block))return false;
+        ItemStack carriedStack=w.fieldInventory.get(carried);
+        ItemStack consumed=carriedStack.split(1);
+        if(carriedStack.isEmpty())w.fieldInventory.remove(carried);
         if(consumed.isEmpty())return false;
         if(!level.setBlock(target,block.defaultBlockState(),3)){
-            ItemStack old=raw.getItem(sourceSlot);
-            if(old.isEmpty())raw.setItem(sourceSlot,consumed);
-            else if(ItemStack.isSameItemSameTags(old,consumed)
-                &&old.getCount()<old.getMaxStackSize())old.grow(1);
-            else Block.popResource(level,source,consumed);
-            raw.setChanged();return false;
+            NpcFieldWork.put(w,consumed);
+            KingdomNpcData.get(level.getServer()).setDirty();return false;
         }
-        // TFC saplings own their calendar-based growth via TickCounterBlockEntity.
+        // TFC's TickCounterBlockEntity controls growth from its own calendar.
         block.setPlacedBy(level,target,block.defaultBlockState(),npc,consumed);
-        raw.setChanged();w.workUnits++;w.energy=Math.max(0,w.energy-1);
+        w.workUnits++;w.energy=Math.max(0,w.energy-1);
         KingdomNpcData.get(level.getServer()).setDirty();
         return true;
     }
     private static boolean fell(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                 KingdomForestData.Area area,BlockPos root) {
         if(!init()||!axe(w.fieldTool))return false;
+        try{
+            if(!Boolean.TRUE.equals(nativeShouldLog.invoke(null,level,root,
+                level.getBlockState(root),w.fieldTool)))return false;
+        }catch(ReflectiveOperationException|RuntimeException ex){
+            available=false;return false;
+        }
         List<BlockPos> tree=safeTree(level,root,w.employer,area,wood(area.sapling()));
         if(tree.isEmpty()||tree.size()>MAX_TREE
             ||!NpcFieldWork.canFit(w,List.of(new ItemStack(Items.OAK_LOG,
@@ -226,7 +255,7 @@ public final class KingdomTfcForestry {
             "[KingdomLumberjack]"));
         fake.setItemInHand(InteractionHand.MAIN_HAND,w.fieldTool);
         var drops=new ArrayList<ItemEntity>();
-        CURRENT.set(new HarvestContext(level,drops));
+        CURRENT.set(new HarvestContext(level,w.entityId,drops));
         try{
             nativeLogging.invoke(null,level,root,fake,w.fieldTool);
         }catch(ReflectiveOperationException|RuntimeException ex){
@@ -251,6 +280,28 @@ public final class KingdomTfcForestry {
         w.workUnits++;w.skillXp++;w.energy=Math.max(0,w.energy-3);
         KingdomNpcData.get(level.getServer()).setDirty();
         return changed || !treeLog(level,root,wood(area.sapling()));
+    }
+    /** Pick only real tree drops marked by this NPC's native logging action. */
+    private static boolean recoverDrops(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
+                                        KingdomForestData.Area area){
+        var bounds=new AABB(area.minX(),area.y()-2,area.minZ(),
+            area.maxX()+1,area.y()+36,area.maxZ()+1);
+        for(ItemEntity item:level.getEntitiesOfClass(ItemEntity.class,bounds,
+                entity->entity.isAlive()&&entity.getPersistentData().hasUUID(LOG_LOOT_OWNER)
+                    &&w.entityId.equals(entity.getPersistentData().getUUID(LOG_LOOT_OWNER)))){
+            ItemStack stack=item.getItem();
+            if(stack.isEmpty()||!NpcFieldWork.canFit(w,List.of(stack)))return false;
+            if(npc.distanceToSqr(item)>8){
+                npc.getNavigation().moveTo(item,.8);
+                return false;
+            }
+            NpcFieldWork.put(w,stack.copy());
+            w.fieldHarvested+=stack.getCount();
+            item.discard();
+            KingdomNpcData.get(level.getServer()).setDirty();
+            return true;
+        }
+        return false;
     }
     private static boolean employedOnLumber(ServerLevel level,KingdomNpcData.Worker w){
         if(w.employer==null||!"lumberjack".equals(w.job)
@@ -298,9 +349,14 @@ public final class KingdomTfcForestry {
             ||!(level.getBlockEntity(source) instanceof Container raw)
             ||!(level.getBlockEntity(dest) instanceof Container finished))return false;
         // Deliver carried physical goods first, even when the desired stock is full.
-        if(!w.fieldInventory.isEmpty()){
+        boolean hasGoods=w.fieldInventory.stream().anyMatch(stack->
+            !stack.isEmpty()&&!validSapling(BuiltInRegistries.ITEM
+                .getKey(stack.getItem()).toString()));
+        if(hasGoods){
             boolean moved=NpcFieldWork.deposit(level,npc,w);
-            if(moved||!w.fieldInventory.isEmpty())return moved;
+            if(moved||w.fieldInventory.stream().anyMatch(stack->
+                !stack.isEmpty()&&!validSapling(BuiltInRegistries.ITEM
+                    .getKey(stack.getItem()).toString())))return moved;
         }
         for(var contract:KingdomEnterprisePayrollData.get(level.getServer()).all()){
             if(!contract.active()||!contract.worker().equals(w.entityId)
@@ -314,6 +370,8 @@ public final class KingdomTfcForestry {
                 var stock=KingdomEnterpriseStock.inspect(level,contract.enterprise(),
                     log,EnterpriseBindingRole.FINISHED_STORAGE,dest);
                 if(!stock.complete())continue;
+                // Real leftovers stay as uniquely marked world drops until collected.
+                if(recoverDrops(level,npc,w,area))return true;
                 // Planting is permitted even after production stops at max inventory.
                 if(plant(level,npc,w,area,raw,source))return true;
                 var limits=new EnterpriseStockPolicy.Thresholds(area.minLogs(),area.maxLogs());
