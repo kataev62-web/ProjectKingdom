@@ -9,6 +9,12 @@ import java.util.*;
 /** Wage liabilities per business, for players or NPC identities. No daily auto-payout. */
 public final class KingdomEnterprisePayrollData extends SavedData {
     private static final String KEY="kingdom_enterprise_payroll_v1";
+    /** After three unpaid game-days the worker refuses further unpaid shifts. */
+    public static final int MAX_ARREARS_DAYS=3;
+    public static long arrearsLimit(long dailyCopper){
+        if(dailyCopper<1||dailyCopper>10000)throw new IllegalArgumentException("invalid wage");
+        return dailyCopper*MAX_ARREARS_DAYS;
+    }
     public record Employment(UUID enterprise,UUID worker,long dailyCopper,long lastDay,long owed,boolean active) {}
     private final Map<String,Employment> entries=new LinkedHashMap<>();
     private static String key(UUID firm,UUID worker){return firm+"|"+worker;}
@@ -27,7 +33,10 @@ public final class KingdomEnterprisePayrollData extends SavedData {
             accrue(server,enterprise,worker);old=entries.get(key(enterprise,worker));
         }
         long owed=old==null?0:old.owed();
-        entries.put(key(enterprise,worker),new Employment(enterprise,worker,rate,day,owed,true));setDirty();return true;
+        // Never reset the defaulted company's unpaid debt by clicking Hire again.
+        if(owed>=arrearsLimit(rate))return false;
+        entries.put(key(enterprise,worker),new Employment(enterprise,worker,rate,day,owed,true));
+        setDirty();return true;
     }
     public boolean dismiss(MinecraftServer server,UUID owner,UUID enterprise,UUID worker){
         var firm=KingdomEnterpriseData.get(server).find(enterprise);
@@ -43,9 +52,15 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         long day=Math.max(0,server.overworld().getDayTime()/24000L);
         long elapsed=Math.max(0,day-c.lastDay());
         if(elapsed==0)return c.owed();
-        long add=elapsed>Long.MAX_VALUE/c.dailyCopper()?Long.MAX_VALUE:elapsed*c.dailyCopper();
-        long total=c.owed()>Long.MAX_VALUE-add?Long.MAX_VALUE:c.owed()+add;
-        entries.put(key,new Employment(enterprise,worker,c.dailyCopper(),day,total,true));setDirty();return total;
+        // Do not mint more debt while the employee is forbidden to work.
+        // Backpay remains a legal obligation in SavedData after suspension.
+        long cap=arrearsLimit(c.dailyCopper());
+        long capacity=Math.max(0,cap-c.owed());
+        long add=Math.min(capacity,elapsed>Long.MAX_VALUE/c.dailyCopper()
+                ?Long.MAX_VALUE:elapsed*c.dailyCopper());
+        long total=c.owed()+add;
+        entries.put(key,new Employment(enterprise,worker,c.dailyCopper(),day,total,total<cap));
+        setDirty();return total;
     }
     /** Stop wages after a registered NPC dies. Preserve accrued debts, never mint or erase cash. */
     public void retireDeceasedNpc(MinecraftServer server,UUID worker){
@@ -84,9 +99,17 @@ public final class KingdomEnterprisePayrollData extends SavedData {
             }
             if(known.dailyWage!=c.dailyCopper())hire(server,firm.owner(),firm.id(),known.entityId,known.dailyWage);
             else accrue(server,firm.id(),known.entityId);
+            var latest=contract(firm.id(),known.entityId);
+            if(latest!=null&&!latest.active()&&latest.owed()>0){
+                known.contractPaused=true;
+                known.unpaidDays=MAX_ARREARS_DAYS;
+                // The existing job assignment is retained for eventual resumption;
+                // workday executor checks contractPaused before every operation.
+                KingdomNpcData.get(server).setDirty();
+            }
         }
         for(var w:registry.all()){
-            if(w.employer==null || w.ageYears<18)continue;
+            if(w.employer==null || w.ageYears<18 || w.contractPaused)continue;
             boolean hasContract=false;
             for(Employment c:entries.values())if(c.worker().equals(w.entityId) && c.active()){
                 hasContract=true;break;
@@ -120,6 +143,12 @@ public final class KingdomEnterprisePayrollData extends SavedData {
                 worker.wagePurse.clear();worker.wagePurse.addAll(proposed);
                 Employment updated=new Employment(e.enterprise(),e.worker(),e.dailyCopper(),e.lastDay(),e.owed()-amount,e.active());
                 entries.put(key(e.enterprise(),e.worker()),updated);
+                if(updated.owed()==0&&worker.contractPaused){
+                    // Only real full repayment lifts the debt pause. The next sync
+                    // may renew work if the employer still has a legitimate firm.
+                    worker.contractPaused=false;
+                    worker.unpaidDays=0;
+                }
                 KingdomNpcData.get(server).setDirty();setDirty();return true;
             }
         }
