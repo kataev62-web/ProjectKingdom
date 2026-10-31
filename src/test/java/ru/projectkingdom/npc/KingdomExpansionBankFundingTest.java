@@ -10,7 +10,7 @@ final class KingdomExpansionBankFundingTest {
     private static String src(String file)throws Exception{
         return Files.readString(Path.of("src/main/java/ru/projectkingdom/"+file));
     }
-    @Test void surplusIsOnlyPhysicalMoneyNotAlreadyClaimed() {
+    @Test void surplusIsOnlyPhysicalMoneyNotAlreadyClaimed() throws Exception {
         assertEquals(250,KingdomBankData.freePhysicalCopper(1000,600,150,0));
         assertEquals(0,KingdomBankData.freePhysicalCopper(750,600,150,0));
         assertEquals(-1,KingdomBankData.freePhysicalCopper(700,600,150,0));
