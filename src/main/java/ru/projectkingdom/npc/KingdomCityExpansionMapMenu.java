@@ -28,6 +28,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     private java.util.UUID cityId;
     private long lastRefresh;
     private Set<Long> confirmedPlan;
+    private Set<Long> confirmedFunding;
 
     private KingdomCityExpansionMapMenu(int id, Inventory playerInventory, ServerPlayer player, SimpleContainer grid) {
         super(MenuType.GENERIC_9x6, id, playerInventory, grid, 6);
@@ -148,8 +149,17 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(47, Items.COMPASS, "На юг");
         put(48, Items.ARROW, "На восток");
         put(49, Items.MAP, "Город: " + town.name() + " | Чанков в плане: " + planned.size());
-        long municipal=Math.max(0,Math.min(town.treasury(),KingdomAdministrationData.get(viewer.getServer()).treasuryReserve(town.id())));
-        put(44, Items.GOLD_NUGGET, "Цена: " + (100L * planned.size()) + " мед. | Счёт поселения: "+municipal+" | Личный счёт: "+KingdomBankData.get(viewer.getServer()).balance(viewer.getUUID()));
+        long municipal=municipalBalance(town);
+        long personal=KingdomBankData.get(viewer.getServer()).balance(viewer.getUUID());
+        long shortage=Math.max(0,KingdomExpansionQuote.PRICE_PER_CHUNK*planned.size()-municipal);
+        put(44, Items.GOLD_NUGGET, "Цена: "+(KingdomExpansionQuote.PRICE_PER_CHUNK*planned.size())
+                +" мед. | Счёт поселения: "+municipal+" | Личный счёт: "+personal);
+        if(founder()&&shortage>0)
+            put(42,Items.EMERALD,confirmedFunding!=null&&confirmedFunding.equals(planned)
+                    ?"ПОДТВЕРДИТЬ ПЕРЕВОД "+shortage+" мед. с личного счёта на счёт поселения"
+                    :"Пополнить счёт поселения с личного банка на "+shortage+" мед. (2 нажатия)");
+        else put(42,Items.PAPER,shortage==0?"Счёта поселения хватает для покупки"
+                :"Купить землю может основатель; деньги жителей не расходуются");
         put(43, Items.GOLD_BLOCK, confirmedPlan == null
                 ? "Купить свободные земли со счёта поселения в банке"
                 : "ПОДТВЕРДИТЬ ВЫКУП: повторное нажатие");
@@ -171,6 +181,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         if (player != viewer || viewer.level().isClientSide || click != ClickType.PICKUP
                 || button != 0 || slot < 0 || slot >= 54) return;
         if (slot != 43) confirmedPlan = null;
+        if (slot != 42) confirmedFunding = null;
         int row = slot / 9, col = slot % 9;
         if (row < 4 && col >= 1 && col <= 7) {
             if (!founder()) {
@@ -211,6 +222,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
                 case 47 -> centerZ += 4;
                 case 48 -> centerX += 7;
                 case 50 -> { checkQuote(); return; }
+                case 42 -> { fundSelectedPlan(); return; }
                 case 43 -> { purchasePlan(); return; }
                 case 51 -> planned.clear();
                 case 52 -> { centerX = viewer.chunkPosition().x; centerZ = viewer.chunkPosition().z; }
@@ -221,6 +233,57 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         pruneInvalid();
         refresh();
     }
+    private long municipalBalance(KingdomCivicsData.Town town){
+        return town==null?0:Math.max(0,Math.min(town.treasury(),
+                KingdomAdministrationData.get(viewer.getServer()).treasuryReserve(town.id())));
+    }
+
+    /** A SEPARATE, explicitly confirmed account transfer, not a silent personal debit.
+     * If the land purchase later fails, transferred money remains on the city account.
+     */
+    private void fundSelectedPlan(){
+        if(!founder()||cityId==null)return;
+        pruneInvalid();
+        var civics=KingdomCivicsData.get(viewer.getServer());
+        var town=civics.townById(cityId);
+        if(town==null||planned.isEmpty())return;
+        java.util.List<KingdomExpansionPlans.Cell> cells=new java.util.ArrayList<>();
+        for(long c:planned)cells.add(new KingdomExpansionPlans.Cell(dimension(),x(c),z(c)));
+        var quote=KingdomExpansionQuote.evaluate(cityId,dimension(),cells,
+                civics.mapPlots(dimension()),Long.MAX_VALUE);
+        if(quote.status()!=KingdomExpansionQuote.Status.READY){
+            confirmedFunding=null;
+            viewer.sendSystemMessage(Component.literal("[Kingdom] Сначала исправьте план: "+quote.status()));
+            refresh();return;
+        }
+        long shortage=Math.max(0,quote.price()-municipalBalance(town));
+        if(shortage==0){
+            confirmedFunding=null;
+            viewer.sendSystemMessage(Component.literal("[Kingdom] На счёте поселения достаточно средств. Нажмите «Купить земли»."));
+            refresh();return;
+        }
+        var bank=KingdomBankData.get(viewer.getServer());
+        if(bank.balance(viewer.getUUID())<shortage){
+            confirmedFunding=null;
+            viewer.sendSystemMessage(Component.literal("[Kingdom] Недостаточно на личном банковском счёте. Нужно "+shortage
+                    +" мед., у вас "+bank.balance(viewer.getUUID())+" мед."));
+            refresh();return;
+        }
+        if(confirmedFunding==null||!confirmedFunding.equals(planned)){
+            confirmedFunding=Set.copyOf(planned);
+            viewer.sendSystemMessage(Component.literal("[Kingdom] Подтвердите ЕЩЁ ОДНИМ нажатием перевод "
+                    +shortage+" мед. с вашего личного банковского счёта на счёт поселения."));
+            refresh();return;
+        }
+        confirmedFunding=null;
+        if(bank.fundExpansionFromPersonal(viewer,cityId,shortage)){
+            viewer.sendSystemMessage(Component.literal("[Kingdom] Переведено "+shortage
+                    +" мед. в банк поселения. Деньги останутся городскими даже при отмене покупки. Теперь нажмите «Купить земли»."));
+        }else viewer.sendSystemMessage(Component.literal("[Kingdom] Перевод отклонён: проверьте, что ваш личный счёт закреплён за банком этого города,"
+                +" банковское хранилище загружено, а настоящие монеты покрывают оба резерва."));
+        refresh();
+    }
+
     private void purchasePlan() {
         if (!founder() || cityId == null) return;
         pruneInvalid();
@@ -269,7 +332,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         if (town == null) return;
         java.util.List<KingdomExpansionPlans.Cell> cells = new java.util.ArrayList<>();
         for (long cell : planned) cells.add(new KingdomExpansionPlans.Cell(dimension(), x(cell), z(cell)));
-        long municipal=Math.max(0,Math.min(town.treasury(),KingdomAdministrationData.get(viewer.getServer()).treasuryReserve(cityId)));
+        long municipal=municipalBalance(town);
         var quote = KingdomExpansionQuote.evaluate(cityId, dimension(), cells,
             db.mapPlots(dimension()), municipal);
         String status=switch(quote.status()){
@@ -288,9 +351,11 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         var city=KingdomCivicsData.get(viewer.getServer()).townById(cityId);
         var vault=KingdomPhysicalCash.townVault(viewer,cityId,ru.projectkingdom.administration.AdministrativeBindingRole.BANK_VAULT);
         if(vault==null)return "Банковское хранилище поселения не подключено или его чанки не загружены.";
-        long municipal=city==null?0:Math.max(0,Math.min(city.treasury(),admin.treasuryReserve(cityId)));
-        if(municipal<100L*planned.size())return "На счёте поселения "+municipal+" медных, нужно "+(100L*planned.size())
-                +". Личный счёт не расходуется автоматически. В банке выберите «Из личного — поселению» или внесите монеты на счёт поселения.";
+        long municipal=municipalBalance(city);
+        if(municipal<KingdomExpansionQuote.PRICE_PER_CHUNK*planned.size())return "На счёте поселения "+municipal+" медных, нужно "
+                +(KingdomExpansionQuote.PRICE_PER_CHUNK*planned.size())
+                +". Нажмите зелёную кнопку пополнения с личного банка либо в банке выберите «Из личного — поселению». "
+                +"Если монеты просто лежат в сундуке, зачислите свободные монеты через окно банка.";
         return "Реальные монеты банковского хранилища не подтверждают остатки счетов. Нужна сверка банка.";
     }
     @Override public boolean stillValid(Player player) {

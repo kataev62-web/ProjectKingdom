@@ -104,7 +104,8 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                 return;
             }
             if(field.equals("bank_deposit")||field.equals("bank_withdraw")
-                    ||field.equals("bank_town_deposit")||field.equals("bank_town_withdraw")||field.equals("bank_to_town")){
+                    ||field.equals("bank_town_deposit")||field.equals("bank_town_withdraw")
+                    ||field.equals("bank_to_town")||field.equals("bank_vault_to_town")){
                 if(packet.kind!=AdministrativeKind.BANK)return;
                 String value=packet.value==null?"":packet.value.trim();
                 if(!value.matches("[0-9]{1,7}")){
@@ -120,6 +121,15 @@ public record AdministrativeTextPacket(UUID townId,AdministrativeKind kind,Strin
                 var bank=KingdomBankData.get(sender.getServer());
                 if(!packet.townId.equals(bank.bankTown(sender))){
                     sender.sendSystemMessage(Component.literal("[Банк] Откройте банковский блок своего города и встаньте ближе к нему."));
+                    return;
+                }
+                if(field.equals("bank_vault_to_town")){
+                    if(!menu.manager())return;
+                    boolean assigned=bank.assignFreeVaultCoinsToTown(sender,packet.townId,amount);
+                    sender.sendSystemMessage(Component.literal("[Банк] "+(assigned
+                            ?"Свободные физические монеты ("+amount+" мед.) зачислены на счёт поселения."
+                            :bank.freeVaultCoinsProblem(sender,packet.townId,amount))));
+                    if(assigned)sender.closeContainer();
                     return;
                 }
                 boolean municipal=field.equals("bank_town_deposit")||field.equals("bank_town_withdraw")||field.equals("bank_to_town");

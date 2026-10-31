@@ -238,6 +238,74 @@ public final class KingdomBankData extends SavedData {
         accounts.put(player.getUUID(),balance(player.getUUID())-amount);
         player.getInventory().setChanged();setDirty();return true;
     }
+    /** Coins physically placed in the bank but not booked to any citizen/city.
+     * Never spend bank balances that are already owned by someone.
+     */
+    public static long freePhysicalCopper(long physical,long bankReserve,long townReserve) {
+        if(physical<0||bankReserve<0||townReserve<0
+                ||bankReserve>Long.MAX_VALUE-townReserve
+                ||physical<bankReserve+townReserve)return -1;
+        return physical-(bankReserve+townReserve);
+    }
+
+    /** A manager explicitly assigns unclaimed physical coins to the town account.
+     * Does NOT withdraw coins or touch any personal receipts.
+     */
+    public boolean assignFreeVaultCoinsToTown(ServerPlayer manager,UUID town,long amount) {
+        if(!mayUseMunicipalAccount(manager,town)||amount<1||amount>1_000_000)return false;
+        var vault=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return false;
+        var admin=KingdomAdministrationData.get(manager.getServer());
+        long free=freePhysicalCopper(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town));
+        if(free<amount)return false;
+        return KingdomCivicsData.get(manager.getServer()).creditTownBankFunds(town,amount);
+    }
+
+    public String freeVaultCoinsProblem(ServerPlayer manager,UUID town,long amount) {
+        if(!mayUseMunicipalAccount(manager,town))return "Нужны права управляющего банка и доступ к своему городскому банку.";
+        var vault=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return "Хранилище банка не загружено или не привязано.";
+        var admin=KingdomAdministrationData.get(manager.getServer());
+        long free=freePhysicalCopper(KingdomPhysicalCash.value(vault),admin.bankReserve(town),admin.treasuryReserve(town));
+        if(free<0)return "Физические монеты не покрывают зарегистрированные обязательства. Нужна сверка банка.";
+        return "Свободных монет: "+free+". Вклады игроков и уже зачисленные средства города нельзя списывать повторно.";
+    }
+
+    /** Explicit founder-approved personal-to-city transfer from the expansion map.
+     * Both receipts share a verified physical city vault. The player must own
+     * the personal receipt; no bank desk proximity is needed for an account transfer.
+     */
+    public boolean fundExpansionFromPersonal(ServerPlayer founder,UUID town,long amount) {
+        if(founder==null||town==null||amount<1||amount>1_000_000
+                ||founder.getServer()==null||!founder.getServer().isSameThread())return false;
+        var admin=KingdomAdministrationData.get(founder.getServer());
+        var civics=KingdomCivicsData.get(founder.getServer());
+        var city=civics.townOf(founder.getUUID());
+        if(city==null||!town.equals(city.id())||!founder.getUUID().equals(admin.founder(town)))
+            return false;
+        return transferPersonalToTown(founder,town,amount);
+    }
+
+    private boolean transferPersonalToTown(ServerPlayer player,UUID town,long amount) {
+        if(player==null||town==null||!payableAt(player.getUUID(),town))return false;
+        var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return false;
+        var admin=KingdomAdministrationData.get(player.getServer());
+        var civics=KingdomCivicsData.get(player.getServer());
+        var next=TownBankFunds.plan(municipalSnapshot(player,town,vault),
+                TownBankFunds.Operation.DONATE,amount);
+        if(next==null)return false;
+        if(!civics.creditTownBankFunds(town,amount))return false;
+        if(!admin.withdrawBankReserve(town,amount)){
+            if(!civics.withdrawTownAuthorized(town,player.getUUID(),amount))
+                throw new IllegalStateException("Bank transfer compensation failed");
+            return false;
+        }
+        accounts.put(player.getUUID(),next.personal());
+        setDirty();
+        return true;
+    }
+
     /** A mayor/founder/treasurer manages town funds, never other citizens' personal receipts. */
     public boolean mayUseMunicipalAccount(ServerPlayer player,UUID town) {
         if(player==null||town==null||!town.equals(bankTown(player)))return false;
@@ -255,7 +323,8 @@ public final class KingdomBankData extends SavedData {
     }
     public boolean municipalOperation(ServerPlayer player,UUID town,long amount,TownBankFunds.Operation operation) {
         if(!mayUseMunicipalAccount(player,town)||operation==null)return false;
-        if(operation==TownBankFunds.Operation.DONATE&&!payableAt(player.getUUID(),town))return false;
+        if(operation==TownBankFunds.Operation.DONATE)
+            return transferPersonalToTown(player,town,amount);
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null)return false;
         var next=TownBankFunds.plan(municipalSnapshot(player,town,vault),operation,amount);
@@ -274,15 +343,6 @@ public final class KingdomBankData extends SavedData {
                 if(!KingdomPhysicalCash.deposit(player,vault,amount))throw new IllegalStateException("Town withdrawal compensation failed");
                 return false;
             }
-        }else{
-            // Ownership transfer in the SAME vault: physical coins stay put.
-            // Only this player's personal receipt is debited, after all preflights.
-            if(!civics.creditTownBankFunds(town,amount))return false;
-            if(!admin.withdrawBankReserve(town,amount)){
-                if(!civics.withdrawTownAuthorized(town,player.getUUID(),amount))throw new IllegalStateException("Town donation compensation failed");
-                return false;
-            }
-            accounts.put(player.getUUID(),next.personal());setDirty();
         }
         player.getInventory().setChanged();return true;
     }
