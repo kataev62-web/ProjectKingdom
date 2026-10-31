@@ -224,9 +224,7 @@ public final class KingdomTavernImmigration {
             for(BlockPos bed:sleepingPlaces(level,tavern,firm.owner())){
                 boolean taken=false;
                 for(var worker:npcDb.all()){
-                    if(town.id().toString().equals(worker.settlement)
-                            &&ru.projectkingdom.npc.KingdomResidentSafety.countsAsPresent(server,worker)
-                            &&worker.hasHome
+                    if(town.id().toString().equals(worker.settlement)&&worker.hasHome
                             &&worker.homeX==bed.getX()&&worker.homeY==bed.getY()
                             &&worker.homeZ==bed.getZ()) {taken=true;break;}
                 }

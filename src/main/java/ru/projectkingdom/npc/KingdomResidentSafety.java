@@ -79,7 +79,6 @@ public final class KingdomResidentSafety {
         BlockPos here=npc.blockPosition();
         boolean inCity=inside(civics,level,here,city);
         if(inCity){
-            if(landing(level,npc,here))recordSafe(worker,here,registry);
             // Vanilla wander goal can try to step into another city/wilderness.
             // Stop and steer home BEFORE the path leaves the registered chunk.
             var move=npc.getDeltaMovement();
@@ -88,7 +87,10 @@ public final class KingdomResidentSafety {
             boolean nearEdge=false;
             for(int dx=-2;dx<=2&&!nearEdge;dx++)for(int dz=-2;dz<=2;dz++)
                 if(!inside(civics,level,here.offset(dx,0,dz),city)){nearEdge=true;break;}
-            if(!nearEdge)return false;
+            if(!nearEdge){
+                if(landing(level,npc,here))recordSafe(worker,here,registry);
+                return false;
+            }
             boolean crossing=!inside(civics,level,predicted,city);
             var path=npc.getNavigation().getPath();
             if(path!=null&&!path.isDone() && path.getNextNodeIndex()<path.getNodeCount()){
