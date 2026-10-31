@@ -19,8 +19,9 @@ class CityExpansionMapSourceTest {
         assertTrue(source.contains("KingdomCivicsData.get"));
         assertTrue(source.contains("founder()"));
         assertTrue(source.contains("contiguous("));
-        assertTrue(source.contains("100L * planned.size()"));
+        assertTrue(source.contains("KingdomExpansionQuote.PRICE_PER_CHUNK*planned.size()"));
         assertFalse(source.contains("KingdomCurrency.debit("));
+        assertTrue(source.contains("confirmedFunding=Set.copyOf(planned)"));
         assertFalse(source.contains(".claim("));
     }
     @Test void persistentPlanHasBoundedStorageAndMapRevalidates() throws Exception {
