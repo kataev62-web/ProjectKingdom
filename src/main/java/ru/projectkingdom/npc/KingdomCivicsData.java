@@ -468,6 +468,24 @@ public final class KingdomCivicsData extends SavedData {
         setDirty();return true;
     }
 
+    /** Remove only a confirmed deceased registered NPC, never a player or unloaded NPC.
+     * City/plot ownership and banking obligations are deliberately preserved.
+     */
+    public boolean removeDeceasedNpc(UUID entityId){
+        if(entityId==null||!memberships.containsKey(entityId))return false;
+        UUID townId=memberships.get(entityId);
+        Town town=towns.get(townId);
+        if(town!=null&&entityId.equals(town.mayor())&&runtimeServer!=null){
+            UUID founder=KingdomAdministrationData.get(runtimeServer).founder(townId);
+            if(founder!=null&&!entityId.equals(founder)
+                    &&isMember(townId,founder)){
+                towns.put(townId,new Town(town.id(),town.name(),founder,town.nation(),town.treasury()));
+                KingdomAdministrationData.get(runtimeServer).adminChangeMayor(townId,entityId,founder);
+            }
+        }
+        memberships.remove(entityId);setDirty();return true;
+    }
+
     public boolean joinTown(UUID player,UUID townId) {
         if(player==null||memberships.containsKey(player)||!towns.containsKey(townId))return false;
         memberships.put(player,townId);setDirty();return true;

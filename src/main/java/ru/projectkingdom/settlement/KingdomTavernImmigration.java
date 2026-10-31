@@ -74,7 +74,8 @@ public final class KingdomTavernImmigration {
         if(server==null||town==null)return 0;
         int n=0;
         for(var worker:KingdomNpcData.get(server).all())
-            if(town.toString().equals(worker.settlement))n++;
+            if(town.toString().equals(worker.settlement)
+                    &&ru.projectkingdom.npc.KingdomResidentSafety.countsAsPresent(server,worker))n++;
         return n;
     }
 
@@ -265,6 +266,8 @@ public final class KingdomTavernImmigration {
             created.homeX=home.getX();
             created.homeY=home.getY();
             created.homeZ=home.getZ();
+            created.hasLastSafe=true;
+            created.lastSafeX=spawn.getX();created.lastSafeY=spawn.getY();created.lastSafeZ=spawn.getZ();
             created.order="wander";
             created.hunger=80;
             created.lastMealDay=ru.projectkingdom.npc.KingdomSeasonCalendar.totalDays(server);

@@ -46,7 +46,8 @@ public final class KingdomTownHallCandidates {
         List<Candidate> result=new ArrayList<>();
         // Named NPCs come from a real server-owned worker identity, not from client input.
         for(var worker:workers){
-            if(worker.entityId==null || worker.ageYears<18)continue;
+            if(worker.entityId==null || worker.ageYears<18
+                    ||!ru.projectkingdom.npc.KingdomResidentSafety.countsAsPresent(server,worker))continue;
             if(!localIds.contains(worker.entityId) && !npcLivesInTown(server,townId,worker))continue;
             localIds.remove(worker.entityId);
             result.add(candidate(admin,town,worker.entityId,KingdomIdentityNames.name(server,worker.entityId),true));
@@ -93,7 +94,8 @@ public final class KingdomTownHallCandidates {
         if(server==null||townId==null||id==null)return false;
         if(KingdomCivicsData.get(server).isMember(townId,id))return true;
         for(var worker:KingdomNpcData.get(server).all())
-            if(id.equals(worker.entityId)&&worker.ageYears>=18)
+            if(id.equals(worker.entityId)&&worker.ageYears>=18
+                    &&ru.projectkingdom.npc.KingdomResidentSafety.countsAsPresent(server,worker))
                 return npcLivesInTown(server,townId,worker);
         return false;
     }
@@ -102,6 +104,7 @@ public final class KingdomTownHallCandidates {
         if(civics.isMember(townId,id))return true;
         for(var worker:KingdomNpcData.get(server).all())
             if(id.equals(worker.entityId)&&worker.ageYears>=18
+                    &&ru.projectkingdom.npc.KingdomResidentSafety.countsAsPresent(server,worker)
                     &&npcLivesInTown(server,townId,worker))
                 return civics.joinTown(id,townId);
         return false;
