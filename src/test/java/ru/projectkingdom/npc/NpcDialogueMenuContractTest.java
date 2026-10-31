@@ -10,7 +10,10 @@ import static org.junit.jupiter.api.Assertions.*;
 final class NpcDialogueMenuContractTest {
     @Test void menuStartsWithDialogueTopicsAndKeepsManagementPage() throws Exception {
         String source = Files.readString(Path.of("src/main/java/ru/projectkingdom/npc/KingdomNpcMenu.java"));
-        assertTrue(source.contains("enum Page { DIALOGUE, MANAGEMENT }"));
+        assertTrue(source.contains("enum Page { DIALOGUE, MANAGEMENT, PROFESSIONS }"));
+        assertTrue(source.contains("redrawProfessions"));
+        assertTrue(source.contains("page=Page.PROFESSIONS"));
+        assertTrue(source.contains("KingdomProfessionRegistry.all().get(slotId).id()"));
         assertTrue(source.contains("private Page page = Page.DIALOGUE"));
         assertTrue(source.contains("redrawDialogue"));
         assertTrue(source.contains("redrawManagement"));
