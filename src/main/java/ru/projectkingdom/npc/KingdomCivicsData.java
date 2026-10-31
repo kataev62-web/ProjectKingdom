@@ -541,6 +541,10 @@ public final class KingdomCivicsData extends SavedData {
                 town.treasury()+amount));
         setDirty();return true;
     }
+    /** Bank counter credits only after physical deposit or an explicit backed receipt transfer. */
+    public boolean creditTownBankFunds(UUID city,long amount) {
+        return creditTownLandRevenue(city,amount);
+    }
     public boolean depositTown(UUID actor,long amount) {
         Town t=townOf(actor);
         return t!=null&&depositTownTo(t.id(),actor,amount);

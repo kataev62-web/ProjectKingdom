@@ -18,7 +18,8 @@ import ru.projectkingdom.administration.AdministrativeBindingRole;
 import ru.projectkingdom.administration.KingdomAdministrationData;
 
 /** Deposits are backed by real copper-value coins taken from a physical wallet.
- * Accounts are storage receipts, never a payment method. */
+ * Personal receipts are never spent implicitly; an explicit donation can transfer
+ * their ownership to the town budget in the same vault. */
 public final class KingdomBankData extends SavedData {
     private static final String KEY = "kingdom_bank_storage_v1";
     private final Map<UUID, Long> accounts = new LinkedHashMap<>();
@@ -237,6 +238,73 @@ public final class KingdomBankData extends SavedData {
         accounts.put(player.getUUID(),balance(player.getUUID())-amount);
         player.getInventory().setChanged();setDirty();return true;
     }
+    /** A mayor/founder/treasurer manages town funds, never other citizens' personal receipts. */
+    public boolean mayUseMunicipalAccount(ServerPlayer player,UUID town) {
+        if(player==null||town==null||!town.equals(bankTown(player)))return false;
+        var city=KingdomCivicsData.get(player.getServer()).townById(town);
+        var admin=KingdomAdministrationData.get(player.getServer());
+        return city!=null&&ru.projectkingdom.administration.AdministrativePermissionService.mayManage(
+                player.getUUID(),admin.founder(town),city.mayor(),admin.roles(town,player.getUUID()),AdministrativeKind.TREASURY);
+    }
+    private TownBankFunds.Balances municipalSnapshot(ServerPlayer player,UUID town,net.minecraft.world.Container vault) {
+        var city=KingdomCivicsData.get(player.getServer()).townById(town);
+        if(city==null)return null;
+        var admin=KingdomAdministrationData.get(player.getServer());
+        return new TownBankFunds.Balances(balance(player.getUUID()),admin.bankReserve(town),
+                city.treasury(),admin.treasuryReserve(town),KingdomPhysicalCash.value(vault));
+    }
+    public boolean municipalOperation(ServerPlayer player,UUID town,long amount,TownBankFunds.Operation operation) {
+        if(!mayUseMunicipalAccount(player,town)||operation==null)return false;
+        if(operation==TownBankFunds.Operation.DONATE&&!payableAt(player.getUUID(),town))return false;
+        var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return false;
+        var next=TownBankFunds.plan(municipalSnapshot(player,town,vault),operation,amount);
+        if(next==null)return false;
+        var civics=KingdomCivicsData.get(player.getServer());
+        var admin=KingdomAdministrationData.get(player.getServer());
+        if(operation==TownBankFunds.Operation.DEPOSIT){
+            if(!KingdomPhysicalCash.deposit(player,vault,amount))return false;
+            if(!civics.creditTownBankFunds(town,amount)){
+                if(!KingdomPhysicalCash.withdraw(player,vault,amount))throw new IllegalStateException("Town deposit compensation failed");
+                return false;
+            }
+        }else if(operation==TownBankFunds.Operation.WITHDRAW){
+            if(!KingdomPhysicalCash.withdraw(player,vault,amount))return false;
+            if(!civics.withdrawTownAuthorized(town,player.getUUID(),amount)){
+                if(!KingdomPhysicalCash.deposit(player,vault,amount))throw new IllegalStateException("Town withdrawal compensation failed");
+                return false;
+            }
+        }else{
+            // Ownership transfer in the SAME vault: physical coins stay put.
+            // Only this player's personal receipt is debited, after all preflights.
+            if(!civics.creditTownBankFunds(town,amount))return false;
+            if(!admin.withdrawBankReserve(town,amount)){
+                if(!civics.withdrawTownAuthorized(town,player.getUUID(),amount))throw new IllegalStateException("Town donation compensation failed");
+                return false;
+            }
+            accounts.put(player.getUUID(),next.personal());setDirty();
+        }
+        player.getInventory().setChanged();return true;
+    }
+    public String municipalProblem(ServerPlayer player,UUID town,long amount,TownBankFunds.Operation operation) {
+        if(!mayUseMunicipalAccount(player,town))return "Счёт поселения доступен мэру, основателю и казначею в банке своего города.";
+        if(amount<1||amount>1_000_000)return "Сумма: от 1 до 1 000 000 медных.";
+        var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return "Банковская комната не подключена или не загружена.";
+        var b=municipalSnapshot(player,town,vault);
+        if(b==null)return "Поселение не найдено.";
+        if(operation==TownBankFunds.Operation.DONATE&&!payableAt(player.getUUID(),town))
+            return "Личный счёт находится в другом банке или требует сверки.";
+        if(operation==TownBankFunds.Operation.DEPOSIT&&KingdomCurrency.balance(player)<amount)
+            return "В личном кошельке "+KingdomCurrency.balance(player)+" медных. Деньги банковского счёта передаются кнопкой «Из личного — поселению».";
+        if(operation==TownBankFunds.Operation.DONATE&&b.personal()<amount)
+            return "На вашем личном счёте "+b.personal()+" медных; передать нужно "+amount+".";
+        if(operation==TownBankFunds.Operation.WITHDRAW&&Math.min(b.municipal(),b.municipalReserve())<amount)
+            return "На счёте поселения "+Math.min(b.municipal(),b.municipalReserve())+" медных. Личные вклады жителей не расходуются.";
+        if(TownBankFunds.plan(b,operation,amount)==null)return "Банковские резервы не подтверждают операцию; нужна сверка остатков.";
+        return "Проверьте место в кошельке и хранилище и доступность нужных номиналов.";
+    }
+
     /** Cash paid over a physical bank counter for a named lease. No bank-balance transfers.
      * The recipient receives a backed storage receipt and must visit a branch to withdraw.
      */

@@ -390,8 +390,12 @@ public final class KingdomMainMenu extends ChestMenu {
                         ru.projectkingdom.settlement.KingdomSettlementRanks.get(viewer.getServer()).current(
                                  town.id(),ru.projectkingdom.settlement.KingdomSettlementGrowth.forTown(db,
                                  KingdomConstructionData.get(viewer.getServer()),town.id(),
-                                 viewer.serverLevel().dimension().location().toString(),viewer.getServer())).title()+" «"+town.name()+"»");
-                icon(11,Items.GOLD_INGOT,nation==null?"Основать нацию":"Нация: "+nation.name());
+                                 viewer.serverLevel().dimension().location().toString(),viewer.getServer())).title()+" «"+town.name()+"»"
+                                +" | мэр: "+KingdomIdentityNames.name(viewer.getServer(),town.mayor())
+                                +" | основатель: "+KingdomIdentityNames.name(viewer.getServer(),
+                                    KingdomAdministrationData.get(viewer.getServer()).founder(town.id())));
+                icon(11,Items.GOLD_INGOT,nation==null?"Основать нацию":"Нация: "+nation.name()
+                        +" | правитель: "+KingdomIdentityNames.name(viewer.getServer(),nation.ruler()));
                 var plot=db.plot(viewer.serverLevel(),viewer.blockPosition());
                 icon(12,Items.MAP,plot==null?"Открыть земельную карту":"Земельная карта | зона: "+plot.zone());
                 icon(13,Items.BRICKS,"Сменить назначение текущего участка");

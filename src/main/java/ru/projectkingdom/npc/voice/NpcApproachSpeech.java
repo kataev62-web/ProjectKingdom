@@ -40,6 +40,8 @@ public final class NpcApproachSpeech {
             var level=server.getLevel(ResourceKey.create(Registries.DIMENSION,dimension));
             if (level==null || !(level.getEntity(worker.entityId) instanceof Villager npc)
                     || !npc.isAlive()) continue;
+            // Restores the invariant for already-loaded older citizens or external Silent resets.
+            if (!npc.isSilent()) npc.setSilent(true);
             citizens.put(worker.entityId,worker);entities.put(worker.entityId,npc);
             List<UUID> listeners=level.players().stream().filter(p -> p.distanceToSqr(npc)<=256)
                     .map(ServerPlayer::getUUID).toList();

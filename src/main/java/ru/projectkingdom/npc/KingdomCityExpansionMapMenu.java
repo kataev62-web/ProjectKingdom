@@ -148,11 +148,12 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         put(47, Items.COMPASS, "На юг");
         put(48, Items.ARROW, "На восток");
         put(49, Items.MAP, "Город: " + town.name() + " | Чанков в плане: " + planned.size());
-        put(44, Items.GOLD_NUGGET, "Оценка покупки: " + (100L * planned.size()) + " медных | 100 за чанк");
+        long municipal=Math.max(0,Math.min(town.treasury(),KingdomAdministrationData.get(viewer.getServer()).treasuryReserve(town.id())));
+        put(44, Items.GOLD_NUGGET, "Цена: " + (100L * planned.size()) + " мед. | Счёт поселения: "+municipal+" | Личный счёт: "+KingdomBankData.get(viewer.getServer()).balance(viewer.getUUID()));
         put(43, Items.GOLD_BLOCK, confirmedPlan == null
-                ? "Купить свободные земли через карту (оплата из обеспеченной казны)"
+                ? "Купить свободные земли со счёта поселения в банке"
                 : "ПОДТВЕРДИТЬ ВЫКУП: повторное нажатие");
-        put(50, Items.WRITABLE_BOOK, "Проверить план и средства городской казны");
+        put(50, Items.WRITABLE_BOOK, "Проверить план и счёт поселения (личные деньги отдельно)");
         put(51, Items.BARRIER, "Очистить план");
         put(52, Items.COMPASS, "К позиции игрока");
         put(53, Items.OAK_DOOR, "К картам Kingdom");
@@ -233,7 +234,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
             confirmedPlan = Set.copyOf(planned);
             checkQuote();
             viewer.sendSystemMessage(Component.literal(
-                    "[Kingdom] Для покупки выбранных чанков из казны нажми золотой блок ещё раз."));
+                    "[Kingdom] Покупка оплачивается со счёта поселения в банке. Для подтверждения нажми золотой блок ещё раз."));
             refresh();
             return;
         }
@@ -242,12 +243,12 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         confirmedPlan = null;
         var result = KingdomCityExpansionPurchase.purchase(viewer);
         String status = switch (result) {
-            case PURCHASED -> "Территория присоединена, средства списаны из городской казны.";
+            case PURCHASED -> "Территория присоединена, средства списаны со счёта поселения в банке.";
             case NOT_FOUNDER -> "Покупка доступна только основателю города.";
             case NOT_AT_TOWN_HALL -> "Участок оформляется через карту города.";
             case INVALID_PLAN -> "План пуст, несмежен или больше не актуален.";
             case LAND_CONFLICT -> "Один из участков занят или находится за границей мира.";
-            case INSUFFICIENT_FUNDS -> "В казне недостаточно обеспеченных монет.";
+            case INSUFFICIENT_FUNDS -> fundingProblem();
             case LEDGER_ERROR -> "Платёж не удалось зарегистрировать.";
             case RECONCILIATION_REQUIRED -> "Обнаружено расхождение реестров. Требуется проверка администрации сервера.";
         };
@@ -268,13 +269,29 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         if (town == null) return;
         java.util.List<KingdomExpansionPlans.Cell> cells = new java.util.ArrayList<>();
         for (long cell : planned) cells.add(new KingdomExpansionPlans.Cell(dimension(), x(cell), z(cell)));
+        long municipal=Math.max(0,Math.min(town.treasury(),KingdomAdministrationData.get(viewer.getServer()).treasuryReserve(cityId)));
         var quote = KingdomExpansionQuote.evaluate(cityId, dimension(), cells,
-            db.mapPlots(dimension()), town.treasury());
-        viewer.sendSystemMessage(Component.literal("[Kingdom] План: " + quote.status()
+            db.mapPlots(dimension()), municipal);
+        String status=switch(quote.status()){
+            case READY->"готов к покупке";case EMPTY->"пуст";case TOO_LARGE->"слишком большой";
+            case CONFLICT->"есть занятая земля";case DISCONNECTED->"участки не смежны";
+            case INSUFFICIENT_TREASURY->"недостаточно денег поселения";
+        };
+        viewer.sendSystemMessage(Component.literal("[Kingdom] План: " + status
             + " | чанков: " + quote.chunks() + " | стоимость: " + quote.price()
-            + " медных | казна: " + town.treasury()));
+            + " медных | счёт поселения: " + municipal+" | ваш личный счёт: "+KingdomBankData.get(viewer.getServer()).balance(viewer.getUUID())));
         viewer.sendSystemMessage(Component.literal("[Kingdom] Это предварительная проверка, оплата и присоединение не выполнены."));
         refresh();
+    }
+    private String fundingProblem(){
+        var admin=KingdomAdministrationData.get(viewer.getServer());
+        var city=KingdomCivicsData.get(viewer.getServer()).townById(cityId);
+        var vault=KingdomPhysicalCash.townVault(viewer,cityId,ru.projectkingdom.administration.AdministrativeBindingRole.BANK_VAULT);
+        if(vault==null)return "Банковское хранилище поселения не подключено или его чанки не загружены.";
+        long municipal=city==null?0:Math.max(0,Math.min(city.treasury(),admin.treasuryReserve(cityId)));
+        if(municipal<100L*planned.size())return "На счёте поселения "+municipal+" медных, нужно "+(100L*planned.size())
+                +". Личный счёт не расходуется автоматически. В банке выберите «Из личного — поселению» или внесите монеты на счёт поселения.";
+        return "Реальные монеты банковского хранилища не подтверждают остатки счетов. Нужна сверка банка.";
     }
     @Override public boolean stillValid(Player player) {
         return player == viewer && player.isAlive();
