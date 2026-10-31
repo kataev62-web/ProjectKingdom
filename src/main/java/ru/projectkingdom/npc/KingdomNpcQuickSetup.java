@@ -52,6 +52,12 @@ public final class KingdomNpcQuickSetup {
             ||"minecraft:crafting_table".equals(id);
         return "minecraft:crafting_table".equals(id);
     }
+    /** Prefer the actual native TFC machine over a generic vanilla crafting table. */
+    private static int stationPriority(String job,String id) {
+        if("minecraft:crafting_table".equals(id))return 10;
+        return "tfc:quern".equals(id) ? 0 : "tfc:pot".equals(id) ? 1
+            : "tfc:grill".equals(id) ? 2 : 0;
+    }
     private static boolean coreValid(ServerLevel level,
         KingdomEnterpriseData enterprises,KingdomEnterpriseData.Enterprise business){
         var core=enterprises.core(business.id());
@@ -111,14 +117,18 @@ public final class KingdomNpcQuickSetup {
     private static BlockPos workstation(ServerLevel level,String job,BlockPos center,
                                          UUID owner) {
         BlockPos best=null;double distance=Double.MAX_VALUE;
+        int priority=Integer.MAX_VALUE;
         var land=KingdomTerritories.get(level.getServer());
         for(int x=-7;x<=7;x++)for(int y=-3;y<=3;y++)for(int z=-7;z<=7;z++){
             BlockPos pos=center.offset(x,y,z);
             if(!level.hasChunkAt(pos)||!land.canUse(level,pos,owner))continue;
             String id=BuiltInRegistries.BLOCK.getKey(level.getBlockState(pos).getBlock()).toString();
             if(!station(job,id))continue;
+            int rank=stationPriority(job,id);
             double d=pos.distSqr(center);
-            if(d<distance){distance=d;best=pos.immutable();}
+            if(rank<priority || rank==priority && d<distance){
+                priority=rank;distance=d;best=pos.immutable();
+            }
         }
         return best;
     }
@@ -168,8 +178,18 @@ public final class KingdomNpcQuickSetup {
                 EnterpriseBindingRole.FINISHED_STORAGE))
             return new Result(false,"Склады заняты другой ролью или предприятием. "
                 +"Выбери свободные сундуки на своей земле.");
-        BlockPos machine=workshop(worker.job)
-            ?workstation(level,worker.job,center,owner):null;
+        BlockPos machine=null;
+        if(workshop(worker.job)){
+            // Never discard an already valid manually selected TFC machine.
+            if(worker.hasWorkstation){
+                var old=new BlockPos(worker.workX,worker.workY,worker.workZ);
+                if(level.hasChunkAt(old)&&land.canUse(level,old,owner)
+                    &&station(worker.job,BuiltInRegistries.BLOCK.getKey(
+                        level.getBlockState(old).getBlock()).toString()))
+                    machine=old;
+            }
+            if(machine==null)machine=workstation(level,worker.job,center,owner);
+        }
         if(machine!=null && !land.register(level,machine,owner,"workstation"))
             machine=null;
         var payroll=KingdomEnterprisePayrollData.get(server);
