@@ -18,11 +18,16 @@ public final class KingdomRanchPenData extends SavedData {
     public static final int MAX_PENS=4,MAX_SIDE=16;
     private static final String KEY="kingdom_livestock_pens_v1";
     public record Pen(UUID id,UUID farm,String dimension,int minX,int maxX,int y,int minZ,int maxZ,boolean enabled){
+        /** Pen is a 2D pasture with a practical vertical envelope for uneven terrain. */
         public boolean contains(Entity animal){
-            BlockPos p=animal.blockPosition();
-            return animal.level().dimension().location().toString().equals(dimension)
-                && p.getX()>=minX&&p.getX()<=maxX&&p.getZ()>=minZ&&p.getZ()<=maxZ
-                && Math.abs(p.getY()-y)<=3;
+            return contains(animal.blockPosition(),
+                animal.level().dimension().location().toString());
+        }
+        public boolean contains(BlockPos pos,String entityDimension){
+            return dimension.equals(entityDimension)
+                &&pos.getX()>=minX&&pos.getX()<=maxX
+                &&pos.getZ()>=minZ&&pos.getZ()<=maxZ
+                &&pos.getY()>=y-8&&pos.getY()<=y+16;
         }
         public BlockPos center(){return new BlockPos((minX+maxX)/2,y+1,(minZ+maxZ)/2);}
     }

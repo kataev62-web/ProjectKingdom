@@ -14,6 +14,15 @@ class KingdomRanchPenDataTest {
         assertEquals(16,pen.maxX()-pen.minX()+1);
         assertEquals(new BlockPos(17,71,22),pen.center());
     }
+    @Test void penContainsLivestockOnUnevenGroundButNotOutsideItsFootprint(){
+        var pen=new KingdomRanchPenData.Pen(UUID.randomUUID(),UUID.randomUUID(),
+            "minecraft:overworld",10,25,70,15,30,true);
+        assertTrue(pen.contains(new BlockPos(12,86,18),"minecraft:overworld"));
+        assertTrue(pen.contains(new BlockPos(12,62,18),"minecraft:overworld"));
+        assertFalse(pen.contains(new BlockPos(12,87,18),"minecraft:overworld"));
+        assertFalse(pen.contains(new BlockPos(26,70,18),"minecraft:overworld"));
+        assertFalse(pen.contains(new BlockPos(12,70,18),"minecraft:the_nether"));
+    }
     @Test void savesAfterRestartAndRejectsOversizedPens(){
         UUID id=UUID.randomUUID(),farm=UUID.randomUUID();
         CompoundTag root=new CompoundTag();
