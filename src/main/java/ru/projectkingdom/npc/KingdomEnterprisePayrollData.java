@@ -33,8 +33,8 @@ public final class KingdomEnterprisePayrollData extends SavedData {
             accrue(server,enterprise,worker);old=entries.get(key(enterprise,worker));
         }
         long owed=old==null?0:old.owed();
-        // Never reset the defaulted company's unpaid debt by clicking Hire again.
-        if(owed>=arrearsLimit(rate))return false;
+        // Never reset a suspended company's unpaid debt by clicking Hire again.
+        if(old!=null&&!old.active()&&owed>0 || owed>=arrearsLimit(rate))return false;
         entries.put(key(enterprise,worker),new Employment(enterprise,worker,rate,day,owed,true));
         setDirty();return true;
     }
@@ -115,8 +115,15 @@ public final class KingdomEnterprisePayrollData extends SavedData {
                 hasContract=true;break;
             }
             if(hasContract)continue;
-            var firm=enterprises.owned(w.employer);
-            if(firm!=null)hire(server,w.employer,firm.id(),w.entityId,w.dailyWage);
+            // Resume at the same workplace only after the full old debt was
+            // paid; never silently move unpaid liabilities to another business.
+            Employment last=null;
+            for(Employment old:entries.values())if(old.worker().equals(w.entityId)
+                    &&!old.active())last=old;
+            if(last!=null && last.owed()>0)continue;
+            var firm=last!=null?enterprises.find(last.enterprise()):enterprises.owned(w.employer);
+            if(firm!=null && firm.owner().equals(w.employer))
+                hire(server,w.employer,firm.id(),w.entityId,w.dailyWage);
         }
         // Worker must physically reach the cash desk. No teleport or money creation.
         for(var w:registry.all())claimNpc(server,w);
