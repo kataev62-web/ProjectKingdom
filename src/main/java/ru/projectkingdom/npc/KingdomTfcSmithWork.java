@@ -32,7 +32,6 @@ public final class KingdomTfcSmithWork {
     private static final String TFC_FORGING="net.dries007.tfc.common.capabilities.forge.ForgingCapability";
     private static final String TFC_HEAT="net.dries007.tfc.common.capabilities.heat.HeatCapability";
     private static final int[] FORGE_STEPS={-3,-6,-9,-15,2,7,13,16};
-    private static final Map<UUID,Deque<Integer>> PLANS=new HashMap<>();
     private KingdomTfcSmithWork(){}
 
     public static boolean inside(EnterpriseBuildingRegistration.Room room,BlockPos pos){
@@ -137,19 +136,83 @@ public final class KingdomTfcSmithWork {
         return null;
     }
     /** A recipe with more than one valid output needs an explicit player-selected anvil plan. */
-    private static boolean selectUniqueAnvilRecipe(ServerLevel level,BlockEntity anvil,ItemStack input){
+    private static boolean selectUniqueAnvilRecipe(ServerLevel level,BlockEntity anvil,
+                                                     ItemStack input,KingdomNpcData.Worker w){
         try{
             if(forgeCapability(input)==null)return false;
             Class<?> recipe=Class.forName("net.dries007.tfc.common.recipes.AnvilRecipe");
             int tier=(int)anvil.getClass().getMethod("getTier").invoke(anvil);
             Object collection=recipe.getMethod("getAll",net.minecraft.world.level.Level.class,
                     ItemStack.class,int.class).invoke(null,level,input,tier);
-            if(!(collection instanceof List<?> candidates)||candidates.size()!=1)return false;
-            anvil.getClass().getMethod("chooseRecipe",recipe).invoke(anvil,candidates.get(0));
+            if(!(collection instanceof List<?> candidates))return false;
+            Object selected=selectedRecipe(candidates,w.smithRecipeId);
+            if(selected==null)return false;
+            anvil.getClass().getMethod("chooseRecipe",recipe).invoke(anvil,selected);
             return true;
         }catch(ReflectiveOperationException|LinkageError|RuntimeException e){return false;}
     }
 
+    private static Object selectedRecipe(List<?> options,String id){
+        if(options==null||options.isEmpty())return null;
+        if(id==null||id.isBlank())return options.size()==1?options.get(0):null;
+        for(Object option:options)try{
+            if(id.equals(option.getClass().getMethod("getId").invoke(option).toString()))
+                return option;
+        }catch(ReflectiveOperationException ignored){}
+        return null;
+    }
+
+    /** Left click Recipe in the NPC menu cycles valid native TFC anvil outputs. */
+    public static String cycleRecipe(net.minecraft.server.level.ServerPlayer owner,KingdomNpcData.Worker w){
+        if(owner==null||w==null||!"smith".equals(w.job)||!owner.getUUID().equals(w.employer)
+                ||!w.hasWorkstation||!w.hasSource)return "Сначала найми кузнеца и настрой его рабочее место.";
+        var server=owner.getServer();var firms=KingdomEnterpriseData.get(server);
+        UUID firm;
+        try{firm=UUID.fromString(w.workplaceId);}catch(IllegalArgumentException ex){return "Не привязана кузница.";}
+        if(!firms.mayManage(owner.getUUID(),firm)||firms.kind(firm)!=EnterpriseKind.SMITHY)
+            return "Нет прав на эту кузницу.";
+        var room=EnterpriseBuildingRegistration.get(server).room(firm);
+        var level=owner.serverLevel();var pos=new BlockPos(w.workX,w.workY,w.workZ);
+        if(room==null||!room.dimension().equals(w.dimension)||!inside(room,pos))
+            return "Зарегистрируй здание кузницы.";
+        BlockPos anvilPos=findAnvil(level,room,pos);
+        BlockPos rawPos=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
+        if(anvilPos==null||!level.hasChunkAt(rawPos)
+                ||!KingdomTerritories.get(server).usable(level,rawPos,w.employer,"raw")
+                ||!(level.getBlockEntity(rawPos) instanceof Container raw))
+            return "Нужны наковальня TFC внутри здания и привязанный склад сырья.";
+        BlockEntity anvil=level.getBlockEntity(anvilPos);
+        var inv=inventory(anvil);
+        if(inv==null)return "Инвентарь наковальни TFC недоступен.";
+        ItemStack sample=inv.getStackInSlot(0);
+        try{
+            Class<?> recipe=Class.forName("net.dries007.tfc.common.recipes.AnvilRecipe");
+            int tier=(int)anvil.getClass().getMethod("getTier").invoke(anvil);
+            Method getAll=recipe.getMethod("getAll",net.minecraft.world.level.Level.class,ItemStack.class,int.class);
+            if(sample.isEmpty()){
+                for(int i=0;i<raw.getContainerSize();i++){
+                    ItemStack stack=raw.getItem(i);
+                    if(stack.isEmpty())continue;
+                    Object choices=getAll.invoke(null,level,stack,tier);
+                    if(choices instanceof List<?> list&&!list.isEmpty()){sample=stack;break;}
+                }
+            }
+            if(sample.isEmpty())return "В складе нет пригодного для ковки металла.";
+            Object choices=getAll.invoke(null,level,sample,tier);
+            if(!(choices instanceof List<?> list)||list.isEmpty())return "Нет подходящего TFC-рецепта.";
+            var ids=new ArrayList<String>();
+            for(Object candidate:list)
+                ids.add(candidate.getClass().getMethod("getId").invoke(candidate).toString());
+            Collections.sort(ids);
+            int old=ids.indexOf(w.smithRecipeId);
+            w.smithRecipeId=ids.get((old+1)%ids.size());
+            KingdomNpcData.get(server).setDirty();
+            return "Выбран настоящий рецепт: "+w.smithRecipeId
+                    +" ("+(ids.indexOf(w.smithRecipeId)+1)+"/"+ids.size()+").";
+        }catch(ReflectiveOperationException|LinkageError|RuntimeException ex){
+            return "Не удалось прочитать рецепты TFC.";
+        }
+    }
     /** Returns the valid next native step (0..7), or no step for unsafe/unplanned work. */
     public static int nextStep(int target,int work,int last,int second,int third,String[] rules){
         if(work<0||work>150||target<0||target>150||rules==null||rules.length==0)return -1;
@@ -208,7 +271,8 @@ public final class KingdomTfcSmithWork {
         };
     }
 
-    private static boolean anvilWork(ServerLevel level,Villager npc,BlockEntity anvil,IItemHandlerModifiable slots){
+    private static boolean anvilWork(ServerLevel level,Villager npc,BlockEntity anvil,
+                                     IItemHandlerModifiable slots,KingdomNpcData.Worker w){
         ItemStack metal=slots.getStackInSlot(0);
         if(metal.isEmpty()||slots.getSlots()<4)return false;
         var hammer=slots.getStackInSlot(2);
@@ -220,7 +284,7 @@ public final class KingdomTfcSmithWork {
             Class<?> forgeStep=Class.forName("net.dries007.tfc.common.capabilities.forge.ForgeStep");
             Object recipe=forging.getClass().getMethod("getRecipe",
                     net.minecraft.world.level.Level.class).invoke(forging,level);
-            if(recipe==null&&!selectUniqueAnvilRecipe(level,anvil,metal))return false;
+            if(recipe==null&&!selectUniqueAnvilRecipe(level,anvil,metal,w))return false;
             recipe=forging.getClass().getMethod("getRecipe",net.minecraft.world.level.Level.class)
                     .invoke(forging,level);
             if(recipe==null)return false;
@@ -241,8 +305,13 @@ public final class KingdomTfcSmithWork {
             var fake=FakePlayerFactory.get(level,new GameProfile(
                     UUID.nameUUIDFromBytes("kingdom-tfc-smith".getBytes(java.nio.charset.StandardCharsets.UTF_8)),
                     "[KingdomSmith]"));
+            ItemStack before=slots.getStackInSlot(0).copy();
             Object outcome=anvil.getClass().getMethod("work",net.minecraft.server.level.ServerPlayer.class,
                     forgeStep).invoke(anvil,fake,step);
+            ItemStack after=slots.getStackInSlot(0);
+            if(!after.isEmpty()&&!ItemStack.isSameItem(before,after)){
+                w.smithOutputReady=true;KingdomNpcData.get(level.getServer()).setDirty();
+            }
             anvil.setChanged();
             return outcome==net.minecraft.world.InteractionResult.SUCCESS
                     ||outcome==net.minecraft.world.InteractionResult.CONSUME;
@@ -310,19 +379,23 @@ public final class KingdomTfcSmithWork {
         // 5: a REAL TFC hammer is placed in the anvil's own hammer slot by player;
         // it is not demanded from a warehouse chest.
         if(!anvilInv.getStackInSlot(0).isEmpty()){
-            if(anvilWork(level,npc,anvil,anvilInv))return true;
-            // Transfer completed physical output only after TFC clears forging data.
-            var product=anvilInv.getStackInSlot(0);
-            if(!product.isEmpty()&&forgeCapability(product)==null&&intoChest(finished,product)){
-                anvilInv.setStackInSlot(0,ItemStack.EMPTY);anvil.setChanged();return true;
+            if(w.smithOutputReady){
+                ItemStack ready=anvilInv.getStackInSlot(0);
+                if(intoChest(finished,ready)){
+                    anvilInv.setStackInSlot(0,ItemStack.EMPTY);anvil.setChanged();
+                    w.smithOutputReady=false;KingdomNpcData.get(server).setDirty();return true;
+                }
+                return false; // Real output waits until the finished chest has space.
             }
+            if(anvilWork(level,npc,anvil,anvilInv,w))return true;
             return false;
         }
+        if(w.smithOutputReady){w.smithOutputReady=false;KingdomNpcData.get(server).setDirty();}
         if(anvilInv.getStackInSlot(2).isEmpty())return false;
         for(int slot=5;slot<=9;slot++){
             ItemStack heated=forgeInv.getStackInSlot(slot);
             if(heated.isEmpty()||!hotEnough(heated)||forgeCapability(heated)==null)continue;
-            if(!selectUniqueAnvilRecipePreflight(level,anvil,heated))continue;
+            if(!selectUniqueAnvilRecipePreflight(level,anvil,heated,w))continue;
             // Move the SAME real hot stack to the anvil, with no copy left in forge.
             anvilInv.setStackInSlot(0,heated.copy());
             forgeInv.setStackInSlot(slot,ItemStack.EMPTY);
@@ -330,13 +403,14 @@ public final class KingdomTfcSmithWork {
         }
         return false;
     }
-    private static boolean selectUniqueAnvilRecipePreflight(ServerLevel level,BlockEntity anvil,ItemStack stack){
+    private static boolean selectUniqueAnvilRecipePreflight(ServerLevel level,BlockEntity anvil,
+                                                               ItemStack stack,KingdomNpcData.Worker w){
         try{
             Class<?> recipe=Class.forName("net.dries007.tfc.common.recipes.AnvilRecipe");
             int tier=(int)anvil.getClass().getMethod("getTier").invoke(anvil);
             Object rows=recipe.getMethod("getAll",net.minecraft.world.level.Level.class,
                     ItemStack.class,int.class).invoke(null,level,stack,tier);
-            return rows instanceof List<?> list&&list.size()==1;
+            return rows instanceof List<?> list&&selectedRecipe(list,w.smithRecipeId)!=null;
         }catch(ReflectiveOperationException|LinkageError|RuntimeException ex){return false;}
     }
 }
