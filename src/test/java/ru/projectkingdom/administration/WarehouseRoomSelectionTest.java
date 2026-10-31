@@ -31,7 +31,7 @@ final class WarehouseRoomSelectionTest {
         assertEquals(0,compiler.run(null,output,output,arguments.toArray(String[]::new)),output.toString());
     }
     @ParameterizedTest
-    @ValueSource(strings={"floor","diagonal","retry","height","no_storage","rights","dimension","upper_limit"})
+    @ValueSource(strings={"floor","diagonal","retry","height","no_storage","core_inside","retry_far","rights","dimension","upper_limit"})
     void selectsAndValidatesRealRoom(String scenario) throws Exception {
         try(var loader=new URLClassLoader(new URL[]{classes.toUri().toURL()},ClassLoader.getPlatformClassLoader())){
             loader.loadClass("ru.projectkingdom.administration.WarehouseRoomHarness")
