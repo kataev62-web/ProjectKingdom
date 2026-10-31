@@ -27,6 +27,7 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew test build --no-daemon
+          python3 03_verify_project.py
 
       - name: Upload mod JAR
         uses: actions/upload-artifact@v4
