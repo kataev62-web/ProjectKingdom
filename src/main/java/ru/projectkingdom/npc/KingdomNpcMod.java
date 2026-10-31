@@ -592,6 +592,7 @@ public final class KingdomNpcMod {
                 npc.setCustomName(Component.literal("Kingdom " + job));
                 npc.setCustomNameVisible(true);
                 npc.setPersistenceRequired();
+                npc.setSilent(true);
                 npc.setVillagerData(npc.getVillagerData().setProfession(profession(job)));
                 if (!level.addFreshEntity(npc)) { reply(src, "Failed to spawn villager"); return 0; }
                 var created = db.add(npc.getUUID(), "Kingdom " + job, level.dimension().location().toString(), level.getDayTime() / TICKS_PER_DAY);
@@ -615,6 +616,7 @@ public final class KingdomNpcMod {
                 npc.setCustomName(Component.literal("Kingdom " + job));
                 npc.setCustomNameVisible(true);
                 npc.setPersistenceRequired();
+                npc.setSilent(true);
                 npc.setVillagerData(npc.getVillagerData().setProfession(profession(job)));
                 if (!level.addFreshEntity(npc)) return 0;
                 var worker = db.add(npc.getUUID(), "Kingdom " + job,
@@ -853,6 +855,7 @@ public final class KingdomNpcMod {
     /** Vanilla villager remains interactive; avoid opening its trade UI for tracked workers. */
     @SubscribeEvent
     public void interact(PlayerInteractEvent.EntityInteract event) {
+        if (event.getHand() != net.minecraft.world.InteractionHand.MAIN_HAND) return;
         if (!(event.getTarget() instanceof Villager npc) || !(event.getEntity() instanceof ServerPlayer p)) return;
         var db=KingdomNpcData.get(p.getServer());
         KingdomNpcData.Worker found=null;
@@ -875,6 +878,8 @@ public final class KingdomNpcMod {
             p.sendSystemMessage(Component.literal("[Королевство] Житель принят в систему, №" + found.id));
         }
         if(found==null)return;
+        npc.setSilent(true);
+        ru.projectkingdom.npc.voice.NpcApproachSpeech.greetOnInteraction(p, found);
         // Freeze immediately, not after the next simulation update.
         npc.getNavigation().stop();
         npc.setNoAi(true);

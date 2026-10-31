@@ -9,7 +9,7 @@ import ru.projectkingdom.administration.AdministrativeTextPacket;
 import ru.projectkingdom.settlement.KingdomSettlementFoundPacket;
 
 public final class KingdomNetwork {
-    private static final String PROTOCOL="11";
+    private static final String PROTOCOL="11-voice3";
     public static final SimpleChannel CHANNEL=NetworkRegistry.newSimpleChannel(
             new ResourceLocation(KingdomNpcMod.MOD_ID,"main"),()->PROTOCOL,PROTOCOL::equals,PROTOCOL::equals);
     private static boolean registered;

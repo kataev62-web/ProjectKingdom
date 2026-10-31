@@ -1,6 +1,7 @@
 package ru.projectkingdom.npc;
 
 import java.util.Locale;
+import ru.projectkingdom.npc.voice.NpcVoiceLine;
 
 /** Deterministic role- and state-aware Russian dialogue policy. It never mutates game state. */
 public final class NpcDialogueEngine {
@@ -17,34 +18,34 @@ public final class NpcDialogueEngine {
                            boolean employed, boolean contractPaused, boolean hasHome,
                            boolean hasWorkstation, String order, int reputation) {}
 
-    public record Reply(Intent intent, Action action, String text) {}
+    public record Reply(Intent intent, Action action, String text, NpcVoiceLine line) {}
 
     public static Reply reply(String utterance, Snapshot state) {
         if (state == null) throw new IllegalArgumentException("NPC state is required");
         Intent intent = classify(utterance);
         return switch (intent) {
-            case GREETING -> answer(intent, "Здравствуй. Я " + safeName(state.name()) + ".");
+            case GREETING -> answer(intent, "Здравствуй. Я " + safeName(state.name()) + ".", NpcVoiceLine.GREETING);
             case IDENTITY -> answer(intent, "Меня зовут " + safeName(state.name()) + ". Моя профессия — "
-                    + profession(state.job()) + ".");
-            case NEEDS -> answer(intent, needs(state));
-            case WORK -> answer(intent, work(state));
-            case TASK -> answer(intent, task(state));
+                    + profession(state.job()) + ".", NpcVoiceLine.IDENTITY);
+            case NEEDS -> needs(state);
+            case WORK -> work(state);
+            case TASK -> task(state);
             case HELP -> state.hunger() < 80
-                    ? new Reply(intent, Action.GIVE_BREAD, "Если это настоящий хлеб, передай его мне.")
-                    : answer(intent, "Спасибо, но сейчас еда мне не нужна.");
+                    ? new Reply(intent, Action.GIVE_BREAD, "Если это настоящий хлеб, передай его мне.", NpcVoiceLine.FOOD_HELP)
+                    : answer(intent, "Спасибо, но сейчас еда мне не нужна.", NpcVoiceLine.FOOD_ENOUGH);
             case TRADE -> canTrade(state.job())
-                    ? new Reply(intent, Action.OPEN_TRADE, "Торговля идёт только у настоящего прилавка и склада.")
-                    : answer(intent, "Я не веду торговлю. Обратись к купцу или кладовщику.");
+                    ? new Reply(intent, Action.OPEN_TRADE, "Торговля идёт только у настоящего прилавка и склада.", NpcVoiceLine.TRADE)
+                    : answer(intent, "Я не веду торговлю. Обратись к купцу или кладовщику.", NpcVoiceLine.NO_TRADE);
             case HIRE -> new Reply(intent, Action.OPEN_MANAGEMENT,
                     state.employed() ? "У меня уже есть трудовой договор. Подробности — в управлении."
-                            : "Найм оформляется через предприятие с настоящей кассой.");
+                            : "Найм оформляется через предприятие с настоящей кассой.", state.employed() ? NpcVoiceLine.EMPLOYED : NpcVoiceLine.HIRE);
             case FIRE -> new Reply(intent, Action.OPEN_MANAGEMENT,
-                    "Расторжение договора подтверждается в управлении, а не словами.");
-            case RELATIONSHIP -> answer(intent, "Наши отношения: " + relationship(state.reputation()) + ".");
+                    "Расторжение договора подтверждается в управлении, а не словами.", NpcVoiceLine.CONTRACT);
+            case RELATIONSHIP -> answer(intent, "Наши отношения: " + relationship(state.reputation()) + ".", NpcVoiceLine.RELATIONSHIP);
             case MANAGEMENT -> new Reply(intent, Action.OPEN_MANAGEMENT,
-                    "Открываю проверяемое управление договорами и приказами.");
+                    "Открываю проверяемое управление договорами и приказами.", NpcVoiceLine.MANAGEMENT);
             case UNKNOWN -> answer(intent,
-                    "Я не понял. Спроси о моих нуждах, работе, задании, торговле или отношениях.");
+                    "Я не понял. Спроси о моих нуждах, работе, задании, торговле или отношениях.", NpcVoiceLine.UNKNOWN);
         };
     }
 
@@ -65,33 +66,33 @@ public final class NpcDialogueEngine {
         return Intent.UNKNOWN;
     }
 
-    private static String needs(Snapshot s) {
-        if (s.safety() < 25) return "Здесь опасно. Мне нужно безопасное место.";
-        if (s.hunger() < 30) return "Я голоден. Нужен настоящий хлеб, не обещание.";
-        if (s.energy() < 25) return "Я устал и должен отдохнуть дома.";
-        if (!s.hasHome()) return "Мне негде жить. Нужен назначенный дом.";
-        if (s.morale() < 30) return "Настроение плохое: проверь безопасность, питание и оплату.";
-        return "Сейчас всё в порядке: я сыт, могу отдохнуть и чувствую себя безопасно.";
+    private static Reply needs(Snapshot s) {
+        if (s.safety() < 25) return answer(Intent.NEEDS,"Здесь опасно. Мне нужно безопасное место.",NpcVoiceLine.DANGER);
+        if (s.hunger() < 30) return answer(Intent.NEEDS,"Испытываю голод. Нужен настоящий хлеб, не обещание.",NpcVoiceLine.HUNGRY);
+        if (s.energy() < 25) return answer(Intent.NEEDS,"Пора отдохнуть дома.",NpcVoiceLine.TIRED);
+        if (!s.hasHome()) return answer(Intent.NEEDS,"Мне негде жить. Нужен назначенный дом.",NpcVoiceLine.HOME);
+        if (s.morale() < 30) return answer(Intent.NEEDS,"Настроение плохое: проверь безопасность, питание и оплату.",NpcVoiceLine.UNHAPPY);
+        return answer(Intent.NEEDS,"Сейчас всё в порядке: еды хватает, есть отдых и безопасность.",NpcVoiceLine.WELL);
     }
 
-    private static String work(Snapshot s) {
-        if (!s.employed()) return "Сейчас я свободен и ищу настоящую работу.";
-        if (s.contractPaused()) return "Мой договор приостановлен: накопилась проблема с оплатой.";
-        if (!s.hasWorkstation()) return "Договор есть, но рабочая станция ещё не назначена.";
-        return "Я работаю как " + profession(s.job()) + ". Текущий приказ: " + order(s.order()) + ".";
+    private static Reply work(Snapshot s) {
+        if (!s.employed()) return answer(Intent.WORK,"Сейчас ищу настоящую работу.",NpcVoiceLine.JOB_SEEKING);
+        if (s.contractPaused()) return answer(Intent.WORK,"Мой договор приостановлен: накопилась проблема с оплатой.",NpcVoiceLine.WAGES);
+        if (!s.hasWorkstation()) return answer(Intent.WORK,"Договор есть, но рабочая станция ещё не назначена.",NpcVoiceLine.WORKSTATION);
+        return answer(Intent.WORK,"Я работаю как " + profession(s.job()) + ". Текущий приказ: " + order(s.order()) + ".",NpcVoiceLine.WORKING);
     }
 
-    private static String task(Snapshot s) {
-        if (s.safety() < 25) return "Сначала помоги сделать это место безопасным.";
-        if (s.hunger() < 60) return "Принеси мне один настоящий хлеб и скажи: «Вот хлеб».";
-        if (!s.hasHome()) return "Мне нужен дом. Назначить его может управляющий в меню NPC.";
-        if (!s.employed()) return "Мне нужна работа в предприятии с реальной кассой.";
-        if (s.contractPaused()) return "Помоги работодателю погасить долг по зарплате через кассу предприятия.";
-        return "Сейчас срочных просьб нет. Спроси о работе или торговле.";
+    private static Reply task(Snapshot s) {
+        if (s.safety() < 25) return answer(Intent.TASK,"Сначала помоги сделать это место безопасным.",NpcVoiceLine.DANGER);
+        if (s.hunger() < 60) return answer(Intent.TASK,"Принеси мне один настоящий хлеб и скажи: «Вот хлеб».",NpcVoiceLine.FOOD_HELP);
+        if (!s.hasHome()) return answer(Intent.TASK,"Мне нужен дом. Назначить его может управляющий в меню NPC.",NpcVoiceLine.HOME);
+        if (!s.employed()) return answer(Intent.TASK,"Мне нужна работа в предприятии с реальной кассой.",NpcVoiceLine.JOB_SEEKING);
+        if (s.contractPaused()) return answer(Intent.TASK,"Помоги работодателю погасить долг по зарплате через кассу предприятия.",NpcVoiceLine.DEBT_HELP);
+        return answer(Intent.TASK,"Сейчас срочных просьб нет. Спроси о работе или торговле.",NpcVoiceLine.NO_TASK);
     }
 
-    private static Reply answer(Intent intent, String text) {
-        return new Reply(intent, Action.NONE, text);
+    private static Reply answer(Intent intent, String text, NpcVoiceLine line) {
+        return new Reply(intent, Action.NONE, text, line);
     }
 
     private static boolean canTrade(String job) {

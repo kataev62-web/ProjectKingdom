@@ -1,0 +1,1460 @@
+{
+  "voice.male_1.greeting": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/greeting",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.identity": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/identity",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.danger": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/danger",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.hungry": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/hungry",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.tired": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/tired",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.home": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/home",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.unhappy": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/unhappy",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.well": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/well",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.job_seeking": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/job_seeking",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.wages": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/wages",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.workstation": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/workstation",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.working": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/working",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.food_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/food_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.debt_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/debt_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.no_task": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/no_task",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.bread_thanks": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/bread_thanks",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.bread_missing": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/bread_missing",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.food_enough": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/food_enough",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.no_trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/no_trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.employed": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/employed",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.hire": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/hire",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.contract": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/contract",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.relationship": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/relationship",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.management": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/management",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.unknown": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/unknown",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.greeting": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/greeting",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.identity": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/identity",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.danger": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/danger",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.hungry": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/hungry",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.tired": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/tired",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.home": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/home",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.unhappy": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/unhappy",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.well": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/well",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.job_seeking": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/job_seeking",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.wages": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/wages",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.workstation": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/workstation",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.working": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/working",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.food_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/food_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.debt_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/debt_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.no_task": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/no_task",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.bread_thanks": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/bread_thanks",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.bread_missing": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/bread_missing",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.food_enough": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/food_enough",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.no_trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/no_trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.employed": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/employed",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.hire": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/hire",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.contract": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/contract",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.relationship": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/relationship",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.management": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/management",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.unknown": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/unknown",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.greeting": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/greeting",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.identity": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/identity",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.danger": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/danger",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.hungry": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/hungry",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.tired": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/tired",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.home": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/home",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.unhappy": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/unhappy",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.well": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/well",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.job_seeking": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/job_seeking",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.wages": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/wages",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.workstation": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/workstation",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.working": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/working",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.food_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/food_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.debt_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/debt_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.no_task": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/no_task",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.bread_thanks": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/bread_thanks",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.bread_missing": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/bread_missing",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.food_enough": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/food_enough",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.no_trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/no_trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.employed": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/employed",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.hire": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/hire",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.contract": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/contract",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.relationship": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/relationship",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.management": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/management",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.unknown": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/unknown",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.greeting": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/greeting",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.identity": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/identity",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.danger": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/danger",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.hungry": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/hungry",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.tired": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/tired",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.home": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/home",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.unhappy": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/unhappy",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.well": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/well",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.job_seeking": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/job_seeking",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.wages": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/wages",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.workstation": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/workstation",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.working": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/working",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.food_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/food_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.debt_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/debt_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.no_task": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/no_task",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.bread_thanks": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/bread_thanks",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.bread_missing": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/bread_missing",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.food_enough": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/food_enough",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.no_trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/no_trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.employed": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/employed",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.hire": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/hire",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.contract": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/contract",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.relationship": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/relationship",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.management": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/management",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.unknown": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/unknown",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.greeting": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/greeting",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.identity": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/identity",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.danger": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/danger",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.hungry": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/hungry",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.tired": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/tired",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.home": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/home",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.unhappy": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/unhappy",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.well": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/well",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.job_seeking": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/job_seeking",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.wages": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/wages",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.workstation": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/workstation",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.working": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/working",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.food_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/food_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.debt_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/debt_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.no_task": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/no_task",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.bread_thanks": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/bread_thanks",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.bread_missing": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/bread_missing",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.food_enough": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/food_enough",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.no_trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/no_trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.employed": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/employed",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.hire": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/hire",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.contract": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/contract",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.relationship": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/relationship",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.management": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/management",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.unknown": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/unknown",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.greeting": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/greeting",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.identity": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/identity",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.danger": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/danger",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.hungry": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/hungry",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.tired": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/tired",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.home": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/home",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.unhappy": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/unhappy",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.well": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/well",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.job_seeking": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/job_seeking",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.wages": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/wages",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.workstation": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/workstation",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.working": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/working",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.food_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/food_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.debt_help": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/debt_help",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.no_task": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/no_task",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.bread_thanks": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/bread_thanks",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.bread_missing": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/bread_missing",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.food_enough": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/food_enough",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.no_trade": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/no_trade",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.employed": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/employed",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.hire": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/hire",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.contract": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/contract",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.relationship": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/relationship",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.management": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/management",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.unknown": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/unknown",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_1.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_1/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_2.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_2/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.male_3.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/male_3/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_1.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_1/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_2.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_2/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  },
+  "voice.female_3.how_day": {
+    "sounds": [
+      {
+        "name": "kingdomnpc:voice/female_3/how_day",
+        "stream": false,
+        "preload": true
+      }
+    ]
+  }
+}

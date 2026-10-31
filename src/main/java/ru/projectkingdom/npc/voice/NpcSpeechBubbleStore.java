@@ -14,7 +14,7 @@ public final class NpcSpeechBubbleStore {
     private final Map<UUID,Speech> active=new LinkedHashMap<>();
 
     public record Speech(UUID entityId,String name,String text,String gender,
-                         long startTick,long endTick) {}
+                         long startTick,long endTick,String details) {}
 
     public NpcSpeechBubbleStore(int capacity){
         if(capacity<1)throw new IllegalArgumentException("capacity must be positive");
@@ -23,11 +23,16 @@ public final class NpcSpeechBubbleStore {
 
     public synchronized void put(UUID entityId,String name,String text,String gender,
                                  long nowTick,int durationTicks){
+        put(entityId,name,text,gender,nowTick,durationTicks,"");
+    }
+
+    public synchronized void put(UUID entityId,String name,String text,String gender,
+                                 long nowTick,int durationTicks,String details){
         if(entityId==null||text==null||text.isBlank())return;
         prune(nowTick);
         active.remove(entityId);
         active.put(entityId,new Speech(entityId,name==null?"":name,text,
-                gender==null?"unspecified":gender,nowTick,nowTick+durationTicks));
+                gender==null?"unspecified":gender,nowTick,nowTick+durationTicks,details==null?"":details));
         while(active.size()>capacity){
             var oldest=active.keySet().iterator();oldest.next();oldest.remove();
         }
@@ -43,6 +48,7 @@ public final class NpcSpeechBubbleStore {
 
     public synchronized int size(long nowTick){prune(nowTick);return active.size();}
     public synchronized void clear(){active.clear();}
+    public synchronized void remove(UUID entityId){active.remove(entityId);}
 
     public float alpha(Speech speech,long nowTick){
         long remaining=speech.endTick-nowTick;

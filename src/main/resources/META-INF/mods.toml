@@ -3,7 +3,7 @@ loaderVersion="[47,)"
 license="All Rights Reserved"
 [[mods]]
 modId="kingdomnpc"
-version="0.1.0-stage0-voice1"
+version="0.1.0-stage0-voice2"
 displayName="Project Kingdom NPC"
 authors="Project Kingdom"
 description='''Project Kingdom game core: launcher identity boundary, permanent player Book, Avalon spawn policy and isolated feature modules.'''

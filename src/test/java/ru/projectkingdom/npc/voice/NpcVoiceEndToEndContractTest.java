@@ -20,8 +20,9 @@ final class NpcVoiceEndToEndContractTest {
         assertTrue(dialogue.contains("KingdomNetwork.sendNpcSpeech"));
         assertFalse(dialogue.contains("listener.sendSystemMessage(subtitle)"));
         assertTrue(client.contains("BUBBLES.put("));
-        assertTrue(client.contains("SPEECH.synthesize("));
-        assertTrue(client.contains("PLAYBACK.play("));
+        assertFalse(client.contains("synthesize("));
+        assertTrue(client.contains("new NpcRecordedSound("));
+        assertTrue(client.contains("minecraft.getSoundManager().play(sound)"));
     }
 
     @Test void releaseDocumentationCoversOneJarWindowsFallbacks() throws Exception {

@@ -1,0 +1,58 @@
+{
+  "text": "Как проходит твой день?",
+  "model": "eleven_turbo_v2_5",
+  "stability": 0.65,
+  "similarity_boost": 0.8,
+  "speed": 0.95,
+  "use_speaker_boost": true,
+  "recordings": [
+    {
+      "bank": "male_1",
+      "creation": "LwMZ7aWswO",
+      "voice_id": 132,
+      "duration_ms": 943,
+      "ogg_sha256": "f07550d5f39e71a7180fc00375179f11613dbbe7b0215e2f7d132f3c2833db6d",
+      "master_sha256": "5e790fdf157725a05ccda7d59a1ed13ae6cbabe09d0ae913f1edffd8612ba1c0"
+    },
+    {
+      "bank": "male_2",
+      "creation": "YMKvDJzWeC",
+      "voice_id": 1355,
+      "duration_ms": 1078,
+      "ogg_sha256": "b9d7b095230a19d8abf72c7820f6bfa6acbe4b2b03f4dad55bf46fd1895889b2",
+      "master_sha256": "9e26e0118c8f28ad511ac492c41930ae76be5b1aa05702fcbf19cf7a7803d6b3"
+    },
+    {
+      "bank": "male_3",
+      "creation": "4RhMZ1H9Aa",
+      "voice_id": 130,
+      "duration_ms": 1162,
+      "ogg_sha256": "b6571a7d7e5c0ccfbbf40d0561ef456017ffbe6abf180fb3ec52b7a0443a8cd3",
+      "master_sha256": "8c7873908e4b21dafee26e7646090f1ec15d7600f50b90b2f1ce5090e5425ec0"
+    },
+    {
+      "bank": "female_1",
+      "creation": "TdxEXNuVNR",
+      "voice_id": 849,
+      "duration_ms": 1035,
+      "ogg_sha256": "e23c90c194e18437cc95bea7e1dd56fad4110fd1a7d72489678b587e752b0043",
+      "master_sha256": "3ff929351ac331a1e5d317c0eff2a5673bbd1cb29912f6ac1d8a13b0993ae234"
+    },
+    {
+      "bank": "female_2",
+      "creation": "YMKvDyYWeC",
+      "voice_id": 856,
+      "duration_ms": 1664,
+      "ogg_sha256": "b1489ec820eecb18262751a80c26bbf421906e6beadf4424f92c37b0a6e939ea",
+      "master_sha256": "6d8ea9cf058917ded713cbe5a09ddb91182458d30853a9adc955ff81877210bf"
+    },
+    {
+      "bank": "female_3",
+      "creation": "TdxEXiFVNR",
+      "voice_id": 1101,
+      "duration_ms": 1470,
+      "ogg_sha256": "efe4fa705ac4b4ed07f6c69389dbb394e4173cf9513c7dd3d14b043cb6f80a3c",
+      "master_sha256": "1d5d7717e46ea3fe6ae3fcc83edc1d0b7d2cf5f19c93e01d5ac3830b2ec6d1d6"
+    }
+  ]
+}
