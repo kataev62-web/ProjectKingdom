@@ -166,16 +166,25 @@ public final class KingdomNpcQuickSetup {
         var land=KingdomTerritories.get(server);
         if(!land.canUse(level,center,owner))
             return new Result(false,"Территория ядра не закреплена за владельцем. Оформи участок в ратуше.");
-        BlockPos source=storage(level,firms,business.id(),owner,center,
-            EnterpriseBindingRole.RAW_STORAGE,null);
-        BlockPos dest=storage(level,firms,business.id(),owner,center,
-            EnterpriseBindingRole.FINISHED_STORAGE,source);
-        if(source==null||dest==null)return new Result(false,
+        // Builders obtain their materials from a real construction project.
+        // Couriers work with each real delivery order. Neither needs two fixed
+        // personal warehouse bindings merely to start a shift.
+        boolean warehousesRequired=KingdomNpcDuty.kind(worker.job)
+            !=KingdomNpcDuty.Kind.CONSTRUCTION
+            && KingdomNpcDuty.kind(worker.job)!=KingdomNpcDuty.Kind.DELIVERY;
+        BlockPos source=warehousesRequired
+            ?storage(level,firms,business.id(),owner,center,
+                EnterpriseBindingRole.RAW_STORAGE,null):null;
+        BlockPos dest=warehousesRequired
+            ?storage(level,firms,business.id(),owner,center,
+                EnterpriseBindingRole.FINISHED_STORAGE,source):null;
+        if(warehousesRequired&&(source==null||dest==null))return new Result(false,
             "Возле «"+business.name()+"» не найдены ДВА разных склада на своей земле. "
             +"Поставь сундуки в пределах 7 блоков от ядра или привяжи склады предприятия.");
-        if(!register(level,firms,business.id(),owner,source,"raw",EnterpriseBindingRole.RAW_STORAGE)
+        if(warehousesRequired&&
+            (!register(level,firms,business.id(),owner,source,"raw",EnterpriseBindingRole.RAW_STORAGE)
             ||!register(level,firms,business.id(),owner,dest,"finished",
-                EnterpriseBindingRole.FINISHED_STORAGE))
+                EnterpriseBindingRole.FINISHED_STORAGE)))
             return new Result(false,"Склады заняты другой ролью или предприятием. "
                 +"Выбери свободные сундуки на своей земле.");
         BlockPos machine=null;
@@ -208,8 +217,12 @@ public final class KingdomNpcQuickSetup {
             return new Result(false,"Не удалось оформить трудовой договор. Проверь права.");
         worker.employer=owner;
         worker.workplaceId=business.id().toString();
-        worker.hasSource=true;worker.sourceX=source.getX();worker.sourceY=source.getY();worker.sourceZ=source.getZ();
-        worker.hasDestination=true;worker.destX=dest.getX();worker.destY=dest.getY();worker.destZ=dest.getZ();
+        if(warehousesRequired){
+            worker.hasSource=true;worker.sourceX=source.getX();
+            worker.sourceY=source.getY();worker.sourceZ=source.getZ();
+            worker.hasDestination=true;worker.destX=dest.getX();
+            worker.destY=dest.getY();worker.destZ=dest.getZ();
+        }
         if(machine!=null){
             worker.hasWorkstation=true;worker.workX=machine.getX();
             worker.workY=machine.getY();worker.workZ=machine.getZ();
@@ -225,6 +238,10 @@ public final class KingdomNpcQuickSetup {
             return new Result(false,"Склады и договор настроены. Для профессии «"
                 +KingdomProfessionRegistry.title(worker.job)
                 +"» поставь подходящий станок TFC или верстак возле ядра предприятия.");
+        if("builder".equals(worker.job)
+                && KingdomNpcWorkday.site(server,level,worker)==null)
+            return new Result(false,"Договор строителя создан. Пока нет действующей стройки "
+                +"с настоящим строительным проектом и маркером.");
         if("farmer".equals(worker.job)&&KingdomFarmWorker.site(level,worker)==null)
             return new Result(false,"Склады настроены. Открой ферму → Поля и семена и добавь поле.");
         if("breeder".equals(worker.job)&&KingdomLivestockWork.workSite(level,worker)==null)
@@ -239,8 +256,9 @@ public final class KingdomNpcQuickSetup {
         if(!KingdomNpcDuty.hasPhysicalExecutor(worker.job))
             return new Result(false,"Профессия назначена, но физический исполнитель ещё не реализован.");
         return new Result(true,"Готово: "+worker.name+" — "+business.name()
-            +" | сырьё "+source.toShortString()
-            +" | продукция "+dest.toShortString()
-            +(machine==null?"":" | станок "+machine.toShortString())+". Приказ «Работать» включён.");
+            +(warehousesRequired?" | сырьё "+source.toShortString()
+                +" | продукция "+dest.toShortString():" | склады по реальному заданию")
+            +(machine==null?"":" | станок "+machine.toShortString())
+            +". Приказ «Работать» включён.");
     }
 }
