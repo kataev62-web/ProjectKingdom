@@ -19,7 +19,8 @@ final class KingdomLivestockInteractionRegressionTest {
         assertFalse(work.contains("!level.hasChunkAt(pen.center())"));
         assertTrue(work.contains("pen.y()-8"));
         assertTrue(work.contains("pen.y()+17"));
-        assertTrue(work.contains("status.loaded"));
+        String menu=read("npc/KingdomRanchPenMenu.java");
+        assertTrue(menu.contains("status.loaded()"));
     }
 
     @Test void npcFeedingUsesPublicTfcCalendarInterfaceAndKeepsFoodRemainder()throws Exception{
