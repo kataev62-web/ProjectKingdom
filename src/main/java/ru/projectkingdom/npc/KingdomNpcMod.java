@@ -36,6 +36,7 @@ import ru.projectkingdom.settlement.KingdomSettlementRegistry;
 import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 import ru.projectkingdom.administration.AdministrativeAccessService;
 import ru.projectkingdom.assistant.KingdomAssistantRegistry;
+import ru.projectkingdom.assistant.KingdomAssistantChat;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -871,11 +872,16 @@ public final class KingdomNpcMod {
     public void addressedChat(ServerChatEvent event) {
         var server=event.getPlayer().getServer();
         boolean handled=server.isSameThread()
-                ? NpcDialogueService.respondAddressed(event.getPlayer(),event.getRawText())
-                : server.submit(() -> NpcDialogueService.respondAddressed(
+                ? handleAddressedChat(event.getPlayer(),event.getRawText())
+                : server.submit(() -> handleAddressedChat(
                         event.getPlayer(),event.getRawText())).join();
         if (handled)
             event.setCanceled(true);
+    }
+
+    private boolean handleAddressedChat(ServerPlayer player,String rawText) {
+        if(KingdomAssistantChat.handle(player,rawText))return true;
+        return NpcDialogueService.respondAddressed(player,rawText);
     }
 
     @SubscribeEvent
