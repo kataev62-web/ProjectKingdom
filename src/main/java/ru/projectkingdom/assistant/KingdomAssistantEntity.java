@@ -47,13 +47,13 @@ public final class KingdomAssistantEntity extends Villager {
     }
 
     @Override
-    protected void addAdditionalSaveData(CompoundTag tag) {
+    public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         ownership.save(tag);
     }
 
     @Override
-    protected void readAdditionalSaveData(CompoundTag tag) {
+    public void readAdditionalSaveData(CompoundTag tag) {
         super.readAdditionalSaveData(tag);
         ownership = KingdomAssistantOwnership.load(tag);
         setCustomName(Component.translatable("entity.kingdomnpc.kingdom_assistant"));
