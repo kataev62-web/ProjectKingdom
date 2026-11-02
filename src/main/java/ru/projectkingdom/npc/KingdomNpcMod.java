@@ -35,6 +35,7 @@ import ru.projectkingdom.network.KingdomNetwork;
 import ru.projectkingdom.settlement.KingdomSettlementRegistry;
 import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 import ru.projectkingdom.administration.AdministrativeAccessService;
+import ru.projectkingdom.assistant.KingdomAssistantRegistry;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -46,6 +47,7 @@ public final class KingdomNpcMod {
     private static final int MAX_NPCS = 50; // Alpha safeguard; not a population ceiling in final design.
 
     public KingdomNpcMod() {
+        KingdomAssistantRegistry.register(FMLJavaModLoadingContext.get().getModEventBus());
         KingdomCurrency.register();
         KingdomManagedStorage.register();
         KingdomDemandBoardBlock.register();
