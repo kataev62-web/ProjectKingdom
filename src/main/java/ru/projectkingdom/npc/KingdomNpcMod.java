@@ -37,6 +37,7 @@ import ru.projectkingdom.administration.KingdomAdministrationRegistry;
 import ru.projectkingdom.administration.AdministrativeAccessService;
 import ru.projectkingdom.assistant.KingdomAssistantRegistry;
 import ru.projectkingdom.assistant.KingdomAssistantChat;
+import ru.projectkingdom.assistant.KingdomAssistantTasks;
 
 import java.util.Locale;
 import java.util.UUID;
@@ -981,6 +982,7 @@ public final class KingdomNpcMod {
         if (event.phase != TickEvent.Phase.END) return;
         var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
         if (server == null) return;
+        KingdomAssistantTasks.tick(server);
         // Payroll debt is accrued and collected by the worker at the treasury, never auto-paid.
         // Physical AI decisions are refreshed each tick, independently of the economy.
         // Vanilla villager goals otherwise re-start navigation immediately after STOP.

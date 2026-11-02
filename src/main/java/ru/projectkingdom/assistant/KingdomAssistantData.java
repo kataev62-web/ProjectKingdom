@@ -88,6 +88,10 @@ public final class KingdomAssistantData extends SavedData {
         return entry == null ? Optional.empty() : Optional.of(entry.snapshot());
     }
 
+    public List<OwnerState> allOwners() {
+        return owners.values().stream().map(Entry::snapshot).toList();
+    }
+
     public boolean setMode(UUID owner, Mode mode) {
         Objects.requireNonNull(owner, "owner");
         Objects.requireNonNull(mode, "mode");

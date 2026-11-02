@@ -138,6 +138,8 @@ public final class KingdomMainMenu extends ChestMenu {
                 icon(23,Items.EMERALD,"Моё предприятие и касса");
                 if(viewer.hasPermissions(4))
                     icon(24,Items.COMMAND_BLOCK,"Администрирование сервера: города, королевства, NPC");
+                if(viewer.hasPermissions(4))
+                    icon(25,Items.AMETHYST_SHARD,"Личный помощник: Архитектор Авалона");
             }
             case RENTALS -> {
                 var properties=ru.projectkingdom.property.KingdomRentalsData.get(viewer.getServer());
@@ -480,6 +482,7 @@ public final class KingdomMainMenu extends ChestMenu {
                 case 21 -> openMaps(viewer);
                 case 22 -> show(viewer,Page.WALLET);
                 case 24 -> {if(viewer.hasPermissions(4))KingdomAdminDashboardService.open(viewer);}
+                case 25 -> {if(viewer.hasPermissions(4))ru.projectkingdom.assistant.KingdomAssistantMenu.open(viewer);}
                 case 23 -> {if(!openNearbyEnterprise()){say("Подойди к установленному блоку-ядру предприятия.");show(viewer,Page.ENTERPRISE);}}
             }}
             case RENTALS -> {

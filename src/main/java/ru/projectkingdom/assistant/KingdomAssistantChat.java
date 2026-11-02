@@ -42,16 +42,7 @@ public final class KingdomAssistantChat {
             player.sendSystemMessage(Component.literal(HELP));
             return true;
         }
-        AssistantCommand command = parsed.get();
-        if (command.intent() == AssistantIntent.STATUS) {
-            var state = data.ownedBy(player.getUUID()).orElseThrow();
-            String task = state.activeTaskId() == null ? "нет активной задачи" : state.activeIntent().name();
-            player.sendSystemMessage(Component.literal("[Архитектор Авалона] Режим: "
-                    + state.mode().name() + "; " + task + "."));
-        } else {
-            player.sendSystemMessage(Component.literal("[Архитектор Авалона] Команда распознана: "
-                    + command.intent().name() + ". Исполнитель подключается на следующем этапе."));
-        }
+        KingdomAssistantTasks.submit(player, parsed.get());
         return true;
     }
 }
