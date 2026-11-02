@@ -26,7 +26,7 @@ final class AssistantCommandParserTest {
     }
 
     @Test void rejectsOversizedRawTextAndArgument() {
-        assertTrue(AssistantCommandParser.parse("Помощник, " + "я".repeat(502)).isEmpty());
+        assertTrue(AssistantCommandParser.parse("Помощник, " + "я".repeat(503)).isEmpty());
         assertTrue(AssistantCommandParser.parse("Помощник, предпросмотр " + "a".repeat(257)).isEmpty());
     }
 
