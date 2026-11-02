@@ -42,5 +42,6 @@
   "itemGroup.kingdomnpc.blocks": "Project Kingdom — Блоки",
   "block.kingdomnpc.textile_core": "Ядро ткацкой мастерской",
   "block.kingdomnpc.tannery_core": "Ядро кожевенной мастерской",
-  "key.kingdomnpc.borders": "Показать/скрыть границы городов"
+  "key.kingdomnpc.borders": "Показать/скрыть границы городов",
+  "entity.kingdomnpc.kingdom_assistant": "Архитектор Авалона"
 }
