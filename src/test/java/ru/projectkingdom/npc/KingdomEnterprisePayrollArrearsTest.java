@@ -28,7 +28,8 @@ final class KingdomEnterprisePayrollArrearsTest {
     @Test void workerNavigatesToRealCashboxRatherThanReceivingFreeWages() throws Exception {
         String mod=source("KingdomNpcMod.java");
         assertTrue(mod.contains("seekBackpay(server,level,npc,w)"));
-        assertTrue(mod.contains("level.hasChunkAt(dest)"));
+        assertTrue(mod.contains("EnterpriseAccessService.snapshot(level,firms"));
+        assertTrue(mod.contains("EnterpriseBindingRole.SALARY_STORAGE"));
         assertTrue(mod.contains("EnterpriseBindingRole.SALARY_STORAGE"));
         assertTrue(mod.contains("KingdomPhysicalCash.value(vault.container())<1"));
         String enterprise=source("KingdomEnterpriseData.java");
