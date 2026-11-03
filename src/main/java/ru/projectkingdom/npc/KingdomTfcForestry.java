@@ -91,10 +91,18 @@ public final class KingdomTfcForestry {
     /** Visible health check for user-facing work notifications. */
     public static boolean nativeAvailable(){return init();}
 
-    private static boolean axe(ItemStack stack){
-        return !stack.isEmpty()&&(stack.is(TFC_AXES)
-            ||stack.is(net.minecraft.tags.ItemTags.AXES)
-            ||stack.getItem() instanceof net.minecraft.world.item.AxeItem);
+    /** Native TFC logging explicitly requires the AXES_THAT_LOG tag. */
+    public static boolean usableAxe(ItemStack stack){
+        return !stack.isEmpty()&&stack.is(TFC_AXES);
+    }
+    private static boolean axe(ItemStack stack){return usableAxe(stack);}
+    /** Avoid choosing an adjacent branch that native TFC refuses to fell. */
+    private static boolean validRoot(ServerLevel level,BlockPos root,ItemStack tool){
+        if(!init()||!level.hasChunkAt(root))return false;
+        try {
+            return Boolean.TRUE.equals(nativeShouldLog.invoke(null,level,root,
+                    level.getBlockState(root),tool));
+        }catch(ReflectiveOperationException|RuntimeException ex){return false;}
     }
     private static boolean treeLog(ServerLevel level,BlockPos at,String wood){
         if(!level.hasChunkAt(at))return false;
@@ -404,7 +412,8 @@ public final class KingdomTfcForestry {
                         for(int y=area.y()-2;y<=area.y()+16;y++){
                             BlockPos p=new BlockPos(x,y,z);
                             if(!level.hasChunkAt(p)||!treeLog(level,p,wood))continue;
-                            if(!authorized(level,p,w.employer,area))continue;
+                            if(!authorized(level,p,w.employer,area)
+                                    ||!validRoot(level,p,w.fieldTool))continue;
                             double distance=p.distSqr(npc.blockPosition());
                             if(distance<closest){closest=distance;best=p;}
                         }
