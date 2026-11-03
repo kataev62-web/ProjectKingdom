@@ -111,7 +111,7 @@ public final class KingdomMineCentralShaftPlan {
         int x=(area.minX()+area.maxX())/2;
         BlockPos approachCell=new BlockPos(x,entrance.getY(),area.minZ()+1);
         BlockPos exit=new BlockPos(x,entrance.getY(),area.minZ());
-        plan.add(new KingdomMineGalleryPlan.Cell(exit,approach));
+        plan.add(new KingdomMineGalleryPlan.Cell(exit,approachCell));
         for(int distance=1;distance<=GALLERY_LENGTH;distance++){
             BlockPos target=exit.north(distance);
             BlockPos previous=distance==1?exit:exit.north(distance-1);
