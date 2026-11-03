@@ -26,6 +26,14 @@ public final class KingdomMineWork {
     private KingdomMineWork() {}
     private static final double REACH_SQR = 6.25;
 
+    private static void status(ServerLevel level,KingdomNpcData.Worker worker,String next) {
+        if(!next.equals(worker.mineStatus)){
+            worker.mineStatus=next;
+            KingdomNpcData.get(level.getServer()).setDirty();
+        }
+    }
+
+
     static boolean naturalRock(String id) {
         return "minecraft:stone".equals(id) || "minecraft:deepslate".equals(id)
             || "minecraft:tuff".equals(id) || "minecraft:andesite".equals(id)
@@ -74,25 +82,25 @@ public final class KingdomMineWork {
 
         UUID id;
         try { id=UUID.fromString(worker.workplaceId); }
-        catch (IllegalArgumentException error) { return false; }
+        catch (IllegalArgumentException error) { status(level,worker,"Шахта не назначена");return false; }
         var businesses=KingdomEnterpriseData.get(level.getServer());
         var mine=businesses.find(id);
         var binding=businesses.core(id);
         if (mine==null || binding==null || !binding.active()
             || businesses.kind(id)!=EnterpriseKind.MINE
             || !mine.owner().equals(worker.employer)
-            || !binding.dimension().equals(worker.dimension)) return false;
+            || !binding.dimension().equals(worker.dimension)) {status(level,worker,"Нет действующей шахты");return false;}
         BlockPos core=BlockPos.of(binding.packedPos());
         if (!level.hasChunkAt(core)) return false;
         // This first gallery extends north of the mine core and has a hard limit.
         // The entrance itself must be prepared by the player (two air blocks).
         BlockPos entrance=core.north();
         if (!level.hasChunkAt(entrance) || !level.getBlockState(entrance).isAir()
-            || !level.getBlockState(entrance.above()).isAir()) return false;
+            || !level.getBlockState(entrance.above()).isAir()) {status(level,worker,"Освободи вход 1×2 севернее ядра");return false;}
         int carried=worker.fieldInventory.stream().mapToInt(ItemStack::getCount).sum();
         // Depositing may require pathing: do not immediately override the route.
-        if (carried >= 64) return NpcFieldWork.deposit(level,npc,worker);
-        if (!NpcFieldWork.borrowTool(level,npc,worker)) return false;
+        if (carried >= 64) {status(level,worker,"Доставка добычи на склад");return NpcFieldWork.deposit(level,npc,worker);}
+        if (!NpcFieldWork.borrowTool(level,npc,worker)) {status(level,worker,"Нужна исправная кирка на складе сырья");return false;}
 
         for (var cell : KingdomMineLevelPlan.cells(core)) {
             BlockPos floorCell=cell.target();
@@ -117,7 +125,7 @@ public final class KingdomMineWork {
                     if (!level.getFluidState(target).isEmpty()) return false;
                     continue;
                 }
-                if (!safeToBreak(level,target,worker)) return false;
+                if (!safeToBreak(level,target,worker)) {status(level,worker,"Проходка остановлена: опасная или защищённая порода");return false;}
                 if (npc.distanceToSqr(previous.getX()+0.5,
                     previous.getY(),previous.getZ()+0.5)>REACH_SQR) {
                     npc.getNavigation().moveTo(previous.getX()+0.5,
@@ -127,12 +135,13 @@ public final class KingdomMineWork {
                 BlockState state=level.getBlockState(target);
                 var drops=Block.getDrops(state,level,target,level.getBlockEntity(target),
                     npc,worker.fieldTool);
-                if (!NpcFieldWork.canFit(worker,drops)) return false;
+                if (!NpcFieldWork.canFit(worker,drops)) {status(level,worker,"Сумка переполнена");return false;}
                 if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)) return false;
                 for (ItemStack stack:drops) NpcFieldWork.put(worker,stack);
                 worker.fieldTool.hurt(1,level.random,null);
                 if (worker.fieldTool.isEmpty() || worker.fieldTool.getDamageValue()
                     >=worker.fieldTool.getMaxDamage()) worker.fieldTool=ItemStack.EMPTY;
+                status(level,worker,"Добывает породу на глубине Y="+target.getY());
                 worker.fieldHarvested+=drops.stream().mapToInt(ItemStack::getCount).sum();
                 worker.skillXp++;
                 worker.energy=Math.max(0,worker.energy-1);
@@ -148,10 +157,22 @@ public final class KingdomMineWork {
                 :null;
             if(KingdomMineMaintenance.lightPoint(lightAnchor,floorCell)) {
                 var lighting=KingdomMineMaintenance.light(level,npc,worker,lightAnchor,floorCell);
-                if(lighting==KingdomMineMaintenance.Result.PLACED)return true;
-                if(lighting!=KingdomMineMaintenance.Result.READY)return false;
+                if(lighting==KingdomMineMaintenance.Result.PLACED) {
+                    status(level,worker,"Установил освещение шахты");
+                    return true;
+                }
+                if(lighting!=KingdomMineMaintenance.Result.READY) {
+                    status(level,worker,switch(lighting){
+                        case NO_SUPPLIES -> "Нужны факелы на складе сырья";
+                        case WALKING_TO_SUPPLIES -> "Идёт за факелами";
+                        case WALKING_TO_SITE -> "Несёт факелы в шахту";
+                        default -> "Не удаётся осветить выработку";
+                    });
+                    return false;
+                }
             }
         }
+        status(level,worker,"Все доступные выработки пройдены");
         return false;
     }
 }
