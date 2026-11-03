@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import ru.projectkingdom.cityarchitect.data.CityArchitectPlanData;
 import ru.projectkingdom.cityarchitect.plan.CityArchitectRoadPlanner;
 import ru.projectkingdom.cityarchitect.plan.CityArchitectReasoner;
+import ru.projectkingdom.cityarchitect.plan.CityArchitectPlanner;
 import ru.projectkingdom.cityarchitect.plan.DisabledCityArchitectModelClient;
 import ru.projectkingdom.cityarchitect.world.CityArchitectLandmarks;
 
@@ -74,6 +75,71 @@ final class CityArchitectCoordinatorTest {
         assertFalse(fixture.markers.isEmpty());
         assertTrue(fixture.markers.stream().allMatch(
                 marker -> marker.kind() == CityArchitectPlanData.MarkerKind.ROAD));
+    }
+
+    @Test
+    void cityPlanWaitsForExplicitConfirmationAndExplicitNextStage() {
+        CityArchitectPlanData data = new CityArchitectPlanData();
+        List<CityArchitectPlanData.MarkerCell> markers = new ArrayList<>();
+        CityArchitectCoordinator coordinator = new CityArchitectCoordinator(
+                data,
+                new CityArchitectLandmarks(List::of),
+                new CityArchitectRoadPlanner(),
+                new CityArchitectReasoner(new DisabledCityArchitectModelClient(), Duration.ofMillis(50)),
+                Fixture::flatSnapshot,
+                (planId, cells) -> markers.addAll(cells),
+                Runnable::run,
+                new CityArchitectPlanner());
+        var context = new CityArchitectCoordinator.RequestContext(
+                UUID.randomUUID(), UUID.randomUUID(), "minecraft:overworld", 4);
+
+        var planned = coordinator.requestCityPlan(context, cityRequest());
+        assertEquals(CityArchitectCoordinator.ResultCode.MARKED, planned.code());
+        var plan = data.plan(planned.planId()).orElseThrow();
+        assertEquals(CityArchitectPlanData.StageStatus.MARKED, plan.stages().get(0).status());
+        assertEquals(CityArchitectPlanData.StageStatus.PENDING, plan.stages().get(1).status());
+        assertFalse(markers.isEmpty());
+
+        assertEquals(CityArchitectCoordinator.ResultCode.APPROVED,
+                coordinator.confirmCurrent(context, plan.id()).code());
+        assertEquals(CityArchitectCoordinator.ResultCode.STAGE_COMPLETE,
+                coordinator.finishCurrent(context, plan.id()).code());
+        var waiting = data.plan(plan.id()).orElseThrow();
+        assertEquals(CityArchitectPlanData.PlanStatus.DRAFT, waiting.status());
+        assertEquals(CityArchitectPlanData.StageStatus.PENDING, waiting.stages().get(1).status());
+
+        markers.clear();
+        assertEquals(CityArchitectCoordinator.ResultCode.MARKED,
+                coordinator.nextStage(context, plan.id()).code());
+        assertFalse(markers.isEmpty());
+        assertEquals(CityArchitectPlanData.StageStatus.MARKED,
+                data.plan(plan.id()).orElseThrow().stages().get(1).status());
+    }
+
+    private static CityArchitectPlanner.CityPlanningRequest cityRequest() {
+        Map<Long, CityArchitectPlanner.SurfaceCell> surface = new HashMap<>();
+        for (int x = -64; x <= 64; x++) {
+            for (int z = -64; z <= 64; z++) {
+                surface.put(CityArchitectPlanner.cellKey(x, z),
+                        new CityArchitectPlanner.SurfaceCell(new BlockPos(x, 64, z), true, false));
+            }
+        }
+        List<CityArchitectPlanner.BlueprintFootprint> blueprints = List.of(
+                new CityArchitectPlanner.BlueprintFootprint("bank", "bank", 7, 7,
+                        CityArchitectPlanData.StageKind.ADMINISTRATION),
+                new CityArchitectPlanner.BlueprintFootprint("warehouse", "warehouse", 9, 9,
+                        CityArchitectPlanData.StageKind.ADMINISTRATION),
+                new CityArchitectPlanner.BlueprintFootprint("market", "market", 9, 9,
+                        CityArchitectPlanData.StageKind.ADMINISTRATION),
+                new CityArchitectPlanner.BlueprintFootprint("smithy", "smithy", 9, 9,
+                        CityArchitectPlanData.StageKind.PRODUCTION),
+                new CityArchitectPlanner.BlueprintFootprint("tavern", "tavern", 9, 9,
+                        CityArchitectPlanData.StageKind.HOUSING_HOSPITALITY),
+                new CityArchitectPlanner.BlueprintFootprint("house", "house", 7, 7,
+                        CityArchitectPlanData.StageKind.HOUSING_HOSPITALITY));
+        return new CityArchitectPlanner.CityPlanningRequest(
+                BlockPos.ZERO, surface,
+                List.of(new CityArchitectPlanner.Outline(-5, -5, 5, 5)), blueprints, 64);
     }
 
     private static Fixture fixture(
