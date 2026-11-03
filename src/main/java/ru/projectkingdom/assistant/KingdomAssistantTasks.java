@@ -5,14 +5,29 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.WeakHashMap;
 
 /** Server dispatcher for one active assistant task per owner. */
 public final class KingdomAssistantTasks {
     public enum SubmitResult {
-        ACCEPTED, BUSY, CANCELLED, NO_ACTIVE_TASK, READ_ONLY, NOT_OWNER, NOT_ADMIN
+        ACCEPTED, BUSY, CANCELLED, NO_ACTIVE_TASK, READ_ONLY, SURVEY_REQUIRED,
+        NOT_OWNER, NOT_ADMIN
     }
+
+    private static final class SessionResults {
+        private WorldSurveySnapshot survey;
+        private List<AssistantFinding> findings = List.of();
+    }
+
+    /** Session-only results; persistent reporting and memory are added by later plan tasks. */
+    private static final Map<MinecraftServer, Map<UUID, SessionResults>> RESULTS =
+            new WeakHashMap<>();
 
     private KingdomAssistantTasks() {}
 
@@ -22,6 +37,11 @@ public final class KingdomAssistantTasks {
             return SubmitResult.NOT_ADMIN;
         KingdomAssistantData data = KingdomAssistantData.get(owner.getServer());
         if (data.ownedBy(owner.getUUID()).isEmpty()) return SubmitResult.NOT_OWNER;
+        if (command.intent() == AssistantIntent.SETTLEMENT_AUDIT
+                && lastSurvey(owner.getServer(), owner.getUUID()).isEmpty()) {
+            sendResult(owner, command, SubmitResult.SURVEY_REQUIRED, data);
+            return SubmitResult.SURVEY_REQUIRED;
+        }
         SubmitResult result = transition(data, owner.getUUID(), command, UUID.randomUUID());
         sendResult(owner, command, result, data);
         return result;
@@ -62,7 +82,89 @@ public final class KingdomAssistantTasks {
             if (assistant == null || !assistant.isAlive()) continue;
             assistant.setAssistantMode(state.mode());
             assistant.applyMovement(owner);
+            if (state.activeIntent() == AssistantIntent.SURVEY) runSurvey(data, owner);
+            else if (state.activeIntent() == AssistantIntent.SETTLEMENT_AUDIT)
+                runSettlementAudit(data, owner);
         }
+    }
+
+    public static Optional<WorldSurveySnapshot> lastSurvey(MinecraftServer server, UUID owner) {
+        if (server == null || owner == null) return Optional.empty();
+        Map<UUID, SessionResults> serverResults = RESULTS.get(server);
+        SessionResults result = serverResults == null ? null : serverResults.get(owner);
+        return result == null ? Optional.empty() : Optional.ofNullable(result.survey);
+    }
+
+    public static List<AssistantFinding> lastFindings(MinecraftServer server, UUID owner) {
+        if (server == null || owner == null) return List.of();
+        Map<UUID, SessionResults> serverResults = RESULTS.get(server);
+        SessionResults result = serverResults == null ? null : serverResults.get(owner);
+        return result == null ? List.of() : result.findings;
+    }
+
+    private static void runSurvey(KingdomAssistantData data, ServerPlayer owner) {
+        try {
+            String dimension = owner.serverLevel().dimension().location().toString();
+            var request = WorldSurveyService.SurveyRequest.around(dimension, owner.blockPosition());
+            WorldSurveySnapshot snapshot = WorldSurveyService.scan(
+                    WorldSurveySource.forPlayer(owner), request).snapshot();
+            SessionResults results = session(owner.getServer(), owner.getUUID());
+            results.survey = snapshot;
+            results.findings = List.of();
+            data.finishTask(owner.getUUID(), "Обследование завершено: "
+                    + snapshot.columns().size() + " колонок");
+            owner.sendSystemMessage(Component.literal("[Архитектор Авалона] Обследование завершено: "
+                    + snapshot.columns().size() + " колонок, пропущено чанков: "
+                    + snapshot.skippedChunks() + "."));
+        } catch (RuntimeException failure) {
+            data.finishTask(owner.getUUID(), "Ошибка обследования");
+            owner.sendSystemMessage(Component.literal(
+                    "[Архитектор Авалона] Не удалось обследовать область: "
+                            + safeMessage(failure) + "."));
+        }
+    }
+
+    private static void runSettlementAudit(KingdomAssistantData data, ServerPlayer owner) {
+        WorldSurveySnapshot snapshot = lastSurvey(owner.getServer(), owner.getUUID()).orElse(null);
+        if (snapshot == null) {
+            data.finishTask(owner.getUUID(), "Аудит не выполнен: нет обследования");
+            owner.sendSystemMessage(Component.literal(
+                    "[Архитектор Авалона] Сначала выполните обследование территории."));
+            return;
+        }
+        try {
+            List<AssistantFinding> findings = SettlementAuditService.audit(
+                    owner.getServer(), owner, snapshot);
+            session(owner.getServer(), owner.getUUID()).findings = List.copyOf(findings);
+            data.finishTask(owner.getUUID(), "Аудит поселения: " + findings.size() + " замечаний");
+            if (findings.isEmpty()) {
+                owner.sendSystemMessage(Component.literal(
+                        "[Архитектор Авалона] Аудит завершён: замечаний нет."));
+                return;
+            }
+            owner.sendSystemMessage(Component.literal("[Архитектор Авалона] Найдено замечаний: "
+                    + findings.size() + ". Показываю первые " + Math.min(5, findings.size()) + ":"));
+            for (int index = 0; index < Math.min(5, findings.size()); index++) {
+                AssistantFinding finding = findings.get(index);
+                owner.sendSystemMessage(Component.literal((index + 1) + ". " + finding.title()
+                        + " — " + finding.recommendation()));
+            }
+        } catch (RuntimeException failure) {
+            data.finishTask(owner.getUUID(), "Ошибка аудита поселения");
+            owner.sendSystemMessage(Component.literal(
+                    "[Архитектор Авалона] Не удалось выполнить аудит: "
+                            + safeMessage(failure) + "."));
+        }
+    }
+
+    private static SessionResults session(MinecraftServer server, UUID owner) {
+        return RESULTS.computeIfAbsent(server, unused -> new HashMap<>())
+                .computeIfAbsent(owner, unused -> new SessionResults());
+    }
+
+    private static String safeMessage(RuntimeException failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
     private static boolean isWorldMutation(AssistantIntent intent) {
@@ -93,6 +195,7 @@ public final class KingdomAssistantTasks {
                 yield "Режим: " + state.mode().name() + "; задача: "
                         + (state.activeIntent() == null ? "нет" : state.activeIntent().name()) + ".";
             }
+            case SURVEY_REQUIRED -> "Сначала выполните обследование территории.";
             case NOT_OWNER -> "Помощник ещё не призван или принадлежит другому владельцу.";
             case NOT_ADMIN -> "Управление доступно только владельцу сервера с уровнем прав 4.";
         };
