@@ -59,7 +59,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         acceptButton=addRenderableWidget(action("Принять первого заявителя (10 мед./сут.)",58,132,250,EnterpriseCoreMenu.ACCEPT_FIRST));
         cashButtons.add(addRenderableWidget(action("Внести 100",78,132,90,EnterpriseCoreMenu.DEPOSIT_100)));
         cashButtons.add(addRenderableWidget(action("Снять 100",178,132,90,EnterpriseCoreMenu.WITHDRAW_100)));
-        cashButtons.add(addRenderableWidget(action("Перенести монеты старой кассы",68,166,235,EnterpriseCoreMenu.MIGRATE_CASH)));\n        cashButtons.add(addRenderableWidget(action("Привязать зарплатный сейф",68,157,235,EnterpriseCoreMenu.BIND_SALARY)));\n        cashButtons.add(addRenderableWidget(action("Пополнить зарплату +100",68,181,235,EnterpriseCoreMenu.DEPOSIT_SALARY_100)));
+        cashButtons.add(addRenderableWidget(action("Перенести монеты",183,181,120,EnterpriseCoreMenu.MIGRATE_CASH)));\n        cashButtons.add(addRenderableWidget(action("Привязать зарплатный сейф",68,157,235,EnterpriseCoreMenu.BIND_SALARY)));\n        cashButtons.add(addRenderableWidget(action("Зарплата +100",58,181,120,EnterpriseCoreMenu.DEPOSIT_SALARY_100)));
         fieldsButton=addRenderableWidget(action("Поля и семена",72,132,205,EnterpriseCoreMenu.OPEN_FARM_FIELDS));
         forestButton=addRenderableWidget(action("Лесные участки и посадки",72,132,205,EnterpriseCoreMenu.OPEN_FOREST));
         constructionButtons.add(addRenderableWidget(action("Архитектор",62,132,110,EnterpriseCoreMenu.OPEN_ARCHITECT)));
