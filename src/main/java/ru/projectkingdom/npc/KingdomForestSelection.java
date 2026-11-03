@@ -39,7 +39,7 @@ public final class KingdomForestSelection {
         }
         BlockPos corner=event.getPos();
         if(!level.hasChunkAt(corner))return false;
-        if(!KingdomTerritories.get(player.getServer()).canUse(level,corner,player.getUUID())){
+        if(!KingdomTfcForestry.ownedHarvestLand(level,corner,player.getUUID())){
             player.sendSystemMessage(Component.literal("[Лес] Нельзя размечать чужую землю."));
         }else if(selected.first()==null){
             ACTIVE.put(player.getUUID(),new Session(selected.enterprise(),
