@@ -978,6 +978,7 @@ public final class KingdomNpcMod {
         // Vanilla villager goals otherwise re-start navigation immediately after STOP.
         controlLoadedResidents(server);
         if (server.getTickCount() % 10 == 0) KingdomNpcBuilder.tick(server);
+        if (server.getTickCount() % 80 == 0) KingdomNpcNeedsBroadcast.tick(server);
         if (server.getTickCount() % 200 == 0)
             ru.projectkingdom.settlement.KingdomTavernImmigration.tick(server);
         if (server.getTickCount() % 1200 == 0)
