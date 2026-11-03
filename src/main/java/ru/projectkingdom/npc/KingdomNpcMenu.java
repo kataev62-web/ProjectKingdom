@@ -159,7 +159,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             + KingdomNpcNutrition.summary(w));
         long wagesOwed=KingdomEnterprisePayrollData.get(viewer.getServer()).totalDue(viewer.getServer(),w.entityId);
         long purse=w.wagePurse.stream().mapToLong(stack->KingdomCurrency.value(stack)*stack.getCount()).sum();
-        icon(13, KingdomCurrency.COPPER.get(), "Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse);
+        icon(13, KingdomCurrency.COPPER.get(), "Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse + " | ПКМ работодателя: выплатить из зарплатного сейфа");
         icon(14, Items.PAPER, "Приказ: " + order(w.order));
         icon(15, Items.CHEST, "План: " + NpcAutonomyPlanner.description(
             safeIntent(w.autonomousIntent)) + (plan==null?"":" | ПКМ: остатки "+plan.low()+"–"+plan.high()));
@@ -186,7 +186,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             icon(22, Items.IRON_PICKAXE, "РАБОТАТЬ: автоматически настроить и начать; при ошибке покажет причину");
             icon(23, Items.OAK_DOOR, "ВЕРНУТЬСЯ ДОМОЙ");
             icon(24, Items.SUNFLOWER, "СВОБОДНАЯ ЖИЗНЬ");
-            icon(25, Items.GOLD_NUGGET, "+1 к дневной зарплате");
+            icon(25, Items.GOLD_NUGGET, "Зарплата: ЛКМ +1, ПКМ -1 мед./день");
         }
         icon(18, Items.BREAD, "ЛКМ: дать свежую еду TFC из руки | ПКМ работодателя: "
             + (w.rationsEnabled?"отключить":"включить")+" питание со склада");
@@ -243,7 +243,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         // Never let players take the icons; all mutations are validated server-side.
         if (viewer.level().isClientSide || player != viewer) return;
         if (slotId < 0 || slotId >= 27 || type != ClickType.PICKUP
-                || (button != 0 && !(button==1 && (slotId==9||slotId==15||slotId==18)))) return;
+                || (button != 0 && !(button==1 && (slotId==9||slotId==13||slotId==15||slotId==18||slotId==25)))) return;
         KingdomNpcData db = KingdomNpcData.get(viewer.getServer());
         KingdomNpcData.Worker w = worker();
         if (!nearby(w)) { viewer.closeContainer(); return; }
@@ -299,6 +299,14 @@ public final class KingdomNpcMenu extends ChestMenu {
         boolean owner = controls(w);
         boolean changed = false;
         switch (slotId) {
+            case 13 -> {
+                if(button==1){
+                    if(!owner){info("Выплатить зарплату может только работодатель.");break;}
+                    boolean paid=KingdomEnterprisePayrollData.get(viewer.getServer()).payNpcNow(viewer,w);
+                    info(paid?"Зарплата выдана настоящими монетами из зарплатного сейфа."
+                            :"Выплата невозможна: проверь зарплатный сейф, долг и положение NPC рядом с ним.");
+                }
+            }
             case 16 -> {
                 if(!"miner".equals(w.job))break;
                 if(!owner || w.employer==null) {
@@ -498,10 +506,14 @@ public final class KingdomNpcMenu extends ChestMenu {
                 changed = true;
             }
             case 25 -> {
-                if (owner && w.dailyWage < 64) {
+                if(owner&&button==1&&w.dailyWage>1){
+                    w.dailyWage--;
+                    info("Новая ставка: "+w.dailyWage+" мед./день");
+                    changed=true;
+                }else if(owner&&button==0&&w.dailyWage<64){
                     w.dailyWage++;
-                    info("Зарплата: " + w.dailyWage + " мед./день");
-                    changed = true;
+                    info("Новая ставка: "+w.dailyWage+" мед./день");
+                    changed=true;
                 }
             }
             default -> { }
