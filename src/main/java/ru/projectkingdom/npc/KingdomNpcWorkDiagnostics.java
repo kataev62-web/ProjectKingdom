@@ -96,10 +96,10 @@ public final class KingdomNpcWorkDiagnostics {
         if(!level.hasChunkAt(source))return warn("Лесоруб: склад сырья не загружен");
         var raw=KingdomContainerAccess.resolve(level,source);
         if(raw==null)return warn("Лесоруб: склад сырья не совместим");
-        boolean hasAxe=axe(w.fieldTool);
+        boolean hasAxe=KingdomTfcForestry.usableAxe(w.fieldTool);
         for(int i=0;i<raw.getContainerSize()&&!hasAxe;i++)
-            if(axe(raw.getItem(i)))hasAxe=true;
-        if(!hasAxe)return warn("Лесоруб: положите топор в склад сырья");
+            if(KingdomTfcForestry.usableAxe(raw.getItem(i)))hasAxe=true;
+        if(!hasAxe)return warn("Лесоруб: нужен топор TFC (axes_that_log)");
         if(!KingdomTfcForestry.nativeAvailable())
             return warn("Лесоруб: не найден совместимый API рубки TFC");
         return good("Лесоруб: готов рубить деревья");
