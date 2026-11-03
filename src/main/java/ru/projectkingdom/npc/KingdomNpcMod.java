@@ -1153,7 +1153,7 @@ public final class KingdomNpcMod {
             long owed=payroll.accrue(server,debt.enterprise(),worker.entityId);
             if(owed<1)continue;
             var firm=firms.find(debt.enterprise());
-            if(firm==null||worker.employer==null||!firm.owner().equals(worker.employer))continue;
+            if(firm==null||(worker.employer!=null&&!firm.owner().equals(worker.employer)))continue;
             var vault=ru.projectkingdom.enterprise.EnterpriseAccessService.snapshot(level,firms,
                     debt.enterprise(),ru.projectkingdom.enterprise.EnterpriseBindingRole.SALARY_STORAGE);
             if(vault.status()!=ru.projectkingdom.enterprise.EnterpriseAccessService.Status.BOUND_AVAILABLE
