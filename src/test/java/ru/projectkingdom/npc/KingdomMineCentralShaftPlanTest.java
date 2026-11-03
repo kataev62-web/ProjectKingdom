@@ -42,7 +42,8 @@ class KingdomMineCentralShaftPlanTest {
                 if(cell.target().getY()==80-levels[i])perLevel[i]++;
         }
         assertEquals(10,drops,"must descend exactly ten blocks");
-        assertTrue(cells.size()>=10+3*((width-2)*(length-2)+13));
+        // The extraction exit may already be one of the ten perimeter cells; it must not be counted twice.
+        assertTrue(cells.size()>=10+3*((width-2)*(length-2)+12));
         for(int depth:new int[]{3,6,10}) {
             BlockPos end=new BlockPos((shaft.minX()+shaft.maxX())/2,
                 80-depth,shaft.minZ()-12);
