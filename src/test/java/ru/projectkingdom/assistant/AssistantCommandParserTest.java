@@ -14,6 +14,7 @@ final class AssistantCommandParserTest {
         assertCommand("Помощник, предпросмотр avalon_smithy", AssistantIntent.PREVIEW, "avalon_smithy");
         assertCommand("Помощник, строй", AssistantIntent.BUILD, "");
         assertCommand("Помощник, строить", AssistantIntent.BUILD, "");
+        assertCommand("Помощник, начать стройку", AssistantIntent.BUILD, "");
         assertCommand("Помощник, начать строительство", AssistantIntent.BUILD, "");
         assertCommand("Помощник, построй дом", AssistantIntent.PREVIEW, "дом");
         assertCommand("Помощник, строить кузницу", AssistantIntent.PREVIEW, "кузницу");
