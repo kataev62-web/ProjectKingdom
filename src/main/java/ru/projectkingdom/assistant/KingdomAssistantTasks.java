@@ -25,6 +25,7 @@ public final class KingdomAssistantTasks {
     private static final class SessionResults {
         private WorldSurveySnapshot survey;
         private List<AssistantFinding> findings = List.of();
+        private AssistantDiagnosticReport diagnosticReport;
     }
 
     /** Session-only results; persistent reporting and memory are added by later plan tasks. */
@@ -126,6 +127,8 @@ public final class KingdomAssistantTasks {
             if (state.activeIntent() == AssistantIntent.SURVEY) runSurvey(data, owner);
             else if (state.activeIntent() == AssistantIntent.SETTLEMENT_AUDIT)
                 runSettlementAudit(data, owner);
+            else if (state.activeIntent() == AssistantIntent.DIAGNOSTICS)
+                runDiagnostics(data, owner);
         }
     }
 
@@ -141,6 +144,14 @@ public final class KingdomAssistantTasks {
         Map<UUID, SessionResults> serverResults = RESULTS.get(server);
         SessionResults result = serverResults == null ? null : serverResults.get(owner);
         return result == null ? List.of() : result.findings;
+    }
+
+    public static Optional<AssistantDiagnosticReport> lastDiagnosticReport(
+            MinecraftServer server, UUID owner) {
+        if (server == null || owner == null) return Optional.empty();
+        Map<UUID, SessionResults> serverResults = RESULTS.get(server);
+        SessionResults result = serverResults == null ? null : serverResults.get(owner);
+        return result == null ? Optional.empty() : Optional.ofNullable(result.diagnosticReport);
     }
 
     private static void runSurvey(KingdomAssistantData data, ServerPlayer owner) {
@@ -194,6 +205,29 @@ public final class KingdomAssistantTasks {
             data.finishTask(owner.getUUID(), "Ошибка аудита поселения");
             owner.sendSystemMessage(Component.literal(
                     "[Архитектор Авалона] Не удалось выполнить аудит: "
+                            + safeMessage(failure) + "."));
+        }
+    }
+
+    private static void runDiagnostics(KingdomAssistantData data, ServerPlayer owner) {
+        try {
+            WorldSurveySnapshot survey = lastSurvey(owner.getServer(), owner.getUUID()).orElse(null);
+            AssistantDiagnosticReport report = AssistantDiagnosticsRegistry.standard().run(
+                    java.util.Set.of(),
+                    AssistantDiagnosticContext.live(owner.getServer(), owner, survey));
+            SessionResults results = session(owner.getServer(), owner.getUUID());
+            results.diagnosticReport = report;
+            results.findings = report.findings();
+            data.finishTask(owner.getUUID(), "Диагностика: " + report.findings().size()
+                    + " замечаний, " + report.failedIds().size() + " сбоев проверок");
+            owner.sendSystemMessage(Component.literal("[Архитектор Авалона] Диагностика завершена: "
+                    + report.findings().size() + " замечаний; адаптеров: "
+                    + report.executedIds().size() + "; сбоев: " + report.failedIds().size()
+                    + (report.truncated() ? "; отчёт ограничен 200 пунктами." : ".")));
+        } catch (RuntimeException failure) {
+            data.finishTask(owner.getUUID(), "Ошибка общей диагностики");
+            owner.sendSystemMessage(Component.literal(
+                    "[Архитектор Авалона] Диагностика не выполнена: "
                             + safeMessage(failure) + "."));
         }
     }
