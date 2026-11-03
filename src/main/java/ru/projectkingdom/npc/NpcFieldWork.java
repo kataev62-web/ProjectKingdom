@@ -174,7 +174,10 @@ public final class NpcFieldWork {
         if(!eligible(w)||!w.dimension.equals(level.dimension().location().toString())||"stay".equals(w.order)||"haul".equals(w.order)||"follow".equals(w.order))return false;
         if (w.employer != null && !KingdomNpcDuty.autonomousOrder(w.order)) return false;
         if(!"farmer".equals(w.job)&&!"lumberjack".equals(w.job)&&!"miner".equals(w.job))return false;
-        // Contracted miners use an enterprise-anchored, bounded physical gallery.\n        if("miner".equals(w.job) && w.employer!=null)\n            return KingdomMineWork.tick(level,npc,w);\n        // Employed lumberjacks may act ONLY on configured protected forest plots.
+        // Contracted miners use the enterprise mine; never random local ore searches.
+        if("miner".equals(w.job) && w.employer != null)
+            return KingdomMineWork.tick(level, npc, w);
+        // Employed lumberjacks may act ONLY on configured protected forest plots.
         if("lumberjack".equals(w.job) && w.employer!=null)
             return KingdomTfcForestry.tick(level,npc,w);
         // Farm employees must respect the explicit fields and TFC climate plan.
