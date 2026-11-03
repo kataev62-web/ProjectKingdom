@@ -302,12 +302,13 @@ public final class KingdomNpcQuickSetup {
             return new Result(false,"Склады настроены. Открой лесозаготовку → Лесные участки.");
         if("miner".equals(worker.job)) {
             BlockPos entrance=center.north();
+            var start=KingdomMineSettings.get(server).start(business.id());
             if(!level.hasChunkAt(entrance)
                 ||!level.getBlockState(entrance).isAir()
                 ||!level.getBlockState(entrance.above()).isAir())
                 return new Result(false,"Договор шахтёра и склады настроены. "
-                    +"Освободи проход 1×2 блока СЕВЕРНЕЕ ядра шахты, "
-                    +"чтобы NPC начал безопасную проходку.");
+                    +"Освободи проход 1×2 блока СЕВЕРНЕЕ ядра шахты. "
+                    +"Начальный маршрут: "+start.label()+". Измени его в меню шахтёра до добычи.");
         }
         if(workshop(worker.job) && "minecraft:crafting_table".equals(
             BuiltInRegistries.BLOCK.getKey(level.getBlockState(machine).getBlock()).toString())
@@ -317,6 +318,7 @@ public final class KingdomNpcQuickSetup {
         if(!KingdomNpcDuty.hasPhysicalExecutor(worker.job))
             return new Result(false,"Профессия назначена, но физический исполнитель ещё не реализован.");
         return new Result(true,"Готово: "+worker.name+" — "+business.name()
+            +("miner".equals(worker.job)?" | начало: "+KingdomMineSettings.get(server).start(business.id()).label():"")
             +(warehousesRequired?" | сырьё "+source.toShortString()
                 +" | продукция "+dest.toShortString():" | склады по реальному заданию")
             +(machine==null?"":" | станок "+machine.toShortString())
