@@ -77,17 +77,18 @@ class KingdomMineCentralShaftPlanTest {
         settings.markStarted(mine);
         assertFalse(settings.setShaft(mine,area(6,6,2)));
     }
-    @Test void centralShaftSchedulesRealSupportFramesInEveryExtractionGallery() {
+    @Test void centralShaftSchedulesSupportFramesForAllThreeExtractionGalleries() {
         var shaft=area(8,8,4);
         var anchors=KingdomMineCentralShaftPlan.supportAnchors(shaft);
-        assertEquals(6,anchors.size(),"two TFC support frames for each of three working levels");
+        assertEquals(3,anchors.size(),"one gallery entrance for each working level");
         Set<Integer> levels=new HashSet<>();
         for(BlockPos anchor:anchors){
-            assertTrue(anchor.getZ()==shaft.minZ()-5||anchor.getZ()==shaft.minZ()-10);
+            assertEquals(shaft.minZ(),anchor.getZ());
             assertEquals((shaft.minX()+shaft.maxX())/2,anchor.getX());
             levels.add(anchor.getY());
+            var frames=KingdomMineSupportPlan.frames(anchor);
+            assertEquals(2,frames.stream().filter(frame->frame.depth()<=KingdomMineCentralShaftPlan.GALLERY_LENGTH).count());
         }
         assertEquals(Set.of(77,74,70),levels);
     }
-
 }
