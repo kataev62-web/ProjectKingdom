@@ -107,9 +107,13 @@ final class EnterpriseBuildingRegistrationTest {
         var registry=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseBuildingRegistration.java");
         assertTrue(menu.contains("REGISTER_BUILDING=113"));
         assertTrue(menu.contains("EnterpriseBuildingSelection.begin(server,enterpriseId)"));
-        assertTrue(gui.contains("Привязать здание: 2 угла"));
+        assertTrue(gui.contains("Здание: ЛКМ пол → ПКМ высота"));
         var chooser=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseBuildingSelection.java");
-        assertTrue(chooser.contains("registerSelected(player,old.enterprise(),old.first(),at)"));
+        assertTrue(chooser.contains("selectHorizontal(PlayerInteractEvent.LeftClickBlock event)"));
+        assertTrue(chooser.contains("selectVertical(PlayerInteractEvent.RightClickBlock event)"));
+        assertTrue(chooser.contains("old.firstFloor().getX()"));
+        assertTrue(chooser.contains("old.oppositeFloor().getZ()"));
+        assertTrue(chooser.contains("registerSelected(player,old.enterprise(),first,second)"));
         assertTrue(chooser.contains("event.setCanceled(true)"));
         assertTrue(registry.contains("room.contains(core)"));
         assertTrue(registry.contains("civics.leaseContract(dim,cx,cz)"));
