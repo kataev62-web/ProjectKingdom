@@ -474,10 +474,14 @@ public final class KingdomNpcMenu extends ChestMenu {
                 changed = true;
             }
             case 25 -> {
-                if (owner && w.dailyWage < 64) {
+                if(owner&&button==1&&w.dailyWage>1){
+                    w.dailyWage--;
+                    info("Новая ставка: "+w.dailyWage+" мед./день");
+                    changed=true;
+                }else if(owner&&button==0&&w.dailyWage<64){
                     w.dailyWage++;
-                    info("Зарплата: " + w.dailyWage + " мед./день");
-                    changed = true;
+                    info("Новая ставка: "+w.dailyWage+" мед./день");
+                    changed=true;
                 }
             }
             default -> { }
