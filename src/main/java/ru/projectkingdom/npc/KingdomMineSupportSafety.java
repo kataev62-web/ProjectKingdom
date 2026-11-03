@@ -3,7 +3,6 @@ package ru.projectkingdom.npc;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -26,8 +25,7 @@ public final class KingdomMineSupportSafety {
     public static boolean isCollapseRock(BlockState state) {
         return state.is(net.minecraft.tags.TagKey.create(
             net.minecraft.core.registries.Registries.BLOCK,
-            net.minecraft.resources.ResourceLocation.fromNamespaceAndPath(
-                "tfc","can_trigger_collapse")));
+            new net.minecraft.resources.ResourceLocation("tfc","can_trigger_collapse")));
     }
 
     public static boolean hasHorizontalSupport(ServerLevel level,BlockPos roof) {
