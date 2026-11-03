@@ -249,7 +249,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         // Never let players take the icons; all mutations are validated server-side.
         if (viewer.level().isClientSide || player != viewer) return;
         if (slotId < 0 || slotId >= 27 || type != ClickType.PICKUP
-                || (button != 0 && !(button==1 && (slotId==9||slotId==15||slotId==16||slotId==18)))) return;
+                || (button != 0 && !(button==1 && (slotId==9||slotId==13||slotId==15||slotId==16||slotId==18||slotId==25)))) return;
         KingdomNpcData db = KingdomNpcData.get(viewer.getServer());
         KingdomNpcData.Worker w = worker();
         if (!nearby(w)) { viewer.closeContainer(); return; }
