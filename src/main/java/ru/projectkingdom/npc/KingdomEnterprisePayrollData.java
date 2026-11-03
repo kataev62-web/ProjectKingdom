@@ -248,13 +248,22 @@ public final class KingdomEnterprisePayrollData extends SavedData {
     }
 
     /** A player physically visits the employer's registered cash desk and claims an earned wage. */
+    /** Player employee collects earned wages from the same physical salary vault as NPCs. */
     public boolean claim(MinecraftServer server,ServerPlayer worker,UUID enterprise){
-        long owed=accrue(server,enterprise,worker.getUUID());if(owed<=0)return false;
+        if(server==null||worker==null)return false;
+        long owed=accrue(server,enterprise,worker.getUUID());
+        if(owed<=0)return false;
+        var access=EnterpriseAccessService.snapshot(worker.serverLevel(),KingdomEnterpriseData.get(server),
+                enterprise,EnterpriseBindingRole.SALARY_STORAGE);
+        if(access.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||access.container()==null
+                ||access.position().distSqr(worker.blockPosition())>36)return false;
         long amount=Math.min(10000L,owed);
-        if(!KingdomEnterpriseData.get(server).payVerifiedWage(worker,enterprise,amount))return false;
+        if(KingdomPhysicalCash.value(access.container())<amount
+                ||!KingdomPhysicalCash.withdraw(worker,access.container(),amount))return false;
         String k=key(enterprise,worker.getUUID());Employment c=entries.get(k);
+        if(c==null)return false;
         entries.put(k,new Employment(enterprise,c.worker(),c.dailyCopper(),c.lastDay(),c.owed()-amount,c.active()));
-        setDirty();return true;
+        worker.getInventory().setChanged();setDirty();return true;
     }
     public boolean claimAny(MinecraftServer server,ServerPlayer worker){
         for(Employment c:new ArrayList<>(entries.values()))if(c.worker().equals(worker.getUUID())
