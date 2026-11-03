@@ -38,6 +38,8 @@ public final class KingdomStructureCopy {
         ACTIVE.put(player.getUUID(),new Selection(name,office.immutable(),
             player.level().dimension().location().toString(),null,
             player.serverLevel().getGameTime()+EXPIRY_TICKS));
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.COPY,null,true);
         say(player,"Копирование «"+name+"»: возьми строительный чертёж в руку. "
             +"Нажми ПКМ по ПЕРВОМУ углу здания, затем ПКМ по ПРОТИВОПОЛОЖНОМУ углу. "
             +"Оба угла включаются. Постройка не изменится.");
@@ -58,7 +60,10 @@ public final class KingdomStructureCopy {
         event.setCanceled(true);
         if(session.expires()<player.serverLevel().getGameTime()
                 || !session.dimension().equals(player.level().dimension().location().toString())){
-            ACTIVE.remove(player.getUUID());say(player,"Копирование истекло. Начни снова.");
+            ACTIVE.remove(player.getUUID());
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                    ru.projectkingdom.network.KingdomVolumeSelectionPacket.COPY,null,false);
+            say(player,"Копирование истекло. Начни снова.");
             return;
         }
         BlockPos clicked=event.getPos().immutable();
@@ -70,6 +75,8 @@ public final class KingdomStructureCopy {
         if(session.first()==null){
             ACTIVE.put(player.getUUID(),new Selection(session.name(),session.office(),
                 session.dimension(),clicked,session.expires()));
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                    ru.projectkingdom.network.KingdomVolumeSelectionPacket.COPY,clicked,true);
             say(player,"Первый угол: "+clicked.toShortString()
                 +". Теперь отметь противоположный угол тем же строительным чертежом.");
             return;
@@ -77,6 +84,8 @@ public final class KingdomStructureCopy {
         try {
             var result=copy(player,session.name(),session.first(),clicked);
             ACTIVE.remove(player.getUUID());
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                    ru.projectkingdom.network.KingdomVolumeSelectionPacket.COPY,null,false);
             say(player,"Схема «"+result.name()+"» сохранена в строительной конторе: "
                 +result.copied()+" блоков. "
                 +(result.skipped()>0 ? "Пропущено несовместимых блоков: "+result.skipped()
