@@ -71,6 +71,10 @@ public final class CityArchitectPlanData extends SavedData {
         return plan == null ? Optional.empty() : Optional.of(plan.view());
     }
 
+    public synchronized List<PlanView> allPlans() {
+        return plans.values().stream().map(MutablePlan::view).toList();
+    }
+
     public synchronized void marking(
             UUID planId,
             UUID stageId,
