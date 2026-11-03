@@ -38,7 +38,15 @@ public final class KingdomMineSupportSupply {
             return State.WAREHOUSE_UNAVAILABLE;
         Container storage=KingdomContainerAccess.resolve(level,pos);
         if(storage==null)return State.WAREHOUSE_UNAVAILABLE;
-        // Two three-high poles + a native horizontal link need eight real items.
-        return count(storage)>=8?State.AVAILABLE:State.NEEDS_SUPPORT_BEAMS;
+        // A single matching wood species must supply the whole frame.
+        // The builder withdraws eight from one actual inventory slot.
+        for(int i=0;i<storage.getContainerSize();i++){
+            ItemStack stack=storage.getItem(i);
+            if(stack.getCount()>=8 && KingdomMineSupportPlan.supports(
+                BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
+                &&storage.canTakeItem(storage,i,stack))
+                return State.AVAILABLE;
+        }
+        return State.NEEDS_SUPPORT_BEAMS;
     }
 }
