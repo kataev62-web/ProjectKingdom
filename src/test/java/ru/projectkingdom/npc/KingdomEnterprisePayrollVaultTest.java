@@ -67,4 +67,15 @@ final class KingdomEnterprisePayrollVaultTest {
         assertTrue(claim.contains("EnterpriseBindingRole.SALARY_STORAGE"));
         assertFalse(claim.contains("EnterpriseBindingRole.CASHBOX"));
     }
+    @Test void playerAndNpcEmployeesUseTheSameDedicatedSalaryVault() throws Exception {
+        String payroll=read("src/main/java/ru/projectkingdom/npc/KingdomEnterprisePayrollData.java");
+        int start=payroll.indexOf("public boolean claim(MinecraftServer server,ServerPlayer worker,UUID enterprise)");
+        int end=payroll.indexOf("public boolean claimAny",start);
+        assertTrue(start>=0&&end>start);
+        String claim=payroll.substring(start,end);
+        assertTrue(claim.contains("EnterpriseBindingRole.SALARY_STORAGE"));
+        assertTrue(claim.contains("KingdomPhysicalCash.withdraw(worker,access.container(),amount)"));
+        assertFalse(claim.contains("payVerifiedWage"));
+    }
+
 }
