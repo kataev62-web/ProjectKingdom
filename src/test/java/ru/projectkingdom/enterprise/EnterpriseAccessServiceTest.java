@@ -6,9 +6,9 @@ import java.nio.file.Path;
 import org.junit.jupiter.api.Test;
 
 final class EnterpriseAccessServiceTest {
-    @Test void exposesThreeDistinctPhysicalRolesAndFailClosedStatuses() {
+    @Test void exposesFourDistinctPhysicalRolesAndFailClosedStatuses() {
         assertArrayEquals(new EnterpriseBindingRole[]{EnterpriseBindingRole.CASHBOX,
-                EnterpriseBindingRole.RAW_STORAGE,EnterpriseBindingRole.FINISHED_STORAGE},
+                EnterpriseBindingRole.RAW_STORAGE,EnterpriseBindingRole.FINISHED_STORAGE,EnterpriseBindingRole.SALARY_STORAGE},
                 EnterpriseBindingRole.values());
         assertNotNull(EnterpriseAccessService.Status.valueOf("BOUND_AVAILABLE"));
         assertNotNull(EnterpriseAccessService.Status.valueOf("BOUND_UNLOADED"));
