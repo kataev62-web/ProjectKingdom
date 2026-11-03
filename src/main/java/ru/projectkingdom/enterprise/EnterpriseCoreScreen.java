@@ -66,7 +66,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
         renameButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Сохранить"),b->KingdomNetwork.CHANNEL.sendToServer(new RenameEnterprisePacket(menu.enterpriseId(),rename.getValue()))).bounds(leftPos+264,topPos+94,44,20).build());
-        registerBuildingButton=addRenderableWidget(action("Привязать здание: 2 угла",70,169,236,
+        registerBuildingButton=addRenderableWidget(action("Здание: ЛКМ пол → ПКМ высота",70,169,236,
                 EnterpriseCoreMenu.REGISTER_BUILDING));
         closeButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Закрыть предприятие"),b->{
             if(minecraft==null||minecraft.gameMode==null)return;
