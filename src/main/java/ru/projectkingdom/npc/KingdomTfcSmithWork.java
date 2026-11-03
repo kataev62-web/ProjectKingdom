@@ -207,31 +207,36 @@ public final class KingdomTfcSmithWork {
         BlockEntity anvil=level.getBlockEntity(anvilPos);
         var inv=inventory(anvil);
         if(inv==null)return "Инвентарь наковальни TFC недоступен.";
-        ItemStack sample=inv.getStackInSlot(0);
+        ItemStack anvilInput=inv.getStackInSlot(0);
         try{
             Class<?> recipe=Class.forName("net.dries007.tfc.common.recipes.AnvilRecipe");
             int tier=(int)anvil.getClass().getMethod("getTier").invoke(anvil);
             Method getAll=recipe.getMethod("getAll",net.minecraft.world.level.Level.class,ItemStack.class,int.class);
-            if(sample.isEmpty()){
-                for(int i=0;i<raw.getContainerSize();i++){
-                    ItemStack stack=raw.getItem(i);
-                    if(stack.isEmpty())continue;
-                    Object choices=getAll.invoke(null,level,stack,tier);
-                    if(choices instanceof List<?> list&&!list.isEmpty()){sample=stack;break;}
+            // TFC's recipe registry is the catalogue: inspect every real metal stack in the warehouse.
+            var ids=new java.util.TreeSet<String>();
+            if(!anvilInput.isEmpty()){
+                Object choices=getAll.invoke(null,level,anvilInput,tier);
+                if(choices instanceof List<?> list)for(Object candidate:list){
+                    Object recipeId=candidate.getClass().getMethod("getId").invoke(candidate);
+                    if(recipeId!=null)ids.add(recipeId.toString());
                 }
             }
-            if(sample.isEmpty())return "В складе нет пригодного для ковки металла.";
-            Object choices=getAll.invoke(null,level,sample,tier);
-            if(!(choices instanceof List<?> list)||list.isEmpty())return "Нет подходящего TFC-рецепта.";
-            var ids=new ArrayList<String>();
-            for(Object candidate:list)
-                ids.add(candidate.getClass().getMethod("getId").invoke(candidate).toString());
-            Collections.sort(ids);
-            int old=ids.indexOf(w.smithRecipeId);
-            w.smithRecipeId=ids.get((old+1)%ids.size());
+            for(int slot=0;slot<raw.getContainerSize();slot++){
+                ItemStack sample=raw.getItem(slot);
+                if(sample.isEmpty())continue;
+                Object choices=getAll.invoke(null,level,sample,tier);
+                if(choices instanceof List<?> list)for(Object candidate:list){
+                    Object recipeId=candidate.getClass().getMethod("getId").invoke(candidate);
+                    if(recipeId!=null)ids.add(recipeId.toString());
+                }
+            }
+            if(ids.isEmpty())return "В сырьевом складе нет металла с доступными рецептами для этой наковальни.";
+            var ordered=new java.util.ArrayList<>(ids);
+            int old=ordered.indexOf(w.smithRecipeId);
+            w.smithRecipeId=ordered.get((old+1)%ordered.size());
             KingdomNpcData.get(server).setDirty();
-            return "Выбран настоящий рецепт: "+w.smithRecipeId
-                    +" ("+(ids.indexOf(w.smithRecipeId)+1)+"/"+ids.size()+").";
+            return "Выбран рецепт TFC: "+w.smithRecipeId
+                    +" ("+(ordered.indexOf(w.smithRecipeId)+1)+"/"+ordered.size()+"). Каталог собран по реальным материалам склада и уровню наковальни.";
         }catch(ReflectiveOperationException|LinkageError|RuntimeException ex){
             return "Не удалось прочитать рецепты TFC.";
         }
