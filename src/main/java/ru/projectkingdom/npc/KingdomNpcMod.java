@@ -118,10 +118,16 @@ public final class KingdomNpcMod {
         KingdomMineSelection.select(event);
     }
 
-    /** Enterprise selection owns these two clicks, including canceled inventory clicks. */
+    /** Horizontal enterprise floor rectangle: two physical Shift+LMB clicks. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
-    public void selectEnterpriseCorners(PlayerInteractEvent.RightClickBlock event){
-        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.select(event);
+    public void selectEnterpriseHorizontal(PlayerInteractEvent.LeftClickBlock event){
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.selectHorizontal(event);
+    }
+
+    /** Enterprise room height: one physical Shift+RMB click after the floor rectangle. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
+    public void selectEnterpriseVertical(PlayerInteractEvent.RightClickBlock event){
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.selectVertical(event);
     }
 
     /** Room/building surveying is a private two-click server session. */
@@ -792,7 +798,7 @@ public final class KingdomNpcMod {
             var src=ctx.getSource(); var p=player(src); var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
             if(w==null || w.employer!=null || !NpcIdentity.canHire(w.ageYears)) {reply(src,"NPC unavailable for hire (must be adult)");return 0;}
             if(KingdomEnterpriseData.get(src.getServer()).owned(p.getUUID())==null){
-                reply(src,"Сначала зарегистрируй предприятие и кассу для зарплаты NPC.");return 0;
+                reply(src,"Сначала зарегистрируй предприятие. Для выдачи зарплаты привяжи отдельный зарплатный сейф во вкладке «Финансы».");return 0;
             }
             w.employer=p.getUUID(); w.lastPaidDay=src.getServer().overworld().getDayTime()/TICKS_PER_DAY;
             w.unpaidDays=0; w.contractPaused=false;
