@@ -168,7 +168,7 @@ public final class KingdomNpcMenu extends ChestMenu {
                 +" | горизонт 1 и горизонт 2 (на 4 блока ниже)"
                 +" | факелы нужны на складе сырья");
         icon(17, Items.BARREL, "Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
-        icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
+        if(!"miner".equals(w.job)) icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
             + " (возврат /knpc refund_legacy <сумма> у банковской стойки)");
         if (w.employer == null && w.ageYears >= 18) icon(19, Items.LIME_DYE, "НАНЯТЬ И НАСТРОИТЬ ПРОФЕССИЮ: один клик");
         if (owned && w.employer != null) icon(19, Items.RED_DYE, "УВОЛИТЬ жителя");
