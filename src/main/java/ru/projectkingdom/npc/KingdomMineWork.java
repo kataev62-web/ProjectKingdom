@@ -20,7 +20,7 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
  * A real MINE enterprise anchors a bounded 1x2 horizontal gallery.
  * Only naturally mineable rock/ore is removed, one block per work tick.
  * No simulated goods, remote block breaking, chunk loads or forced tunnelling.
- * Vertical shafts, supports and torches need a separately reviewed planner.
+ * Vertical shafts and structural supports need a separately reviewed planner.\n * Torches are installed from physical stock at predeclared gallery checkpoints.
  */
 public final class KingdomMineWork {
     private KingdomMineWork() {}
@@ -103,13 +103,13 @@ public final class KingdomMineWork {
             // Do not enter a void, cave opening or flooded unsupported cell.
             if (level.getBlockState(floorCell.below()).isAir()
                 || !level.getFluidState(floorCell.below()).isEmpty()) return false;
-            if (!level.getBlockState(previous).isAir()
+            if (!KingdomMineMaintenance.passable(level.getBlockState(previous))
                 || !level.getBlockState(previous.above()).isAir()
                 || level.getBlockState(previous.below()).isAir()
                 || !level.getFluidState(previous).isEmpty()) return false;
             for (int height=0;height<2;height++) {
                 BlockPos target=floorCell.above(height);
-                if (level.getBlockState(target).isAir()) {
+                if (KingdomMineMaintenance.passable(level.getBlockState(target))) {
                     if (!level.getFluidState(target).isEmpty()) return false;
                     continue;
                 }
@@ -134,6 +134,13 @@ public final class KingdomMineWork {
                 worker.energy=Math.max(0,worker.energy-1);
                 KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
+            }
+            // Light a fully excavated section before starting the next cell.
+            // Stock and navigation are real: no torches = no further advance.
+            if(KingdomMineMaintenance.lightPoint(core,floorCell)) {
+                var lighting=KingdomMineMaintenance.light(level,npc,worker,core,floorCell);
+                if(lighting==KingdomMineMaintenance.Result.PLACED)return true;
+                if(lighting!=KingdomMineMaintenance.Result.READY)return false;
             }
         }
         return false;
