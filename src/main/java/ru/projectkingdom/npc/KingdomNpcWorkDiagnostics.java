@@ -106,21 +106,26 @@ public final class KingdomNpcWorkDiagnostics {
     }
     public static Status forWorker(ServerLevel level,Villager npc,KingdomNpcData.Worker w){
         if(level==null||npc==null||w==null)return warn("NPC: нет данных");
-        if(w.safety<25)return warn("Небезопасно! Нужна защита");
-        if(w.hunger<30)return warn("Нужна еда");
-        if(w.energy<25)return warn("Нужен отдых");
-        if(!w.hasHome)return warn("Нужен дом и кровать");
-        if(w.contractPaused)return warn("Не выплачена зарплата — работа остановлена");
-        if(w.employer==null && KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)==null)
-            return good("Ищет работу");
-        if("lumberjack".equals(w.job))return forestry(level,w);
-        if("smith".equals(w.job))return smith(level,w);
-        if(!w.hasSource && KingdomNpcDuty.hasPhysicalExecutor(w.job))
-            return warn("Для работы нужен склад сырья");
-        if(!w.hasDestination && KingdomNpcDuty.hasPhysicalExecutor(w.job))
-            return warn("Для работы нужен склад продукции");
-        if("REPORT_BLOCKED".equals(w.autonomousIntent))
-            return warn("Работа заблокирована: проверьте настройку");
-        return good("Занятие: "+KingdomProfessionRegistry.title(w.job));
+        String personal=w.safety<25?"Нужна защита":w.hunger<30?"Нужна еда"
+                :w.energy<25?"Нужен отдых":!w.hasHome?"Нужен дом":null;
+        Status work;
+        if(w.contractPaused)work=warn("Зарплата не выплачена");
+        else if(w.employer==null&&KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)==null)
+            work=good("Ищет работу");
+        else if("lumberjack".equals(w.job))work=forestry(level,w);
+        else if("smith".equals(w.job))work=smith(level,w);
+        else if(!w.hasSource&&KingdomNpcDuty.hasPhysicalExecutor(w.job))
+            work=warn("Для работы нужен склад сырья");
+        else if(!w.hasDestination&&KingdomNpcDuty.hasPhysicalExecutor(w.job))
+            work=warn("Для работы нужен склад продукции");
+        else if("REPORT_BLOCKED".equals(w.autonomousIntent))
+            work=warn("Работа заблокирована: проверьте настройку");
+        else work=good("Занятие: "+KingdomProfessionRegistry.title(w.job));
+        // Show BOTH unmet personal needs and occupational blockers when present.
+        if(personal!=null){
+            if(work.warning())return warn(personal+" | "+work.message());
+            return warn(personal);
+        }
+        return work;
     }
 }
