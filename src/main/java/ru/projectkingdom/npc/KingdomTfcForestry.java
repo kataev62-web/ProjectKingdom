@@ -89,7 +89,9 @@ public final class KingdomTfcForestry {
         return available;
     }
     private static boolean axe(ItemStack stack){
-        return !stack.isEmpty()&&stack.is(TFC_AXES); // TFC stone axes may lack vanilla axe tag
+        return !stack.isEmpty()&&(stack.is(TFC_AXES)
+            ||stack.is(net.minecraft.tags.ItemTags.AXES)
+            ||stack.getItem() instanceof net.minecraft.world.item.AxeItem);
     }
     private static boolean treeLog(ServerLevel level,BlockPos at,String wood){
         if(!level.hasChunkAt(at))return false;
@@ -98,14 +100,19 @@ public final class KingdomTfcForestry {
             &&BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString()
                 .equals("tfc:wood/log/"+wood);
     }
+    /** Both legacy claims and titled town plots are legal Kingdom working land.
+     * A tree crossing into a foreign area still fails the entire preflight. */
+    static boolean ownedHarvestLand(ServerLevel level,BlockPos at,UUID owner) {
+        if(owner==null||!level.hasChunkAt(at))return false;
+        var civic=KingdomCivicsData.get(level.getServer());
+        if(civic.plot(level,at)!=null)
+            return civic.allowed(owner,level.dimension().location().toString(),
+                    at.getX(),at.getZ(),KingdomCivicsData.Action.BREAK);
+        return KingdomTerritories.get(level.getServer()).canUse(level,at,owner);
+    }
     private static boolean authorized(ServerLevel level,BlockPos at,
                                       UUID owner,KingdomForestData.Area area) {
-        if(!level.hasChunkAt(at)||!area.inside(at)
-            ||!KingdomTerritories.get(level.getServer()).canUse(level,at,owner))return false;
-        var civic=KingdomCivicsData.get(level.getServer());
-        return civic.plot(level,at)==null
-            ||civic.allowed(owner,level.dimension().location().toString(),
-                at.getX(),at.getZ(),KingdomCivicsData.Action.BREAK);
+        return area.inside(at) && ownedHarvestLand(level,at,owner);
     }
     /**
      * 26-neighbour BFS is deliberately MORE conservative than the native
@@ -125,7 +132,7 @@ public final class KingdomTfcForestry {
             if(!seen.add(p))continue;
             if(Math.abs(p.getX()-root.getX())>12||Math.abs(p.getZ()-root.getZ())>12
                 ||Math.abs(p.getY()-root.getY())>32
-                ||!authorized(level,p,owner,area)
+                ||!ownedHarvestLand(level,p,owner)
                 ||!treeLog(level,p,species))return List.of();
             for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)
                 for(int dz=-1;dz<=1;dz++){
@@ -139,14 +146,10 @@ public final class KingdomTfcForestry {
                     // owner's legally protected land. Do not require area.inside
                     // for leaves, but never touch another citizen's chunk.
                     if(state.is(BlockTags.LEAVES)
-                        &&(!KingdomTerritories.get(level.getServer()).canUse(level,next,owner)
-                            ||KingdomCivicsData.get(level.getServer()).plot(level,next)!=null
-                                &&!KingdomCivicsData.get(level.getServer()).allowed(
-                                    owner,level.dimension().location().toString(),
-                                    next.getX(),next.getZ(),KingdomCivicsData.Action.BREAK)))
+                        &&!ownedHarvestLand(level,next,owner)
                         return List.of();
                     if(state.is(TFC_LOGS)){
-                        if(!treeLog(level,next,species)||!authorized(level,next,owner,area))
+                        if(!treeLog(level,next,species)||!ownedHarvestLand(level,next,owner))
                             return List.of();
                         if(!seen.contains(next))queue.add(next.immutable());
                     }
