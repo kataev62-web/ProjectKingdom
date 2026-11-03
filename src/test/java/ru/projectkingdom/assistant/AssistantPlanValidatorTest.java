@@ -54,7 +54,8 @@ final class AssistantPlanValidatorTest {
         invalid.add(new AssistantModelClient.ModelResponse(null, List.of(), "text"));
         invalid.add(new AssistantModelClient.ModelResponse(UUID.randomUUID(), List.of(), "text"));
         invalid.add(new AssistantModelClient.ModelResponse(REQUEST, null, "text"));
-        invalid.add(new AssistantModelClient.ModelResponse(REQUEST, List.of((AssistantModelClient.ModelAction) null), "text"));
+        invalid.add(new AssistantModelClient.ModelResponse(REQUEST,
+                java.util.Collections.singletonList(null), "text"));
         invalid.add(new AssistantModelClient.ModelResponse(REQUEST,
                 java.util.Collections.nCopies(21, action("REPORT", "ok")), "text"));
         invalid.add(new AssistantModelClient.ModelResponse(REQUEST, List.of(), "x".repeat(64_001)));
