@@ -102,6 +102,13 @@ public final class KingdomMineSelection {
         }
         var area=new KingdomMineSettings.Shaft(minX,maxX,minZ,maxZ,
             at.getY(),p.dimension());
+        if(!KingdomMineCentralShaftPlan.valid(area,BlockPos.of(core.packedPos()))) {
+            player.sendSystemMessage(Component.literal(
+                "[Шахта] Вход должен быть на ЮЖНОЙ границе выделения: "
+                +"клетка непосредственно к северу от ядра. "
+                +"Уровень выделения должен совпадать с Y ядра. Повтори второй угол."));
+            return true;
+        }
         if(!KingdomMineSettings.get(player.getServer()).setShaft(p.mine(),area))return true;
         cancel(player.getUUID());
         player.sendSystemMessage(Component.literal("[Шахта] Центральный ствол: "
