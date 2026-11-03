@@ -155,6 +155,14 @@ public final class KingdomMineSupportBuilder {
         if(!clearForPost(level,left)||!clearForPost(level,right)
                 ||!level.getBlockState(middle).isAir())
             return Result.NEED_CLEAR_POCKETS;
+        // A broken/partial column is not a finished support. Don't add a
+        // horizontal member to a structurally incomplete TFC installation.
+        for(BlockPos post:new BlockPos[]{left,right}) {
+            if(vertical(level.getBlockState(post))
+                && (!vertical(level.getBlockState(post.above()))
+                    || !vertical(level.getBlockState(post.above(2)))))
+                return Result.FAILED_NATIVE_PLACEMENT;
+        }
         boolean needPole=!vertical(level.getBlockState(left))
             ||!vertical(level.getBlockState(right));
         if(carried(worker,needPole?3:2).isEmpty())return supply(level,npc,worker);
