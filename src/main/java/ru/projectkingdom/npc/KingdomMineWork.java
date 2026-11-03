@@ -1,6 +1,5 @@
 package ru.projectkingdom.npc;
 
-import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -25,7 +24,6 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
  */
 public final class KingdomMineWork {
     private KingdomMineWork() {}
-    private static final int MAX_LENGTH = 24;
     private static final double REACH_SQR = 6.25;
 
     static boolean naturalRock(String id) {
@@ -68,7 +66,8 @@ public final class KingdomMineWork {
      */
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker) {
         if (!"miner".equals(worker.job) || worker.employer==null
-            || worker.contractPaused || !worker.hasSource || !worker.hasDestination
+            || worker.contractPaused || !KingdomNpcWorkday.employed(level.getServer(),worker)
+            || !worker.hasSource || !worker.hasDestination
             || !worker.dimension.equals(level.dimension().location().toString())
             || !"work".equals(worker.order) && !"wander".equals(worker.order))
             return false;
@@ -90,18 +89,17 @@ public final class KingdomMineWork {
         BlockPos entrance=core.north();
         if (!level.hasChunkAt(entrance) || !level.getBlockState(entrance).isAir()
             || !level.getBlockState(entrance.above()).isAir()) return false;
+        int carried=worker.fieldInventory.stream().mapToInt(ItemStack::getCount).sum();
+        // Depositing may require pathing: do not immediately override the route.
+        if (carried >= 64) return NpcFieldWork.deposit(level,npc,worker);
         if (!NpcFieldWork.borrowTool(level,npc,worker)) return false;
 
-        if (!worker.fieldInventory.isEmpty()) {
-            boolean delivered=NpcFieldWork.deposit(level,npc,worker);
-            if (delivered || worker.fieldInventory.size()>=5) return delivered;
-        }
-
-        for (int distance=2;distance<=MAX_LENGTH;distance++) {
-            BlockPos floorCell=core.north(distance);
-            BlockPos previous=floorCell.south();
+        for (var cell : KingdomMineGalleryPlan.cells(core)) {
+            BlockPos floorCell=cell.target();
+            BlockPos previous=cell.approach();
             if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
-                || !level.hasChunkAt(floorCell.below())) return false;
+                || !level.hasChunkAt(floorCell.below())
+                || !level.hasChunkAt(previous.above())) return false;
             // Do not enter a void, cave opening or flooded unsupported cell.
             if (level.getBlockState(floorCell.below()).isAir()
                 || !level.getFluidState(floorCell.below()).isEmpty()) return false;
@@ -111,7 +109,10 @@ public final class KingdomMineWork {
                 || !level.getFluidState(previous).isEmpty()) return false;
             for (int height=0;height<2;height++) {
                 BlockPos target=floorCell.above(height);
-                if (level.getBlockState(target).isAir()) continue;
+                if (level.getBlockState(target).isAir()) {
+                    if (!level.getFluidState(target).isEmpty()) return false;
+                    continue;
+                }
                 if (!safeToBreak(level,target,worker)) return false;
                 if (npc.distanceToSqr(previous.getX()+0.5,
                     previous.getY(),previous.getZ()+0.5)>REACH_SQR) {
