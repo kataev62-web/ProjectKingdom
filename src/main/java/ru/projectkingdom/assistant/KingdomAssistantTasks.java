@@ -4,6 +4,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
+import ru.projectkingdom.npc.KingdomArchitectSessions;
 
 import java.util.HashMap;
 import java.util.List;
@@ -16,7 +17,7 @@ import java.util.WeakHashMap;
 /** Server dispatcher for one active assistant task per owner. */
 public final class KingdomAssistantTasks {
     public enum SubmitResult {
-        ACCEPTED, BUSY, CANCELLED, NO_ACTIVE_TASK, READ_ONLY, SURVEY_REQUIRED,
+        ACCEPTED, BUSY, CANCELLED, NO_ACTIVE_TASK, READ_ONLY, SURVEY_REQUIRED, PREVIEW_REJECTED,
         NOT_OWNER, NOT_ADMIN
     }
 
@@ -43,6 +44,16 @@ public final class KingdomAssistantTasks {
             return SubmitResult.SURVEY_REQUIRED;
         }
         SubmitResult result = transition(data, owner.getUUID(), command, UUID.randomUUID());
+        if (result == SubmitResult.ACCEPTED && command.intent() == AssistantIntent.PREVIEW) {
+            UUID assistantId = data.ownedBy(owner.getUUID()).orElseThrow().entityId();
+            if (!AssistantPreviewService.begin(owner, assistantId,
+                    command.argument(), owner.blockPosition())) {
+                data.finishTask(owner.getUUID(), "Предпросмотр не открыт");
+                result = SubmitResult.PREVIEW_REJECTED;
+            }
+        } else if (result == SubmitResult.CANCELLED) {
+            KingdomArchitectSessions.cancel(owner.getUUID());
+        }
         sendResult(owner, command, result, data);
         return result;
     }
@@ -196,6 +207,7 @@ public final class KingdomAssistantTasks {
                         + (state.activeIntent() == null ? "нет" : state.activeIntent().name()) + ".";
             }
             case SURVEY_REQUIRED -> "Сначала выполните обследование территории.";
+            case PREVIEW_REJECTED -> "Не удалось открыть проект: проверьте ключ схемы и привязку помощника.";
             case NOT_OWNER -> "Помощник ещё не призван или принадлежит другому владельцу.";
             case NOT_ADMIN -> "Управление доступно только владельцу сервера с уровнем прав 4.";
         };
