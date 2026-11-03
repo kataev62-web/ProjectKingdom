@@ -166,22 +166,22 @@ public final class AssistantCreativeBuildService {
         for (var entry : builds.entries()) {
             var ownerState = assistants.ownedBy(entry.owner);
             if (ownerState.isEmpty() || ownerState.get().activeIntent() == null) continue;
-            String summary = null;
+            String buildSummary = null;
             if (entry.status == KingdomAssistantBuildData.Status.COMPLETE
                     && ownerState.get().activeIntent() == AssistantIntent.BUILD)
-                summary = "Творческая стройка завершена: " + entry.id;
+                buildSummary = "Творческая стройка завершена: " + entry.id;
             else if (entry.status == KingdomAssistantBuildData.Status.UNDONE
                     && ownerState.get().activeIntent() == AssistantIntent.UNDO)
-                summary = "Отмена стройки завершена: " + entry.id
+                buildSummary = "Отмена стройки завершена: " + entry.id
                         + "; восстановлено=" + entry.restored + "; конфликты=" + entry.conflicts;
             else if (entry.status == KingdomAssistantBuildData.Status.FAILED
                     && (ownerState.get().activeIntent() == AssistantIntent.BUILD
                     || ownerState.get().activeIntent() == AssistantIntent.UNDO))
-                summary = "Творческая операция остановлена: " + entry.id
+                buildSummary = "Творческая операция остановлена: " + entry.id
                         + "; ошибок=" + entry.failed;
-            if (summary != null) {
-                KingdomAssistantMemoryData.get(server).rememberBuildSummary(entry.owner, summary);
-                assistants.finishTask(entry.owner, summary);
+            if (buildSummary != null) {
+                KingdomAssistantMemoryData.get(server).rememberBuildSummary(entry.owner, buildSummary);
+                assistants.finishTask(entry.owner, buildSummary);
             }
         }
         return summary;
