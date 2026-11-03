@@ -102,7 +102,10 @@ public final class KingdomMineWork {
             BlockPos previous=floorCell.south();
             if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
                 || !level.hasChunkAt(floorCell.below())) return false;
-            // Do not enter a void, cave opening or flooded unsupported cell.\n            if (level.getBlockState(floorCell.below()).isAir()\n                || !level.getFluidState(floorCell.below()).isEmpty()) return false;\n            if (!level.getBlockState(previous).isAir()
+            // Do not enter a void, cave opening or flooded unsupported cell.
+            if (level.getBlockState(floorCell.below()).isAir()
+                || !level.getFluidState(floorCell.below()).isEmpty()) return false;
+            if (!level.getBlockState(previous).isAir()
                 || !level.getBlockState(previous.above()).isAir()
                 || level.getBlockState(previous.below()).isAir()
                 || !level.getFluidState(previous).isEmpty()) return false;
@@ -131,9 +134,6 @@ public final class KingdomMineWork {
                 KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
             }
-            // Never mine a cell when its floor is missing. Avoid falling into caves.
-            if (level.getBlockState(floorCell.below()).isAir()
-                || !level.getFluidState(floorCell.below()).isEmpty()) return false;
         }
         return false;
     }
