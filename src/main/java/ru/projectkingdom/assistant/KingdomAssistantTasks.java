@@ -115,6 +115,41 @@ public final class KingdomAssistantTasks {
         return data.beginTask(owner, taskId, intent) ? SubmitResult.ACCEPTED : SubmitResult.BUSY;
     }
 
+    /** Converts an approved preview task into the actual incremental build. */
+    public static SubmitResult startConfirmedPreview(
+            KingdomAssistantData data,
+            AssistantCreativeBuildService builds,
+            AssistantPreviewService.BuildProposal proposal,
+            Runnable consumeProposal,
+            UUID buildTaskId) {
+        Objects.requireNonNull(data, "data");
+        Objects.requireNonNull(builds, "builds");
+        Objects.requireNonNull(proposal, "proposal");
+        Objects.requireNonNull(consumeProposal, "consumeProposal");
+        Objects.requireNonNull(buildTaskId, "buildTaskId");
+        var state = data.ownedBy(proposal.owner());
+        if (state.isEmpty()) return SubmitResult.NOT_OWNER;
+        if (state.get().activeIntent() != AssistantIntent.PREVIEW)
+            return SubmitResult.BUILD_REJECTED;
+        var queued = builds.queue(proposal.owner(), proposal.assistant(), proposal.dimension(),
+                proposal.designKey(), proposal.origin());
+        if (queued.status() != AssistantCreativeBuildService.QueueStatus.QUEUED) {
+            data.finishTask(proposal.owner(), "Стройка отклонена: " + queued.status());
+            return SubmitResult.BUILD_REJECTED;
+        }
+        try {
+            consumeProposal.run();
+            data.finishTask(proposal.owner(), "Творческий проект подтверждён: "
+                    + proposal.designKey());
+            if (data.beginTask(proposal.owner(), buildTaskId, AssistantIntent.BUILD))
+                return SubmitResult.ACCEPTED;
+        } catch (RuntimeException ignored) {
+            // Roll back the queued build if session state could not be advanced safely.
+        }
+        builds.cancel(proposal.owner());
+        return SubmitResult.BUILD_REJECTED;
+    }
+
     public static void tick(MinecraftServer server) {
         if (server == null) return;
         KingdomAssistantData data = KingdomAssistantData.get(server);
@@ -321,7 +356,8 @@ public final class KingdomAssistantTasks {
             }
             case SURVEY_REQUIRED -> "Сначала выполните обследование территории.";
             case PREVIEW_REJECTED -> "Не удалось открыть проект: проверьте ключ схемы и привязку помощника.";
-            case BUILD_REJECTED -> "Нет подтверждённого безопасного проекта для строительства.";
+            case BUILD_REJECTED -> "Стройка не начата. Сначала скажите, например: "
+                    + "«Помощник, построй дом», затем подтвердите 3D-макет.";
             case UNDO_REJECTED -> "Не найдена творческая стройка для отмены.";
             case NOT_OWNER -> "Помощник ещё не призван или принадлежит другому владельцу.";
             case NOT_ADMIN -> "Управление доступно только владельцу сервера с уровнем прав 4.";

@@ -11,7 +11,9 @@ import ru.projectkingdom.network.ArchitectPreviewPacket;
 import ru.projectkingdom.network.ArchitectDecisionPacket;
 import ru.projectkingdom.network.KingdomNetwork;
 import ru.projectkingdom.assistant.AssistantPreviewService;
+import ru.projectkingdom.assistant.AssistantCreativeBuildService;
 import ru.projectkingdom.assistant.KingdomAssistantData;
+import ru.projectkingdom.assistant.KingdomAssistantTasks;
 
 /**
  * Ephemeral, server-owned architect selection. Clients may request only
@@ -193,11 +195,24 @@ public final class KingdomArchitectSessions {
             reply(player, false, "Предложение отклонено серверной проверкой: " + queued[0] + ".");
             return;
         }
+        var proposal = AssistantPreviewService.pending(player.getServer(), player.getUUID())
+                .orElse(null);
+        if (proposal == null) {
+            reply(player, false, "Подтверждённый проект не найден.");
+            return;
+        }
+        var started = KingdomAssistantTasks.startConfirmedPreview(
+                KingdomAssistantData.get(player.getServer()),
+                AssistantCreativeBuildService.forServer(player.getServer()), proposal,
+                () -> AssistantPreviewService.consume(
+                        player.getServer(), proposal.owner(), proposal.assistant()),
+                UUID.randomUUID());
         ACTIVE.remove(player.getUUID());
-        KingdomAssistantData.get(player.getServer()).finishTask(
-                player.getUUID(), "Творческий проект подтверждён: "
-                        + KingdomConstructionPlans.title(oriented));
-        reply(player, true, "Творческий проект подтверждён и поставлен в очередь помощника.");
+        if (started != KingdomAssistantTasks.SubmitResult.ACCEPTED) {
+            reply(player, false, "Проект подтверждён, но стройка отклонена серверной проверкой.");
+            return;
+        }
+        reply(player, true, "Проект подтверждён. Строительство начато.");
     }
 
     private static String authorizationMessage(AssistantPreviewService.Authorization result) {

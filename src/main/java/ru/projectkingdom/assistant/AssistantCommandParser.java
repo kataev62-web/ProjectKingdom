@@ -26,7 +26,9 @@ public final class AssistantCommandParser {
                 return command(AssistantIntent.SURVEY);
             if (normalized.equals("аудит поселения") || normalized.equals("проверь поселение"))
                 return command(AssistantIntent.SETTLEMENT_AUDIT);
-            if (normalized.equals("строй") || normalized.equals("построй"))
+            if (normalized.equals("строй") || normalized.equals("строить")
+                    || normalized.equals("построй") || normalized.equals("начать стройку")
+                    || normalized.equals("начать строительство"))
                 return command(AssistantIntent.BUILD);
             if (normalized.equals("отмена последней стройки") || normalized.equals("откати"))
                 return command(AssistantIntent.UNDO);
@@ -39,7 +41,14 @@ public final class AssistantCommandParser {
             Optional<AssistantCommand> preview = argumentCommand(
                     command, normalized, "предпросмотр ", AssistantIntent.PREVIEW);
             if (preview.isPresent()) return preview;
-            return argumentCommand(command, normalized, "покажи схематику ", AssistantIntent.PREVIEW);
+            preview = argumentCommand(
+                    command, normalized, "покажи схематику ", AssistantIntent.PREVIEW);
+            if (preview.isPresent()) return preview;
+            for (String prefix : new String[]{"построй ", "строй ", "строить "}) {
+                preview = argumentCommand(command, normalized, prefix, AssistantIntent.PREVIEW);
+                if (preview.isPresent()) return preview;
+            }
+            return Optional.empty();
         } catch (IllegalArgumentException ignored) {
             return Optional.empty();
         }

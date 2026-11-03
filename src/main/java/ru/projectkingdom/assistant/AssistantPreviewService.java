@@ -11,6 +11,7 @@ import ru.projectkingdom.npc.KingdomSchematicLibrary;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -190,14 +191,29 @@ public final class AssistantPreviewService {
     }
 
     private static String prepareDesignKey(MinecraftServer server, String requested) {
-        if (requested.isEmpty()) return null;
-        if (KingdomConstructionPlans.resolve(server, requested) != null) return requested;
-        if (!KingdomSchematicLibrary.validName(requested)) return null;
+        String normalized = normalizeRequestedDesign(requested);
+        if (normalized.isEmpty()) return null;
+        if (KingdomConstructionPlans.resolve(server, normalized) != null) return normalized;
+        if (!KingdomSchematicLibrary.validName(normalized)) return null;
         try {
-            return KingdomSchematicLibrary.freeze(server, requested);
+            return KingdomSchematicLibrary.freeze(server, normalized);
         } catch (IOException | IllegalArgumentException ignored) {
             return null;
         }
+    }
+
+    static String normalizeRequestedDesign(String requested) {
+        if (requested == null) return "";
+        String trimmed = requested.trim();
+        String normalized = trimmed.toLowerCase(Locale.ROOT).replace('ё', 'е');
+        return switch (normalized) {
+            case "дом", "домик", "жилой дом", "house" -> "HOUSE";
+            case "ратуша", "ратушу", "town_hall" -> "TOWN_HALL";
+            case "склад", "warehouse" -> "WAREHOUSE";
+            case "кузница", "кузницу", "smithy" -> "SMITHY";
+            case "таверна", "таверну", "tavern" -> "TAVERN";
+            default -> trimmed;
+        };
     }
 
     private static String requireText(String value, String field) {
