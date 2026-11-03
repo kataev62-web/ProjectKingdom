@@ -20,7 +20,7 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
  * A real MINE enterprise anchors a bounded 1x2 horizontal gallery.
  * Only naturally mineable rock/ore is removed, one block per work tick.
  * No simulated goods, remote block breaking, chunk loads or forced tunnelling.
- * Vertical shafts and structural supports need a separately reviewed planner.\n * Torches are installed from physical stock at predeclared gallery checkpoints.
+ * Vertical shafts and structural supports remain a separate safety feature.\n * The second level uses a descending walkable stair, not a vertical drop.\n * Torches are installed from physical stock at predeclared gallery checkpoints.
  */
 public final class KingdomMineWork {
     private KingdomMineWork() {}
@@ -94,12 +94,16 @@ public final class KingdomMineWork {
         if (carried >= 64) return NpcFieldWork.deposit(level,npc,worker);
         if (!NpcFieldWork.borrowTool(level,npc,worker)) return false;
 
-        for (var cell : KingdomMineGalleryPlan.cells(core)) {
+        for (var cell : KingdomMineLevelPlan.cells(core)) {
             BlockPos floorCell=cell.target();
             BlockPos previous=cell.approach();
             if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
                 || !level.hasChunkAt(floorCell.below())
                 || !level.hasChunkAt(previous.above())) return false;
+            // Only horizontal moves or exactly one downward step are allowed.
+            int deltaY=previous.getY()-floorCell.getY();
+            if(deltaY<0 || deltaY>1 || previous.distManhattan(floorCell)!=1+deltaY)
+                return false;
             // Do not enter a void, cave opening or flooded unsupported cell.
             if (level.getBlockState(floorCell.below()).isAir()
                 || !level.getFluidState(floorCell.below()).isEmpty()) return false;
@@ -137,8 +141,13 @@ public final class KingdomMineWork {
             }
             // Light a fully excavated section before starting the next cell.
             // Stock and navigation are real: no torches = no further advance.
-            if(KingdomMineMaintenance.lightPoint(core,floorCell)) {
-                var lighting=KingdomMineMaintenance.light(level,npc,worker,core,floorCell);
+            BlockPos lightAnchor=floorCell.getY()==core.getY()
+                ?core:floorCell.getY()==core.getY()-KingdomMineLevelPlan.LEVEL_DROP
+                ?core.north(KingdomMineGalleryPlan.MAIN_LENGTH+
+                    KingdomMineLevelPlan.LEVEL_DROP).below(KingdomMineLevelPlan.LEVEL_DROP)
+                :null;
+            if(KingdomMineMaintenance.lightPoint(lightAnchor,floorCell)) {
+                var lighting=KingdomMineMaintenance.light(level,npc,worker,lightAnchor,floorCell);
                 if(lighting==KingdomMineMaintenance.Result.PLACED)return true;
                 if(lighting!=KingdomMineMaintenance.Result.READY)return false;
             }
