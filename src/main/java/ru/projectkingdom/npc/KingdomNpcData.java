@@ -92,6 +92,8 @@ public final class KingdomNpcData extends SavedData {
         public final String dimension;
         public UUID employer;
         public String job = "free";
+        /** Persistent personal motivation; does not grant a title or dissolve a contract. */
+        public KingdomNpcCareerPolicy.Path careerPath;
         public int dailyWage = 2;
         public long earned = 0;
         public long lastPaidDay;
@@ -175,10 +177,14 @@ public final class KingdomNpcData extends SavedData {
         Worker(int id, UUID entityId, String name, String dimension, long day) {
             this.id = id; this.entityId = entityId; this.name = name;
             this.dimension = dimension; this.lastPaidDay = day; this.lastWorkedDay = day; this.ageAnchorDay = day; this.lastLifeDay = day;
+            this.careerPath = KingdomNpcCareerPolicy.initial(entityId);
         }
         static Worker load(CompoundTag t) {
             Worker w = new Worker(t.getInt("Id"), t.getUUID("Entity"), t.getString("Name"), t.getString("Dimension"), t.getLong("LastPaid"));
             if (t.hasUUID("Employer")) w.employer = t.getUUID("Employer");
+            w.careerPath = KingdomNpcCareerPolicy.parse(
+                    t.contains("CareerPath",Tag.TAG_STRING)?t.getString("CareerPath"):null,
+                    w.entityId);
             w.job = t.getString("Job");
             w.dailyWage = Math.max(1, t.getInt("Wage"));
             w.earned = Math.max(0, t.getLong("Earned"));
@@ -268,6 +274,7 @@ public final class KingdomNpcData extends SavedData {
             t.putString("Dimension", dimension); t.putLong("LastPaid", lastPaidDay);
             if (employer != null) t.putUUID("Employer", employer);
             t.putString("Job", job); t.putInt("Wage", dailyWage);
+            t.putString("CareerPath",careerPath.name());
             t.putLong("Earned", earned); t.putInt("Unpaid", unpaidDays);
             t.putBoolean("Paused", contractPaused);
             t.putString("Order", order); t.putLong("WorkUnits", workUnits);
