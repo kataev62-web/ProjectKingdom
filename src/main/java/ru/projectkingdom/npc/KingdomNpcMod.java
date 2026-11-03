@@ -112,10 +112,16 @@ public final class KingdomNpcMod {
         }
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
-    /** Enterprise selection owns these two clicks, including canceled inventory clicks. */
+    /** Horizontal enterprise floor rectangle: two physical Shift+LMB clicks. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
-    public void selectEnterpriseCorners(PlayerInteractEvent.RightClickBlock event){
-        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.select(event);
+    public void selectEnterpriseHorizontal(PlayerInteractEvent.LeftClickBlock event){
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.selectHorizontal(event);
+    }
+
+    /** Enterprise room height: one physical Shift+RMB click after the floor rectangle. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
+    public void selectEnterpriseVertical(PlayerInteractEvent.RightClickBlock event){
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.selectVertical(event);
     }
 
     /** Room/building surveying is a private two-click server session. */
@@ -786,7 +792,7 @@ public final class KingdomNpcMod {
             var src=ctx.getSource(); var p=player(src); var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
             if(w==null || w.employer!=null || !NpcIdentity.canHire(w.ageYears)) {reply(src,"NPC unavailable for hire (must be adult)");return 0;}
             if(KingdomEnterpriseData.get(src.getServer()).owned(p.getUUID())==null){
-                reply(src,"Сначала зарегистрируй предприятие и кассу для зарплаты NPC.");return 0;
+                reply(src,"Сначала зарегистрируй предприятие. Для выдачи зарплаты привяжи отдельный зарплатный сейф во вкладке «Финансы».");return 0;
             }
             w.employer=p.getUUID(); w.lastPaidDay=src.getServer().overworld().getDayTime()/TICKS_PER_DAY;
             w.unpaidDays=0; w.contractPaused=false;
@@ -1134,23 +1140,30 @@ public final class KingdomNpcMod {
         }
         if(changed)db.setDirty();
     }
-    /** Suspended workers visit a real, loaded company till to collect owed wages.
-     * No remote payout, teleportation or inventory fabrication. */
+    /** Employees visit their employer's real, loaded salary vault to collect earned wages.
+     * The route is used for both routine payday collection and recovery of suspended backpay.
+     * No remote payout, teleportation or inventory fabrication.
+     */
     private static boolean seekBackpay(net.minecraft.server.MinecraftServer server,
             ServerLevel level,Villager npc,KingdomNpcData.Worker worker){
-        if(!worker.contractPaused)return false;
+        var payroll=KingdomEnterprisePayrollData.get(server);
         var firms=KingdomEnterpriseData.get(server);
-        for(var debt:KingdomEnterprisePayrollData.get(server).all()){
-            if(!worker.entityId.equals(debt.worker())||debt.owed()<1)continue;
+        for(var debt:payroll.all()){
+            if(!worker.entityId.equals(debt.worker()))continue;
+            long owed=payroll.accrue(server,debt.enterprise(),worker.entityId);
+            if(owed<1)continue;
             var firm=firms.find(debt.enterprise());
-            var core=firms.core(debt.enterprise());
-            if(firm==null||core==null||!core.active()
-                    ||!core.dimension().equals(worker.dimension)
-                    ||firm.cash()<=0)continue;
-            BlockPos dest=BlockPos.of(core.packedPos());
-            if(!level.hasChunkAt(dest))continue;
-            if(npc.distanceToSqr(dest.getX()+0.5,dest.getY()+0.5,dest.getZ()+0.5)>9)
+            if(firm==null||(worker.employer!=null&&!firm.owner().equals(worker.employer)))continue;
+            var vault=ru.projectkingdom.enterprise.EnterpriseAccessService.snapshot(level,firms,
+                    debt.enterprise(),ru.projectkingdom.enterprise.EnterpriseBindingRole.SALARY_STORAGE);
+            if(vault.status()!=ru.projectkingdom.enterprise.EnterpriseAccessService.Status.BOUND_AVAILABLE
+                    ||vault.container()==null||ru.projectkingdom.npc.KingdomPhysicalCash.value(vault.container())<1)continue;
+            BlockPos dest=vault.position();
+            if(npc.distanceToSqr(dest.getX()+0.5,dest.getY()+0.5,dest.getZ()+0.5)>9){
                 npc.getNavigation().moveTo(dest.getX()+0.5,dest.getY(),dest.getZ()+0.5,0.8);
+            }else{
+                npc.getNavigation().stop();
+            }
             return true;
         }
         return false;
