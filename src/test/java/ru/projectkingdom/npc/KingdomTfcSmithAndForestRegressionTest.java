@@ -88,4 +88,14 @@ final class KingdomTfcSmithAndForestRegressionTest {
         assertTrue(f.contains("for(int y=area.y()-2;y<=area.y()+16;y++)"));
         assertTrue(f.contains("nativeLogging.invoke(null,level,root,fake,w.fieldTool)"));
     }
+    @Test void smithyCatalogueAggregatesNativeRecipesFromEveryRealWarehouseInput(){
+        String smith=source("npc/KingdomTfcSmithWork.java");
+        assertTrue(smith.contains("new java.util.TreeSet<String>()"));
+        assertTrue(smith.contains("for(int slot=0;slot<raw.getContainerSize();slot++)"));
+        assertTrue(smith.contains("AnvilRecipe"));
+        assertTrue(smith.contains("getTier"));
+        assertTrue(smith.contains("TFC's recipe registry"));
+        assertFalse(smith.contains("new ItemStack(BuiltInRegistries.ITEM.get"));
+    }
+
 }
