@@ -21,6 +21,7 @@ import net.minecraft.core.Direction;
 public final class KingdomMineCentralShaftPlan {
     private KingdomMineCentralShaftPlan(){}
     public static final int DEPTH=10;
+    public static final int GALLERY_LENGTH=12;
     public static final int[] LEVELS={3,6,10};
     public record Stage(int depth,BlockPos entrance,List<KingdomMineGalleryPlan.Cell> chamber) {}
 
@@ -104,6 +105,17 @@ public final class KingdomMineCentralShaftPlan {
                     queue.addLast(target);
                 }
             }
+        }
+        // Each level opens one north-facing extraction gallery beyond the
+        // central shaft; the miner still checks legal ownership at every cell.
+        int x=(area.minX()+area.maxX())/2;
+        BlockPos approach=new BlockPos(x,entrance.getY(),area.minZ()+1);
+        BlockPos exit=new BlockPos(x,entrance.getY(),area.minZ());
+        plan.add(new KingdomMineGalleryPlan.Cell(exit,approach));
+        for(int distance=1;distance<=GALLERY_LENGTH;distance++){
+            BlockPos target=exit.north(distance);
+            BlockPos previous=distance==1?exit:exit.north(distance-1);
+            plan.add(new KingdomMineGalleryPlan.Cell(target,previous));
         }
         return plan;
     }
