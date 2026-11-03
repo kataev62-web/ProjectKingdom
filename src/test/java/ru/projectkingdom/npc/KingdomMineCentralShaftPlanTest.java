@@ -42,7 +42,8 @@ class KingdomMineCentralShaftPlanTest {
                 if(cell.target().getY()==80-levels[i])perLevel[i]++;
         }
         assertEquals(10,drops,"must descend exactly ten blocks");
-        assertTrue(cells.size()>=10+3*((width-2)*(length-2)+13));
+        // The extraction exit may already be one of the ten perimeter cells; it must not be counted twice.
+        assertTrue(cells.size()>=10+3*((width-2)*(length-2)+12));
         for(int depth:new int[]{3,6,10}) {
             BlockPos end=new BlockPos((shaft.minX()+shaft.maxX())/2,
                 80-depth,shaft.minZ()-12);
@@ -75,5 +76,19 @@ class KingdomMineCentralShaftPlanTest {
         assertEquals(5,settings.shaft(mine).width());
         settings.markStarted(mine);
         assertFalse(settings.setShaft(mine,area(6,6,2)));
+    }
+    @Test void centralShaftSchedulesSupportFramesForAllThreeExtractionGalleries() {
+        var shaft=area(8,8,4);
+        var anchors=KingdomMineCentralShaftPlan.supportAnchors(shaft);
+        assertEquals(3,anchors.size(),"one gallery entrance for each working level");
+        Set<Integer> levels=new HashSet<>();
+        for(BlockPos anchor:anchors){
+            assertEquals(shaft.minZ(),anchor.getZ());
+            assertEquals((shaft.minX()+shaft.maxX())/2,anchor.getX());
+            levels.add(anchor.getY());
+            var frames=KingdomMineSupportPlan.frames(anchor);
+            assertEquals(2,frames.stream().filter(frame->frame.depth()<=KingdomMineCentralShaftPlan.GALLERY_LENGTH).count());
+        }
+        assertEquals(Set.of(77,74,70),levels);
     }
 }

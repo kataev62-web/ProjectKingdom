@@ -59,14 +59,16 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         acceptButton=addRenderableWidget(action("Принять первого заявителя (10 мед./сут.)",58,132,250,EnterpriseCoreMenu.ACCEPT_FIRST));
         cashButtons.add(addRenderableWidget(action("Внести 100",78,132,90,EnterpriseCoreMenu.DEPOSIT_100)));
         cashButtons.add(addRenderableWidget(action("Снять 100",178,132,90,EnterpriseCoreMenu.WITHDRAW_100)));
-        cashButtons.add(addRenderableWidget(action("Перенести монеты старой кассы",68,166,235,EnterpriseCoreMenu.MIGRATE_CASH)));
+        cashButtons.add(addRenderableWidget(action("Перенести монеты",183,181,120,EnterpriseCoreMenu.MIGRATE_CASH)));
+        cashButtons.add(addRenderableWidget(action("Привязать зарплатный сейф",68,157,235,EnterpriseCoreMenu.BIND_SALARY)));
+        cashButtons.add(addRenderableWidget(action("Зарплата +100",58,181,120,EnterpriseCoreMenu.DEPOSIT_SALARY_100)));
         fieldsButton=addRenderableWidget(action("Поля и семена",72,132,205,EnterpriseCoreMenu.OPEN_FARM_FIELDS));
         forestButton=addRenderableWidget(action("Лесные участки и посадки",72,132,205,EnterpriseCoreMenu.OPEN_FOREST));
         constructionButtons.add(addRenderableWidget(action("Архитектор",62,132,110,EnterpriseCoreMenu.OPEN_ARCHITECT)));
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
         renameButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Сохранить"),b->KingdomNetwork.CHANNEL.sendToServer(new RenameEnterprisePacket(menu.enterpriseId(),rename.getValue()))).bounds(leftPos+264,topPos+94,44,20).build());
-        registerBuildingButton=addRenderableWidget(action("Привязать здание: 2 угла",70,169,236,
+        registerBuildingButton=addRenderableWidget(action("Здание: ЛКМ пол → ПКМ высота",70,169,236,
                 EnterpriseCoreMenu.REGISTER_BUILDING));
         closeButton=addRenderableWidget(Button.builder(KingdomFonts.readable("Закрыть предприятие"),b->{
             if(minecraft==null||minecraft.gameMode==null)return;
@@ -126,7 +128,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 line(g,"Состояние: активно",54,98);
                 line(g,"Ядро: "+menu.enterpriseId(),54,114);
                 line(g,menu.buildingState(),54,134);
-                line(g,"Нижний и верхний углы — Shift+ПКМ.",54,151);
+                line(g,"Пол: Shift+ЛКМ два угла; высота: Shift+ПКМ.",54,151);
             }
             case WORKERS->{
                 line(g,"Работников: "+menu.workers(),54,82);
@@ -154,6 +156,8 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 line(g,"Касса находится внутри блока предприятия.",54,85);
                 line(g,"Учётный остаток: "+menu.cash()+" медных",54,103);
                 line(g,"Никакого отдельного кассового сундука.",54,119);
+                line(g,"Зарплатный сейф: "+menu.salaryState(),54,137);
+                line(g,"Зарплатный резерв: "+menu.salaryBalance()+" мед.",54,151);
             }
             case ORDERS->{line(g,"Только реальные сохранённые заявки и поставки.",54,90);line(g,"Удалённое создание товаров отключено.",54,108);}
             case SETTINGS->{

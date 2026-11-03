@@ -53,19 +53,35 @@ public final class KingdomMineCentralShaftPlan {
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
         if(rim.size()<DEPTH)return List.of();
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
+        Set<BlockPos> scheduled=new HashSet<>();
+        List<BlockPos> stageEntrances=new ArrayList<>();
         BlockPos previous=entrance;
+        // Excavate the complete ten-step perimeter first. This makes every
+        // later chamber connector and gallery approach physically reachable.
         for(int step=1;step<=DEPTH;step++) {
             BlockPos down=rim.get(step-1).below(step);
             result.add(new KingdomMineGalleryPlan.Cell(down,previous));
+            scheduled.add(down);
             previous=down;
-            for(int level:LEVELS)if(step==level)
-                result.addAll(chamber(area,down));
+            for(int level:LEVELS)if(step==level)stageEntrances.add(down);
         }
+        for(BlockPos stageEntrance:stageEntrances)
+            result.addAll(chamber(area,stageEntrance,scheduled));
         return List.copyOf(result);
     }
 
+    /** Support-frame checkpoints for the three horizontal extraction galleries. */
+    public static List<BlockPos> supportAnchors(KingdomMineSettings.Shaft area){
+        if(area==null||area.width()<5||area.length()<5)return List.of();
+        int centerX=(area.minX()+area.maxX())/2;
+        List<BlockPos> anchors=new ArrayList<>();
+        for(int depth:LEVELS)
+            anchors.add(new BlockPos(centerX,area.surfaceY()-depth,area.minZ()));
+        return List.copyOf(anchors);
+    }
+
     private static List<KingdomMineGalleryPlan.Cell> chamber(
-            KingdomMineSettings.Shaft area,BlockPos entrance) {
+            KingdomMineSettings.Shaft area,BlockPos entrance,Set<BlockPos> scheduled) {
         List<KingdomMineGalleryPlan.Cell> plan=new ArrayList<>();
         Set<BlockPos> visited=new HashSet<>();
         ArrayDeque<BlockPos> queue=new ArrayDeque<>();
@@ -85,7 +101,9 @@ public final class KingdomMineCentralShaftPlan {
                 for(Direction into:Direction.Plane.HORIZONTAL) {
                     BlockPos possible=connector.relative(into);
                     if(interior(area,possible)){
-                        plan.add(new KingdomMineGalleryPlan.Cell(connector,entrance));
+                        // The perimeter pass may already have excavated this connector.
+                        if(scheduled.add(connector))
+                            plan.add(new KingdomMineGalleryPlan.Cell(connector,entrance));
                         approach=connector;
                         seed=possible;
                         break outer;
@@ -95,12 +113,12 @@ public final class KingdomMineCentralShaftPlan {
         if(seed==null)return List.of();
         visited.add(seed);
         queue.add(seed);
-        plan.add(new KingdomMineGalleryPlan.Cell(seed,approach));
+        if(scheduled.add(seed))plan.add(new KingdomMineGalleryPlan.Cell(seed,approach));
         while(!queue.isEmpty()) {
             BlockPos parent=queue.removeFirst();
             for(Direction direction:Direction.Plane.HORIZONTAL) {
                 BlockPos target=parent.relative(direction);
-                if(interior(area,target)&&visited.add(target)){
+                if(interior(area,target)&&visited.add(target)&&scheduled.add(target)){
                     plan.add(new KingdomMineGalleryPlan.Cell(target,parent));
                     queue.addLast(target);
                 }
@@ -109,13 +127,13 @@ public final class KingdomMineCentralShaftPlan {
         // Each level opens one north-facing extraction gallery beyond the
         // central shaft; the miner still checks legal ownership at every cell.
         int x=(area.minX()+area.maxX())/2;
-        BlockPos approach=new BlockPos(x,entrance.getY(),area.minZ()+1);
+        BlockPos approachCell=new BlockPos(x,entrance.getY(),area.minZ()+1);
         BlockPos exit=new BlockPos(x,entrance.getY(),area.minZ());
-        plan.add(new KingdomMineGalleryPlan.Cell(exit,approach));
+        if(scheduled.add(exit))plan.add(new KingdomMineGalleryPlan.Cell(exit,approachCell));
         for(int distance=1;distance<=GALLERY_LENGTH;distance++){
             BlockPos target=exit.north(distance);
             BlockPos previous=distance==1?exit:exit.north(distance-1);
-            plan.add(new KingdomMineGalleryPlan.Cell(target,previous));
+            if(scheduled.add(target))plan.add(new KingdomMineGalleryPlan.Cell(target,previous));
         }
         return plan;
     }
