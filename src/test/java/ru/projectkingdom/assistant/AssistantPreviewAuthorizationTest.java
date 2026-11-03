@@ -10,6 +10,16 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 final class AssistantPreviewAuthorizationTest {
+    @Test void mapsNaturalRussianBuildingNamesToBuiltinPlans() {
+        assertEquals("HOUSE", AssistantPreviewService.normalizeRequestedDesign("дом"));
+        assertEquals("HOUSE", AssistantPreviewService.normalizeRequestedDesign("Жилой дом"));
+        assertEquals("TOWN_HALL", AssistantPreviewService.normalizeRequestedDesign("ратуша"));
+        assertEquals("WAREHOUSE", AssistantPreviewService.normalizeRequestedDesign("склад"));
+        assertEquals("SMITHY", AssistantPreviewService.normalizeRequestedDesign("кузницу"));
+        assertEquals("TAVERN", AssistantPreviewService.normalizeRequestedDesign("таверну"));
+        assertEquals("avalon_smithy", AssistantPreviewService.normalizeRequestedDesign("avalon_smithy"));
+    }
+
     private static final UUID TOKEN = UUID.fromString("10000000-0000-0000-0000-000000000001");
     private static final UUID OWNER = UUID.fromString("20000000-0000-0000-0000-000000000002");
     private static final UUID ASSISTANT = UUID.fromString("30000000-0000-0000-0000-000000000003");

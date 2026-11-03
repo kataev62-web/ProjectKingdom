@@ -2,7 +2,9 @@ package ru.projectkingdom.assistant;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import net.minecraft.core.BlockPos;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -62,5 +64,25 @@ final class KingdomAssistantTaskStateTest {
                         new AssistantCommand(AssistantIntent.STATUS, ""), UUID.randomUUID()));
 
         assertEquals(before, data.ownedBy(owner).orElseThrow());
+    }
+
+    @Test void confirmedPreviewImmediatelyStartsTheRealBuild() {
+        UUID assistant = data.ownedBy(owner).orElseThrow().entityId();
+        assertTrue(data.beginTask(owner, UUID.randomUUID(), AssistantIntent.PREVIEW));
+        var world = new AssistantCreativeBuildServiceTest.Fixture();
+        var design = AssistantCreativeBuildServiceTest.line(1, "minecraft:stone_bricks");
+        var builds = new AssistantCreativeBuildService(new KingdomAssistantBuildData(), world,
+                key -> "HOUSE".equals(key) ? design : null);
+        var proposal = new AssistantPreviewService.BuildProposal(owner, assistant,
+                "minecraft:overworld", "HOUSE", new BlockPos(0, 64, 0), design);
+        AtomicInteger consumed = new AtomicInteger();
+
+        var result = KingdomAssistantTasks.startConfirmedPreview(
+                data, builds, proposal, consumed::incrementAndGet, UUID.randomUUID());
+
+        assertEquals(KingdomAssistantTasks.SubmitResult.ACCEPTED, result);
+        assertEquals(1, consumed.get());
+        assertEquals(AssistantIntent.BUILD, data.ownedBy(owner).orElseThrow().activeIntent());
+        assertEquals(1, builds.tick().changed());
     }
 }
