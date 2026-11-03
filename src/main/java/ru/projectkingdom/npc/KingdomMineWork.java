@@ -121,6 +121,48 @@ public final class KingdomMineWork {
                 || !level.getBlockState(previous.above()).isAir()
                 || level.getBlockState(previous.below()).isAir()
                 || !level.getFluidState(previous).isEmpty()) return false;
+            // Build a real TFC support frame every five cells. The native
+            // TFC item controls column/link creation. On any failure we
+            // stop rather than allowing unsupported excavation.
+            BlockPos galleryAnchor=floorCell.getY()==core.getY()
+                ?core:floorCell.getY()==core.getY()-KingdomMineLevelPlan.LEVEL_DROP
+                ?core.north(KingdomMineGalleryPlan.MAIN_LENGTH+
+                    KingdomMineLevelPlan.LEVEL_DROP).below(KingdomMineLevelPlan.LEVEL_DROP)
+                :null;
+            if(galleryAnchor!=null) {
+                for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
+                    if(frame.walkway().equals(floorCell)) {
+                        var prepare=KingdomMineSupportExcavation.tick(level,npc,worker,frame);
+                        if(prepare==KingdomMineSupportExcavation.Result.EXCAVATED) {
+                            status(level,worker,"Расчищает место для опор TFC");
+                            return true;
+                        }
+                        if(prepare==KingdomMineSupportExcavation.Result.WALKING) {
+                            status(level,worker,"Идёт к месту крепления");
+                            return false;
+                        }
+                        if(prepare==KingdomMineSupportExcavation.Result.UNSAFE) {
+                            status(level,worker,"Небезопасно расширять штрек: нужны опоры или свободная порода");
+                            return false;
+                        }
+                        var build=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
+                        if(build==KingdomMineSupportBuilder.Result.PLACED) {
+                            status(level,worker,"Укрепляет шахту настоящими балками TFC");
+                            return true;
+                        }
+                        if(build!=KingdomMineSupportBuilder.Result.COMPLETE) {
+                            status(level,worker,switch(build) {
+                                case WALKING -> "Несёт балки TFC к месту крепления";
+                                case NO_STOCK -> "Нужны балки TFC (минимум 8 одинаковых) на складе";
+                                case NEED_CLEAR_POCKETS -> "Расчисти боковые карманы 3×3 для креплений";
+                                case INACCESSIBLE -> "Нет прав или чанк креплений не загружен";
+                                default -> "TFC не установил опору: проверь место и материалы";
+                            });
+                            return false;
+                        }
+                    }
+                }
+            }
             for (int height=0;height<2;height++) {
                 BlockPos target=floorCell.above(height);
                 if (KingdomMineMaintenance.passable(level.getBlockState(target))) {
@@ -163,48 +205,6 @@ public final class KingdomMineWork {
                 worker.energy=Math.max(0,worker.energy-1);
                 KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
-            }
-            // Build a real TFC support frame every five cells. The native
-            // TFC item controls column/link creation. On any failure we
-            // stop rather than allowing unsupported excavation.
-            BlockPos galleryAnchor=floorCell.getY()==core.getY()
-                ?core:floorCell.getY()==core.getY()-KingdomMineLevelPlan.LEVEL_DROP
-                ?core.north(KingdomMineGalleryPlan.MAIN_LENGTH+
-                    KingdomMineLevelPlan.LEVEL_DROP).below(KingdomMineLevelPlan.LEVEL_DROP)
-                :null;
-            if(galleryAnchor!=null) {
-                for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
-                    if(frame.walkway().equals(floorCell)) {
-                        var prepare=KingdomMineSupportExcavation.tick(level,npc,worker,frame);
-                        if(prepare==KingdomMineSupportExcavation.Result.EXCAVATED) {
-                            status(level,worker,"Расчищает место для опор TFC");
-                            return true;
-                        }
-                        if(prepare==KingdomMineSupportExcavation.Result.WALKING) {
-                            status(level,worker,"Идёт к месту крепления");
-                            return false;
-                        }
-                        if(prepare==KingdomMineSupportExcavation.Result.UNSAFE) {
-                            status(level,worker,"Небезопасно расширять штрек: нужны опоры или свободная порода");
-                            return false;
-                        }
-                        var build=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
-                        if(build==KingdomMineSupportBuilder.Result.PLACED) {
-                            status(level,worker,"Укрепляет шахту настоящими балками TFC");
-                            return true;
-                        }
-                        if(build!=KingdomMineSupportBuilder.Result.COMPLETE) {
-                            status(level,worker,switch(build) {
-                                case WALKING -> "Несёт балки TFC к месту крепления";
-                                case NO_STOCK -> "Нужны балки TFC (минимум 8 одинаковых) на складе";
-                                case NEED_CLEAR_POCKETS -> "Расчисти боковые карманы 3×3 для креплений";
-                                case INACCESSIBLE -> "Нет прав или чанк креплений не загружен";
-                                default -> "TFC не установил опору: проверь место и материалы";
-                            });
-                            return false;
-                        }
-                    }
-                }
             }
             // Light a fully excavated section before starting the next cell.
             // Stock and navigation are real: no torches = no further advance.
