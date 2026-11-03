@@ -17,9 +17,12 @@ public final class KingdomMineSupportSafety {
 
     public enum Result { SAFE, NEEDS_HORIZONTAL_BEAM, UNSUPPORTED_ROCK, UNLOADED }
 
+    public static boolean isHorizontalSupportId(String id) {
+        return id!=null && id.startsWith("tfc:wood/horizontal_support/");
+    }
+
     public static boolean isTfcHorizontalSupport(BlockState state) {
-        String id=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        return id.startsWith("tfc:wood/horizontal_support/");
+        return isHorizontalSupportId(BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString());
     }
 
     public static boolean isCollapseRock(BlockState state) {
