@@ -69,15 +69,32 @@ public final class KingdomMineCentralShaftPlan {
         Set<BlockPos> visited=new HashSet<>();
         ArrayDeque<BlockPos> queue=new ArrayDeque<>();
         // Seed from a walkable rim position; BFS produces reachable approaches.
+        BlockPos approach=entrance;
+        BlockPos seed=null;
         for(Direction direction:Direction.Plane.HORIZONTAL) {
-            BlockPos first=entrance.relative(direction);
-            if(interior(area,first)) {
-                visited.add(first);
-                queue.add(first);
-                plan.add(new KingdomMineGalleryPlan.Cell(first,entrance));
-                break;
-            }
+            BlockPos possible=entrance.relative(direction);
+            if(interior(area,possible)){seed=possible;break;}
         }
+        // Corner stair landings have no directly adjacent inner cell.
+        // Open exactly one rim connector, then enter the interior.
+        if(seed==null)outer:
+            for(Direction direction:Direction.Plane.HORIZONTAL) {
+                BlockPos connector=entrance.relative(direction);
+                if(!inside(area,connector))continue;
+                for(Direction into:Direction.Plane.HORIZONTAL) {
+                    BlockPos possible=connector.relative(into);
+                    if(interior(area,possible)){
+                        plan.add(new KingdomMineGalleryPlan.Cell(connector,entrance));
+                        approach=connector;
+                        seed=possible;
+                        break outer;
+                    }
+                }
+            }
+        if(seed==null)return List.of();
+        visited.add(seed);
+        queue.add(seed);
+        plan.add(new KingdomMineGalleryPlan.Cell(seed,approach));
         while(!queue.isEmpty()) {
             BlockPos parent=queue.removeFirst();
             for(Direction direction:Direction.Plane.HORIZONTAL) {
@@ -89,6 +106,11 @@ public final class KingdomMineCentralShaftPlan {
             }
         }
         return plan;
+    }
+
+    private static boolean inside(KingdomMineSettings.Shaft a,BlockPos p) {
+        return p.getX()>=a.minX()&&p.getX()<=a.maxX()
+            &&p.getZ()>=a.minZ()&&p.getZ()<=a.maxZ();
     }
 
     private static boolean interior(KingdomMineSettings.Shaft a,BlockPos p) {
