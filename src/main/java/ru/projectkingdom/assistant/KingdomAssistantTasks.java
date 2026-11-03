@@ -18,6 +18,7 @@ import java.util.WeakHashMap;
 public final class KingdomAssistantTasks {
     public enum SubmitResult {
         ACCEPTED, BUSY, CANCELLED, NO_ACTIVE_TASK, READ_ONLY, SURVEY_REQUIRED, PREVIEW_REJECTED,
+        BUILD_REJECTED, UNDO_REJECTED,
         NOT_OWNER, NOT_ADMIN
     }
 
@@ -51,8 +52,37 @@ public final class KingdomAssistantTasks {
                 data.finishTask(owner.getUUID(), "Предпросмотр не открыт");
                 result = SubmitResult.PREVIEW_REJECTED;
             }
+        } else if (result == SubmitResult.ACCEPTED && command.intent() == AssistantIntent.BUILD) {
+            var proposal = AssistantPreviewService.pending(owner.getServer(), owner.getUUID());
+            if (proposal.isEmpty()) {
+                data.finishTask(owner.getUUID(), "Стройка не начата: нет подтверждённого проекта");
+                result = SubmitResult.BUILD_REJECTED;
+            } else {
+                var item = proposal.get();
+                var queued = AssistantCreativeBuildService.forServer(owner.getServer()).queue(
+                        item.owner(), item.assistant(), item.dimension(), item.designKey(), item.origin());
+                if (queued.status() == AssistantCreativeBuildService.QueueStatus.QUEUED) {
+                    AssistantPreviewService.consume(owner.getServer(), item.owner(), item.assistant());
+                } else {
+                    data.finishTask(owner.getUUID(), "Стройка отклонена: " + queued.status());
+                    result = SubmitResult.BUILD_REJECTED;
+                }
+            }
+        } else if (result == SubmitResult.ACCEPTED && command.intent() == AssistantIntent.UNDO) {
+            KingdomAssistantBuildData builds = KingdomAssistantBuildData.get(owner.getServer());
+            UUID buildId = parseBuildId(command.argument());
+            if (buildId == null) buildId = builds.latest(owner.getUUID())
+                    .map(KingdomAssistantBuildData.BuildView::id).orElse(null);
+            if (buildId == null || builds.build(buildId).isEmpty()) {
+                data.finishTask(owner.getUUID(), "Отмена не начата: стройка не найдена");
+                result = SubmitResult.UNDO_REJECTED;
+            } else {
+                AssistantCreativeBuildService.forServer(owner.getServer())
+                        .undo(owner.getUUID(), buildId);
+            }
         } else if (result == SubmitResult.CANCELLED) {
             KingdomArchitectSessions.cancel(owner.getUUID());
+            AssistantCreativeBuildService.forServer(owner.getServer()).cancel(owner.getUUID());
         }
         sendResult(owner, command, result, data);
         return result;
@@ -178,6 +208,12 @@ public final class KingdomAssistantTasks {
         return message == null || message.isBlank() ? failure.getClass().getSimpleName() : message;
     }
 
+    private static UUID parseBuildId(String argument) {
+        if (argument == null || argument.isBlank()) return null;
+        try { return UUID.fromString(argument.trim()); }
+        catch (IllegalArgumentException invalid) { return null; }
+    }
+
     private static boolean isWorldMutation(AssistantIntent intent) {
         return intent == AssistantIntent.PREVIEW
                 || intent == AssistantIntent.BUILD
@@ -208,6 +244,8 @@ public final class KingdomAssistantTasks {
             }
             case SURVEY_REQUIRED -> "Сначала выполните обследование территории.";
             case PREVIEW_REJECTED -> "Не удалось открыть проект: проверьте ключ схемы и привязку помощника.";
+            case BUILD_REJECTED -> "Нет подтверждённого безопасного проекта для строительства.";
+            case UNDO_REJECTED -> "Не найдена творческая стройка для отмены.";
             case NOT_OWNER -> "Помощник ещё не призван или принадлежит другому владельцу.";
             case NOT_ADMIN -> "Управление доступно только владельцу сервера с уровнем прав 4.";
         };
