@@ -20,6 +20,7 @@ public record KingdomCancelVolumeSelectionPacket() {
                 ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(id);
                 ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(id);
                 ru.projectkingdom.npc.KingdomStructureCopy.cancel(id);
+                ru.projectkingdom.npc.KingdomMineSelection.cancel(id);
             });
         }
         ctx.setPacketHandled(true);
