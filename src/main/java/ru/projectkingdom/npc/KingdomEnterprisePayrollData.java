@@ -258,10 +258,9 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         if(access.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||access.container()==null
                 ||access.position().distSqr(worker.blockPosition())>36)return false;
         long amount=Math.min(10000L,owed);
-        if(KingdomPhysicalCash.value(access.container())<amount
-                ||!KingdomPhysicalCash.withdraw(worker,access.container(),amount))return false;
         String k=key(enterprise,worker.getUUID());Employment c=entries.get(k);
-        if(c==null)return false;
+        if(c==null||KingdomPhysicalCash.value(access.container())<amount
+                ||!KingdomPhysicalCash.withdraw(worker,access.container(),amount))return false;
         entries.put(k,new Employment(enterprise,c.worker(),c.dailyCopper(),c.lastDay(),c.owed()-amount,c.active()));
         worker.getInventory().setChanged();setDirty();return true;
     }
