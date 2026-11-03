@@ -109,7 +109,7 @@ public final class KingdomMineCentralShaftPlan {
         // Each level opens one north-facing extraction gallery beyond the
         // central shaft; the miner still checks legal ownership at every cell.
         int x=(area.minX()+area.maxX())/2;
-        BlockPos approach=new BlockPos(x,entrance.getY(),area.minZ()+1);
+        BlockPos approachCell=new BlockPos(x,entrance.getY(),area.minZ()+1);
         BlockPos exit=new BlockPos(x,entrance.getY(),area.minZ());
         plan.add(new KingdomMineGalleryPlan.Cell(exit,approach));
         for(int distance=1;distance<=GALLERY_LENGTH;distance++){
