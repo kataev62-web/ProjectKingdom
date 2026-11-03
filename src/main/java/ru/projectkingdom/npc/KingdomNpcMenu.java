@@ -163,6 +163,10 @@ public final class KingdomNpcMenu extends ChestMenu {
         icon(14, Items.PAPER, "Приказ: " + order(w.order));
         icon(15, Items.CHEST, "План: " + NpcAutonomyPlanner.description(
             safeIntent(w.autonomousIntent)) + (plan==null?"":" | ПКМ: остатки "+plan.low()+"–"+plan.high()));
+        if("miner".equals(w.job))
+            icon(16, Items.TORCH, "Шахта: "+w.mineStatus
+                +" | горизонт 1 и горизонт 2 (на 4 блока ниже)"
+                +" | факелы нужны на складе сырья");
         icon(17, Items.BARREL, "Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
         icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
             + " (возврат /knpc refund_legacy <сумма> у банковской стойки)");
