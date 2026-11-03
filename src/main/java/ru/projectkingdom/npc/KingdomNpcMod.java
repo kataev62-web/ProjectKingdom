@@ -112,6 +112,12 @@ public final class KingdomNpcMod {
         }
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
+    /** Mine shaft footprint: two owned horizontal corners, server-authoritative. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST,receiveCanceled=true)
+    public void selectMineShaft(PlayerInteractEvent.RightClickBlock event) {
+        KingdomMineSelection.select(event);
+    }
+
     /** Enterprise selection owns these two clicks, including canceled inventory clicks. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
     public void selectEnterpriseCorners(PlayerInteractEvent.RightClickBlock event){
@@ -303,7 +309,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID());KingdomAdminDashboardService.close(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());KingdomMineSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID());KingdomAdminDashboardService.close(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
