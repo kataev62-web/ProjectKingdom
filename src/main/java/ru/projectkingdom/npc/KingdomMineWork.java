@@ -45,7 +45,7 @@ public final class KingdomMineWork {
             || KingdomTfcFieldRules.ore(id);
     }
 
-    private static boolean safeToBreak(ServerLevel level, BlockPos pos,
+    static boolean safeToBreak(ServerLevel level, BlockPos pos,
                                        KingdomNpcData.Worker worker) {
         if (!level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
             || pos.getY() >= level.getMaxBuildHeight() - 3
