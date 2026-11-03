@@ -112,6 +112,12 @@ public final class KingdomNpcMod {
         }
         event.setCancellationResult(InteractionResult.SUCCESS);event.setCanceled(true);
     }
+    /** Mine shaft footprint: two owned horizontal corners, server-authoritative. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST,receiveCanceled=true)
+    public void selectMineShaft(PlayerInteractEvent.RightClickBlock event) {
+        KingdomMineSelection.select(event);
+    }
+
     /** Horizontal enterprise floor rectangle: two physical Shift+LMB clicks. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
     public void selectEnterpriseHorizontal(PlayerInteractEvent.LeftClickBlock event){
@@ -309,7 +315,7 @@ public final class KingdomNpcMod {
             return;
         }
     }
-    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID());KingdomAdminDashboardService.close(e.getEntity().getUUID()); }
+    @SubscribeEvent public void onLogout(PlayerEvent.PlayerLoggedOutEvent e) { BINDING.remove(e.getEntity().getUUID());KingdomFarmSelection.cancel(e.getEntity().getUUID());KingdomMineSelection.cancel(e.getEntity().getUUID());ru.projectkingdom.property.KingdomRentalSelection.cancel(e.getEntity().getUUID());EnterpriseAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(e.getEntity().getUUID());AdministrativeAccessService.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomBankVaultRooms.cancel(e.getEntity().getUUID());ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(e.getEntity().getUUID());KingdomConstructionPreview.clear(e.getEntity().getUUID());KingdomArchitectSessions.cancel(e.getEntity().getUUID());KingdomArchitectCatalog.close(e.getEntity().getUUID());KingdomStructureCopy.cancel(e.getEntity().getUUID());KingdomAdminDashboardService.close(e.getEntity().getUUID()); }
     @SubscribeEvent public void bindAdministrativeTarget(PlayerInteractEvent.RightClickBlock event){
         if(!(event.getEntity() instanceof ServerPlayer player)||!AdministrativeAccessService.hasSession(player.getUUID()))return;
         if (BindingInteractionPolicy.allowsPlacement(event.getItemStack())) {
@@ -1140,30 +1146,23 @@ public final class KingdomNpcMod {
         }
         if(changed)db.setDirty();
     }
-    /** Employees visit their employer's real, loaded salary vault to collect earned wages.
-     * The route is used for both routine payday collection and recovery of suspended backpay.
-     * No remote payout, teleportation or inventory fabrication.
-     */
+    /** Suspended workers visit a real, loaded company till to collect owed wages.
+     * No remote payout, teleportation or inventory fabrication. */
     private static boolean seekBackpay(net.minecraft.server.MinecraftServer server,
             ServerLevel level,Villager npc,KingdomNpcData.Worker worker){
-        var payroll=KingdomEnterprisePayrollData.get(server);
+        if(!worker.contractPaused)return false;
         var firms=KingdomEnterpriseData.get(server);
-        for(var debt:payroll.all()){
-            if(!worker.entityId.equals(debt.worker()))continue;
-            long owed=payroll.accrue(server,debt.enterprise(),worker.entityId);
-            if(owed<1)continue;
+        for(var debt:KingdomEnterprisePayrollData.get(server).all()){
+            if(!worker.entityId.equals(debt.worker())||debt.owed()<1)continue;
             var firm=firms.find(debt.enterprise());
-            if(firm==null||(worker.employer!=null&&!firm.owner().equals(worker.employer)))continue;
-            var vault=ru.projectkingdom.enterprise.EnterpriseAccessService.snapshot(level,firms,
-                    debt.enterprise(),ru.projectkingdom.enterprise.EnterpriseBindingRole.SALARY_STORAGE);
-            if(vault.status()!=ru.projectkingdom.enterprise.EnterpriseAccessService.Status.BOUND_AVAILABLE
-                    ||vault.container()==null||ru.projectkingdom.npc.KingdomPhysicalCash.value(vault.container())<1)continue;
-            BlockPos dest=vault.position();
-            if(npc.distanceToSqr(dest.getX()+0.5,dest.getY()+0.5,dest.getZ()+0.5)>9){
+            var core=firms.core(debt.enterprise());
+            if(firm==null||core==null||!core.active()
+                    ||!core.dimension().equals(worker.dimension)
+                    ||firm.cash()<=0)continue;
+            BlockPos dest=BlockPos.of(core.packedPos());
+            if(!level.hasChunkAt(dest))continue;
+            if(npc.distanceToSqr(dest.getX()+0.5,dest.getY()+0.5,dest.getZ()+0.5)>9)
                 npc.getNavigation().moveTo(dest.getX()+0.5,dest.getY(),dest.getZ()+0.5,0.8);
-            }else{
-                npc.getNavigation().stop();
-            }
             return true;
         }
         return false;
