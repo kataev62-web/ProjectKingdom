@@ -164,6 +164,35 @@ public final class KingdomMineWork {
                 KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
             }
+            // Build a real TFC support frame every five cells. The native
+            // TFC item controls column/link creation. On any failure we
+            // stop rather than allowing unsupported excavation.
+            BlockPos galleryAnchor=floorCell.getY()==core.getY()
+                ?core:floorCell.getY()==core.getY()-KingdomMineLevelPlan.LEVEL_DROP
+                ?core.north(KingdomMineGalleryPlan.MAIN_LENGTH+
+                    KingdomMineLevelPlan.LEVEL_DROP).below(KingdomMineLevelPlan.LEVEL_DROP)
+                :null;
+            if(galleryAnchor!=null) {
+                for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
+                    if(frame.walkway().equals(floorCell)) {
+                        var build=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
+                        if(build==KingdomMineSupportBuilder.Result.PLACED) {
+                            status(level,worker,"Укрепляет шахту настоящими балками TFC");
+                            return true;
+                        }
+                        if(build!=KingdomMineSupportBuilder.Result.COMPLETE) {
+                            status(level,worker,switch(build) {
+                                case WALKING -> "Несёт балки TFC к месту крепления";
+                                case NO_STOCK -> "Нужны балки TFC (минимум 8 одинаковых) на складе";
+                                case NEED_CLEAR_POCKETS -> "Расчисти боковые карманы 3×3 для креплений";
+                                case INACCESSIBLE -> "Нет прав или чанк креплений не загружен";
+                                default -> "TFC не установил опору: проверь место и материалы";
+                            });
+                            return false;
+                        }
+                    }
+                }
+            }
             // Light a fully excavated section before starting the next cell.
             // Stock and navigation are real: no torches = no further advance.
             BlockPos lightAnchor=floorCell.getY()==core.getY()
