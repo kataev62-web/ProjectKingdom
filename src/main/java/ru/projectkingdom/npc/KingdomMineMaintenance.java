@@ -46,55 +46,55 @@ public final class KingdomMineMaintenance {
                 || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,at)))
             return Result.BLOCKED;
 
-        if(!worker.hasSource)return Result.NO_SUPPLIES;
-        BlockPos depot=new BlockPos(worker.sourceX,worker.sourceY,worker.sourceZ);
-        if(!level.hasChunkAt(depot)
-                ||!KingdomTerritories.get(level.getServer()).usable(level,depot,worker.employer,"raw"))
-            return Result.NO_SUPPLIES;
-        BlockEntity blockEntity=level.getBlockEntity(depot);
-        if(!(blockEntity instanceof Container warehouse))return Result.NO_SUPPLIES;
-        int slot=-1;
-        for(int i=0;i<warehouse.getContainerSize();i++){
-            ItemStack stack=warehouse.getItem(i);
-            if(stack.is(Items.TORCH) && warehouse.canTakeItem(warehouse,i,stack)){
-                slot=i;break;
+        // Carry one real torch from the warehouse to the gallery, even when
+        // the warehouse and placement point are far apart.
+        ItemStack carried=null;
+        for(ItemStack item:worker.fieldInventory)
+            if(item.is(Items.TORCH) && !item.isEmpty()){carried=item;break;}
+        if(carried==null){
+            if(!worker.hasSource)return Result.NO_SUPPLIES;
+            BlockPos depot=new BlockPos(worker.sourceX,worker.sourceY,worker.sourceZ);
+            if(!level.hasChunkAt(depot)
+                    ||!KingdomTerritories.get(level.getServer()).usable(level,depot,worker.employer,"raw"))
+                return Result.NO_SUPPLIES;
+            BlockEntity blockEntity=level.getBlockEntity(depot);
+            if(!(blockEntity instanceof Container warehouse))return Result.NO_SUPPLIES;
+            int slot=-1;
+            for(int i=0;i<warehouse.getContainerSize();i++){
+                ItemStack stack=warehouse.getItem(i);
+                if(stack.is(Items.TORCH) && warehouse.canTakeItem(warehouse,i,stack)){
+                    slot=i;break;
+                }
             }
+            if(slot<0)return Result.NO_SUPPLIES;
+            if(npc.distanceToSqr(depot.getX()+0.5,depot.getY(),depot.getZ()+0.5)>6.25){
+                npc.getNavigation().moveTo(depot.getX()+0.5,depot.getY(),depot.getZ()+0.5,0.75);
+                return Result.WALKING_TO_SUPPLIES;
+            }
+            ItemStack taken=warehouse.removeItem(slot,1);
+            if(!taken.is(Items.TORCH) || taken.getCount()!=1){
+                if(!taken.isEmpty())NpcFieldWork.put(worker,taken);
+                warehouse.setChanged();
+                KingdomNpcData.get(level.getServer()).setDirty();
+                return Result.BLOCKED;
+            }
+            NpcFieldWork.put(worker,taken);
+            warehouse.setChanged();
+            KingdomNpcData.get(level.getServer()).setDirty();
+            return Result.WALKING_TO_SITE;
         }
-        if(slot<0)return Result.NO_SUPPLIES;
         if(npc.distanceToSqr(at.getX()+0.5,at.getY(),at.getZ()+0.5)>6.25){
             npc.getNavigation().moveTo(at.getX()+0.5,at.getY(),at.getZ()+0.5,0.75);
             return Result.WALKING_TO_SITE;
         }
-        // Stock could have changed during navigation. Recheck before withdrawal.
-        if(npc.distanceToSqr(depot.getX()+0.5,depot.getY(),depot.getZ()+0.5)>6.25){
-            npc.getNavigation().moveTo(depot.getX()+0.5,depot.getY(),depot.getZ()+0.5,0.75);
-            return Result.WALKING_TO_SUPPLIES;
-        }
-        // A one-step physical transaction: mutate warehouse only after placement
-        // succeeds. No speculative setBlock followed by a lost refund.
-        ItemStack one=warehouse.removeItem(slot,1);
-        if(!one.is(Items.TORCH) || one.getCount()!=1){
-            if(!one.isEmpty()) {
-                ItemStack existing=warehouse.getItem(slot);
-                if(existing.isEmpty())warehouse.setItem(slot,one);
-                else if(ItemStack.isSameItemSameTags(existing,one))existing.grow(one.getCount());
-            }
+        // Revalidate at placement time; the selected site may have changed.
+        if(!level.getBlockState(at).isAir()
+                || !Blocks.TORCH.defaultBlockState().canSurvive(level,at))
             return Result.BLOCKED;
-        }
-        if(!level.setBlock(at,Blocks.TORCH.defaultBlockState(),3)){
-            ItemStack remaining=warehouse.getItem(slot);
-            if(remaining.isEmpty())warehouse.setItem(slot,one);
-            else if(ItemStack.isSameItemSameTags(remaining,one))remaining.grow(1);
-            else {
-                // Inventory was externally replaced; keep the withdrawn item in
-                // the NPC's persistent cargo instead of destroying it.
-                NpcFieldWork.put(worker,one);
-                KingdomNpcData.get(level.getServer()).setDirty();
-            }
-            warehouse.setChanged();
+        if(!level.setBlock(at,Blocks.TORCH.defaultBlockState(),3))
             return Result.BLOCKED;
-        }
-        warehouse.setChanged();
+        carried.shrink(1);
+        if(carried.isEmpty())worker.fieldInventory.remove(carried);
         KingdomNpcData.get(level.getServer()).setDirty();
         return Result.PLACED;
     }
