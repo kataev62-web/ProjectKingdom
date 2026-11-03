@@ -35,6 +35,8 @@ public final class KingdomStructureCopy {
                 || !KingdomArchitectSiteAccess.mayUse(player,office)) {
             say(player,"Неправильное имя или контора недоступна.");return;
         }
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(player.getUUID());
+        ru.projectkingdom.administration.KingdomCentralWarehouseRooms.cancel(player.getUUID());
         ACTIVE.put(player.getUUID(),new Selection(name,office.immutable(),
             player.level().dimension().location().toString(),null,
             player.serverLevel().getGameTime()+EXPIRY_TICKS));
