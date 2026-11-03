@@ -38,7 +38,7 @@ public final class KingdomMineSupportSupply {
             return State.WAREHOUSE_UNAVAILABLE;
         Container storage=KingdomContainerAccess.resolve(level,pos);
         if(storage==null)return State.WAREHOUSE_UNAVAILABLE;
-        // A frame consumes multiple real items, not a decorative single post.
-        return count(storage)>=3?State.AVAILABLE:State.NEEDS_SUPPORT_BEAMS;
+        // Two three-high poles + a native horizontal link need eight real items.
+        return count(storage)>=8?State.AVAILABLE:State.NEEDS_SUPPORT_BEAMS;
     }
 }
