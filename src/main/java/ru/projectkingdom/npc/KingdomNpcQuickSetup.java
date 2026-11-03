@@ -300,6 +300,15 @@ public final class KingdomNpcQuickSetup {
             return new Result(false,"Склады настроены. Открой ферму → Загоны и добавь загон.");
         if("lumberjack".equals(worker.job)&&KingdomTfcForestry.workSite(level,worker)==null)
             return new Result(false,"Склады настроены. Открой лесозаготовку → Лесные участки.");
+        if("miner".equals(worker.job)) {
+            BlockPos entrance=center.north();
+            if(!level.hasChunkAt(entrance)
+                ||!level.getBlockState(entrance).isAir()
+                ||!level.getBlockState(entrance.above()).isAir())
+                return new Result(false,"Договор шахтёра и склады настроены. "
+                    +"Освободи проход 1×2 блока СЕВЕРНЕЕ ядра шахты, "
+                    +"чтобы NPC начал безопасную проходку.");
+        }
         if(workshop(worker.job) && "minecraft:crafting_table".equals(
             BuiltInRegistries.BLOCK.getKey(level.getBlockState(machine).getBlock()).toString())
             && KingdomNpcWorkshopData.get(server).plan(worker.entityId)==null)
