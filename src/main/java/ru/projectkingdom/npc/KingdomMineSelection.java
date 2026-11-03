@@ -36,6 +36,8 @@ public final class KingdomMineSelection {
         ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(player.getUUID());
         ACTIVE.put(player.getUUID(),new Pending(mine,binding.dimension(),null,
             player.serverLevel().getGameTime()+2400));
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,true);
         player.sendSystemMessage(Component.literal(
             "[Шахта] Выдели два противоположных угла ЦЕНТРАЛЬНОГО СТВОЛА на одном уровне: "
             +"Shift+ПКМ пустой рукой. Размер 5×5 ... 12×12 блоков, глубина 10. "
@@ -54,7 +56,10 @@ public final class KingdomMineSelection {
         var level=player.serverLevel();
         if(level.getGameTime()>p.expiry()
             ||!p.dimension().equals(level.dimension().location().toString())) {
-            cancel(player.getUUID());return true;
+            cancel(player.getUUID());
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,false);
+            return true;
         }
         if(!player.isShiftKeyDown() || !player.getMainHandItem().isEmpty()){
             player.sendSystemMessage(Component.literal("[Шахта] Используй Shift+ПКМ пустой рукой."));
@@ -75,6 +80,8 @@ public final class KingdomMineSelection {
         if(p.first()==null){
             ACTIVE.put(player.getUUID(),new Pending(p.mine(),p.dimension(),
                 at.immutable(),p.expiry()));
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,at,true);
             player.sendSystemMessage(Component.literal("[Шахта] Первый угол "
                 +at.toShortString()+". Отметь второй угол по диагонали."));
             return true;
@@ -111,6 +118,8 @@ public final class KingdomMineSelection {
         }
         if(!KingdomMineSettings.get(player.getServer()).setShaft(p.mine(),area))return true;
         cancel(player.getUUID());
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,false);
         player.sendSystemMessage(Component.literal("[Шахта] Центральный ствол: "
             +width+"×"+length+", глубина 10. Схема сохранена. "
             +"Включи «Сразу вниз» в меню NPC."));
