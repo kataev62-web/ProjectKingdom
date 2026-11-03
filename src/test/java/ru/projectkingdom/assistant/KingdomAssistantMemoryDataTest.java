@@ -65,4 +65,22 @@ final class KingdomAssistantMemoryDataTest {
         assertTrue(KingdomAssistantMemoryData.load(memory.save(new CompoundTag()))
                 .records(OWNER).isEmpty());
     }
+
+    @Test void recordsTypedAuditResultsUsedByRuntimeIntegration() {
+        var memory = new KingdomAssistantMemoryData();
+        AssistantFinding finding = new AssistantFinding(AssistantFinding.Category.WAREHOUSE,
+                AssistantFinding.Severity.WARNING, "Склад", "Не хватает склада",
+                "Построить склад", "Повторить аудит");
+        ModRecommendation recommendation = new ModRecommendation("spark", "spark",
+                ModRecommendation.Recommendation.ADD, "Нет профилировщика", "Профилирование",
+                "Ручная установка", 60, "Проверить список модов");
+
+        assertEquals(1, memory.rememberFindings(OWNER, List.of(finding)));
+        assertEquals(1, memory.rememberModDecisions(OWNER, List.of(recommendation)));
+
+        assertEquals(List.of(KingdomAssistantMemoryData.RecordType.FINDING,
+                        KingdomAssistantMemoryData.RecordType.MOD_DECISION),
+                memory.records(OWNER).stream()
+                        .map(KingdomAssistantMemoryData.MemoryRecord::type).toList());
+    }
 }

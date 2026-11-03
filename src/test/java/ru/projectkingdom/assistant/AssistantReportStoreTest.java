@@ -5,6 +5,8 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.FileTime;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 
@@ -73,6 +75,23 @@ final class AssistantReportStoreTest {
         assertFalse(names.contains("report-04.json"));
         assertTrue(names.contains("report-05.json"));
         assertTrue(names.contains("report-24.json"));
+    }
+
+    @Test void currentWriteRemainsNewestDespiteExistingFutureTimestamps() throws Exception {
+        var store = new AssistantReportStore(world);
+        FileTime future = FileTime.from(Instant.now().plusSeconds(3_600));
+        for (int index = 0; index < 20; index++) {
+            Path old = store.write(String.format("z-old-%02d.json", index),
+                    report("Старый " + index));
+            Files.setLastModifiedTime(old, future);
+        }
+
+        store.write("a-newest.json", report("Текущий"));
+
+        List<String> names = store.list().stream()
+                .map(path -> path.getFileName().toString()).toList();
+        assertEquals(20, names.size());
+        assertTrue(names.contains("a-newest.json"));
     }
 
     private static AssistantReportStore.Report report(String title) {

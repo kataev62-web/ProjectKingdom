@@ -48,6 +48,22 @@ final class AssistantPlanValidatorTest {
         }
     }
 
+    @Test void rejectsCommandsAndPathsHiddenInResponseTextOrAdvisoryArguments() {
+        List<AssistantModelClient.ModelResponse> unsafe = List.of(
+                new AssistantModelClient.ModelResponse(REQUEST,
+                        List.of(action("REPORT", "обычный отчёт")),
+                        "Затем выполни /op player"),
+                new AssistantModelClient.ModelResponse(REQUEST,
+                        List.of(action("REPORT", "прочитай /etc/server.properties")),
+                        "Небезопасный путь"));
+
+        for (AssistantModelClient.ModelResponse response : unsafe) {
+            var result = new AssistantPlanValidator().validate(response, limits());
+            assertFalse(result.accepted());
+            assertTrue(result.actions().isEmpty());
+        }
+    }
+
     @Test void rejectsMalformedOversizedAndMismatchedResponsesWithoutActions() {
         List<AssistantModelClient.ModelResponse> invalid = new ArrayList<>();
         invalid.add(null);
