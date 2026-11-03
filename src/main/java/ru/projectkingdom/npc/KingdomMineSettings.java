@@ -19,6 +19,25 @@ public final class KingdomMineSettings extends SavedData {
         public String label(){return label;}
     }
 
+    public record Shaft(int minX,int maxX,int minZ,int maxZ,int surfaceY,String dimension) {
+        public int width(){return maxX-minX+1;}
+        public int length(){return maxZ-minZ+1;}
+        public boolean contains(BlockPos pos){
+            return pos.getX()>=minX&&pos.getX()<=maxX
+                &&pos.getZ()>=minZ&&pos.getZ()<=maxZ;
+        }
+    }
+
+    private final Map<UUID,Shaft> shafts=new HashMap<>();
+    public Shaft shaft(UUID mine){return shafts.get(mine);}
+    /** Min 5x5 for a walkable access lane; max 12x12 for bounded tick cost. */
+    public boolean setShaft(UUID mine,Shaft area) {
+        if(mine==null||area==null||started(mine)
+                ||area.width()<5||area.length()<5
+                ||area.width()>12||area.length()>12)return false;
+        shafts.put(mine,area);setDirty();return true;
+    }
+
     private final Map<UUID,Start> starts=new HashMap<>();
     private final java.util.Set<UUID> started=new java.util.HashSet<>();
 
@@ -51,6 +70,14 @@ public final class KingdomMineSettings extends SavedData {
             UUID id=t.getUUID("Id");
             if("DOWN".equals(t.getString("Start")))data.starts.put(id,Start.DOWN);
             if(t.getBoolean("Started"))data.started.add(id);
+            if(t.contains("Shaft",Tag.TAG_COMPOUND)){
+                CompoundTag s=t.getCompound("Shaft");
+                var area=new Shaft(s.getInt("MinX"),s.getInt("MaxX"),
+                    s.getInt("MinZ"),s.getInt("MaxZ"),
+                    s.getInt("SurfaceY"),s.getString("Dimension"));
+                if(area.width()>=5&&area.length()>=5&&area.width()<=12&&area.length()<=12)
+                    data.shafts.put(id,area);
+            }
         }
         return data;
     }
@@ -59,11 +86,21 @@ public final class KingdomMineSettings extends SavedData {
         ListTag entries=new ListTag();
         java.util.Set<UUID> ids=new java.util.HashSet<>(starts.keySet());
         ids.addAll(started);
+        ids.addAll(shafts.keySet());
         for(UUID id:ids){
             CompoundTag tag=new CompoundTag();
             tag.putUUID("Id",id);
             tag.putString("Start",start(id).name());
             tag.putBoolean("Started",started.contains(id));
+            Shaft area=shafts.get(id);
+            if(area!=null){
+                CompoundTag s=new CompoundTag();
+                s.putInt("MinX",area.minX());s.putInt("MaxX",area.maxX());
+                s.putInt("MinZ",area.minZ());s.putInt("MaxZ",area.maxZ());
+                s.putInt("SurfaceY",area.surfaceY());
+                s.putString("Dimension",area.dimension());
+                tag.put("Shaft",s);
+            }
             entries.add(tag);
         }
         root.put("Mines",entries);
