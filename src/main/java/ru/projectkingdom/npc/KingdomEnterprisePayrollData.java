@@ -3,6 +3,11 @@ package ru.projectkingdom.npc;
 import net.minecraft.nbt.*;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.Container;
+import ru.projectkingdom.enterprise.EnterpriseAccessService;
+import ru.projectkingdom.enterprise.EnterpriseBindingRole;
 import net.minecraft.world.level.saveddata.SavedData;
 import java.util.*;
 
@@ -140,13 +145,19 @@ public final class KingdomEnterprisePayrollData extends SavedData {
             long owed=accrue(server,e.enterprise(),e.worker());
             if(owed<1)continue;
             var firm=enterprise.find(e.enterprise());
-            if(firm==null || firm.cash()<=0)continue;
-            long amount=Math.min(Math.min(10000L,owed),firm.cash());
-            java.util.List<net.minecraft.world.item.ItemStack> proposed=coinsWithExisting(worker.wagePurse,amount);
-            if(proposed==null)continue;
+            if(firm==null)continue;
             for(var level:server.getAllLevels()) {
                 if(!worker.dimension.equals(level.dimension().location().toString()))continue;
-                if(!enterprise.debitVerifiedNpcWage(level,e.enterprise(),worker.entityId,amount))continue;
+                var salary=EnterpriseAccessService.snapshot(level,enterprise,e.enterprise(),EnterpriseBindingRole.SALARY_STORAGE);
+                if(salary.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||salary.container()==null)continue;
+                var entity=level.getEntity(worker.entityId);
+                if(!(entity instanceof net.minecraft.world.entity.npc.Villager npc)||!npc.isAlive()
+                        ||npc.distanceToSqr(salary.position().getX()+0.5,salary.position().getY()+0.5,salary.position().getZ()+0.5)>9)continue;
+                long balance=KingdomPhysicalCash.value(salary.container());
+                long amount=Math.min(Math.min(10000L,owed),balance);
+                if(amount<1)continue;
+                java.util.List<net.minecraft.world.item.ItemStack> proposed=coinsWithExisting(worker.wagePurse,amount);
+                if(proposed==null||!KingdomPhysicalCash.takeForNpc(salary.container(),amount))continue;
                 worker.wagePurse.clear();worker.wagePurse.addAll(proposed);
                 Employment updated=new Employment(e.enterprise(),e.worker(),e.dailyCopper(),e.lastDay(),e.owed()-amount,e.active());
                 entries.put(key(e.enterprise(),e.worker()),updated);
@@ -184,6 +195,58 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         }
         return proposed;
     }
+    /** Physical salary vault balance; the real coin inventory is the source of truth. */
+    public long salaryBalance(ServerLevel level,UUID enterprise){
+        var access=EnterpriseAccessService.snapshot(level,KingdomEnterpriseData.get(level.getServer()),
+                enterprise,EnterpriseBindingRole.SALARY_STORAGE);
+        return access.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE&&access.container()!=null
+                ?KingdomPhysicalCash.value(access.container()):0;
+    }
+
+    /** Owner transfers actual wallet coins into the dedicated salary vault. */
+    public boolean depositSalary(ServerPlayer owner,UUID enterprise,long amount){
+        if(owner==null||amount<1||amount>1_000_000
+                ||!KingdomEnterpriseData.get(owner.getServer()).mayManage(owner.getUUID(),enterprise))return false;
+        var access=EnterpriseAccessService.snapshot(owner.serverLevel(),KingdomEnterpriseData.get(owner.getServer()),
+                enterprise,EnterpriseBindingRole.SALARY_STORAGE);
+        if(access.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||access.container()==null
+                ||access.position().distSqr(owner.blockPosition())>36)return false;
+        if(!KingdomPhysicalCash.deposit(owner,access.container(),amount))return false;
+        setDirty();return true;
+    }
+
+    /** Owner may settle one NPC's existing debt at the salary vault; no remote payout. */
+    public boolean payNpcNow(ServerPlayer owner,KingdomNpcData.Worker worker){
+        if(owner==null||worker==null||worker.entityId==null||worker.employer==null
+                ||!owner.getUUID().equals(worker.employer))return false;
+        Employment contract=null;
+        for(Employment e:new ArrayList<>(entries.values()))
+            if(e.worker().equals(worker.entityId)
+                    &&KingdomEnterpriseData.get(owner.getServer()).mayManage(owner.getUUID(),e.enterprise())){
+                contract=e;break;
+            }
+        if(contract==null)return false;
+        long owed=accrue(owner.getServer(),contract.enterprise(),worker.entityId);
+        if(owed<1)return false;
+        var access=EnterpriseAccessService.snapshot(owner.serverLevel(),KingdomEnterpriseData.get(owner.getServer()),
+                contract.enterprise(),EnterpriseBindingRole.SALARY_STORAGE);
+        if(access.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE||access.container()==null
+                ||access.position().distSqr(owner.blockPosition())>36)return false;
+        var entity=owner.serverLevel().getEntity(worker.entityId);
+        if(!(entity instanceof net.minecraft.world.entity.npc.Villager npc)||!npc.isAlive()
+                ||npc.distanceToSqr(access.position().getX()+0.5,access.position().getY()+0.5,
+                    access.position().getZ()+0.5)>9)return false;
+        long amount=Math.min(Math.min(10000L,owed),KingdomPhysicalCash.value(access.container()));
+        var proposed=coinsWithExisting(worker.wagePurse,amount);
+        if(amount<1||proposed==null||!KingdomPhysicalCash.takeForNpc(access.container(),amount))return false;
+        worker.wagePurse.clear();worker.wagePurse.addAll(proposed);
+        Employment latest=entries.get(key(contract.enterprise(),worker.entityId));
+        entries.put(key(contract.enterprise(),worker.entityId),new Employment(latest.enterprise(),
+                latest.worker(),latest.dailyCopper(),latest.lastDay(),latest.owed()-amount,latest.active()));
+        if(latest.owed()==amount&&worker.contractPaused){worker.contractPaused=false;worker.unpaidDays=0;}
+        KingdomNpcData.get(owner.getServer()).setDirty();setDirty();return true;
+    }
+
     /** A player physically visits the employer's registered cash desk and claims an earned wage. */
     public boolean claim(MinecraftServer server,ServerPlayer worker,UUID enterprise){
         long owed=accrue(server,enterprise,worker.getUUID());if(owed<=0)return false;
