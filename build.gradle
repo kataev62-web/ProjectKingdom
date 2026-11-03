@@ -44,8 +44,8 @@ sourceSets {
     cityArchitectTest {
         java.srcDir 'city-architect-addon/src/test/java'
         resources.srcDir 'city-architect-addon/src/test/resources'
-        compileClasspath += sourceSets.cityArchitect.output + sourceSets.main.output
-                + sourceSets.test.compileClasspath
+        compileClasspath += sourceSets.cityArchitect.output + sourceSets.main.output +
+                sourceSets.test.compileClasspath
         runtimeClasspath += output + compileClasspath + sourceSets.test.runtimeClasspath
     }
 }
