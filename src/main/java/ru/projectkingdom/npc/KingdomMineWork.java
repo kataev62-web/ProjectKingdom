@@ -206,6 +206,11 @@ public final class KingdomMineWork {
             BlockPos galleryAnchor=null;
             for(BlockPos candidate:anchors)
                 if(candidate.getY()==floorCell.getY())galleryAnchor=candidate;
+            if(central && (depth==3||depth==6||depth==10)
+                && floorCell.getX()==(area.minX()+area.maxX())/2
+                && floorCell.getZ()<area.minZ())
+                galleryAnchor=new BlockPos(floorCell.getX(),floorCell.getY(),
+                    area.minZ()+1);
             if(galleryAnchor!=null) {
                 for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
                     if(frame.walkway().equals(floorCell)) {
