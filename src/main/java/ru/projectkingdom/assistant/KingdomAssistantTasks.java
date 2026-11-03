@@ -199,6 +199,8 @@ public final class KingdomAssistantTasks {
             List<AssistantFinding> findings = SettlementAuditService.audit(
                     owner.getServer(), owner, snapshot);
             session(owner.getServer(), owner.getUUID()).findings = List.copyOf(findings);
+            KingdomAssistantMemoryData.get(owner.getServer())
+                    .rememberFindings(owner.getUUID(), findings);
             data.finishTask(owner.getUUID(), "Аудит поселения: " + findings.size() + " замечаний");
             if (findings.isEmpty()) {
                 owner.sendSystemMessage(Component.literal(
@@ -229,6 +231,8 @@ public final class KingdomAssistantTasks {
             SessionResults results = session(owner.getServer(), owner.getUUID());
             results.diagnosticReport = report;
             results.findings = report.findings();
+            KingdomAssistantMemoryData.get(owner.getServer())
+                    .rememberFindings(owner.getUUID(), report.findings());
             data.finishTask(owner.getUUID(), "Диагностика: " + report.findings().size()
                     + " замечаний, " + report.failedIds().size() + " сбоев проверок");
             owner.sendSystemMessage(Component.literal("[Архитектор Авалона] Диагностика завершена: "
@@ -250,6 +254,8 @@ public final class KingdomAssistantTasks {
             List<ModRecommendation> recommendations = ModpackAuditService.audit(
                     ModpackAuditService.installed(), inventory);
             session(owner.getServer(), owner.getUUID()).modRecommendations = recommendations;
+            KingdomAssistantMemoryData.get(owner.getServer())
+                    .rememberModDecisions(owner.getUUID(), recommendations);
             long keep = recommendations.stream().filter(item -> item.recommendation()
                     == ModRecommendation.Recommendation.KEEP).count();
             long remove = recommendations.stream().filter(item -> item.recommendation()

@@ -50,6 +50,33 @@ public final class KingdomAssistantMemoryData extends SavedData {
         return remember(owner, RecordType.MOD_DECISION, summary);
     }
 
+    public int rememberFindings(UUID owner, List<AssistantFinding> findings) {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(findings, "findings");
+        int stored = 0;
+        for (AssistantFinding finding : findings) {
+            Objects.requireNonNull(finding, "finding");
+            String summary = finding.category() + "/" + finding.severity() + ": "
+                    + finding.title() + " — " + finding.reason() + " — "
+                    + finding.recommendation() + " — " + finding.verification();
+            if (rememberFinding(owner, summary)) stored++;
+        }
+        return stored;
+    }
+
+    public int rememberModDecisions(UUID owner, List<ModRecommendation> decisions) {
+        Objects.requireNonNull(owner, "owner");
+        Objects.requireNonNull(decisions, "decisions");
+        int stored = 0;
+        for (ModRecommendation decision : decisions) {
+            Objects.requireNonNull(decision, "decision");
+            String summary = decision.modId() + ": " + decision.recommendation()
+                    + " — " + decision.reason();
+            if (rememberModDecision(owner, summary)) stored++;
+        }
+        return stored;
+    }
+
     public List<MemoryRecord> records(UUID owner) {
         if (owner == null) return List.of();
         ArrayDeque<MemoryRecord> values = owners.get(owner);

@@ -166,16 +166,23 @@ public final class AssistantCreativeBuildService {
         for (var entry : builds.entries()) {
             var ownerState = assistants.ownedBy(entry.owner);
             if (ownerState.isEmpty() || ownerState.get().activeIntent() == null) continue;
+            String summary = null;
             if (entry.status == KingdomAssistantBuildData.Status.COMPLETE
                     && ownerState.get().activeIntent() == AssistantIntent.BUILD)
-                assistants.finishTask(entry.owner, "Творческая стройка завершена: " + entry.id);
+                summary = "Творческая стройка завершена: " + entry.id;
             else if (entry.status == KingdomAssistantBuildData.Status.UNDONE
                     && ownerState.get().activeIntent() == AssistantIntent.UNDO)
-                assistants.finishTask(entry.owner, "Отмена стройки завершена: " + entry.id);
+                summary = "Отмена стройки завершена: " + entry.id
+                        + "; восстановлено=" + entry.restored + "; конфликты=" + entry.conflicts;
             else if (entry.status == KingdomAssistantBuildData.Status.FAILED
                     && (ownerState.get().activeIntent() == AssistantIntent.BUILD
                     || ownerState.get().activeIntent() == AssistantIntent.UNDO))
-                assistants.finishTask(entry.owner, "Творческая операция остановлена: " + entry.id);
+                summary = "Творческая операция остановлена: " + entry.id
+                        + "; ошибок=" + entry.failed;
+            if (summary != null) {
+                KingdomAssistantMemoryData.get(server).rememberBuildSummary(entry.owner, summary);
+                assistants.finishTask(entry.owner, summary);
+            }
         }
         return summary;
     }

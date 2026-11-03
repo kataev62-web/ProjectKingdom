@@ -168,6 +168,9 @@ public final class AssistantPreviewService {
                 designKey, origin, design);
         PROPOSALS.computeIfAbsent(owner.getServer(), unused -> new HashMap<>())
                 .put(owner.getUUID(), proposal);
+        KingdomAssistantMemoryData.get(owner.getServer()).rememberApprovedPlan(
+                owner.getUUID(), "Подтверждена схема " + designKey + " в "
+                        + dimension + " @ " + origin.toShortString());
         return QueueResult.QUEUED;
     }
 
