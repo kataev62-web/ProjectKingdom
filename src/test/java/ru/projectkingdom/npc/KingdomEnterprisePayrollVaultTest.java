@@ -78,4 +78,11 @@ final class KingdomEnterprisePayrollVaultTest {
         assertFalse(claim.contains("payVerifiedWage"));
     }
 
+    @Test void employerCanAdjustDailyWageInBothDirections() throws Exception {
+        String menu=read("src/main/java/ru/projectkingdom/npc/KingdomNpcMenu.java");
+        assertTrue(menu.contains("button==1&&w.dailyWage>1"));
+        assertTrue(menu.contains("button==0&&w.dailyWage<64"));
+        assertTrue(menu.contains("Зарплата: ЛКМ +1, ПКМ -1 мед./день"));
+    }
+
 }
