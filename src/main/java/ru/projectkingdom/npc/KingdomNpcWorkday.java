@@ -101,7 +101,10 @@ public final class KingdomNpcWorkday {
         if (worker.hasWorkstation) {
             var pos = new BlockPos(worker.workX, worker.workY, worker.workZ);
             if (level.hasChunkAt(pos) && !level.getBlockState(pos).isAir()
-                    && land.canUse(level, pos, worker.employer)) return pos;
+                    && (land.canUse(level, pos, worker.employer)
+                        || worker.employer!=null && worker.employer.equals(
+                            KingdomCivicsData.get(server).plotOwner(worker.dimension,
+                                    pos.getX()>>4,pos.getZ()>>4)))) return pos;
         }
         // A field worker or courier may use the authorized supply depot as a muster point.
         if ((kind == KingdomNpcDuty.Kind.FIELD || kind == KingdomNpcDuty.Kind.DELIVERY)
