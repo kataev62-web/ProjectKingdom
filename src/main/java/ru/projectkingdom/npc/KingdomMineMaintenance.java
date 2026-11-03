@@ -36,6 +36,12 @@ public final class KingdomMineMaintenance {
     public static Result light(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                                BlockPos core,BlockPos at) {
         if(!lightPoint(core,at))return Result.READY;
+        return lightAtCheckpoint(level,npc,worker,at);
+    }
+
+    /** A pre-planned mine-shaft landing, irrespective of gallery orientation. */
+    public static Result lightAtCheckpoint(ServerLevel level,Villager npc,
+            KingdomNpcData.Worker worker,BlockPos at) {
         if(!level.hasChunkAt(at)||!level.hasChunkAt(at.below()))return Result.BLOCKED;
         BlockState current=level.getBlockState(at);
         if(current.is(Blocks.TORCH))return Result.READY;
