@@ -11,6 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -50,13 +51,17 @@ public final class AssistantReportStore {
             throw new IllegalArgumentException("reports directory escapes world root");
     }
 
-    public Path write(String fileName, Report report) throws IOException {
+    public synchronized Path write(String fileName, Report report) throws IOException {
         Path target = target(fileName);
         Objects.requireNonNull(report, "report");
         byte[] bytes = GSON.toJson(report).getBytes(StandardCharsets.UTF_8);
         if (bytes.length > MAX_REPORT_BYTES) throw new IllegalArgumentException("report exceeds 1 MiB");
         rejectSensitiveContent(bytes);
         ensureDirectoryInsideWorld();
+        long newestTimestamp = sortedReports().stream()
+                .mapToLong(AssistantReportStore::lastModified).max().orElse(Long.MIN_VALUE);
+        long writeTimestamp = Math.max(System.currentTimeMillis(),
+                newestTimestamp == Long.MAX_VALUE ? Long.MAX_VALUE : newestTimestamp + 1L);
 
         Path temporary = Files.createTempFile(reportsDirectory, ".assistant-report-", ".tmp");
         try {
@@ -68,6 +73,7 @@ public final class AssistantReportStore {
             }
             Files.move(temporary, target, StandardCopyOption.ATOMIC_MOVE,
                     StandardCopyOption.REPLACE_EXISTING);
+            Files.setLastModifiedTime(target, FileTime.fromMillis(writeTimestamp));
         } finally {
             Files.deleteIfExists(temporary);
         }
@@ -75,7 +81,7 @@ public final class AssistantReportStore {
         return target;
     }
 
-    public List<Path> list() throws IOException {
+    public synchronized List<Path> list() throws IOException {
         if (!Files.exists(reportsDirectory)) return List.of();
         ensureDirectoryInsideWorld();
         return sortedReports();

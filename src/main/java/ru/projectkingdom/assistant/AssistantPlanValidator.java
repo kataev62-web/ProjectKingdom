@@ -11,7 +11,9 @@ import java.util.regex.Pattern;
 public final class AssistantPlanValidator {
     private static final Pattern WINDOWS_PATH = Pattern.compile("(?i)(^|\\s)[a-z]:\\\\");
     private static final Pattern CONSOLE_COMMAND = Pattern.compile(
-            "(?i)(^|[\\r\\n;])\\s*/?(execute|op|deop|give|kill|summon|setblock|fill|tp|teleport|gamemode|difficulty|stop|reload|ban)\\b");
+            "(?i)(^|[\\s;])/?(execute|op|deop|give|kill|summon|setblock|fill|tp|teleport|gamemode|difficulty|stop|reload|ban)\\b");
+    private static final Pattern ABSOLUTE_UNIX_PATH = Pattern.compile(
+            "(^|\\s)/(?:[A-Za-z0-9._-]+)(?:/|\\b)");
 
     public record PlanningLimits(UUID expectedRequestId, int maxActions, int maxTextChars) {
         public PlanningLimits {
@@ -48,6 +50,7 @@ public final class AssistantPlanValidator {
 
         String text = response.text().trim();
         if (text.isEmpty()) return rejected("blank text");
+        if (unsafeArgument(text)) return rejected("command or path forbidden");
         long characters = text.length();
         List<AssistantPlanner.PlannedAction> safe = new ArrayList<>();
         for (AssistantModelClient.ModelAction proposed : response.actions()) {
@@ -89,6 +92,7 @@ public final class AssistantPlanValidator {
                 || lower.startsWith("/var/")
                 || value.indexOf('\\') >= 0
                 || WINDOWS_PATH.matcher(value).find()
+                || ABSOLUTE_UNIX_PATH.matcher(value).find()
                 || CONSOLE_COMMAND.matcher(value).find();
     }
 
