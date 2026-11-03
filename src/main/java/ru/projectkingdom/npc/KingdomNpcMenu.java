@@ -171,9 +171,15 @@ public final class KingdomNpcMenu extends ChestMenu {
                 if(firms.kind(mineId)==ru.projectkingdom.enterprise.EnterpriseKind.MINE)
                     mineChoice=KingdomMineSettings.get(viewer.getServer()).start(mineId).label();
             }catch(IllegalArgumentException ignored){}
-            icon(16, Items.IRON_PICKAXE, "НАЧАЛЬНОЕ НАПРАВЛЕНИЕ: "+mineChoice
-                +" | ЛКМ владельца: Вперёд / Сразу вниз (до начала добычи)"
-                +" | Состояние: "+w.mineStatus);
+            String areaLabel="не выделена";
+            try {
+                var mineId=java.util.UUID.fromString(w.workplaceId);
+                var shaft=KingdomMineSettings.get(viewer.getServer()).shaft(mineId);
+                if(shaft!=null)areaLabel=shaft.width()+"×"+shaft.length()+"×10";
+            }catch(IllegalArgumentException ignored){}
+            icon(16, Items.IRON_PICKAXE, "НАЧАЛО: "+mineChoice
+                +" | ЛКМ: Вперёд / Сразу вниз | ПКМ: выделить центральный ствол "
+                +areaLabel+" | Состояние: "+w.mineStatus);
         }
         icon(17, Items.BARREL, "Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
         if(!"miner".equals(w.job)) icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
@@ -243,7 +249,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         // Never let players take the icons; all mutations are validated server-side.
         if (viewer.level().isClientSide || player != viewer) return;
         if (slotId < 0 || slotId >= 27 || type != ClickType.PICKUP
-                || (button != 0 && !(button==1 && (slotId==9||slotId==15||slotId==18)))) return;
+                || (button != 0 && !(button==1 && (slotId==9||slotId==15||slotId==16||slotId==18)))) return;
         KingdomNpcData db = KingdomNpcData.get(viewer.getServer());
         KingdomNpcData.Worker w = worker();
         if (!nearby(w)) { viewer.closeContainer(); return; }
@@ -316,6 +322,14 @@ public final class KingdomNpcMenu extends ChestMenu {
                     info("Не найдена принадлежащая тебе шахта.");break;
                 }
                 var settings=KingdomMineSettings.get(viewer.getServer());
+                if(button==1){
+                    if(KingdomMineSelection.begin(viewer,mineId)){
+                        viewer.closeContainer();
+                        return;
+                    }
+                    info("Разметка недоступна: проверь права, ядро и отсутствие начатой проходки.");
+                    break;
+                }
                 var next=settings.start(mineId)==KingdomMineSettings.Start.FORWARD
                     ?KingdomMineSettings.Start.DOWN:KingdomMineSettings.Start.FORWARD;
                 if(!settings.choose(mineId,next))
