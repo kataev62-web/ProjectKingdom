@@ -207,28 +207,28 @@ public final class KingdomTfcSmithWork {
         BlockEntity anvil=level.getBlockEntity(anvilPos);
         var inv=inventory(anvil);
         if(inv==null)return "Инвентарь наковальни TFC недоступен.";
-        ItemStack sample=inv.getStackInSlot(0);
         try{
             Class<?> recipe=Class.forName("net.dries007.tfc.common.recipes.AnvilRecipe");
             int tier=(int)anvil.getClass().getMethod("getTier").invoke(anvil);
             Method getAll=recipe.getMethod("getAll",net.minecraft.world.level.Level.class,ItemStack.class,int.class);
-            if(sample.isEmpty()){
-                for(int i=0;i<raw.getContainerSize();i++){
-                    ItemStack stack=raw.getItem(i);
-                    if(stack.isEmpty())continue;
-                    Object choices=getAll.invoke(null,level,stack,tier);
-                    if(choices instanceof List<?> list&&!list.isEmpty()){sample=stack;break;}
+            var ids=new java.util.TreeSet<String>();
+            // Build choices from every actual input stack in the bound warehouse.
+            // TFC's recipe registry and the real anvil tier define the catalogue;
+            // Kingdom never hard-codes a fake product list.
+            for(int slot=0;slot<raw.getContainerSize();slot++){
+                ItemStack sample=raw.getItem(slot);
+                if(sample.isEmpty())continue;
+                Object choices=getAll.invoke(null,level,sample,tier);
+                if(!(choices instanceof List<?> candidates))continue;
+                for(Object candidate:candidates){
+                    Object recipeId=candidate.getClass().getMethod("getId").invoke(candidate);
+                    if(recipeId!=null)ids.add(recipeId.toString());
                 }
             }
-            if(sample.isEmpty())return "В складе нет пригодного для ковки металла.";
-            Object choices=getAll.invoke(null,level,sample,tier);
-            if(!(choices instanceof List<?> list)||list.isEmpty())return "Нет подходящего TFC-рецепта.";
-            var ids=new ArrayList<String>();
-            for(Object candidate:list)
-                ids.add(candidate.getClass().getMethod("getId").invoke(candidate).toString());
-            Collections.sort(ids);
-            int old=ids.indexOf(w.smithRecipeId);
-            w.smithRecipeId=ids.get((old+1)%ids.size());
+            if(ids.isEmpty())return "В сырьевом складе нет металла с доступными рецептами для этой наковальни.";
+            var ordered=new ArrayList<>(ids);
+            int old=ordered.indexOf(w.smithRecipeId);
+            w.smithRecipeId=ordered.get((old+1)%ordered.size());
             KingdomNpcData.get(server).setDirty();
             return "Выбран настоящий рецепт: "+w.smithRecipeId
                     +" ("+(ids.indexOf(w.smithRecipeId)+1)+"/"+ids.size()+").";
