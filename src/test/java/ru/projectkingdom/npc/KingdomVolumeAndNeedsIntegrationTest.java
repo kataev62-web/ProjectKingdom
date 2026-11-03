@@ -38,7 +38,7 @@ final class KingdomVolumeAndNeedsIntegrationTest {
     @Test void liveNpcNeedDescriptionsDoNotMintItemsOrChangeEmployment() throws Exception {
         String diagnostics=source("npc/KingdomNpcWorkDiagnostics.java");
         assertTrue(diagnostics.contains("Нужна еда"));
-        assertTrue(diagnostics.contains("Не выплачена"));
+        assertTrue(diagnostics.contains("не выплачена"));
         assertTrue(diagnostics.contains("нужен топор TFC"));
         assertTrue(diagnostics.contains("привяжите здание"));
         assertTrue(source("npc/KingdomNpcNeedsBroadcast.java").contains("player.distanceToSqr(npc)>20*20"));
