@@ -230,8 +230,8 @@ public final class KingdomTfcSmithWork {
             int old=ordered.indexOf(w.smithRecipeId);
             w.smithRecipeId=ordered.get((old+1)%ordered.size());
             KingdomNpcData.get(server).setDirty();
-            return "Выбран настоящий рецепт: "+w.smithRecipeId
-                    +" ("+(ids.indexOf(w.smithRecipeId)+1)+"/"+ids.size()+").";
+            return "Выбран рецепт TFC: "+w.smithRecipeId
+                    +" ("+(ordered.indexOf(w.smithRecipeId)+1)+"/"+ordered.size()+"). Каталог построен по реальным материалам склада и уровню наковальни.";
         }catch(ReflectiveOperationException|LinkageError|RuntimeException ex){
             return "Не удалось прочитать рецепты TFC.";
         }
