@@ -105,6 +105,11 @@ public final class KingdomNpcMenu extends ChestMenu {
         icon(7, Items.HEART_OF_THE_SEA, "Отношения: " + memory.label()
                 + " | репутация " + memory.reputation());
         icon(8, Items.PAPER, "Можно написать рядом в чат: «"+w.name+", как дела?»");
+        var career=KingdomNpcCareerPolicy.inspect(w,
+                KingdomEnterpriseData.get(viewer.getServer()));
+        icon(9,career.path()==KingdomNpcCareerPolicy.Path.ENTREPRENEUR
+                ?Items.EMERALD:Items.IRON_INGOT,
+                "Жизненная цель: "+career.path().title()+" | "+career.stage().title());
         icon(18, Items.BREAD, "Предложить помощь: передать 1 настоящий хлеб");
         icon(22, Items.COMMAND_BLOCK, "Управление NPC: договор, работа, склады и приказы");
         icon(26, Items.BARRIER, "Закончить разговор");
@@ -263,6 +268,14 @@ public final class KingdomNpcMenu extends ChestMenu {
                 case 5 -> NpcDialogueService.respond(viewer,w,"Чем тебе помочь?");
                 case 6 -> NpcDialogueService.respond(viewer,w,"Покажи товары");
                 case 7 -> NpcDialogueService.respond(viewer,w,"Какие у нас отношения?");
+                case 9 -> {
+                    var career=KingdomNpcCareerPolicy.inspect(w,
+                            KingdomEnterpriseData.get(viewer.getServer()));
+                    info(career.path().title()+". "+career.stage().title()
+                        +". Личные реальные сбережения: "+career.physicalSavings()
+                        +" медных. Ориентир накопления: "+career.initialGoal()
+                        +". Переход к своему делу возможен только после настоящей оплаты аренды.");
+                }
                 case 18 -> NpcDialogueService.respond(viewer,w,"Вот хлеб");
                 case 22 -> page=Page.MANAGEMENT;
                 case 26 -> {viewer.closeContainer();return;}

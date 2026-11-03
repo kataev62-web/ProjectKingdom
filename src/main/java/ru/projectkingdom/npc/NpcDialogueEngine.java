@@ -59,7 +59,8 @@ public final class NpcDialogueEngine {
         if (has(text, "торг", "товар", "купить", "продать", "цена")) return Intent.TRADE;
         if (has(text, "чем помочь", "чем тебе помочь", "помочь тебе", "задани", "работа для меня", "просьб")) return Intent.TASK;
         if (has(text, "как дела", "что нужно", "твои нужд", "голод", "устал", "самочувств")) return Intent.NEEDS;
-        if (has(text, "чем занима", "как работа", "работаешь", "професси")) return Intent.WORK;
+        if (has(text, "чем занима", "как работа", "работаешь", "професси",
+                "свое дело", "свой бизнес", "хочешь открыть", "мечтаешь о мастерской")) return Intent.WORK;
         if (has(text, "отношен", "довер", "репутац", "что думаешь обо мне")) return Intent.RELATIONSHIP;
         if (has(text, "кто ты", "расскажи о себе", "твое имя", "тебя зовут")) return Intent.IDENTITY;
         if (has(text, "привет", "здравств", "добрый день", "добрый вечер", "доброе утро")) return Intent.GREETING;

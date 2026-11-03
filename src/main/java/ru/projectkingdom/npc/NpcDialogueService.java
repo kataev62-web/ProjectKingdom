@@ -68,6 +68,17 @@ public final class NpcDialogueService {
         NpcSocialMemory memory = before.talked(reply.intent().name(), day);
         String text = reply.text();
         NpcVoiceLine line = reply.line();
+        if(reply.intent()==NpcDialogueEngine.Intent.WORK && !w.contractPaused){
+            var career=KingdomNpcCareerPolicy.inspect(w,
+                    KingdomEnterpriseData.get(player.getServer()));
+            if(career.path()==KingdomNpcCareerPolicy.Path.EMPLOYEE){
+                text+=" Мне нравится стабильная работа по найму.";
+            }else if(career.stage()==KingdomNpcCareerPolicy.Stage.READY_FOR_OFFERS){
+                text+=" Уже накопил начальный капитал и хочу арендовать предприятие.";
+            }else{
+                text+=" Работаю и коплю, чтобы однажды открыть своё дело.";
+            }
+        }
 
         if (reply.action() == NpcDialogueEngine.Action.GIVE_BREAD) {
             if (consumeBread(player)) {
