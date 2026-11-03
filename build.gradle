@@ -32,6 +32,59 @@ dependencies {
 tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8' }
 tasks.named('test') { useJUnitPlatform() }
 
+// Standalone companion mod. Its classes compile against Project Kingdom but
+// never enter the base kingdomnpc JAR.
+sourceSets {
+    cityArchitect {
+        java.srcDir 'city-architect-addon/src/main/java'
+        resources.srcDir 'city-architect-addon/src/main/resources'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+        runtimeClasspath += output + compileClasspath + sourceSets.main.runtimeClasspath
+    }
+    cityArchitectTest {
+        java.srcDir 'city-architect-addon/src/test/java'
+        resources.srcDir 'city-architect-addon/src/test/resources'
+        compileClasspath += sourceSets.cityArchitect.output + sourceSets.main.output
+                + sourceSets.test.compileClasspath
+        runtimeClasspath += output + compileClasspath + sourceSets.test.runtimeClasspath
+    }
+}
+
+configurations {
+    cityArchitectImplementation.extendsFrom implementation
+    cityArchitectCompileOnly.extendsFrom compileOnly
+    cityArchitectRuntimeOnly.extendsFrom runtimeOnly
+    cityArchitectTestImplementation.extendsFrom testImplementation
+    cityArchitectTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+tasks.register('cityArchitectTest', Test) {
+    description = 'Runs tests for the standalone Kingdom City Architect add-on.'
+    group = 'verification'
+    testClassesDirs = sourceSets.cityArchitectTest.output.classesDirs
+    classpath = sourceSets.cityArchitectTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter tasks.named('test')
+}
+
+tasks.register('cityArchitectJar', Jar) {
+    description = 'Builds the standalone Kingdom City Architect add-on JAR.'
+    group = 'build'
+    dependsOn tasks.named('cityArchitectClasses')
+    archiveBaseName.set('kingdom-city-architect')
+    archiveVersion.set('0.1.0-ai1')
+    from sourceSets.cityArchitect.output
+    manifest { attributes(['Specification-Title':'Kingdom City Architect',
+                           'Implementation-Version':'0.1.0-ai1']) }
+}
+
+tasks.named('test') {
+    dependsOn tasks.named('jar'), tasks.named('cityArchitectJar')
+}
+tasks.named('build') {
+    dependsOn tasks.named('cityArchitectTest'), tasks.named('cityArchitectJar')
+}
+
 // Split only the source archive to stay below the GitHub connector request limit.
 // The installed mod still contains the original single, checksum-pinned model ZIP.
 def voskModelParts = (1..5).collect { index ->
