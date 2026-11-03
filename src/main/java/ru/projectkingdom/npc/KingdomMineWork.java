@@ -114,7 +114,7 @@ public final class KingdomMineWork {
             status(level,worker,"Выдели центральный ствол 5×5–12×12 через ПКМ в меню NPC");
             return false;
         }
-        var anchors=central?java.util.List.<BlockPos>of()
+        var anchors=central?KingdomMineCentralShaftPlan.supportAnchors(area)
             :KingdomMineLevelPlan.anchors(core,start);
         var excavation=central?KingdomMineCentralShaftPlan.cells(core,area)
             :KingdomMineLevelPlan.cells(core,start);
