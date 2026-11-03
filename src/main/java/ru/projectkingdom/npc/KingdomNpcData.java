@@ -167,6 +167,8 @@ public final class KingdomNpcData extends SavedData {
         public int supplyCount=0;
         public long supplyNextAttempt=0;
         public String supplyStatus="IDLE";
+        /** Live mine work diagnosis; persisted to survive unloading and restarts. */
+        public String mineStatus="Не назначена шахта";
         public long supplyQuoteCopper=0;
         public String supplyOrderId="";
         public int supplyDeskX,supplyDeskY,supplyDeskZ;
@@ -254,6 +256,7 @@ public final class KingdomNpcData extends SavedData {
             w.supplyCount=Math.max(0,Math.min(2304,t.getInt("SupplyCount")));
             w.supplyNextAttempt=Math.max(0,t.getLong("SupplyNextAttempt"));
             w.supplyStatus=t.contains("SupplyStatus",Tag.TAG_STRING)?t.getString("SupplyStatus"):"IDLE";
+            w.mineStatus=t.contains("MineStatus",Tag.TAG_STRING)?t.getString("MineStatus"):"Не назначена шахта";
             w.supplyDeskX=t.getInt("SupplyDeskX");w.supplyDeskY=t.getInt("SupplyDeskY");w.supplyDeskZ=t.getInt("SupplyDeskZ");
             w.autonomousIntent=t.contains("AutonomousIntent",Tag.TAG_STRING)?t.getString("AutonomousIntent"):"IDLE";
             w.hasWorkstation=t.getBoolean("HasWorkstation");
@@ -330,6 +333,7 @@ public final class KingdomNpcData extends SavedData {
             t.putLong("SupplyQuoteCopper",supplyQuoteCopper);t.putString("SupplyOrderId",supplyOrderId);
             t.putString("SupplyItem",supplyItem);t.putInt("SupplyCount",supplyCount);
             t.putLong("SupplyNextAttempt",supplyNextAttempt);t.putString("SupplyStatus",supplyStatus);
+            t.putString("MineStatus",mineStatus);
             t.putInt("SupplyDeskX",supplyDeskX);t.putInt("SupplyDeskY",supplyDeskY);t.putInt("SupplyDeskZ",supplyDeskZ);
             t.putString("AutonomousIntent", autonomousIntent);
             t.putBoolean("HasWorkstation",hasWorkstation);
