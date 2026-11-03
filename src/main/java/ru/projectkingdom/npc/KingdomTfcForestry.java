@@ -149,7 +149,7 @@ public final class KingdomTfcForestry {
                     // owner's legally protected land. Do not require area.inside
                     // for leaves, but never touch another citizen's chunk.
                     if(state.is(BlockTags.LEAVES)
-                        &&!ownedHarvestLand(level,next,owner)
+                        &&!ownedHarvestLand(level,next,owner))
                         return List.of();
                     if(state.is(TFC_LOGS)){
                         if(!treeLog(level,next,species)||!ownedHarvestLand(level,next,owner))
