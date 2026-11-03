@@ -106,8 +106,19 @@ public final class KingdomMineWork {
 
         var settings=KingdomMineSettings.get(level.getServer());
         var start=settings.start(id);
-        var anchors=KingdomMineLevelPlan.anchors(core,start);
-        for (var cell : KingdomMineLevelPlan.cells(core,start)) {
+        var area=settings.shaft(id);
+        boolean central=start==KingdomMineSettings.Start.DOWN;
+        if(central && (area==null
+                ||!area.dimension().equals(worker.dimension)
+                ||!KingdomMineCentralShaftPlan.valid(area,core))) {
+            status(level,worker,"Выдели центральный ствол 5×5–12×12 через ПКМ в меню NPC");
+            return false;
+        }
+        var anchors=central?java.util.List.<BlockPos>of()
+            :KingdomMineLevelPlan.anchors(core,start);
+        var excavation=central?KingdomMineCentralShaftPlan.cells(core,area)
+            :KingdomMineLevelPlan.cells(core,start);
+        for (var cell : excavation) {
             BlockPos floorCell=cell.target();
             BlockPos previous=cell.approach();
             if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
