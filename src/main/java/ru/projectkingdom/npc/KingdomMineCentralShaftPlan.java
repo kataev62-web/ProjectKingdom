@@ -53,14 +53,18 @@ public final class KingdomMineCentralShaftPlan {
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
         if(rim.size()<DEPTH)return List.of();
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
+        List<BlockPos> stageEntrances=new ArrayList<>();
         BlockPos previous=entrance;
+        // Excavate the complete ten-step perimeter first. This makes every
+        // later chamber connector and gallery approach physically reachable.
         for(int step=1;step<=DEPTH;step++) {
             BlockPos down=rim.get(step-1).below(step);
             result.add(new KingdomMineGalleryPlan.Cell(down,previous));
             previous=down;
-            for(int level:LEVELS)if(step==level)
-                result.addAll(chamber(area,down));
+            for(int level:LEVELS)if(step==level)stageEntrances.add(down);
         }
+        for(BlockPos stageEntrance:stageEntrances)
+            result.addAll(chamber(area,stageEntrance));
         return List.copyOf(result);
     }
 
@@ -85,7 +89,7 @@ public final class KingdomMineCentralShaftPlan {
                 for(Direction into:Direction.Plane.HORIZONTAL) {
                     BlockPos possible=connector.relative(into);
                     if(interior(area,possible)){
-                        plan.add(new KingdomMineGalleryPlan.Cell(connector,entrance));
+                        // The perimeter pass already excavated this connector.
                         approach=connector;
                         seed=possible;
                         break outer;
