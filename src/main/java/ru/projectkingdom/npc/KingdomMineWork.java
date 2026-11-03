@@ -102,7 +102,7 @@ public final class KingdomMineWork {
             BlockPos previous=floorCell.south();
             if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
                 || !level.hasChunkAt(floorCell.below())) return false;
-            if (!level.getBlockState(previous).isAir()
+            // Do not enter a void, cave opening or flooded unsupported cell.\n            if (level.getBlockState(floorCell.below()).isAir()\n                || !level.getFluidState(floorCell.below()).isEmpty()) return false;\n            if (!level.getBlockState(previous).isAir()
                 || !level.getBlockState(previous.above()).isAir()
                 || level.getBlockState(previous.below()).isAir()
                 || !level.getFluidState(previous).isEmpty()) return false;
