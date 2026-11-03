@@ -86,6 +86,14 @@ public final class KingdomNpcQuickSetup {
             .filter(f->compatible(worker.job,enterprises.kind(f.id())))
             .filter(f->coreValid(level,enterprises,f)).toList();
         if(owned.isEmpty())return null;
+        // A player may own several smithies. Prefer the registered one over a
+        // different selected core; never pretend somebody else's building is ours.
+        if("smith".equals(worker.job)){
+            var registered=ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(
+                    player.getServer());
+            var withRoom=owned.stream().filter(f->registered.room(f.id())!=null).toList();
+            if(!withRoom.isEmpty())owned=withRoom;
+        }
         for(var firm:owned)if(firm.id().toString().equals(worker.workplaceId))return firm;
         var selected=enterprises.owned(player.getUUID());
         if(selected!=null&&owned.contains(selected))return selected;
@@ -190,10 +198,28 @@ public final class KingdomNpcQuickSetup {
             var building=ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(server)
                     .room(business.id());
             if(building==null)return new Result(false,
-                    "Сначала зарегистрируй здание кузницы через производственный блок.");
-            if(machine==null||!KingdomTfcSmithWork.inside(building,machine))
-                return new Result(false,
-                    "В зарегистрированном здании не найден горн TFC.");
+                    "Нет привязки к этому ядру кузницы «"+business.name()
+                    +"». Открой именно её меню → Сведения → Привязать здание: 2 угла.");
+            // Old 7-block search can miss a perfectly valid forge in a
+            // registered multi-floor building. Scan only the saved cuboid.
+            if(machine==null||!KingdomTfcSmithWork.inside(building,machine)
+                    ||!station(worker.job,BuiltInRegistries.BLOCK.getKey(
+                            level.getBlockState(machine).getBlock()).toString())){
+                machine=null;
+                for(int x=building.minX();x<=building.maxX()&&machine==null;x++)
+                    for(int y=building.minY();y<=building.maxY()&&machine==null;y++)
+                        for(int z=building.minZ();z<=building.maxZ();z++){
+                            var p=new BlockPos(x,y,z);
+                            if(!level.hasChunkAt(p)||!land.canUse(level,p,owner))continue;
+                            if(station(worker.job,BuiltInRegistries.BLOCK.getKey(
+                                    level.getBlockState(p).getBlock()).toString())){
+                                machine=p;break;
+                            }
+                        }
+            }
+            if(machine==null)return new Result(false,
+                    "Здание «"+business.name()+"» зарегистрировано, но внутри не найден"
+                    +" действительный TFC горн. Проверь выделенные углы, этаж и станок.");
         }
         // Real TFC work requires physical chests within six blocks of the machine.
         BlockPos storageCenter=machine!=null?machine:center;

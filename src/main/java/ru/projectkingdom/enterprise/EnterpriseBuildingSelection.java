@@ -34,6 +34,8 @@ public final class EnterpriseBuildingSelection {
         ru.projectkingdom.npc.KingdomStructureCopy.cancel(player.getUUID());
         SESSIONS.put(player.getUUID(),new Pending(enterprise,core.dimension(),null,
                 player.serverLevel().getGameTime()+TTL));
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.ENTERPRISE,null,true);
         player.sendSystemMessage(Component.literal("[Здание] Пустой рукой Shift+ПКМ по двум противоположным углам здания: нижнему и верхнему. Вся область, включая TFC полки, сундуки, кровати и станки, войдёт в здание."));
         return true;
     }
@@ -55,6 +57,8 @@ public final class EnterpriseBuildingSelection {
         String dim=player.serverLevel().dimension().location().toString();
         if(player.serverLevel().getGameTime()>old.expires()||!dim.equals(old.dimension())){
             cancel(player.getUUID());
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.ENTERPRISE,null,false);
             player.sendSystemMessage(Component.literal("[Здание] Сеанс истёк либо сменилось измерение. Начните заново."));
             return true;
         }
@@ -65,6 +69,8 @@ public final class EnterpriseBuildingSelection {
         }
         if(old.first()==null){
             SESSIONS.put(player.getUUID(),new Pending(old.enterprise(),dim,at.immutable(),old.expires()));
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                    ru.projectkingdom.network.KingdomVolumeSelectionPacket.ENTERPRISE,at,true);
             player.sendSystemMessage(Component.literal("[Здание] Первый угол "+at.toShortString()+". Выберите противоположный угол."));
             return true;
         }
@@ -76,6 +82,8 @@ public final class EnterpriseBuildingSelection {
             return true;
         }
         cancel(player.getUUID());
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.ENTERPRISE,null,false);
         var count=EnterpriseBuildingRegistration.contents(player.serverLevel(),check.room());
         player.sendSystemMessage(Component.literal("[Здание] Привязано "+check.room().dimensions()
                 +", кроватей: "+count.beds()+", совместимых хранилищ: "+count.inventories()

@@ -66,8 +66,22 @@ public final class KingdomTerritories extends SavedData {
         setDirty();return true;
     }
 
+    /**
+     * The city deed is authoritative when a modern town plot exists. The
+     * obsolete legacy chunk mirror must not revoke a legally purchased title
+     * or give an ex-owner access to a tenant's business inventories.
+     */
     public boolean canUse(ServerLevel level, BlockPos pos, UUID owner) {
-        return owner!=null && owner.equals(owner(level,pos));
+        if(owner==null||level==null||pos==null)return false;
+        var civic=KingdomCivicsData.get(level.getServer());
+        var plot=civic.plot(level,pos);
+        if(plot!=null){
+            String dim=level.dimension().location().toString();
+            int cx=pos.getX()>>4,cz=pos.getZ()>>4;
+            return owner.equals(civic.plotOwner(dim,cx,cz))
+                && civic.leaseContract(dim,cx,cz)==null;
+        }
+        return owner.equals(owner(level,pos));
     }
     public boolean register(ServerLevel level, BlockPos pos, UUID owner, String role) {
         if (!canUse(level,pos,owner) || !(role.equals("raw")||role.equals("finished")||role.equals("workstation"))) return false;

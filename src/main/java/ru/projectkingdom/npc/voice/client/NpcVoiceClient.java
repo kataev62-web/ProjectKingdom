@@ -95,7 +95,7 @@ public final class NpcVoiceClient {
         minecraft.getSoundManager().play(sound);
     }
 
-    static Optional<NpcSpeechBubbleStore.Speech> speech(UUID entityId,long nowTick){
+    public static Optional<NpcSpeechBubbleStore.Speech> speech(UUID entityId,long nowTick){
         return BUBBLES.find(entityId,nowTick);
     }
     static float alpha(NpcSpeechBubbleStore.Speech speech,long nowTick){return BUBBLES.alpha(speech,nowTick);}

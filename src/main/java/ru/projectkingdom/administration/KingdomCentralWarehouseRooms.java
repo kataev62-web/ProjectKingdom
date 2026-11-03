@@ -110,8 +110,12 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         if(player==null||kind==null||!(player.containerMenu instanceof AdministrativeCoreMenu menu)
             ||menu.kind()!=AdministrativeKind.CENTRAL_WAREHOUSE||!menu.manager()||!menu.stillValid(player)
             ||!canManage(player,menu.townId()))return false;
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(player.getUUID());
+        ru.projectkingdom.npc.KingdomStructureCopy.cancel(player.getUUID());
         SESSIONS.put(player.getUUID(),new Session(menu.townId(),
             player.level().dimension().location().toString(),menu.corePos(),kind,null));
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.WAREHOUSE,null,true);
         return true;
     }
     public Result select(ServerPlayer player,BlockPos position){
@@ -132,6 +136,8 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         if(session.first()==null){
             SESSIONS.put(player.getUUID(),new Session(session.town(),session.dimension(),
                 session.desk(),session.kind(),position.immutable()));
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                    ru.projectkingdom.network.KingdomVolumeSelectionPacket.WAREHOUSE,position,true);
             return Result.FIRST_CORNER;
         }
         BlockPos first=session.first();
@@ -171,6 +177,8 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         byTown.computeIfAbsent(session.town(),id->new ArrayList<>()).add(proposed);
         setDirty();
         SESSIONS.remove(player.getUUID());
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.WAREHOUSE,null,false);
         return Result.CREATED;
     }
     private boolean reservedStorage(ServerLevel level,Room room){

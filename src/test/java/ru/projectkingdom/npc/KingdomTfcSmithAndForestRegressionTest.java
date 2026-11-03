@@ -57,6 +57,14 @@ final class KingdomTfcSmithAndForestRegressionTest {
         assertTrue(source("npc/KingdomNpcWorkday.java")
                 .contains("KingdomTfcSmithWork.isForge(level,worker)"));
     }
+    @Test void smithStationOnRegisteredBoundaryIsValid(){
+        var room=new EnterpriseBuildingRegistration.Room(
+                java.util.UUID.randomUUID(),"minecraft:overworld",0,
+                0,64,0,1,66,1,0,4);
+        assertTrue(KingdomTfcSmithWork.inside(room,new BlockPos(0,64,0)));
+        assertTrue(KingdomTfcSmithWork.inside(room,new BlockPos(1,66,1)));
+        assertFalse(KingdomTfcSmithWork.inside(room,new BlockPos(2,65,0)));
+    }
     @Test void autoSetupBindsSmithToRegisteredBuildingNotVanillaCraftingTable()throws Exception{
         var quick=source("npc/KingdomNpcQuickSetup.java");
         assertTrue(quick.contains("\"tfc:charcoal_forge\".equals(id)"));
@@ -66,7 +74,12 @@ final class KingdomTfcSmithAndForestRegressionTest {
     }
     @Test void lumberjackUsesTfcAxeTagAndFellsBeforeReplanting()throws Exception{
         var f=source("npc/KingdomTfcForestry.java");
-        assertTrue(f.contains("return !stack.isEmpty()&&stack.is(TFC_AXES);"));
+        assertTrue(f.contains("stack.is(TFC_AXES)"));
+        assertTrue(f.contains("return !stack.isEmpty()&&stack.is(TFC_AXES)"));
+        assertTrue(f.contains("ownedHarvestLand(level,p,owner)"));
+        assertTrue(f.contains("nativeAvailable()"));
+        assertTrue(f.contains("validRoot(level,p,w.fieldTool)"));
+        assertTrue(source("npc/KingdomNpcMod.java").contains("KingdomTfcForestry.tick(level,resident,w)"));
         assertTrue(f.contains("if(best!=null){"));
         assertTrue(f.contains("return fell(level,npc,w,area,best)")||f.contains("if(fell(level,npc,w,area,best))return true;"));
         int plant=f.indexOf("if(plant(level,npc,w,area,raw,source))return true;",f.indexOf("boolean allowedHarvest"));

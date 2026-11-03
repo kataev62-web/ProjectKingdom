@@ -978,6 +978,7 @@ public final class KingdomNpcMod {
         // Vanilla villager goals otherwise re-start navigation immediately after STOP.
         controlLoadedResidents(server);
         if (server.getTickCount() % 10 == 0) KingdomNpcBuilder.tick(server);
+        if (server.getTickCount() % 80 == 0) KingdomNpcNeedsBroadcast.tick(server);
         if (server.getTickCount() % 200 == 0)
             ru.projectkingdom.settlement.KingdomTavernImmigration.tick(server);
         if (server.getTickCount() % 1200 == 0)
@@ -1044,7 +1045,9 @@ public final class KingdomNpcMod {
                             && ((w.employer == null && KingdomNpcFarmOwner.ownedFarm(server,w)==null)
                                 || KingdomNpcDuty.mayExecute(w.job,w.order,
                                     w.autonomousIntent,KingdomNpcWorkday.employed(server,w)))) {
-                        executed |= NpcFieldWork.tick(level,resident,w)
+                        executed |= ("lumberjack".equals(w.job)
+                                ? KingdomTfcForestry.tick(level,resident,w)
+                                : NpcFieldWork.tick(level,resident,w))
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcSmithWork.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)

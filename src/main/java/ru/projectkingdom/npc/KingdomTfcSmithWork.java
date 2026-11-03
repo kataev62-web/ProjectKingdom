@@ -35,9 +35,7 @@ public final class KingdomTfcSmithWork {
     private KingdomTfcSmithWork(){}
 
     public static boolean inside(EnterpriseBuildingRegistration.Room room,BlockPos pos){
-        return room!=null&&pos!=null&&pos.getX()>room.minX()&&pos.getX()<room.maxX()
-                &&pos.getY()>=room.minY()&&pos.getY()<=room.maxY()
-                &&pos.getZ()>room.minZ()&&pos.getZ()<room.maxZ();
+        return room!=null&&room.contains(pos);
     }
     /** Native TFC forge is a real workshop assignment, not a crafting-table recipe. */
     public static boolean isForge(ServerLevel level,KingdomNpcData.Worker w){

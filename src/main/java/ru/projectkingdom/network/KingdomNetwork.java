@@ -68,6 +68,12 @@ public final class KingdomNetwork {
                 KingdomSettlementFoundPacket::decode,KingdomSettlementFoundPacket::handle);
         CHANNEL.registerMessage(53,ToggleCityBordersPacket.class,ToggleCityBordersPacket::encode,
                 ToggleCityBordersPacket::decode,ToggleCityBordersPacket::handle);
+        CHANNEL.registerMessage(78,KingdomVolumeSelectionPacket.class,KingdomVolumeSelectionPacket::encode,
+                KingdomVolumeSelectionPacket::decode,KingdomVolumeSelectionPacket::handle);
+        CHANNEL.registerMessage(79,KingdomCancelVolumeSelectionPacket.class,KingdomCancelVolumeSelectionPacket::encode,
+                KingdomCancelVolumeSelectionPacket::decode,KingdomCancelVolumeSelectionPacket::handle);
+        CHANNEL.registerMessage(80,KingdomNpcNeedsPacket.class,KingdomNpcNeedsPacket::encode,
+                KingdomNpcNeedsPacket::decode,KingdomNpcNeedsPacket::handle);
     }
 
     public static void sendNpcSpeech(net.minecraft.server.level.ServerPlayer player,NpcSpeechPacket packet){
