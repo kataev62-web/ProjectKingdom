@@ -1045,7 +1045,8 @@ public final class KingdomNpcMod {
                             && ((w.employer == null && KingdomNpcFarmOwner.ownedFarm(server,w)==null)
                                 || KingdomNpcDuty.mayExecute(w.job,w.order,
                                     w.autonomousIntent,KingdomNpcWorkday.employed(server,w)))) {
-                        executed |= NpcFieldWork.tick(level,resident,w)
+                        executed |= KingdomTfcForestry.tick(level,resident,w)
+                            | NpcFieldWork.tick(level,resident,w)
                             | KingdomNpcWorkshop.tick(level,resident,w)
                             | KingdomTfcSmithWork.tick(level,resident,w)
                             | KingdomTfcQuernWork.tick(level,resident,w)
