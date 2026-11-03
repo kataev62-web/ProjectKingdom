@@ -1,0 +1,140 @@
+package ru.projectkingdom.npc;
+
+import java.util.List;
+import java.util.UUID;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.tags.ItemTags;
+import net.minecraft.world.entity.npc.Villager;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.PickaxeItem;
+import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.FallingBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import ru.projectkingdom.enterprise.EnterpriseKind;
+
+/**
+ * First conservative MineColonies-style shaft executor for Kingdom.
+ * A real MINE enterprise anchors a bounded 1x2 horizontal gallery.
+ * Only naturally mineable rock/ore is removed, one block per work tick.
+ * No simulated goods, remote block breaking, chunk loads or forced tunnelling.
+ * Vertical shafts, supports and torches need a separately reviewed planner.
+ */
+public final class KingdomMineWork {
+    private KingdomMineWork() {}
+    private static final int MAX_LENGTH = 24;
+    private static final double REACH_SQR = 6.25;
+
+    static boolean naturalRock(String id) {
+        return "minecraft:stone".equals(id) || "minecraft:deepslate".equals(id)
+            || "minecraft:tuff".equals(id) || "minecraft:andesite".equals(id)
+            || "minecraft:diorite".equals(id) || "minecraft:granite".equals(id)
+            || id.startsWith("minecraft:") && id.endsWith("_ore")
+            || id.startsWith("tfc:rock/raw/")
+            || KingdomTfcFieldRules.ore(id);
+    }
+
+    private static boolean safeToBreak(ServerLevel level, BlockPos pos,
+                                       KingdomNpcData.Worker worker) {
+        if (!level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
+            || pos.getY() >= level.getMaxBuildHeight() - 3
+            || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,pos)))
+            return false;
+        BlockState state=level.getBlockState(pos);
+        String id=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        if (!naturalRock(id) || !state.is(BlockTags.MINEABLE_WITH_PICKAXE)
+            || !state.getFluidState().isEmpty() || level.getBlockEntity(pos)!=null
+            || state.getDestroySpeed(level,pos)<0) return false;
+        if (worker.fieldTool.isEmpty()
+            || !(worker.fieldTool.is(ItemTags.PICKAXES)
+                 || worker.fieldTool.getItem() instanceof PickaxeItem)
+            || !worker.fieldTool.isCorrectToolForDrops(state)) return false;
+        // Never deliberately open a liquid pocket or let loose gravel/sand fall.
+        for (var direction : net.minecraft.core.Direction.values()) {
+            BlockPos neighbor=pos.relative(direction);
+            if (!level.hasChunkAt(neighbor)
+                || !level.getFluidState(neighbor).isEmpty()) return false;
+        }
+        BlockPos above=pos.above();
+        return !(level.getBlockState(above).getBlock() instanceof FallingBlock);
+    }
+
+    /**
+     * Finds the first unexcavated gallery cell. The previous cell must be open
+     * and supported by a floor; the NPC must physically approach that cell.
+     */
+    public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker) {
+        if (!"miner".equals(worker.job) || worker.employer==null
+            || worker.contractPaused || !worker.hasSource || !worker.hasDestination
+            || !worker.dimension.equals(level.dimension().location().toString())
+            || !"work".equals(worker.order) && !"wander".equals(worker.order))
+            return false;
+
+        UUID id;
+        try { id=UUID.fromString(worker.workplaceId); }
+        catch (IllegalArgumentException error) { return false; }
+        var businesses=KingdomEnterpriseData.get(level.getServer());
+        var mine=businesses.find(id);
+        var binding=businesses.core(id);
+        if (mine==null || binding==null || !binding.active()
+            || businesses.kind(id)!=EnterpriseKind.MINE
+            || !mine.owner().equals(worker.employer)
+            || !binding.dimension().equals(worker.dimension)) return false;
+        BlockPos core=BlockPos.of(binding.packedPos());
+        if (!level.hasChunkAt(core)) return false;
+        // This first gallery extends north of the mine core and has a hard limit.
+        // The entrance itself must be prepared by the player (two air blocks).
+        BlockPos entrance=core.north();
+        if (!level.hasChunkAt(entrance) || !level.getBlockState(entrance).isAir()
+            || !level.getBlockState(entrance.above()).isAir()) return false;
+        if (!NpcFieldWork.borrowTool(level,npc,worker)) return false;
+
+        if (!worker.fieldInventory.isEmpty()) {
+            boolean delivered=NpcFieldWork.deposit(level,npc,worker);
+            if (delivered || worker.fieldInventory.size()>=5) return delivered;
+        }
+
+        for (int distance=2;distance<=MAX_LENGTH;distance++) {
+            BlockPos floorCell=core.north(distance);
+            BlockPos previous=floorCell.south();
+            if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
+                || !level.hasChunkAt(floorCell.below())) return false;
+            if (!level.getBlockState(previous).isAir()
+                || !level.getBlockState(previous.above()).isAir()
+                || level.getBlockState(previous.below()).isAir()
+                || !level.getFluidState(previous).isEmpty()) return false;
+            for (int height=0;height<2;height++) {
+                BlockPos target=floorCell.above(height);
+                if (level.getBlockState(target).isAir()) continue;
+                if (!safeToBreak(level,target,worker)) return false;
+                if (npc.distanceToSqr(previous.getX()+0.5,
+                    previous.getY(),previous.getZ()+0.5)>REACH_SQR) {
+                    npc.getNavigation().moveTo(previous.getX()+0.5,
+                        previous.getY(),previous.getZ()+0.5,0.75);
+                    return false;
+                }
+                BlockState state=level.getBlockState(target);
+                var drops=Block.getDrops(state,level,target,level.getBlockEntity(target),
+                    npc,worker.fieldTool);
+                if (!NpcFieldWork.canFit(worker,drops)) return false;
+                if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)) return false;
+                for (ItemStack stack:drops) NpcFieldWork.put(worker,stack);
+                worker.fieldTool.hurt(1,level.random,null);
+                if (worker.fieldTool.isEmpty() || worker.fieldTool.getDamageValue()
+                    >=worker.fieldTool.getMaxDamage()) worker.fieldTool=ItemStack.EMPTY;
+                worker.fieldHarvested+=drops.stream().mapToInt(ItemStack::getCount).sum();
+                worker.skillXp++;
+                worker.energy=Math.max(0,worker.energy-1);
+                KingdomNpcData.get(level.getServer()).setDirty();
+                return true;
+            }
+            // Never mine a cell when its floor is missing. Avoid falling into caves.
+            if (level.getBlockState(floorCell.below()).isAir()
+                || !level.getFluidState(floorCell.below()).isEmpty()) return false;
+        }
+        return false;
+    }
+}
