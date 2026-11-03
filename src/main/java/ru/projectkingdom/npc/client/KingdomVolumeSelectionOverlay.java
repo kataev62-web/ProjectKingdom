@@ -70,11 +70,32 @@ public final class KingdomVolumeSelectionOverlay {
         pose.pushPose();
         pose.translate(-camera.x,-camera.y,-camera.z);
         var buffers=mc.renderBuffers().bufferSource();
+        // Transparent solid volume; the white edge is drawn afterwards.
+        VertexConsumer fill=buffers.getBuffer(RenderType.debugFilledBox());
+        var m=pose.last().pose();
+        float x1=(float)box.minX,y1=(float)box.minY,z1=(float)box.minZ;
+        float x2=(float)box.maxX,y2=(float)box.maxY,z2=(float)box.maxZ;
+        quad(fill,m,x1,y1,z1,x2,y1,z1,x2,y1,z2,x1,y1,z2);
+        quad(fill,m,x1,y2,z1,x1,y2,z2,x2,y2,z2,x2,y2,z1);
+        quad(fill,m,x1,y1,z1,x1,y2,z1,x2,y2,z1,x2,y1,z1);
+        quad(fill,m,x1,y1,z2,x2,y1,z2,x2,y2,z2,x1,y2,z2);
+        quad(fill,m,x1,y1,z1,x1,y1,z2,x1,y2,z2,x1,y2,z1);
+        quad(fill,m,x2,y1,z1,x2,y2,z1,x2,y2,z2,x2,y1,z2);
+        buffers.endBatch(RenderType.debugFilledBox());
         VertexConsumer lines=buffers.getBuffer(RenderType.lines());
         LevelRenderer.renderLineBox(pose,lines,box,1F,1F,1F,0.96F);
         buffers.endBatch(RenderType.lines());
         pose.popPose();
     }
+    private static void quad(VertexConsumer c,org.joml.Matrix4f m,
+                             float ax,float ay,float az,float bx,float by,float bz,
+                             float cx,float cy,float cz,float dx,float dy,float dz){
+        c.vertex(m,ax,ay,az).color(100,190,245,42).endVertex();
+        c.vertex(m,bx,by,bz).color(100,190,245,42).endVertex();
+        c.vertex(m,cx,cy,cz).color(100,190,245,42).endVertex();
+        c.vertex(m,dx,dy,dz).color(100,190,245,42).endVertex();
+    }
+
     @SubscribeEvent public static void hud(RenderGuiEvent.Post e){
         if(!active())return;
         var aimed=target();
