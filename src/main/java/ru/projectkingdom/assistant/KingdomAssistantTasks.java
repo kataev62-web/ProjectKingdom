@@ -26,6 +26,7 @@ public final class KingdomAssistantTasks {
         private WorldSurveySnapshot survey;
         private List<AssistantFinding> findings = List.of();
         private AssistantDiagnosticReport diagnosticReport;
+        private List<ModRecommendation> modRecommendations = List.of();
     }
 
     /** Session-only results; persistent reporting and memory are added by later plan tasks. */
@@ -129,6 +130,8 @@ public final class KingdomAssistantTasks {
                 runSettlementAudit(data, owner);
             else if (state.activeIntent() == AssistantIntent.DIAGNOSTICS)
                 runDiagnostics(data, owner);
+            else if (state.activeIntent() == AssistantIntent.MOD_AUDIT)
+                runModAudit(data, owner);
         }
     }
 
@@ -152,6 +155,14 @@ public final class KingdomAssistantTasks {
         Map<UUID, SessionResults> serverResults = RESULTS.get(server);
         SessionResults result = serverResults == null ? null : serverResults.get(owner);
         return result == null ? Optional.empty() : Optional.ofNullable(result.diagnosticReport);
+    }
+
+    public static List<ModRecommendation> lastModRecommendations(
+            MinecraftServer server, UUID owner) {
+        if (server == null || owner == null) return List.of();
+        Map<UUID, SessionResults> serverResults = RESULTS.get(server);
+        SessionResults result = serverResults == null ? null : serverResults.get(owner);
+        return result == null ? List.of() : result.modRecommendations;
     }
 
     private static void runSurvey(KingdomAssistantData data, ServerPlayer owner) {
@@ -228,6 +239,32 @@ public final class KingdomAssistantTasks {
             data.finishTask(owner.getUUID(), "Ошибка общей диагностики");
             owner.sendSystemMessage(Component.literal(
                     "[Архитектор Авалона] Диагностика не выполнена: "
+                            + safeMessage(failure) + "."));
+        }
+    }
+
+    private static void runModAudit(KingdomAssistantData data, ServerPlayer owner) {
+        try {
+            FeatureInventory inventory = new FeatureInventory(
+                    Map.of(), List.of(), Map.of(), Map.of(), java.util.Set.of());
+            List<ModRecommendation> recommendations = ModpackAuditService.audit(
+                    ModpackAuditService.installed(), inventory);
+            session(owner.getServer(), owner.getUUID()).modRecommendations = recommendations;
+            long keep = recommendations.stream().filter(item -> item.recommendation()
+                    == ModRecommendation.Recommendation.KEEP).count();
+            long remove = recommendations.stream().filter(item -> item.recommendation()
+                    == ModRecommendation.Recommendation.REMOVE).count();
+            long review = recommendations.stream().filter(item -> item.recommendation()
+                    == ModRecommendation.Recommendation.REVIEW).count();
+            data.finishTask(owner.getUUID(), "Аудит модпака: " + recommendations.size()
+                    + " рекомендаций");
+            owner.sendSystemMessage(Component.literal("[Архитектор Авалона] Аудит модпака: оставить "
+                    + keep + ", убрать " + remove + ", проверить вручную " + review
+                    + ". Файлы модов не изменялись."));
+        } catch (RuntimeException failure) {
+            data.finishTask(owner.getUUID(), "Ошибка аудита модпака");
+            owner.sendSystemMessage(Component.literal(
+                    "[Архитектор Авалона] Аудит модпака не выполнен: "
                             + safeMessage(failure) + "."));
         }
     }

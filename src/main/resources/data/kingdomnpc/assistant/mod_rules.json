@@ -1,0 +1,57 @@
+{
+  "installed": [
+    {
+      "modId": "minecraft", "displayName": "Minecraft", "recommendation": "KEEP",
+      "reason": "Базовая игра обязательна для сервера.", "benefit": "Предоставляет игровой движок.",
+      "risk": "Удаление невозможно.", "priority": 100,
+      "verification": "Сервер запускается на утверждённой версии Minecraft 1.20.1.", "capabilities": ["base_game"]
+    },
+    {
+      "modId": "forge", "displayName": "Forge", "recommendation": "KEEP",
+      "reason": "Project Kingdom собран для Forge 47.3.0.", "benefit": "Загружает мод и интеграции.",
+      "risk": "Замена загрузчика нарушит совместимость.", "priority": 100,
+      "verification": "Проверить запуск на Forge 47.3.0.", "capabilities": ["mod_loader"]
+    },
+    {
+      "modId": "kingdomnpc", "displayName": "Project Kingdom", "recommendation": "KEEP",
+      "reason": "Это основной серверный мод проекта.", "benefit": "Экономика, города, NPC и строительство.",
+      "risk": "Удаление уничтожает основной игровой цикл.", "priority": 100,
+      "verification": "Запустить полную сборку и проектный верификатор.", "capabilities": ["kingdom_core"]
+    },
+    {
+      "modId": "tfc", "displayName": "TerraFirmaCraft", "recommendation": "KEEP",
+      "reason": "Утверждённая основа выживания и производства.", "benefit": "Климат, пища, металлургия и земледелие.",
+      "risk": "Удаление ломает профессии и рецепты.", "priority": 95,
+      "verification": "Проверить TFC-профессии и сезонные системы.", "capabilities": ["tfc_survival"]
+    },
+    {
+      "modId": "create", "displayName": "Create", "recommendation": "KEEP",
+      "reason": "Create входит в утверждённую концепцию производства.", "benefit": "Механизация и логистика.",
+      "risk": "Требуется контроль дублирующих механизмов.", "priority": 90,
+      "verification": "Проверить рецепты и производительность механизмов.", "capabilities": ["create_automation"]
+    },
+    {
+      "modId": "patchouli", "displayName": "Patchouli", "recommendation": "KEEP",
+      "reason": "Используется для внутриигровой документации.", "benefit": "Объясняет сложные игровые цепочки.",
+      "risk": "Книга должна соответствовать текущим механикам.", "priority": 80,
+      "verification": "Проверить открытие всех страниц руководства.", "capabilities": ["guide_book"]
+    },
+    {
+      "modId": "minecolonies", "displayName": "MineColonies", "recommendation": "REMOVE",
+      "reason": "MineColonies явно исключён из утверждённой архитектуры Project Kingdom.",
+      "benefit": "Устраняет дублирование городов, NPC и строительства.",
+      "risk": "Перед ручным удалением нужно проверить мир на блоки и данные MineColonies.", "priority": 95,
+      "verification": "На копии мира подтвердить отсутствие колоний и только затем удалить мод вручную.", "capabilities": []
+    }
+  ],
+  "additions": [
+    {
+      "capability": "performance_profiling", "modId": "spark", "displayName": "spark",
+      "recommendation": "ADD", "reason": "Заявлена потребность в профилировании производительности.",
+      "benefit": "Показывает нагрузку тиков, памяти и горячие участки.",
+      "risk": "Устанавливать только совместимую серверную версию после резервной копии.", "priority": 60,
+      "verification": "На тестовом сервере снять профиль без изменения игрового мира.",
+      "capabilities": ["performance_profiling"]
+    }
+  ]
+}
