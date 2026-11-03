@@ -125,6 +125,15 @@ public final class KingdomMineWork {
                     if (!level.getFluidState(target).isEmpty()) return false;
                     continue;
                 }
+                var supportSafety=KingdomMineSupportSafety.inspect(level,target);
+                if(supportSafety==KingdomMineSupportSafety.Result.UNLOADED) {
+                    status(level,worker,"Нужен загруженный участок шахты");
+                    return false;
+                }
+                if(supportSafety==KingdomMineSupportSafety.Result.NEEDS_HORIZONTAL_BEAM) {
+                    status(level,worker,"ОПАСНО: нужна горизонтальная опора TFC над выработкой");
+                    return false;
+                }
                 if (!safeToBreak(level,target,worker)) {status(level,worker,"Проходка остановлена: опасная или защищённая порода");return false;}
                 if (npc.distanceToSqr(previous.getX()+0.5,
                     previous.getY(),previous.getZ()+0.5)>REACH_SQR) {
