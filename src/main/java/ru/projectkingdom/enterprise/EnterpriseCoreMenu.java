@@ -135,7 +135,10 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             cashbox=actualCash.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE?"Касса внутри блока":
                     EnterpriseAccessService.display(actualCash.status());
             raw=status(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE);
-            finished=status(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);\n            salary=status(player,data,firm.id(),EnterpriseBindingRole.SALARY_STORAGE);\n            var payrollVault=EnterpriseAccessService.snapshot(player.serverLevel(),data,firm.id(),EnterpriseBindingRole.SALARY_STORAGE);\n            if(payrollVault.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE)salaryFunds=KingdomEnterprisePayrollData.get(player.getServer()).salaryBalance(player.serverLevel(),firm.id());
+            finished=status(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
+            salary=status(player,data,firm.id(),EnterpriseBindingRole.SALARY_STORAGE);
+            var payrollVault=EnterpriseAccessService.snapshot(player.serverLevel(),data,firm.id(),EnterpriseBindingRole.SALARY_STORAGE);
+            if(payrollVault.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE)salaryFunds=KingdomEnterprisePayrollData.get(player.getServer()).salaryBalance(player.serverLevel(),firm.id());
             rawStocks=stockLines(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE);
             finishedStocks=stockLines(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
         }
