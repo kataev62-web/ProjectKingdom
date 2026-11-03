@@ -20,7 +20,7 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
  * A real MINE enterprise anchors a bounded 1x2 horizontal gallery.
  * Only naturally mineable rock/ore is removed, one block per work tick.
  * No simulated goods, remote block breaking, chunk loads or forced tunnelling.
- * Vertical shafts and structural supports remain a separate safety feature.
+ * Native TFC support frames are built before collapse-prone roof excavation.
  * The second level uses a descending walkable stair, not a vertical drop.
  * Torches are installed from physical stock at predeclared gallery checkpoints.
  */
