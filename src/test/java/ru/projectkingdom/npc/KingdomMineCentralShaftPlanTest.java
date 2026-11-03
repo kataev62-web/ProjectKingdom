@@ -28,7 +28,13 @@ class KingdomMineCentralShaftPlanTest {
             int deltaY=cell.approach().getY()-cell.target().getY();
             assertEquals(1,horizontal,"diagonal step: "+cell);
             assertTrue(deltaY==0||deltaY==1,"unsafe drop: "+cell);
-            assertTrue(shaft.contains(cell.target()));
+            assertTrue(shaft.contains(cell.target())
+                || cell.target().getX()==(shaft.minX()+shaft.maxX())/2
+                    && cell.target().getZ()<shaft.minZ()
+                    && (cell.target().getY()==77
+                        || cell.target().getY()==74
+                        || cell.target().getY()==70),
+                "out-of-range excavation: "+cell);
             assertTrue(cell.target().getY()>=70&&cell.target().getY()<=80);
             assertTrue(visited.add(cell.target()),"duplicate work cell: "+cell);
             if(deltaY==1)drops++;
@@ -36,6 +42,12 @@ class KingdomMineCentralShaftPlanTest {
                 if(cell.target().getY()==80-levels[i])perLevel[i]++;
         }
         assertEquals(10,drops,"must descend exactly ten blocks");
+        assertTrue(cells.size()>=10+3*((width-2)*(length-2)+13));
+        for(int depth:new int[]{3,6,10}) {
+            BlockPos end=new BlockPos((shaft.minX()+shaft.maxX())/2,
+                80-depth,shaft.minZ()-12);
+            assertTrue(visited.contains(end),"missing level gallery: "+depth);
+        }
         for(int count:perLevel)assertTrue(count>=(width-2)*(length-2));
     }
 
