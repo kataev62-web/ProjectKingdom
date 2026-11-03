@@ -179,6 +179,27 @@ public final class KingdomMineWork {
                 KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
             }
+            // Every completed shaft landing requires a REAL warehouse torch
+            // before excavating the connected room or descending further.
+            int depth=central?area.surfaceY()-floorCell.getY():0;
+            if(central && previous.getY()==floorCell.getY()+1
+                && (depth==3||depth==6||depth==10)) {
+                var lighting=KingdomMineMaintenance.lightAtCheckpoint(
+                    level,npc,worker,floorCell);
+                if(lighting==KingdomMineMaintenance.Result.PLACED) {
+                    status(level,worker,"Осветил центральный ствол на глубине "+depth);
+                    return true;
+                }
+                if(lighting!=KingdomMineMaintenance.Result.READY) {
+                    status(level,worker,switch(lighting) {
+                        case NO_SUPPLIES -> "Нужны факелы для ствола шахты";
+                        case WALKING_TO_SUPPLIES -> "Идёт за факелами для ствола";
+                        case WALKING_TO_SITE -> "Несёт факел на нижний уровень";
+                        default -> "Не удаётся осветить нижний уровень";
+                    });
+                    return false;
+                }
+            }
             // Build a real TFC support frame every five cells. The native
             // TFC item controls column/link creation. On any failure we
             // stop rather than allowing unsupported excavation.
