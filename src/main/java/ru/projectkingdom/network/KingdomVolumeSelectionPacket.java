@@ -10,9 +10,9 @@ import net.minecraftforge.network.NetworkEvent;
 
 /** S2C only. The visual survey never authorizes land, contents, copying or payments. */
 public record KingdomVolumeSelectionPacket(int mode,BlockPos first,boolean active) {
-    public static final int WAREHOUSE=1,ENTERPRISE=2,COPY=3;
+    public static final int WAREHOUSE=1,ENTERPRISE=2,COPY=3,MINE=4;
     public KingdomVolumeSelectionPacket {
-        if(mode<1||mode>3)throw new IllegalArgumentException("survey mode");
+        if(mode<1||mode>4)throw new IllegalArgumentException("survey mode");
     }
     public static void encode(KingdomVolumeSelectionPacket p,FriendlyByteBuf b){
         b.writeVarInt(p.mode());b.writeBoolean(p.active());
