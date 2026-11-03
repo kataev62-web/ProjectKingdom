@@ -75,11 +75,8 @@ public final class KingdomMineCentralShaftPlan {
         if(area==null||area.width()<5||area.length()<5)return List.of();
         int centerX=(area.minX()+area.maxX())/2;
         List<BlockPos> anchors=new ArrayList<>();
-        for(int depth:LEVELS){
-            BlockPos exit=new BlockPos(centerX,area.surfaceY()-depth,area.minZ());
-            for(var frame:KingdomMineSupportPlan.frames(exit))
-                if(frame.depth()<=GALLERY_LENGTH)anchors.add(frame.walkway());
-        }
+        for(int depth:LEVELS)
+            anchors.add(new BlockPos(centerX,area.surfaceY()-depth,area.minZ()));
         return List.copyOf(anchors);
     }
 
