@@ -110,6 +110,8 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         if(player==null||kind==null||!(player.containerMenu instanceof AdministrativeCoreMenu menu)
             ||menu.kind()!=AdministrativeKind.CENTRAL_WAREHOUSE||!menu.manager()||!menu.stillValid(player)
             ||!canManage(player,menu.townId()))return false;
+        ru.projectkingdom.enterprise.EnterpriseBuildingSelection.cancel(player.getUUID());
+        ru.projectkingdom.npc.KingdomStructureCopy.cancel(player.getUUID());
         SESSIONS.put(player.getUUID(),new Session(menu.townId(),
             player.level().dimension().location().toString(),menu.corePos(),kind,null));
         ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
