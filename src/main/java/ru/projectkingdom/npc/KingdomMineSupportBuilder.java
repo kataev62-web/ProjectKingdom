@@ -77,9 +77,9 @@ public final class KingdomMineSupportBuilder {
         return true;
     }
 
-    private static ItemStack carried(KingdomNpcData.Worker worker) {
+    private static ItemStack carried(KingdomNpcData.Worker worker,int minimum) {
         for(ItemStack stack:worker.fieldInventory)
-            if(!type(stack).isEmpty() && stack.getCount()>=2)return stack;
+            if(!type(stack).isEmpty() && stack.getCount()>=minimum)return stack;
         return ItemStack.EMPTY;
     }
 
@@ -118,7 +118,7 @@ public final class KingdomMineSupportBuilder {
     private static Result nativePlace(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                                       BlockPos clicked,Direction face,
                                       BlockPos expected,boolean bridge) {
-        ItemStack support=carried(worker);
+        ItemStack support=carried(worker,bridge?2:3);
         if(support.isEmpty())return Result.NO_STOCK;
         if(npc.distanceToSqr(expected.getX()+0.5,expected.getY()+0.5,expected.getZ()+0.5)>6.25) {
             npc.getNavigation().moveTo(expected.getX()+0.5,expected.getY(),expected.getZ()+0.5,0.75);
@@ -136,7 +136,9 @@ public final class KingdomMineSupportBuilder {
             fake.setItemInHand(InteractionHand.MAIN_HAND,ItemStack.EMPTY);
         }
         boolean placed=bridge?horizontal(level.getBlockState(expected))
-            :vertical(level.getBlockState(expected));
+            :vertical(level.getBlockState(expected))
+                &&vertical(level.getBlockState(expected.above()))
+                &&vertical(level.getBlockState(expected.above(2)));
         int consumed=before-support.getCount();
         if(support.isEmpty())worker.fieldInventory.remove(support);
         KingdomNpcData.get(level.getServer()).setDirty();
@@ -153,7 +155,9 @@ public final class KingdomMineSupportBuilder {
         if(!clearForPost(level,left)||!clearForPost(level,right)
                 ||!level.getBlockState(middle).isAir())
             return Result.NEED_CLEAR_POCKETS;
-        if(carried(worker).isEmpty())return supply(level,npc,worker);
+        boolean needPole=!vertical(level.getBlockState(left))
+            ||!vertical(level.getBlockState(right));
+        if(carried(worker,needPole?3:2).isEmpty())return supply(level,npc,worker);
         // TFC places three vertical supports at once if enough real items are held.
         if(!vertical(level.getBlockState(left)))
             return nativePlace(level,npc,worker,left.below(),Direction.UP,left,false);
