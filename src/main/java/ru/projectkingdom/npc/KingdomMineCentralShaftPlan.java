@@ -53,6 +53,7 @@ public final class KingdomMineCentralShaftPlan {
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
         if(rim.size()<DEPTH)return List.of();
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
+        Set<BlockPos> scheduled=new HashSet<>();
         List<BlockPos> stageEntrances=new ArrayList<>();
         BlockPos previous=entrance;
         // Excavate the complete ten-step perimeter first. This makes every
@@ -60,16 +61,17 @@ public final class KingdomMineCentralShaftPlan {
         for(int step=1;step<=DEPTH;step++) {
             BlockPos down=rim.get(step-1).below(step);
             result.add(new KingdomMineGalleryPlan.Cell(down,previous));
+            scheduled.add(down);
             previous=down;
             for(int level:LEVELS)if(step==level)stageEntrances.add(down);
         }
         for(BlockPos stageEntrance:stageEntrances)
-            result.addAll(chamber(area,stageEntrance));
+            result.addAll(chamber(area,stageEntrance,scheduled));
         return List.copyOf(result);
     }
 
     private static List<KingdomMineGalleryPlan.Cell> chamber(
-            KingdomMineSettings.Shaft area,BlockPos entrance) {
+            KingdomMineSettings.Shaft area,BlockPos entrance,Set<BlockPos> scheduled) {
         List<KingdomMineGalleryPlan.Cell> plan=new ArrayList<>();
         Set<BlockPos> visited=new HashSet<>();
         ArrayDeque<BlockPos> queue=new ArrayDeque<>();
@@ -89,7 +91,9 @@ public final class KingdomMineCentralShaftPlan {
                 for(Direction into:Direction.Plane.HORIZONTAL) {
                     BlockPos possible=connector.relative(into);
                     if(interior(area,possible)){
-                        // The perimeter pass already excavated this connector.
+                        // The perimeter pass may already have excavated this connector.
+                        if(scheduled.add(connector))
+                            plan.add(new KingdomMineGalleryPlan.Cell(connector,entrance));
                         approach=connector;
                         seed=possible;
                         break outer;
@@ -99,12 +103,12 @@ public final class KingdomMineCentralShaftPlan {
         if(seed==null)return List.of();
         visited.add(seed);
         queue.add(seed);
-        plan.add(new KingdomMineGalleryPlan.Cell(seed,approach));
+        if(scheduled.add(seed))plan.add(new KingdomMineGalleryPlan.Cell(seed,approach));
         while(!queue.isEmpty()) {
             BlockPos parent=queue.removeFirst();
             for(Direction direction:Direction.Plane.HORIZONTAL) {
                 BlockPos target=parent.relative(direction);
-                if(interior(area,target)&&visited.add(target)){
+                if(interior(area,target)&&visited.add(target)&&scheduled.add(target)){
                     plan.add(new KingdomMineGalleryPlan.Cell(target,parent));
                     queue.addLast(target);
                 }
@@ -115,11 +119,11 @@ public final class KingdomMineCentralShaftPlan {
         int x=(area.minX()+area.maxX())/2;
         BlockPos approachCell=new BlockPos(x,entrance.getY(),area.minZ()+1);
         BlockPos exit=new BlockPos(x,entrance.getY(),area.minZ());
-        plan.add(new KingdomMineGalleryPlan.Cell(exit,approachCell));
+        if(scheduled.add(exit))plan.add(new KingdomMineGalleryPlan.Cell(exit,approachCell));
         for(int distance=1;distance<=GALLERY_LENGTH;distance++){
             BlockPos target=exit.north(distance);
             BlockPos previous=distance==1?exit:exit.north(distance-1);
-            plan.add(new KingdomMineGalleryPlan.Cell(target,previous));
+            if(scheduled.add(target))plan.add(new KingdomMineGalleryPlan.Cell(target,previous));
         }
         return plan;
     }
