@@ -110,8 +110,11 @@ public final class KingdomVolumeSelectionOverlay {
             default->"Копирование";
         };
         String size=label+": "+(x*y*z)+" блоков ("+x+"x"+y+"x"+z+")";
-        String help=current.first()==null?"ПКМ — первый угол | ЛКМ — отмена"
-                :"ПКМ — подтвердить второй угол | ЛКМ — отмена";
+        String use=current.mode()==KingdomVolumeSelectionPacket.ENTERPRISE
+                ?"Shift+ПКМ":current.mode()==KingdomVolumeSelectionPacket.COPY
+                ?"ПКМ с чертежом":"ПКМ пустой рукой";
+        String help=current.first()==null?use+" — первый угол | ЛКМ — отмена"
+                :use+" — второй угол | ЛКМ — отмена";
         int center=e.getWindow().getGuiScaledWidth()/2;
         int y0=e.getWindow().getGuiScaledHeight()-94;
         e.getGuiGraphics().drawCenteredString(mc.font,size,center,y0,0xFFFFFF);
