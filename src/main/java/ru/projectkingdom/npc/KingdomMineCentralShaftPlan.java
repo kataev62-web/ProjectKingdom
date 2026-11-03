@@ -70,6 +70,19 @@ public final class KingdomMineCentralShaftPlan {
         return List.copyOf(result);
     }
 
+    /** Support-frame checkpoints for the three horizontal extraction galleries. */
+    public static List<BlockPos> supportAnchors(KingdomMineSettings.Shaft area){
+        if(area==null||area.width()<5||area.length()<5)return List.of();
+        int centerX=(area.minX()+area.maxX())/2;
+        List<BlockPos> anchors=new ArrayList<>();
+        for(int depth:LEVELS){
+            BlockPos exit=new BlockPos(centerX,area.surfaceY()-depth,area.minZ());
+            for(var frame:KingdomMineSupportPlan.frames(exit))
+                if(frame.depth()<=GALLERY_LENGTH)anchors.add(frame.walkway());
+        }
+        return List.copyOf(anchors);
+    }
+
     private static List<KingdomMineGalleryPlan.Cell> chamber(
             KingdomMineSettings.Shaft area,BlockPos entrance,Set<BlockPos> scheduled) {
         List<KingdomMineGalleryPlan.Cell> plan=new ArrayList<>();
