@@ -72,6 +72,8 @@ public final class KingdomNetwork {
                 KingdomVolumeSelectionPacket::decode,KingdomVolumeSelectionPacket::handle);
         CHANNEL.registerMessage(79,KingdomCancelVolumeSelectionPacket.class,KingdomCancelVolumeSelectionPacket::encode,
                 KingdomCancelVolumeSelectionPacket::decode,KingdomCancelVolumeSelectionPacket::handle);
+        CHANNEL.registerMessage(80,KingdomNpcNeedsPacket.class,KingdomNpcNeedsPacket::encode,
+                KingdomNpcNeedsPacket::decode,KingdomNpcNeedsPacket::handle);
     }
 
     public static void sendNpcSpeech(net.minecraft.server.level.ServerPlayer player,NpcSpeechPacket packet){
