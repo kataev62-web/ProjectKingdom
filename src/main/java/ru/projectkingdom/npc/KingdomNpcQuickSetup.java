@@ -302,7 +302,13 @@ public final class KingdomNpcQuickSetup {
             return new Result(false,"Склады настроены. Открой лесозаготовку → Лесные участки.");
         if("miner".equals(worker.job)) {
             BlockPos entrance=center.north();
-            var start=KingdomMineSettings.get(server).start(business.id());
+            var settings=KingdomMineSettings.get(server);
+            var start=settings.start(business.id());
+            if(start==KingdomMineSettings.Start.DOWN
+                &&!KingdomMineCentralShaftPlan.valid(settings.shaft(business.id()),center))
+                return new Result(false,"Шахтёр оформлен, но ствол ещё не размечен. "
+                    +"В меню NPC: слот 16 → ПКМ → выдели два угла "
+                    +"области 5×5–12×12. Затем включи «Сразу вниз».");
             if(!level.hasChunkAt(entrance)
                 ||!level.getBlockState(entrance).isAir()
                 ||!level.getBlockState(entrance.above()).isAir())
