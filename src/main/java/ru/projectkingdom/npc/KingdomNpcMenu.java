@@ -159,7 +159,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             + KingdomNpcNutrition.summary(w));
         long wagesOwed=KingdomEnterprisePayrollData.get(viewer.getServer()).totalDue(viewer.getServer(),w.entityId);
         long purse=w.wagePurse.stream().mapToLong(stack->KingdomCurrency.value(stack)*stack.getCount()).sum();
-        icon(13, KingdomCurrency.COPPER.get(), "Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse);
+        icon(13, KingdomCurrency.COPPER.get(), "Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse + " | ПКМ работодателя: выплатить из зарплатного сейфа");
         icon(14, Items.PAPER, "Приказ: " + order(w.order));
         icon(15, Items.CHEST, "План: " + NpcAutonomyPlanner.description(
             safeIntent(w.autonomousIntent)) + (plan==null?"":" | ПКМ: остатки "+plan.low()+"–"+plan.high()));
@@ -235,7 +235,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         // Never let players take the icons; all mutations are validated server-side.
         if (viewer.level().isClientSide || player != viewer) return;
         if (slotId < 0 || slotId >= 27 || type != ClickType.PICKUP
-                || (button != 0 && !(button==1 && (slotId==9||slotId==15||slotId==18)))) return;
+                || (button != 0 && !(button==1 && (slotId==9||slotId==13||slotId==15||slotId==18)))) return;
         KingdomNpcData db = KingdomNpcData.get(viewer.getServer());
         KingdomNpcData.Worker w = worker();
         if (!nearby(w)) { viewer.closeContainer(); return; }
@@ -345,6 +345,14 @@ public final class KingdomNpcMenu extends ChestMenu {
                         info("Цена продажи: "+current.salePrice()+" мед./шт.");
                     }else info("Сначала запиши рецепт.");
                 }else info(KingdomNpcWorkshop.configure(viewer,w));
+            }
+            case 13 -> {
+                if(button==1){
+                    if(!owner){info("Выплатить зарплату может только работодатель.");break;}
+                    boolean paid=KingdomEnterprisePayrollData.get(viewer.getServer()).payNpcNow(viewer,w);
+                    info(paid?"Зарплата выдана настоящими монетами из зарплатного сейфа."
+                            :"Выплата невозможна: проверь зарплатный сейф, долг и положение NPC рядом с ним.");
+                }
             }
             case 15 -> {
                 if(button==1 && owner && viewer.getUUID().equals(w.employer)){
