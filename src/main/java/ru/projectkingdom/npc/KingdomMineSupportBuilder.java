@@ -127,6 +127,7 @@ public final class KingdomMineSupportBuilder {
         var fake=FakePlayerFactory.getMinecraft(level);
         if(fake.isCreative())return Result.FAILED_NATIVE_PLACEMENT;
         fake.setPos(npc.getX(),npc.getY(),npc.getZ());
+        fake.setShiftKeyDown(false); // TFC places a complete three-block column when not sneaking.
         int before=support.getCount();
         fake.setItemInHand(InteractionHand.MAIN_HAND,support);
         try {
