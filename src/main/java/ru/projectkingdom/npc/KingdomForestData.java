@@ -63,13 +63,12 @@ public final class KingdomForestData extends SavedData {
         int z1=Math.min(first.getZ(),second.getZ()),z2=Math.max(first.getZ(),second.getZ());
         if(x2-x1+1>MAX_SIDE||z2-z1+1>MAX_SIDE)return false;
         var level=actor.serverLevel();String dim=level.dimension().location().toString();
-        var territory=KingdomTerritories.get(actor.getServer());
         for(Area area:areas.values())if(area.dimension().equals(dim)
             &&x1<=area.maxX()&&x2>=area.minX()&&z1<=area.maxZ()&&z2>=area.minZ())
             return false;
         for(int x=x1;x<=x2;x++)for(int z=z1;z<=z2;z++){
             var pos=new BlockPos(x,first.getY(),z);
-            if(!level.hasChunkAt(pos)||!territory.canUse(level,pos,actor.getUUID()))return false;
+            if(!level.hasChunkAt(pos)||!KingdomTfcForestry.ownedHarvestLand(level,pos,actor.getUUID()))return false;
         }
         Area area=new Area(UUID.randomUUID(),business,dim,x1,x2,first.getY(),
             z1,z2,"",true,32,128,true);
