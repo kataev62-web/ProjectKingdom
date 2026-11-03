@@ -56,6 +56,7 @@ public final class KingdomVolumeSelectionOverlay {
         int y1=Math.min(first.getY(),second.getY()),y2=Math.max(first.getY(),second.getY());
         int z1=Math.min(first.getZ(),second.getZ()),z2=Math.max(first.getZ(),second.getZ());
         if(current.mode()==KingdomVolumeSelectionPacket.WAREHOUSE)y2=Math.max(y1+2,y2);
+        if(current.mode()==KingdomVolumeSelectionPacket.MINE)y1=y2-10;
         return new AABB(x1,y1,z1,x2+1,y2+1,z2+1);
     }
     @SubscribeEvent public static void world(RenderLevelStageEvent e){
@@ -107,10 +108,13 @@ public final class KingdomVolumeSelectionOverlay {
         String label= switch(current.mode()){
             case KingdomVolumeSelectionPacket.WAREHOUSE->"Склад";
             case KingdomVolumeSelectionPacket.ENTERPRISE->"Здание";
+            case KingdomVolumeSelectionPacket.MINE->"Шахта (ствол 10 блоков)";
             default->"Копирование";
         };
         String size=label+": "+(x*y*z)+" блоков ("+x+"x"+y+"x"+z+")";
-        String use=current.mode()==KingdomVolumeSelectionPacket.ENTERPRISE
+        String use=current.mode()==KingdomVolumeSelectionPacket.MINE
+                ?"Shift+ПКМ пустой рукой"
+                :current.mode()==KingdomVolumeSelectionPacket.ENTERPRISE
                 ?"Shift+ПКМ":current.mode()==KingdomVolumeSelectionPacket.COPY
                 ?"ПКМ с чертежом":"ПКМ пустой рукой";
         String help=current.first()==null?use+" — первый угол | ЛКМ — отмена"
