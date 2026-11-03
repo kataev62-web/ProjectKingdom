@@ -75,9 +75,11 @@ final class KingdomTfcSmithAndForestRegressionTest {
     @Test void lumberjackUsesTfcAxeTagAndFellsBeforeReplanting()throws Exception{
         var f=source("npc/KingdomTfcForestry.java");
         assertTrue(f.contains("stack.is(TFC_AXES)"));
-        assertTrue(f.contains("stack.is(net.minecraft.tags.ItemTags.AXES)"));
+        assertTrue(f.contains("return !stack.isEmpty()&&stack.is(TFC_AXES)"));
         assertTrue(f.contains("ownedHarvestLand(level,p,owner)"));
         assertTrue(f.contains("nativeAvailable()"));
+        assertTrue(f.contains("validRoot(level,p,w.fieldTool)"));
+        assertTrue(source("npc/KingdomNpcMod.java").contains("KingdomTfcForestry.tick(level,resident,w)"));
         assertTrue(f.contains("if(best!=null){"));
         assertTrue(f.contains("return fell(level,npc,w,area,best)")||f.contains("if(fell(level,npc,w,area,best))return true;"));
         int plant=f.indexOf("if(plant(level,npc,w,area,raw,source))return true;",f.indexOf("boolean allowedHarvest"));
