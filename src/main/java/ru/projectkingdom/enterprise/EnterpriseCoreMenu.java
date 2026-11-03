@@ -32,7 +32,7 @@ import ru.projectkingdom.npc.KingdomForestMenu;
 
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
-    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,REGISTER_BUILDING=113,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123;
+    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,REGISTER_BUILDING=113,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123,BIND_SALARY=114,DEPOSIT_SALARY_100=115;
     public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190,MIGRATE_CASH=191;
     private record Closing(UUID enterprise,long expiration) {}
     private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
@@ -82,24 +82,24 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     private final boolean applied;
     private final Inventory inventory;private final BlockPos corePos;private final UUID enterpriseId;private final EnterpriseKind kind;
     private final String enterpriseName;private final UUID owner;private final long cash;private final int workers;private final long debt;
-    private final String cashboxState,rawState,finishedState,buildingState;private final boolean manager;
+    private final String cashboxState,rawState,finishedState,buildingState,salaryState;private final long salaryBalance;private final boolean manager;
 
     public EnterpriseCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),EnterpriseKind.byId(buffer.readUtf(24)),buffer.readUtf(48),
                 buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(96),buffer.readUtf(96),buffer.readUtf(96),buffer.readBoolean(),
                 readOffers(buffer),buffer.readVarInt(),buffer.readUtf(32),buffer.readBoolean(),
-                readStockLines(buffer),readStockLines(buffer),buffer.readUtf(180));
+                readStockLines(buffer),readStockLines(buffer),buffer.readUtf(180),buffer.readLong(),buffer.readUtf(96));
     }
     private EnterpriseCoreMenu(int id,Inventory inventory,BlockPos pos,UUID enterprise,EnterpriseKind kind,String name,UUID owner,
                                long cash,int workers,long debt,String cashbox,String raw,String finished,boolean manager,
                                List<ShopOffer> offers,int applications,String firstApplicant,boolean applied,
-                               List<StockLine> rawStocks,List<StockLine> finishedStocks,String buildingState){
+                               List<StockLine> rawStocks,List<StockLine> finishedStocks,String buildingState,long salaryBalance,String salaryState){
         super(KingdomEnterpriseRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=pos;this.enterpriseId=enterprise;this.kind=kind;
         this.enterpriseName=name;this.owner=owner;this.cash=cash;this.workers=workers;this.debt=debt;
         this.cashboxState=cashbox;this.rawState=raw;this.finishedState=finished;this.manager=manager;
         this.publicOffers=List.copyOf(offers);this.applications=applications;this.firstApplicant=firstApplicant;this.applied=applied;
         this.rawStocks=List.copyOf(rawStocks);this.finishedStocks=List.copyOf(finishedStocks);
-        this.buildingState=buildingState;
+        this.buildingState=buildingState;this.salaryBalance=salaryBalance;this.salaryState=salaryState;
     }
     private static List<ShopOffer> readOffers(FriendlyByteBuf buffer) {
         int size=Math.min(4,Math.max(0,buffer.readVarInt()));
@@ -125,7 +125,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         var firm=data.find(core.enterpriseId());if(firm==null)return;
         boolean manager=data.mayManage(player.getUUID(),firm.id());
         int workers=0;long debt=0;
-        String cashbox="Касса в блоке",raw="Не подключено",finished="Не подключено";
+        String cashbox="Касса в блоке",raw="Не подключено",finished="Не подключено",salary="Не подключено";long salaryFunds=0;
         List<StockLine> rawStocks=List.of(),finishedStocks=List.of();
         if(manager){
             var payroll=KingdomEnterprisePayrollData.get(player.getServer());
@@ -135,7 +135,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             cashbox=actualCash.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE?"Касса внутри блока":
                     EnterpriseAccessService.display(actualCash.status());
             raw=status(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE);
-            finished=status(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
+            finished=status(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);\n            salary=status(player,data,firm.id(),EnterpriseBindingRole.SALARY_STORAGE);\n            var payrollVault=EnterpriseAccessService.snapshot(player.serverLevel(),data,firm.id(),EnterpriseBindingRole.SALARY_STORAGE);\n            if(payrollVault.status()==EnterpriseAccessService.Status.BOUND_AVAILABLE)salaryFunds=KingdomEnterprisePayrollData.get(player.getServer()).salaryBalance(player.serverLevel(),firm.id());
             rawStocks=stockLines(player,data,firm.id(),EnterpriseBindingRole.RAW_STORAGE);
             finishedStocks=stockLines(player,data,firm.id(),EnterpriseBindingRole.FINISHED_STORAGE);
         }
@@ -148,7 +148,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         long visibleCash=manager?firm.cash():0;
         final int workerCount=workers, count=applicationCount;
         final long visibleDebt=debt;
-        final String cashState=cashbox,rawState=raw,finishedState=finished,applicant=firstApplicant;
+        final String cashState=cashbox,rawState=raw,finishedState=finished,applicant=firstApplicant,salaryStatus=salary;final long visibleSalary=salaryFunds;
         final List<StockLine> rawInventory=rawStocks,finishedInventory=finishedStocks;
         final String actualBuilding=manager
                 ?EnterpriseBuildingRegistration.get(player.getServer()).status(player,firm.id(),core.getBlockPos())
@@ -158,7 +158,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
                 return new EnterpriseCoreMenu(id,inv,core.getBlockPos(),firm.id(),core.kind(),firm.name(),
                     firm.owner(),visibleCash,workerCount,visibleDebt,cashState,rawState,finishedState,manager,
-                    offers,count,applicant,applied,rawInventory,finishedInventory,actualBuilding);
+                    offers,count,applicant,applied,rawInventory,finishedInventory,actualBuilding,visibleSalary,salaryStatus);
             }
         },buffer->{
             buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(firm.id());
@@ -172,7 +172,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             }
             buffer.writeVarInt(count);buffer.writeUtf(applicant,32);buffer.writeBoolean(applied);
             writeStockLines(buffer,rawInventory);writeStockLines(buffer,finishedInventory);
-            buffer.writeUtf(actualBuilding,180);
+            buffer.writeUtf(actualBuilding,180);buffer.writeLong(visibleSalary);buffer.writeUtf(salaryStatus,96);
         });
     }
     private static String status(ServerPlayer player,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){
@@ -182,7 +182,7 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public UUID enterpriseId(){return enterpriseId;}public EnterpriseKind kind(){return kind;}public String enterpriseName(){return enterpriseName;}
     public UUID owner(){return owner;}public long cash(){return cash;}public int workers(){return workers;}public long debt(){return debt;}
     public String cashboxState(){return cashboxState;}public String rawState(){return rawState;}public String finishedState(){return finishedState;}
-    public String buildingState(){return buildingState;}public boolean manager(){return manager;}
+    public String buildingState(){return buildingState;}public boolean manager(){return manager;}public long salaryBalance(){return salaryBalance;}public String salaryState(){return salaryState;}
     public List<ShopOffer> publicOffers(){return publicOffers;}
     public int applications(){return applications;}
     public String firstApplicant(){return firstApplicant;}
@@ -275,6 +275,14 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             }
             case BIND_RAW->beginBinding(server,EnterpriseBindingRole.RAW_STORAGE);
             case BIND_FINISHED->beginBinding(server,EnterpriseBindingRole.FINISHED_STORAGE);
+            case BIND_SALARY->beginBinding(server,EnterpriseBindingRole.SALARY_STORAGE);
+            case DEPOSIT_SALARY_100->{
+                boolean ok=KingdomEnterprisePayrollData.get(server.getServer()).depositSalary(server,enterpriseId,100);
+                server.sendSystemMessage(Component.literal(ok
+                        ?"В зарплатный сейф внесено 100 медных реальными монетами."
+                        :"Пополнение отклонено: привяжите зарплатный сейф, подойдите к нему и проверьте монеты/свободное место."));
+                yield ok;
+            }
             default->false;};
     }
     private boolean beginBinding(ServerPlayer player,EnterpriseBindingRole role) {
