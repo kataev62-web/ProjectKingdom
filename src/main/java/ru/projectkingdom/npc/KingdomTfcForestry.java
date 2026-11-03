@@ -88,6 +88,9 @@ public final class KingdomTfcForestry {
         }
         return available;
     }
+    /** Visible health check for user-facing work notifications. */
+    public static boolean nativeAvailable(){return init();}
+
     private static boolean axe(ItemStack stack){
         return !stack.isEmpty()&&(stack.is(TFC_AXES)
             ||stack.is(net.minecraft.tags.ItemTags.AXES)
