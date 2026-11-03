@@ -111,7 +111,8 @@ final class EnterpriseBuildingRegistrationTest {
         var chooser=read("src/main/java/ru/projectkingdom/enterprise/EnterpriseBuildingSelection.java");
         assertTrue(chooser.contains("selectHorizontal(PlayerInteractEvent.LeftClickBlock event)"));
         assertTrue(chooser.contains("selectVertical(PlayerInteractEvent.RightClickBlock event)"));
-        assertTrue(chooser.contains("old.firstFloor(),old.oppositeFloor()"));
+        assertTrue(chooser.contains("old.firstFloor().getX()"));
+        assertTrue(chooser.contains("old.oppositeFloor().getZ()"));
         assertTrue(chooser.contains("registerSelected(player,old.enterprise(),first,second)"));
         assertTrue(chooser.contains("event.setCanceled(true)"));
         assertTrue(registry.contains("room.contains(core)"));
