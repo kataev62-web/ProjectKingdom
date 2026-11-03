@@ -40,6 +40,13 @@ final class KingdomNpcCareerPolicyTest {
                     30,true,true,false,1000L));
     }
 
+    @Test void workConversationsRecognizeQuestionsAboutOwnBusiness() {
+        assertEquals(NpcDialogueEngine.Intent.WORK,
+                NpcDialogueEngine.classify("Ты хочешь открыть своё дело?"));
+        assertEquals(NpcDialogueEngine.Intent.WORK,
+                NpcDialogueEngine.classify("Как работа?"));
+    }
+
     @Test void careerTraitSurvivesWorldReloadAndMigratesOldSaves() {
         UUID id=UUID.nameUUIDFromBytes("old-kingdom-citizen".getBytes(StandardCharsets.UTF_8));
         KingdomNpcData.Worker citizen=new KingdomNpcData.Worker(1,id,"Житель","minecraft:overworld",0L);
