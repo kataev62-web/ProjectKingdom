@@ -104,7 +104,10 @@ public final class KingdomMineWork {
         if (carried >= 64) {status(level,worker,"Доставка добычи на склад");return NpcFieldWork.deposit(level,npc,worker);}
         if (!NpcFieldWork.borrowTool(level,npc,worker)) {status(level,worker,"Нужна исправная кирка на складе сырья");return false;}
 
-        for (var cell : KingdomMineLevelPlan.cells(core)) {
+        var settings=KingdomMineSettings.get(level.getServer());
+        var start=settings.start(id);
+        var anchors=KingdomMineLevelPlan.anchors(core,start);
+        for (var cell : KingdomMineLevelPlan.cells(core,start)) {
             BlockPos floorCell=cell.target();
             BlockPos previous=cell.approach();
             if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
@@ -153,6 +156,7 @@ public final class KingdomMineWork {
                     npc,worker.fieldTool);
                 if (!NpcFieldWork.canFit(worker,drops)) {status(level,worker,"Сумка переполнена");return false;}
                 if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)) return false;
+                settings.markStarted(id);
                 for (ItemStack stack:drops) NpcFieldWork.put(worker,stack);
                 worker.fieldTool.hurt(1,level.random,null);
                 if (worker.fieldTool.isEmpty() || worker.fieldTool.getDamageValue()
@@ -167,11 +171,9 @@ public final class KingdomMineWork {
             // Build a real TFC support frame every five cells. The native
             // TFC item controls column/link creation. On any failure we
             // stop rather than allowing unsupported excavation.
-            BlockPos galleryAnchor=floorCell.getY()==core.getY()
-                ?core:floorCell.getY()==core.getY()-KingdomMineLevelPlan.LEVEL_DROP
-                ?core.north(KingdomMineGalleryPlan.MAIN_LENGTH+
-                    KingdomMineLevelPlan.LEVEL_DROP).below(KingdomMineLevelPlan.LEVEL_DROP)
-                :null;
+            BlockPos galleryAnchor=null;
+            for(BlockPos candidate:anchors)
+                if(candidate.getY()==floorCell.getY())galleryAnchor=candidate;
             if(galleryAnchor!=null) {
                 for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
                     if(frame.walkway().equals(floorCell)) {
@@ -208,11 +210,7 @@ public final class KingdomMineWork {
             }
             // Light a fully excavated section before starting the next cell.
             // Stock and navigation are real: no torches = no further advance.
-            BlockPos lightAnchor=floorCell.getY()==core.getY()
-                ?core:floorCell.getY()==core.getY()-KingdomMineLevelPlan.LEVEL_DROP
-                ?core.north(KingdomMineGalleryPlan.MAIN_LENGTH+
-                    KingdomMineLevelPlan.LEVEL_DROP).below(KingdomMineLevelPlan.LEVEL_DROP)
-                :null;
+            BlockPos lightAnchor=galleryAnchor;
             if(KingdomMineMaintenance.lightPoint(lightAnchor,floorCell)) {
                 var lighting=KingdomMineMaintenance.light(level,npc,worker,lightAnchor,floorCell);
                 if(lighting==KingdomMineMaintenance.Result.PLACED) {
