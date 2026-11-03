@@ -217,8 +217,8 @@ public final class KingdomEnterprisePayrollData extends SavedData {
 
     /** Owner may settle one NPC's existing debt at the salary vault; no remote payout. */
     public boolean payNpcNow(ServerPlayer owner,KingdomNpcData.Worker worker){
-        if(owner==null||worker==null||worker.entityId==null||worker.employer==null
-                ||!owner.getUUID().equals(worker.employer))return false;
+        if(owner==null||worker==null||worker.entityId==null
+                ||(worker.employer!=null&&!owner.getUUID().equals(worker.employer)))return false;
         Employment contract=null;
         for(Employment e:new ArrayList<>(entries.values()))
             if(e.worker().equals(worker.entityId)
