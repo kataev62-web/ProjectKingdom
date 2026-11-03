@@ -175,6 +175,19 @@ public final class KingdomMineWork {
             if(galleryAnchor!=null) {
                 for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
                     if(frame.walkway().equals(floorCell)) {
+                        var prepare=KingdomMineSupportExcavation.tick(level,npc,worker,frame);
+                        if(prepare==KingdomMineSupportExcavation.Result.EXCAVATED) {
+                            status(level,worker,"Расчищает место для опор TFC");
+                            return true;
+                        }
+                        if(prepare==KingdomMineSupportExcavation.Result.WALKING) {
+                            status(level,worker,"Идёт к месту крепления");
+                            return false;
+                        }
+                        if(prepare==KingdomMineSupportExcavation.Result.UNSAFE) {
+                            status(level,worker,"Небезопасно расширять штрек: нужны опоры или свободная порода");
+                            return false;
+                        }
                         var build=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
                         if(build==KingdomMineSupportBuilder.Result.PLACED) {
                             status(level,worker,"Укрепляет шахту настоящими балками TFC");
