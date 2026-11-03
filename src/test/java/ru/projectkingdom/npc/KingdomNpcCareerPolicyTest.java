@@ -24,7 +24,7 @@ final class KingdomNpcCareerPolicyTest {
                 KingdomNpcCareerPolicy.stage(KingdomNpcCareerPolicy.Path.EMPLOYEE,
                     30,false,true,false,100_000L));
         assertEquals(KingdomNpcCareerPolicy.Stage.SEEKING_WORK,
-                career.stage(KingdomNpcCareerPolicy.Path.EMPLOYEE,
+                KingdomNpcCareerPolicy.stage(KingdomNpcCareerPolicy.Path.EMPLOYEE,
                     30,false,false,false,100_000L));
     }
 
