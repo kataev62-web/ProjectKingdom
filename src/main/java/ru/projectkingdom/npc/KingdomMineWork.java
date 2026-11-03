@@ -20,7 +20,9 @@ import ru.projectkingdom.enterprise.EnterpriseKind;
  * A real MINE enterprise anchors a bounded 1x2 horizontal gallery.
  * Only naturally mineable rock/ore is removed, one block per work tick.
  * No simulated goods, remote block breaking, chunk loads or forced tunnelling.
- * Vertical shafts and structural supports remain a separate safety feature.\n * The second level uses a descending walkable stair, not a vertical drop.\n * Torches are installed from physical stock at predeclared gallery checkpoints.
+ * Vertical shafts and structural supports remain a separate safety feature.
+ * The second level uses a descending walkable stair, not a vertical drop.
+ * Torches are installed from physical stock at predeclared gallery checkpoints.
  */
 public final class KingdomMineWork {
     private KingdomMineWork() {}
@@ -131,7 +133,12 @@ public final class KingdomMineWork {
                     return false;
                 }
                 if(supportSafety==KingdomMineSupportSafety.Result.NEEDS_HORIZONTAL_BEAM) {
-                    status(level,worker,"ОПАСНО: нужна горизонтальная опора TFC над выработкой");
+                    var beams=KingdomMineSupportSupply.inspect(level,worker);
+                    status(level,worker,switch(beams) {
+                        case WAREHOUSE_UNAVAILABLE -> "Нет доступного склада креплений TFC";
+                        case NEEDS_SUPPORT_BEAMS -> "Нужно минимум 3 настоящие балки TFC на складе";
+                        case AVAILABLE -> "Нужна установка каркаса TFC; опасная добыча заблокирована";
+                    });
                     return false;
                 }
                 if (!safeToBreak(level,target,worker)) {status(level,worker,"Проходка остановлена: опасная или защищённая порода");return false;}
