@@ -30,6 +30,19 @@ public final class KingdomMineSupportPlan {
         return List.copyOf(result);
     }
 
+    /** Choose a frame across the approach corridor, not across its direction. */
+    public static Frame emergency(BlockPos approach,BlockPos target) {
+        if(approach==null||target==null)return null;
+        int dx=target.getX()-approach.getX();
+        int dz=target.getZ()-approach.getZ();
+        if(Math.abs(dx)+Math.abs(dz)!=1)return null;
+        // Existing TFC builder currently supports east-west spanning beams.
+        // North/south frames require a separate orientation-aware executor.
+        if(dx!=0)return null;
+        return new Frame(approach.west(),approach.east(),
+            approach.above(2),approach,0);
+    }
+
     public static boolean valid(Frame frame) {
         return frame!=null
                 && frame.leftPost().getY()==frame.walkway().getY()
