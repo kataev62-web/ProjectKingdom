@@ -22,6 +22,19 @@ class KingdomMineSupportPlanTest {
         }
     }
 
+    @Test void emergencySupportUsesAccessibleApproachAndRejectsUnsupportedAxis() {
+        BlockPos previous=new BlockPos(8,64,12);
+        var north=KingdomMineSupportPlan.emergency(previous,previous.north().below());
+        assertNotNull(north);
+        assertTrue(KingdomMineSupportPlan.valid(north));
+        assertEquals(previous,north.walkway());
+        assertEquals(previous.west(),north.leftPost());
+        assertEquals(previous.east(),north.rightPost());
+        assertNull(KingdomMineSupportPlan.emergency(previous,previous.east()));
+        assertNull(KingdomMineSupportPlan.emergency(previous,previous.above()));
+        assertNull(KingdomMineSupportPlan.emergency(null,previous));
+    }
+
     @Test void onlyTfcSupportItemsAreEligible() {
         assertTrue(KingdomMineSupportPlan.supports("tfc:wood/support/oak"));
         assertTrue(KingdomMineSupportPlan.supports("tfc:wood/support/ash"));
