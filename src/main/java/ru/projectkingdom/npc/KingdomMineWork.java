@@ -147,12 +147,43 @@ public final class KingdomMineWork {
                     return false;
                 }
                 if(supportSafety==KingdomMineSupportSafety.Result.NEEDS_HORIZONTAL_BEAM) {
-                    var beams=KingdomMineSupportSupply.inspect(level,worker);
-                    status(level,worker,switch(beams) {
-                        case WAREHOUSE_UNAVAILABLE -> "Нет доступного склада креплений TFC";
-                        case NEEDS_SUPPORT_BEAMS -> "Нужно минимум 3 настоящие балки TFC на складе";
-                        case AVAILABLE -> "Нужна установка каркаса TFC; опасная добыча заблокирована";
-                    });
+                    // Prepare physical support BEFORE removing collapse-risk rock,
+                    // from the last accessible gallery cell. Fail closed if the
+                    // current cavity cannot accommodate a native TFC frame.
+                    var frame=KingdomMineSupportPlan.emergency(previous,floorCell);
+                    if(frame!=null){
+                        var preparation=KingdomMineSupportExcavation.tick(level,npc,worker,frame);
+                        if(preparation==KingdomMineSupportExcavation.Result.EXCAVATED){
+                            settings.markStarted(id);
+                            status(level,worker,"Готовит безопасное крепление перед проходкой");
+                            return true;
+                        }
+                        if(preparation==KingdomMineSupportExcavation.Result.WALKING){
+                            status(level,worker,"Идёт укреплять опасный участок");
+                            return false;
+                        }
+                        if(preparation==KingdomMineSupportExcavation.Result.CLEAR){
+                            var support=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
+                            if(support==KingdomMineSupportBuilder.Result.PLACED){
+                                settings.markStarted(id);
+                                status(level,worker,"Укрепляет участок перед добычей");
+                                return true;
+                            }
+                            if(support==KingdomMineSupportBuilder.Result.WALKING){
+                                status(level,worker,"Несёт крепления к опасному участку");
+                                return false;
+                            }
+                            if(support==KingdomMineSupportBuilder.Result.NO_STOCK){
+                                status(level,worker,"Нужны 8 балок TFC одной породы");
+                                return false;
+                            }
+                            if(support==KingdomMineSupportBuilder.Result.COMPLETE
+                                    &&KingdomMineSupportSafety.inspect(level,target)
+                                        ==KingdomMineSupportSafety.Result.SAFE)
+                                continue;
+                        }
+                    }
+                    status(level,worker,"Опасная порода: нет безопасного места для установки опор TFC");
                     return false;
                 }
                 if (!safeToBreak(level,target,worker)) {status(level,worker,"Проходка остановлена: опасная или защищённая порода");return false;}
