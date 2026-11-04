@@ -158,8 +158,10 @@ public final class KingdomMineWork {
                 if (!safeToBreak(level,target,worker)) {status(level,worker,"Проходка остановлена: опасная или защищённая порода");return false;}
                 if (npc.distanceToSqr(previous.getX()+0.5,
                     previous.getY(),previous.getZ()+0.5)>REACH_SQR) {
-                    npc.getNavigation().moveTo(previous.getX()+0.5,
-                        previous.getY(),previous.getZ()+0.5,0.75);
+                    if(!npc.getNavigation().moveTo(previous.getX()+0.5,
+                        previous.getY(),previous.getZ()+0.5,0.75))
+                        status(level,worker,"Нет пути к "+previous.toShortString());
+                    else status(level,worker,"Идёт к месту добычи");
                     return false;
                 }
                 BlockState state=level.getBlockState(target);
