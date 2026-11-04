@@ -17,6 +17,9 @@ class KingdomMineNativeSupportContractTest {
         assertTrue(builder.contains("support.useOn(new UseOnContext("));
         assertTrue(builder.contains("FakePlayerFactory.getMinecraft(level)"));
         assertTrue(builder.contains("consumed>0"));
+        assertTrue(builder.contains("return Result.SUPPLIED;"));
+        assertTrue(builder.contains("return placed && consumed>0 ? Result.PLACED"));
+
         assertTrue(builder.contains("frameComplete(level,frame)"));
         assertTrue(builder.contains("KingdomMineSupportSafety.hasHorizontalSupport("));
         String safety=Files.readString(Path.of(
