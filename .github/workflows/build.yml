@@ -2,7 +2,7 @@ name: Build Project Kingdom
 
 on:
   push:
-    branches: [main, feature/vanilla-female-skirt-bust-20261026]
+    branches: [main, feature/vanilla-female-skirt-bust-20261026, codex/ecc-engineering-20261104]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -26,8 +26,42 @@ jobs:
       - name: Build and test
         run: |
           chmod +x gradlew
-          ./gradlew test build --no-daemon
+          ./gradlew test build --no-daemon --max-workers=2 --stacktrace --console=plain 2>&1 | tee "$RUNNER_TEMP/kingdom-gradle.log"
           python3 03_verify_project.py
+
+      - name: Publish build diagnostics
+        if: always()
+        run: |
+          python3 - <<'PYTHON'
+          import os, re, pathlib, xml.etree.ElementTree as ET
+          def annotation(kind, message):
+              message = re.sub(r'(?i)(token|password|secret|authorization)([=: ]+)[^\s]+', r'\1\2[REDACTED]', message)
+              print(f"::{kind}::" + message.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A'))
+          files = list(pathlib.Path('build/test-results/test').glob('TEST-*.xml'))
+          totals = dict(tests=0, failures=0, errors=0, skipped=0)
+          for file in files:
+              root = ET.parse(file).getroot()
+              for key in totals:
+                  totals[key] += int(root.get(key, 0))
+              for failure in root.findall('.//failure') + root.findall('.//error'):
+                  annotation('error', (failure.get('message') or failure.text or '')[:3000])
+          annotation('notice', f'JUnit reports={len(files)}, {totals}')
+          log = pathlib.Path(os.environ['RUNNER_TEMP']) / 'kingdom-gradle.log'
+          if log.exists():
+              for line in log.read_text(errors='replace').splitlines():
+                  if ': error:' in line or line.startswith('> Task ') and 'FAILED' in line:
+                      annotation('error', line[:2000])
+          PYTHON
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-test-reports
+          path: |
+            build/test-results/
+            build/reports/tests/
+          if-no-files-found: warn
 
       - name: Upload mod JAR
         uses: actions/upload-artifact@v4
