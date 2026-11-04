@@ -24,6 +24,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Build and test
+        shell: bash
         run: |
           chmod +x gradlew
           ./gradlew test build --no-daemon --max-workers=2 --stacktrace --console=plain 2>&1 | tee "$RUNNER_TEMP/kingdom-gradle.log"
