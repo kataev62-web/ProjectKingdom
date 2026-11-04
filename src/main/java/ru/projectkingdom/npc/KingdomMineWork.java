@@ -181,6 +181,18 @@ public final class KingdomMineWork {
                                 status(level,worker,"Нужны 8 балок TFC одной породы");
                                 return false;
                             }
+                            if(support==KingdomMineSupportBuilder.Result.INACCESSIBLE){
+                                status(level,worker,"Нет доступа к месту установки креплений");
+                                return false;
+                            }
+                            if(support==KingdomMineSupportBuilder.Result.NEED_CLEAR_POCKETS){
+                                status(level,worker,"Крепление: нужны безопасные карманы под стойки");
+                                return false;
+                            }
+                            if(support==KingdomMineSupportBuilder.Result.FAILED_NATIVE_PLACEMENT){
+                                status(level,worker,"TFC отклонил установку опоры: проходка запрещена");
+                                return false;
+                            }
                             if(support==KingdomMineSupportBuilder.Result.COMPLETE
                                     &&KingdomMineSupportSafety.inspect(level,target)
                                         ==KingdomMineSupportSafety.Result.SAFE)
