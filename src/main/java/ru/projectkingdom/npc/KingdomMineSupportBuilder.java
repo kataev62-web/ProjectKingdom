@@ -42,6 +42,15 @@ public final class KingdomMineSupportBuilder {
         return KingdomMineSupportSafety.isTfcHorizontalSupport(state);
     }
 
+    /** A stray crossbeam without both standing supports is never complete. */
+    private static boolean frameComplete(ServerLevel level,KingdomMineSupportPlan.Frame frame) {
+        if(!horizontal(level.getBlockState(frame.crossbeam())))return false;
+        for(BlockPos post:new BlockPos[]{frame.leftPost(),frame.rightPost()})
+            for(int y=0;y<3;y++)
+                if(!vertical(level.getBlockState(post.above(y))))return false;
+        return true;
+    }
+
     private static String type(ItemStack stack) {
         if(stack==null||stack.isEmpty())return "";
         String id=BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
@@ -152,7 +161,9 @@ public final class KingdomMineSupportBuilder {
                               KingdomMineSupportPlan.Frame frame) {
         if(!accessible(level,frame,worker))return Result.INACCESSIBLE;
         BlockPos left=frame.leftPost(),right=frame.rightPost(),middle=frame.crossbeam();
-        if(horizontal(level.getBlockState(middle)))return Result.COMPLETE;
+        if(frameComplete(level,frame))return Result.COMPLETE;
+        if(horizontal(level.getBlockState(middle)))
+            return Result.FAILED_NATIVE_PLACEMENT; // orphaned or damaged structure
         if(!clearForPost(level,left)||!clearForPost(level,right)
                 ||!level.getBlockState(middle).isAir())
             return Result.NEED_CLEAR_POCKETS;
