@@ -59,6 +59,13 @@ class KingdomMineCentralShaftPlanTest {
         check(5,5,4);
     }
 
+    @Test void everySupportedFootprintAndEntranceOffsetHasNoDuplicateOrDisconnectedCells() {
+        for(int width=5;width<=12;width++)
+            for(int length=5;length<=12;length++)
+                for(int entranceX=0;entranceX<width;entranceX++)
+                    check(width,length,entranceX);
+    }
+
     @Test void rejectsSmallShaftAndEntranceOutsideSouthBoundary() {
         var small=new KingdomMineSettings.Shaft(0,3,0,3,80,"minecraft:overworld");
         assertFalse(KingdomMineCentralShaftPlan.valid(small,new BlockPos(1,80,4)));
