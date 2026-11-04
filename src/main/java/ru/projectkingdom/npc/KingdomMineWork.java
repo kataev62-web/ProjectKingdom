@@ -180,7 +180,7 @@ public final class KingdomMineWork {
                             if(support==KingdomMineSupportBuilder.Result.COMPLETE
                                     &&KingdomMineSupportSafety.inspect(level,target)
                                         ==KingdomMineSupportSafety.Result.SAFE)
-                                continue;
+                                return false;
                         }
                     }
                     status(level,worker,"Опасная порода: нет безопасного места для установки опор TFC");
