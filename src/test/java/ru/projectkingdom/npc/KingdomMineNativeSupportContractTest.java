@@ -17,6 +17,13 @@ class KingdomMineNativeSupportContractTest {
         assertTrue(builder.contains("support.useOn(new UseOnContext("));
         assertTrue(builder.contains("FakePlayerFactory.getMinecraft(level)"));
         assertTrue(builder.contains("consumed>0"));
+        assertTrue(builder.contains("frameComplete(level,frame)"));
+        assertTrue(builder.contains("KingdomMineSupportSafety.hasHorizontalSupport("));
+        String safety=Files.readString(Path.of(
+            "src/main/java/ru/projectkingdom/npc/KingdomMineSupportSafety.java"));
+        assertTrue(safety.contains("net.dries007.tfc.util.Support"));
+        assertTrue(safety.contains("isSupported"));
+        assertFalse(safety.contains("floorSupports"));
         assertFalse(builder.contains("level.setBlock("));
         assertTrue(excavation.contains("KingdomMineSupportSafety.inspect(level,pos)"));
         assertTrue(excavation.contains("Block.getDrops("));
