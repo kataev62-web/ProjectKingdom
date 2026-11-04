@@ -48,7 +48,10 @@ public final class KingdomMineSupportBuilder {
         for(BlockPos post:new BlockPos[]{frame.leftPost(),frame.rightPost()})
             for(int y=0;y<3;y++)
                 if(!vertical(level.getBlockState(post.above(y))))return false;
-        return true;
+        // Presence of the visual beam is insufficient; the authoritative TFC
+        // support registry must recognize protection over the tunnel roof.
+        return KingdomMineSupportSafety.hasHorizontalSupport(
+            level,frame.walkway().above());
     }
 
     private static String type(ItemStack stack) {
