@@ -147,6 +147,9 @@ public final class NpcFieldWork {
                     if(field.enabled() && !field.seedId().isBlank())reservedSeeds.add(field.seedId());
         for(int inv=0;inv<w.fieldInventory.size();){
             ItemStack s=w.fieldInventory.get(inv);
+            if("miner".equals(w.job) && KingdomMineCargo.isSupply(s)) {
+                inv++;continue; // Torches and TFC beams stay in the miner's supply bag.
+            }
             if(reservedSeeds.contains(BuiltInRegistries.ITEM.getKey(s.getItem()).toString())
                     || ("lumberjack".equals(w.job)
                         && KingdomTfcForestry.validSapling(BuiltInRegistries.ITEM.getKey(
