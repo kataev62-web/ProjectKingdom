@@ -26,7 +26,7 @@ public final class KingdomMineSupportBuilder {
     private KingdomMineSupportBuilder() {}
 
     public enum Result {
-        COMPLETE, PLACED, WALKING, NO_STOCK, INACCESSIBLE,
+        COMPLETE, PLACED, SUPPLIED, WALKING, NO_STOCK, INACCESSIBLE,
         NEED_CLEAR_POCKETS, FAILED_NATIVE_PLACEMENT
     }
 
@@ -124,7 +124,7 @@ public final class KingdomMineSupportBuilder {
         NpcFieldWork.put(worker,taken);
         source.setChanged();
         KingdomNpcData.get(level.getServer()).setDirty();
-        return Result.PLACED;
+        return Result.SUPPLIED;
     }
 
     private static Result nativePlace(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
