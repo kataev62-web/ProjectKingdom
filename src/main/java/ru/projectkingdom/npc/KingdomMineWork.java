@@ -99,9 +99,13 @@ public final class KingdomMineWork {
         BlockPos entrance=core.north();
         if (!level.hasChunkAt(entrance) || !level.getBlockState(entrance).isAir()
             || !level.getBlockState(entrance.above()).isAir()) {status(level,worker,"Освободи вход 1×2 севернее ядра");return false;}
-        int carried=worker.fieldInventory.stream().mapToInt(ItemStack::getCount).sum();
-        // Depositing may require pathing: do not immediately override the route.
-        if (carried >= 64) {status(level,worker,"Доставка добычи на склад");return NpcFieldWork.deposit(level,npc,worker);}
+        int carried=KingdomMineCargo.minedCount(worker);
+        // Construction stock is not finished ore. Deposit on cargo threshold,
+        // and let the shared physical route bring the miner back to the depot.
+        if (carried >= 64) {
+            status(level,worker,"Доставка добычи на склад");
+            return NpcFieldWork.deposit(level,npc,worker);
+        }
         if (!NpcFieldWork.borrowTool(level,npc,worker)) {status(level,worker,"Нужна исправная кирка на складе сырья");return false;}
 
         var settings=KingdomMineSettings.get(level.getServer());
@@ -302,7 +306,11 @@ public final class KingdomMineWork {
                 }
             }
         }
-        status(level,worker,"Все доступные выработки пройдены");
+        if(KingdomMineCargo.minedCount(worker)>0) {
+            status(level,worker,"Все выработки пройдены. Возвращает последнюю добычу на склад");
+            return NpcFieldWork.deposit(level,npc,worker);
+        }
+        status(level,worker,"Все доступные выработки пройдены; руда доставлена");
         return false;
     }
 }
