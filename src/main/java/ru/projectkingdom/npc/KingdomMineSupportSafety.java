@@ -6,11 +6,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
- * TFC collapse-safety inspection. TFC horizontal support beams protect a
- * 9x5x9 volume (four blocks horizontally, one up/down). Vertical beams alone
- * do not protect rock. We deliberately inspect the real registered block IDs
- * and the real TFC collapse tags instead of treating decorative timber as a
- * support. This class never claims that a tunnel is reinforced if it is not.
+ * TFC collapse-safety inspection. The native data-driven support registry
+ * decides whether the mined block is supported. Decorative timber never
+ * grants permission, and unavailable integration fails closed.
  */
 public final class KingdomMineSupportSafety {
     private KingdomMineSupportSafety() {}
@@ -31,16 +29,30 @@ public final class KingdomMineSupportSafety {
             new net.minecraft.resources.ResourceLocation("tfc","can_trigger_collapse")));
     }
 
+    /**
+     * TFC 1.20.x uses a data-driven support registry. Use its authoritative
+     * Support.isSupported(BlockGetter, BlockPos) instead of guessing a radius.
+     * Reflection avoids adding a hard runtime dependency to Kingdom.
+     * Failure is fail-closed: no collapse-triggering block is excavated.
+     */
+    private static final java.lang.reflect.Method NATIVE_IS_SUPPORTED=lookupNativeSupport();
+
+    private static java.lang.reflect.Method lookupNativeSupport() {
+        try {
+            return Class.forName("net.dries007.tfc.util.Support").getMethod(
+                "isSupported",net.minecraft.world.level.BlockGetter.class,BlockPos.class);
+        } catch(ReflectiveOperationException | LinkageError unavailable) {
+            return null;
+        }
+    }
+
     public static boolean hasHorizontalSupport(ServerLevel level,BlockPos roof) {
-        // TFC's native support radius is 4 horizontally and 1 vertically.
-        for(int dy=-1;dy<=1;dy++)
-            for(int dx=-4;dx<=4;dx++)
-                for(int dz=-4;dz<=4;dz++){
-                    BlockPos pos=roof.offset(dx,dy,dz);
-                    if(!level.hasChunkAt(pos))continue;
-                    if(isTfcHorizontalSupport(level.getBlockState(pos)))return true;
-                }
-        return false;
+        if(NATIVE_IS_SUPPORTED==null||!level.hasChunkAt(roof))return false;
+        try {
+            return Boolean.TRUE.equals(NATIVE_IS_SUPPORTED.invoke(null,level,roof));
+        } catch(ReflectiveOperationException | LinkageError unavailable) {
+            return false;
+        }
     }
 
     public static Result inspect(ServerLevel level,BlockPos target) {
