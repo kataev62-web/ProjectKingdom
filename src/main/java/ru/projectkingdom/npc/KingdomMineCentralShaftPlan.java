@@ -111,7 +111,10 @@ public final class KingdomMineCentralShaftPlan {
         int x=(area.minX()+area.maxX())/2;
         BlockPos galleryApproach=new BlockPos(x,entrance.getY(),area.minZ()+1);
         BlockPos exit=new BlockPos(x,entrance.getY(),area.minZ());
-        plan.add(new KingdomMineGalleryPlan.Cell(exit,galleryApproach));
+        // At some entrance offsets the descending stair already cleared the
+        // north rim cell at this Y. Never schedule it twice.
+        if(!exit.equals(entrance))
+            plan.add(new KingdomMineGalleryPlan.Cell(exit,galleryApproach));
         for(int distance=1;distance<=GALLERY_LENGTH;distance++){
             BlockPos target=exit.north(distance);
             BlockPos previous=distance==1?exit:exit.north(distance-1);
