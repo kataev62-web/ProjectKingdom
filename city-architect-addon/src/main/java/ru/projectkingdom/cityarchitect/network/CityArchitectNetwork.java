@@ -58,6 +58,14 @@ public final class CityArchitectNetwork {
         CHANNEL.sendToServer(packet);
     }
 
+    public static void disconnect(UUID owner) {
+        SESSIONS.cancelOwner(owner);
+    }
+
+    public static void expire(long now) {
+        SESSIONS.purge(now);
+    }
+
     static void handleDecision(ServerPlayer sender, CityArchitectDecisionPacket packet) {
         if (sender == null || sender.getServer() == null) {
             return;
@@ -105,6 +113,14 @@ public final class CityArchitectNetwork {
             if (!session.dimension().equals(dimension)) return new DecisionResult(DecisionStatus.BAD_DIMENSION, null, confirm);
             sessions.remove(token);
             return new DecisionResult(DecisionStatus.ACCEPTED, session, confirm);
+        }
+
+        public synchronized void cancelOwner(UUID owner) {
+            sessions.values().removeIf(session -> session.owner().equals(owner));
+        }
+
+        public synchronized void purge(long now) {
+            sessions.values().removeIf(session -> now > session.expiresAt());
         }
     }
 

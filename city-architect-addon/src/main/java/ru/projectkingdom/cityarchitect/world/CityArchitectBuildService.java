@@ -21,14 +21,29 @@ public final class CityArchitectBuildService {
 
     private final Store store;
     private final WorldAccess world;
+    private final String dimension;
 
     public CityArchitectBuildService(Store store, WorldAccess world) {
+        this(store, world, "minecraft:overworld");
+    }
+
+    public CityArchitectBuildService(Store store, WorldAccess world, String dimension) {
         this.store = Objects.requireNonNull(store, "store");
         this.world = Objects.requireNonNull(world, "world");
+        this.dimension = Objects.requireNonNull(dimension, "dimension");
     }
 
     public synchronized void queue(
             UUID planId, UUID stageId, List<CityArchitectRoadDesignFactory.RoadCell> input
+    ) {
+        queue(planId, stageId, dimension, input);
+    }
+
+    public synchronized void queue(
+            UUID planId,
+            UUID stageId,
+            String queueDimension,
+            List<CityArchitectRoadDesignFactory.RoadCell> input
     ) {
         Objects.requireNonNull(planId, "planId");
         Objects.requireNonNull(stageId, "stageId");
@@ -47,7 +62,8 @@ public final class CityArchitectBuildService {
                 cells.add(new BuildCell(cell.position(), cell.stateId(), "", CellStatus.QUEUED));
             }
         }
-        store.put(new BuildQueue(planId, stageId, cells));
+        store.put(new BuildQueue(planId, stageId,
+                Objects.requireNonNull(queueDimension, "queueDimension"), cells));
     }
 
     public synchronized TickResult tick(int requestedBudget) {
@@ -57,6 +73,9 @@ public final class CityArchitectBuildService {
         int refused = 0;
         int paused = 0;
         for (BuildQueue queue : store.all()) {
+            if (!queue.dimension().equals(dimension)) {
+                continue;
+            }
             List<BuildCell> cells = new ArrayList<>(queue.cells());
             boolean dirty = false;
             for (int index = 0; index < cells.size() && attempts < budget; index++) {
@@ -87,7 +106,7 @@ public final class CityArchitectBuildService {
                 dirty = true;
             }
             if (dirty) {
-                store.put(new BuildQueue(queue.planId(), queue.stageId(), cells));
+                store.put(new BuildQueue(queue.planId(), queue.stageId(), queue.dimension(), cells));
             }
             if (attempts >= budget) {
                 break;
@@ -123,7 +142,7 @@ public final class CityArchitectBuildService {
                 restored++;
             }
         }
-        store.put(new BuildQueue(queue.planId(), queue.stageId(), cells));
+        store.put(new BuildQueue(queue.planId(), queue.stageId(), queue.dimension(), cells));
         return new RollbackResult(restored, conflicts, paused);
     }
 
@@ -137,6 +156,20 @@ public final class CityArchitectBuildService {
         return store.get(planId)
                 .map(queue -> queue.cells().stream().noneMatch(cell -> cell.status() == CellStatus.QUEUED))
                 .orElse(false);
+    }
+
+    public synchronized boolean successful(UUID planId) {
+        return store.get(planId)
+                .map(queue -> queue.cells().stream().allMatch(cell -> cell.status() == CellStatus.APPLIED))
+                .orElse(false);
+    }
+
+    public synchronized Optional<BuildQueue> queue(UUID planId) {
+        return store.get(planId);
+    }
+
+    public synchronized void remove(UUID planId) {
+        store.remove(planId);
     }
 
     public interface WorldAccess {
@@ -222,6 +255,7 @@ public final class CityArchitectBuildService {
                 CompoundTag row = new CompoundTag();
                 row.putUUID("Plan", queue.planId());
                 row.putUUID("Stage", queue.stageId());
+                row.putString("Dimension", queue.dimension());
                 ListTag cellRows = new ListTag();
                 for (BuildCell cell : queue.cells()) {
                     CompoundTag saved = new CompoundTag();
@@ -257,7 +291,9 @@ public final class CityArchitectBuildService {
                                 cell.getString("Target"), cell.getString("Before"),
                                 CellStatus.valueOf(cell.getString("Status"))));
                     }
-                    store.queues.put(plan, new BuildQueue(plan, stage, cells));
+                    String dimension = row.getString("Dimension");
+                    if (dimension.isBlank()) dimension = "minecraft:overworld";
+                    store.queues.put(plan, new BuildQueue(plan, stage, dimension, cells));
                 } catch (RuntimeException ignored) {
                     // Quarantine one corrupt queue and preserve the rest.
                 }
@@ -287,10 +323,12 @@ public final class CityArchitectBuildService {
         }
     }
 
-    public record BuildQueue(UUID planId, UUID stageId, List<BuildCell> cells) {
+    public record BuildQueue(UUID planId, UUID stageId, String dimension, List<BuildCell> cells) {
         public BuildQueue {
             Objects.requireNonNull(planId, "planId");
             Objects.requireNonNull(stageId, "stageId");
+            dimension = Objects.requireNonNull(dimension, "dimension").trim();
+            if (dimension.isEmpty()) throw new IllegalArgumentException("dimension must not be blank");
             cells = List.copyOf(Objects.requireNonNull(cells, "cells"));
         }
     }

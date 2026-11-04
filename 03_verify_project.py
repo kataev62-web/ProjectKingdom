@@ -90,3 +90,16 @@ network=(p/'src/main/java/ru/projectkingdom/network/KingdomNetwork.java').read_t
 assert 'PROTOCOL="13-ai1"' in network
 assert (p/'docs/ASSISTANT_AI_TEST_GUIDE_RU.md').is_file()
 print('OK: assistant regression tests, AI1 protocol and manual acceptance guide')
+
+addon=p/'city-architect-addon'
+addon_sources=list((addon/'src/main/java').rglob('*.java'))
+addon_tests=list((addon/'src/test/java').rglob('*Test.java'))
+addon_toml=(addon/'src/main/resources/META-INF/mods.toml').read_text(encoding='utf-8')
+assert len(addon_sources)>=15, 'Missing standalone city architect sources'
+assert len(addon_tests)>=8, 'Missing standalone city architect tests'
+assert 'modId="kingdom_city_architect"' in addon_toml
+assert 'modId="kingdomnpc"' in addon_toml and 'mandatory=true' in addon_toml
+assert 'city-architect-addon/src/main/java' in gradle
+assert "archiveBaseName.set('kingdom-city-architect')" in gradle
+assert not any('cityarchitect' in str(path) for path in sources), 'Addon leaked into base source set'
+print('OK: standalone city architect source boundary, tests and mandatory base dependency')

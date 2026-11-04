@@ -26,12 +26,14 @@ jobs:
       - name: Build and test
         run: |
           chmod +x gradlew
-          ./gradlew test build --no-daemon
+          ./gradlew test cityArchitectTest build cityArchitectJar --no-daemon
           python3 03_verify_project.py
 
-      - name: Upload mod JAR
+      - name: Upload base and city architect JARs
         uses: actions/upload-artifact@v4
         with:
-          name: kingdomnpc-stage0
-          path: build/libs/kingdomnpc-*.jar
+          name: project-kingdom-with-city-architect
+          path: |
+            build/libs/kingdomnpc-*.jar
+            build/libs/kingdom-city-architect-*.jar
           if-no-files-found: error

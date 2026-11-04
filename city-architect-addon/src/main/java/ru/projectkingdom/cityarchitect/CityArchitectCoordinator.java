@@ -177,7 +177,7 @@ public final class CityArchitectCoordinator {
             data.marking(plan.id(), first.id(), first.candidateId(), first.explanation(),
                     first.buildings(), first.roads());
             CityArchitectPlanData.StageView marked = data.plan(plan.id()).orElseThrow().stages().get(0);
-            markers.queue(plan.id(), stageMarkers(marked));
+            markers.queue(plan.id(), markersForStage(marked));
             return new RoadResult(ResultCode.MARKED, plan.id(),
                     "Генеральный план рассчитан. Размечен только первый этап: " + marked.explanation());
         } catch (IllegalStateException conflict) {
@@ -227,7 +227,7 @@ public final class CityArchitectCoordinator {
                 current.buildings(), current.roads());
         CityArchitectPlanData.StageView marked = data.plan(planId).orElseThrow().stages().stream()
                 .filter(stage -> stage.id().equals(current.id())).findFirst().orElseThrow();
-        markers.queue(planId, stageMarkers(marked));
+        markers.queue(planId, markersForStage(marked));
         return new RoadResult(ResultCode.MARKED, planId,
                 "Размечен следующий этап: " + marked.explanation());
     }
@@ -298,7 +298,7 @@ public final class CityArchitectCoordinator {
         return UUID.nameUUIDFromBytes((planId + ":" + value).getBytes(StandardCharsets.UTF_8));
     }
 
-    private static List<CityArchitectPlanData.MarkerCell> stageMarkers(
+    public static List<CityArchitectPlanData.MarkerCell> markersForStage(
             CityArchitectPlanData.StageView stage
     ) {
         LinkedHashSet<CityArchitectPlanData.MarkerCell> result = new LinkedHashSet<>();
