@@ -168,6 +168,10 @@ public final class KingdomMineWork {
                         }
                         if(preparation==KingdomMineSupportExcavation.Result.CLEAR){
                             var support=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
+                            if(support==KingdomMineSupportBuilder.Result.SUPPLIED){
+                                status(level,worker,"Взял балки TFC со склада, несёт к креплению");
+                                return false;
+                            }
                             if(support==KingdomMineSupportBuilder.Result.PLACED){
                                 settings.markStarted(id);
                                 status(level,worker,"Укрепляет участок перед добычей");
@@ -279,6 +283,10 @@ public final class KingdomMineWork {
                             return false;
                         }
                         var build=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
+                        if(build==KingdomMineSupportBuilder.Result.SUPPLIED) {
+                            status(level,worker,"Получил настоящие балки TFC на складе");
+                            return false;
+                        }
                         if(build==KingdomMineSupportBuilder.Result.PLACED) {
                             settings.markStarted(id);
                             status(level,worker,"Укрепляет шахту настоящими балками TFC");
