@@ -48,12 +48,9 @@ public final class KingdomMineSupportSafety {
                 ||!level.hasChunkAt(target.below()))return Result.UNLOADED;
         BlockState state=level.getBlockState(target);
         if(!isCollapseRock(state))return Result.SAFE;
-        // A solid, non-collapsible block below is a native TFC support case.
-        BlockState floor=level.getBlockState(target.below());
-        boolean floorSupports=floor.isSolidRender(level,target.below())
-                && !isCollapseRock(floor);
-        if(floorSupports)return Result.SAFE;
-        return hasHorizontalSupport(level,target)?Result.SAFE:Result.NEEDS_HORIZONTAL_BEAM;
+        // Solid ground does not prove the surrounding rock cannot collapse.
+        return hasHorizontalSupport(level,target)
+            ?Result.SAFE:Result.NEEDS_HORIZONTAL_BEAM;
     }
 
     public static boolean galleryHasSupport(ServerLevel level,BlockPos cell) {
