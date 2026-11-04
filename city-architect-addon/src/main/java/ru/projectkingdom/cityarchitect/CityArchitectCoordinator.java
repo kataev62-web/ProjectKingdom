@@ -8,9 +8,11 @@ import ru.projectkingdom.assistant.KingdomAssistantData;
 import ru.projectkingdom.cityarchitect.data.CityArchitectPlanData;
 import ru.projectkingdom.cityarchitect.plan.CityArchitectReasoner;
 import ru.projectkingdom.cityarchitect.plan.CityArchitectRoadPlanner;
+import ru.projectkingdom.cityarchitect.plan.CityArchitectPlanner;
 import ru.projectkingdom.cityarchitect.world.CityArchitectLandmarks;
 
 import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -34,6 +36,7 @@ public final class CityArchitectCoordinator {
     private final SurfaceSnapshotProvider snapshots;
     private final MarkerSink markers;
     private final Executor serverExecutor;
+    private final CityArchitectPlanner cityPlanner;
 
     public CityArchitectCoordinator(
             CityArchitectPlanData data,
@@ -44,6 +47,20 @@ public final class CityArchitectCoordinator {
             MarkerSink markers,
             Executor serverExecutor
     ) {
+        this(data, landmarks, roadPlanner, reasoner, snapshots, markers,
+                serverExecutor, new CityArchitectPlanner());
+    }
+
+    public CityArchitectCoordinator(
+            CityArchitectPlanData data,
+            CityArchitectLandmarks landmarks,
+            CityArchitectRoadPlanner roadPlanner,
+            CityArchitectReasoner reasoner,
+            SurfaceSnapshotProvider snapshots,
+            MarkerSink markers,
+            Executor serverExecutor,
+            CityArchitectPlanner cityPlanner
+    ) {
         this.data = Objects.requireNonNull(data, "data");
         this.landmarks = Objects.requireNonNull(landmarks, "landmarks");
         this.roadPlanner = Objects.requireNonNull(roadPlanner, "roadPlanner");
@@ -51,6 +68,7 @@ public final class CityArchitectCoordinator {
         this.snapshots = Objects.requireNonNull(snapshots, "snapshots");
         this.markers = Objects.requireNonNull(markers, "markers");
         this.serverExecutor = Objects.requireNonNull(serverExecutor, "serverExecutor");
+        this.cityPlanner = Objects.requireNonNull(cityPlanner, "cityPlanner");
     }
 
     public CompletableFuture<RoadResult> requestRoad(ServerPlayer player, String argument) {
@@ -128,6 +146,190 @@ public final class CityArchitectCoordinator {
                         "У владельца уже есть активный план города.");
             }
         }, serverExecutor);
+    }
+
+    public RoadResult requestCityPlan(
+            RequestContext context, CityArchitectPlanner.CityPlanningRequest request
+    ) {
+        RoadResult denied = authorizeContext(context);
+        if (denied != null) {
+            return denied;
+        }
+        CityArchitectPlanner.PlanningResult result = cityPlanner.plan(request);
+        if (result.candidates().isEmpty()) {
+            String explanation = result.findings().isEmpty()
+                    ? "Безопасный генеральный план не найден."
+                    : result.findings().get(0).message();
+            return RoadResult.failure(ResultCode.NO_SAFE_LAYOUT, explanation);
+        }
+        CityArchitectPlanner.CityCandidate candidate = result.candidates().get(0);
+        try {
+            CityArchitectPlanData.PlanView plan = data.create(
+                    context.owner(), context.assistant(), context.dimension(), candidate.ratHall(),
+                    candidate.stages().stream().map(CityArchitectPlanner.CityStage::kind).toList());
+            for (int index = 0; index < candidate.stages().size(); index++) {
+                CityArchitectPlanner.CityStage stage = candidate.stages().get(index);
+                UUID stageId = plan.stages().get(index).id();
+                data.prepareStage(plan.id(), stageId, candidate.id() + "-stage-" + (index + 1),
+                        stage.explanation(), buildings(plan.id(), stage), roads(plan.id(), stage));
+            }
+            CityArchitectPlanData.StageView first = data.plan(plan.id()).orElseThrow().stages().get(0);
+            data.marking(plan.id(), first.id(), first.candidateId(), first.explanation(),
+                    first.buildings(), first.roads());
+            CityArchitectPlanData.StageView marked = data.plan(plan.id()).orElseThrow().stages().get(0);
+            markers.queue(plan.id(), stageMarkers(marked));
+            return new RoadResult(ResultCode.MARKED, plan.id(),
+                    "Генеральный план рассчитан. Размечен только первый этап: " + marked.explanation());
+        } catch (IllegalStateException conflict) {
+            return RoadResult.failure(ResultCode.PLAN_CONFLICT,
+                    "У владельца уже есть активный план города.");
+        }
+    }
+
+    public RoadResult confirmCurrent(RequestContext context, UUID planId) {
+        CityArchitectPlanData.PlanView plan = authorizedPlan(context, planId);
+        if (plan == null) return RoadResult.failure(ResultCode.NO_PERMISSION, "Нет доступа к плану.");
+        CityArchitectPlanData.StageView current = currentStage(plan);
+        if (current == null || current.status() != CityArchitectPlanData.StageStatus.MARKED) {
+            return RoadResult.failure(ResultCode.INVALID_STATE, "Текущий этап ещё не размечен.");
+        }
+        data.approve(planId, current.id());
+        return new RoadResult(ResultCode.APPROVED, planId,
+                "Этап подтверждён и готов к последовательной стройке.");
+    }
+
+    public RoadResult finishCurrent(RequestContext context, UUID planId) {
+        CityArchitectPlanData.PlanView plan = authorizedPlan(context, planId);
+        if (plan == null) return RoadResult.failure(ResultCode.NO_PERMISSION, "Нет доступа к плану.");
+        CityArchitectPlanData.StageView current = currentStage(plan);
+        if (current == null || current.status() != CityArchitectPlanData.StageStatus.APPROVED) {
+            return RoadResult.failure(ResultCode.INVALID_STATE, "Этап не подтверждён.");
+        }
+        data.building(planId, current.id());
+        data.completeStage(planId, current.id());
+        return new RoadResult(ResultCode.STAGE_COMPLETE, planId,
+                "Этап завершён. Следующий этап ожидает отдельной команды.");
+    }
+
+    public RoadResult nextStage(RequestContext context, UUID planId) {
+        CityArchitectPlanData.PlanView plan = authorizedPlan(context, planId);
+        if (plan == null) return RoadResult.failure(ResultCode.NO_PERMISSION, "Нет доступа к плану.");
+        if (plan.status() == CityArchitectPlanData.PlanStatus.COMPLETE) {
+            return new RoadResult(ResultCode.PLAN_COMPLETE, planId, "Городской план полностью завершён.");
+        }
+        CityArchitectPlanData.StageView current = currentStage(plan);
+        if (current == null || current.status() != CityArchitectPlanData.StageStatus.PENDING
+                || current.candidateId().isBlank()) {
+            return RoadResult.failure(ResultCode.INVALID_STATE,
+                    "Сначала завершите подтверждённый текущий этап.");
+        }
+        data.marking(planId, current.id(), current.candidateId(), current.explanation(),
+                current.buildings(), current.roads());
+        CityArchitectPlanData.StageView marked = data.plan(planId).orElseThrow().stages().stream()
+                .filter(stage -> stage.id().equals(current.id())).findFirst().orElseThrow();
+        markers.queue(planId, stageMarkers(marked));
+        return new RoadResult(ResultCode.MARKED, planId,
+                "Размечен следующий этап: " + marked.explanation());
+    }
+
+    public RoadResult cancelPlan(RequestContext context, UUID planId) {
+        CityArchitectPlanData.PlanView plan = authorizedPlan(context, planId);
+        if (plan == null) return RoadResult.failure(ResultCode.NO_PERMISSION, "Нет доступа к плану.");
+        data.cancel(planId);
+        return new RoadResult(ResultCode.CANCELLED, planId, "План отменён; разметку можно восстановить.");
+    }
+
+    public RoadResult status(RequestContext context) {
+        RoadResult denied = authorizeContext(context);
+        if (denied != null) return denied;
+        var plan = data.ownedBy(context.owner());
+        if (plan.isEmpty()) return RoadResult.failure(ResultCode.NO_ACTIVE_PLAN, "Активного плана города нет.");
+        CityArchitectPlanData.PlanView value = plan.orElseThrow();
+        CityArchitectPlanData.StageView current = currentStage(value);
+        String stage = current == null ? "все этапы завершены" : "этап " + (current.index() + 1)
+                + ": " + current.status().name().toLowerCase(Locale.ROOT);
+        return new RoadResult(ResultCode.STATUS, value.id(), "План " + value.status() + ", " + stage);
+    }
+
+    private RoadResult authorizeContext(RequestContext context) {
+        if (context == null || context.permissionLevel() < 4)
+            return RoadResult.failure(ResultCode.NO_PERMISSION, "Требуется уровень прав 4.");
+        if (context.owner() == null || context.assistant() == null)
+            return RoadResult.failure(ResultCode.ASSISTANT_MISSING, "Личный помощник не найден.");
+        return null;
+    }
+
+    private CityArchitectPlanData.PlanView authorizedPlan(RequestContext context, UUID planId) {
+        if (authorizeContext(context) != null) return null;
+        return data.plan(planId).filter(plan -> plan.owner().equals(context.owner())
+                && plan.assistant().equals(context.assistant())
+                && plan.dimension().equals(context.dimension())).orElse(null);
+    }
+
+    private static CityArchitectPlanData.StageView currentStage(CityArchitectPlanData.PlanView plan) {
+        return plan.stages().stream()
+                .filter(stage -> stage.status() != CityArchitectPlanData.StageStatus.COMPLETE)
+                .findFirst().orElse(null);
+    }
+
+    private static List<CityArchitectPlanData.BuildingPlacement> buildings(
+            UUID planId, CityArchitectPlanner.CityStage stage
+    ) {
+        return stage.buildings().stream().map(value -> new CityArchitectPlanData.BuildingPlacement(
+                stableId(planId, "building:" + stage.index() + ":" + value.role()),
+                value.schematicKey(), value.origin(), value.rotation(), stage.kind(),
+                value.width(), value.length())).toList();
+    }
+
+    private static List<CityArchitectPlanData.RoadPlacement> roads(
+            UUID planId, CityArchitectPlanner.CityStage stage
+    ) {
+        List<CityArchitectPlanData.RoadPlacement> result = new ArrayList<>();
+        for (int index = 0; index < stage.roads().size(); index++) {
+            CityArchitectPlanner.RoadPlacement value = stage.roads().get(index);
+            result.add(new CityArchitectPlanData.RoadPlacement(
+                    stableId(planId, "road:" + stage.index() + ":" + index),
+                    value.centerline(), value.width(), stage.kind()));
+        }
+        return List.copyOf(result);
+    }
+
+    private static UUID stableId(UUID planId, String value) {
+        return UUID.nameUUIDFromBytes((planId + ":" + value).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static List<CityArchitectPlanData.MarkerCell> stageMarkers(
+            CityArchitectPlanData.StageView stage
+    ) {
+        LinkedHashSet<CityArchitectPlanData.MarkerCell> result = new LinkedHashSet<>();
+        stage.roads().forEach(road -> result.addAll(roadMarkers(road.centerline())));
+        CityArchitectPlanData.MarkerKind kind = markerKind(stage.kind());
+        for (CityArchitectPlanData.BuildingPlacement building : stage.buildings()) {
+            int minX = building.origin().getX();
+            int minZ = building.origin().getZ();
+            int maxX = minX + building.width() - 1;
+            int maxZ = minZ + building.length() - 1;
+            int y = building.origin().getY();
+            for (int x = minX; x <= maxX; x++) {
+                result.add(new CityArchitectPlanData.MarkerCell(new BlockPos(x, y, minZ), kind));
+                result.add(new CityArchitectPlanData.MarkerCell(new BlockPos(x, y, maxZ), kind));
+            }
+            for (int z = minZ; z <= maxZ; z++) {
+                result.add(new CityArchitectPlanData.MarkerCell(new BlockPos(minX, y, z), kind));
+                result.add(new CityArchitectPlanData.MarkerCell(new BlockPos(maxX, y, z), kind));
+            }
+        }
+        return result.stream().limit(CityArchitectPlanData.MAX_MARKERS).toList();
+    }
+
+    private static CityArchitectPlanData.MarkerKind markerKind(CityArchitectPlanData.StageKind kind) {
+        return switch (kind) {
+            case ROADS_SQUARE, SECONDARY_INFRASTRUCTURE -> CityArchitectPlanData.MarkerKind.ROAD;
+            case ADMINISTRATION -> CityArchitectPlanData.MarkerKind.ADMINISTRATION;
+            case PRODUCTION -> CityArchitectPlanData.MarkerKind.PRODUCTION;
+            case HOUSING_HOSPITALITY -> CityArchitectPlanData.MarkerKind.HOUSING;
+            case EXPANSION -> CityArchitectPlanData.MarkerKind.WATER_PORT;
+        };
     }
 
     public static SurfaceSnapshotProvider surfaceProvider(ServerLevel level) {
@@ -239,12 +441,20 @@ public final class CityArchitectCoordinator {
 
     public enum ResultCode {
         MARKED,
+        APPROVED,
+        STAGE_COMPLETE,
+        PLAN_COMPLETE,
+        CANCELLED,
+        STATUS,
         NO_PERMISSION,
         ASSISTANT_MISSING,
         INVALID_REQUEST,
         LANDMARK_MISSING,
         LANDMARK_AMBIGUOUS,
         NO_SAFE_PATH,
+        NO_SAFE_LAYOUT,
+        NO_ACTIVE_PLAN,
+        INVALID_STATE,
         PLAN_CONFLICT
     }
 

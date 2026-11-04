@@ -88,8 +88,10 @@ public final class CityArchitectPlanData extends SavedData {
         MutableStage stage = requireCurrentStage(plan, stageId, StageStatus.PENDING);
         List<BuildingPlacement> buildingCopy = List.copyOf(Objects.requireNonNull(buildings, "buildings"));
         List<RoadPlacement> roadCopy = List.copyOf(Objects.requireNonNull(roads, "roads"));
-        int existingBuildings = plan.stages.stream().mapToInt(value -> value.buildings.size()).sum();
-        int existingRoads = plan.stages.stream().mapToInt(value -> value.roads.size()).sum();
+        int existingBuildings = plan.stages.stream().mapToInt(value -> value.buildings.size()).sum()
+                - stage.buildings.size();
+        int existingRoads = plan.stages.stream().mapToInt(value -> value.roads.size()).sum()
+                - stage.roads.size();
         if (existingBuildings + buildingCopy.size() > MAX_BUILDINGS) {
             throw new IllegalArgumentException("Plan exceeds the building limit");
         }
@@ -102,6 +104,36 @@ public final class CityArchitectPlanData extends SavedData {
         stage.roads = roadCopy;
         stage.status = StageStatus.MARKED;
         plan.status = PlanStatus.MARKED;
+        setDirty();
+    }
+
+    public synchronized void prepareStage(
+            UUID planId,
+            UUID stageId,
+            String candidateId,
+            String explanation,
+            List<BuildingPlacement> buildings,
+            List<RoadPlacement> roads
+    ) {
+        MutablePlan plan = requirePlan(planId);
+        requirePlanStatus(plan, PlanStatus.DRAFT);
+        MutableStage stage = requireStage(plan, stageId);
+        if (stage.status != StageStatus.PENDING) {
+            throw new IllegalStateException("Only a pending stage can be prepared");
+        }
+        List<BuildingPlacement> buildingCopy = List.copyOf(Objects.requireNonNull(buildings, "buildings"));
+        List<RoadPlacement> roadCopy = List.copyOf(Objects.requireNonNull(roads, "roads"));
+        int buildingsAfter = plan.stages.stream().mapToInt(value -> value.buildings.size()).sum()
+                - stage.buildings.size() + buildingCopy.size();
+        int roadsAfter = plan.stages.stream().mapToInt(value -> value.roads.size()).sum()
+                - stage.roads.size() + roadCopy.size();
+        if (buildingsAfter > MAX_BUILDINGS || roadsAfter > MAX_ROADS) {
+            throw new IllegalArgumentException("Prepared stage exceeds plan limits");
+        }
+        stage.candidateId = requireText(candidateId, "candidateId");
+        stage.explanation = requireText(explanation, "explanation");
+        stage.buildings = buildingCopy;
+        stage.roads = roadCopy;
         setDirty();
     }
 
@@ -305,8 +337,20 @@ public final class CityArchitectPlanData extends SavedData {
     }
 
     public record BuildingPlacement(
-            UUID id, String schematicKey, BlockPos origin, int rotation, StageKind stageKind
+            UUID id,
+            String schematicKey,
+            BlockPos origin,
+            int rotation,
+            StageKind stageKind,
+            int width,
+            int length
     ) {
+        public BuildingPlacement(
+                UUID id, String schematicKey, BlockPos origin, int rotation, StageKind stageKind
+        ) {
+            this(id, schematicKey, origin, rotation, stageKind, 1, 1);
+        }
+
         public BuildingPlacement {
             Objects.requireNonNull(id, "id");
             schematicKey = requireText(schematicKey, "schematicKey");
@@ -314,6 +358,9 @@ public final class CityArchitectPlanData extends SavedData {
             Objects.requireNonNull(stageKind, "stageKind");
             if (rotation < 0 || rotation > 3) {
                 throw new IllegalArgumentException("rotation must be 0..3");
+            }
+            if (width < 1 || length < 1 || width > 64 || length > 64) {
+                throw new IllegalArgumentException("Invalid building footprint");
             }
         }
     }
@@ -578,13 +625,16 @@ public final class CityArchitectPlanData extends SavedData {
         tag.putLong("Origin", value.origin().asLong());
         tag.putInt("Rotation", value.rotation());
         tag.putString("Stage", value.stageKind().name());
+        tag.putInt("Width", value.width());
+        tag.putInt("Length", value.length());
         return tag;
     }
 
     private static BuildingPlacement loadBuilding(CompoundTag tag) {
         return new BuildingPlacement(tag.getUUID("Id"), tag.getString("Key"),
                 BlockPos.of(tag.getLong("Origin")), tag.getInt("Rotation"),
-                StageKind.valueOf(tag.getString("Stage")));
+                StageKind.valueOf(tag.getString("Stage")),
+                Math.max(1, tag.getInt("Width")), Math.max(1, tag.getInt("Length")));
     }
 
     private static CompoundTag saveRoad(RoadPlacement value) {
