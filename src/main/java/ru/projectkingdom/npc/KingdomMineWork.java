@@ -187,6 +187,7 @@ public final class KingdomMineWork {
                 var lighting=KingdomMineMaintenance.lightAtCheckpoint(
                     level,npc,worker,floorCell);
                 if(lighting==KingdomMineMaintenance.Result.PLACED) {
+                    settings.markStarted(id);
                     status(level,worker,"Осветил центральный ствол на глубине "+depth);
                     return true;
                 }
@@ -216,6 +217,7 @@ public final class KingdomMineWork {
                     if(frame.walkway().equals(floorCell)) {
                         var prepare=KingdomMineSupportExcavation.tick(level,npc,worker,frame);
                         if(prepare==KingdomMineSupportExcavation.Result.EXCAVATED) {
+                            settings.markStarted(id);
                             status(level,worker,"Расчищает место для опор TFC");
                             return true;
                         }
@@ -229,6 +231,7 @@ public final class KingdomMineWork {
                         }
                         var build=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
                         if(build==KingdomMineSupportBuilder.Result.PLACED) {
+                            settings.markStarted(id);
                             status(level,worker,"Укрепляет шахту настоящими балками TFC");
                             return true;
                         }
@@ -251,6 +254,7 @@ public final class KingdomMineWork {
             if(KingdomMineMaintenance.lightPoint(lightAnchor,floorCell)) {
                 var lighting=KingdomMineMaintenance.light(level,npc,worker,lightAnchor,floorCell);
                 if(lighting==KingdomMineMaintenance.Result.PLACED) {
+                    settings.markStarted(id);
                     status(level,worker,"Установил освещение шахты");
                     return true;
                 }
