@@ -53,12 +53,11 @@ public final class KingdomMineWork {
             return false;
         BlockState state=level.getBlockState(pos);
         String id=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        if (!naturalRock(id) || !state.is(BlockTags.MINEABLE_WITH_PICKAXE)
+        var needed=KingdomMineTools.required(state);
+        if (needed==KingdomMineTools.Tool.BLOCKED
             || !state.getFluidState().isEmpty() || level.getBlockEntity(pos)!=null
             || state.getDestroySpeed(level,pos)<0) return false;
-        if (worker.fieldTool.isEmpty()
-            || !(worker.fieldTool.is(ItemTags.PICKAXES)
-                 || worker.fieldTool.getItem() instanceof PickaxeItem)
+        if (!KingdomMineTools.matches(worker.fieldTool,needed)
             || !worker.fieldTool.isCorrectToolForDrops(state)) return false;
         // Never deliberately open a liquid pocket or let loose gravel/sand fall.
         for (var direction : net.minecraft.core.Direction.values()) {
@@ -204,6 +203,17 @@ public final class KingdomMineWork {
                         }
                     }
                     status(level,worker,"Опасная порода: нет безопасного места для установки опор TFC");
+                    return false;
+                }
+                var needed=KingdomMineTools.required(level.getBlockState(target));
+                if(needed==KingdomMineTools.Tool.BLOCKED){
+                    status(level,worker,"Неподходящий блок для проходки");
+                    return false;
+                }
+                if(!KingdomMineTools.equip(level,npc,worker,needed)){
+                    status(level,worker,needed==KingdomMineTools.Tool.SHOVEL
+                        ?"Нужна лопата для грунта на складе сырья"
+                        :"Нужна кирка для камня на складе сырья");
                     return false;
                 }
                 if (!safeToBreak(level,target,worker)) {status(level,worker,"Проходка остановлена: опасная или защищённая порода");return false;}
