@@ -10,8 +10,8 @@ import net.minecraft.core.Direction;
 
 /**
  * MineColonies-like bounded central shaft:
- *  - Ten consecutive, walkable descending cells around the perimeter.
- *  - At depths 3, 6 and 10, excavate the INSIDE of the selected footprint,
+ *  - Twelve consecutive, walkable descending cells around the perimeter.
+ *  - At depths 4, 8 and 12, excavate the INSIDE of the selected footprint,
  *    preserving the outer staircase and its support floor.
  *  - Each room cell has a previously cleared adjacent approach.
  *
@@ -20,13 +20,13 @@ import net.minecraft.core.Direction;
  */
 public final class KingdomMineCentralShaftPlan {
     private KingdomMineCentralShaftPlan(){}
-    public static final int DEPTH=10;
+    public static final int DEPTH=12;
     public static final int GALLERY_LENGTH=12;
-    public static final int[] LEVELS={3,6,10};
+    public static final int[] LEVELS={4,8,12};
     public record Stage(int depth,BlockPos entrance,List<KingdomMineGalleryPlan.Cell> chamber) {}
 
     public static boolean valid(KingdomMineSettings.Shaft area,BlockPos core) {
-        if(area==null||core==null||area.width()<5||area.length()<5
+        if(area==null||core==null||area.width()<7||area.length()<7
             ||area.width()>12||area.length()>12)return false;
         BlockPos entrance=core.north();
         // The NPC enters from outside through the SOUTH wall of the shaft.
