@@ -31,10 +31,10 @@ public final class KingdomMineSettings extends SavedData {
 
     private final Map<UUID,Shaft> shafts=new HashMap<>();
     public Shaft shaft(UUID mine){return shafts.get(mine);}
-    /** Min 5x5 for a walkable access lane; max 12x12 for bounded tick cost. */
+    /** Min 7x7 for a walkable access lane; max 12x12 for bounded tick cost. */
     public boolean setShaft(UUID mine,Shaft area) {
         if(mine==null||area==null||started(mine)
-                ||area.width()<5||area.length()<5
+                ||area.width()<7||area.length()<7
                 ||area.width()>12||area.length()>12)return false;
         shafts.put(mine,area);setDirty();return true;
     }
@@ -76,7 +76,7 @@ public final class KingdomMineSettings extends SavedData {
                 var area=new Shaft(s.getInt("MinX"),s.getInt("MaxX"),
                     s.getInt("MinZ"),s.getInt("MaxZ"),
                     s.getInt("SurfaceY"),s.getString("Dimension"));
-                if(area.width()>=5&&area.length()>=5&&area.width()<=12&&area.length()<=12)
+                if(area.width()>=7&&area.length()>=7&&area.width()<=12&&area.length()<=12)
                     data.shafts.put(id,area);
             }
         }
