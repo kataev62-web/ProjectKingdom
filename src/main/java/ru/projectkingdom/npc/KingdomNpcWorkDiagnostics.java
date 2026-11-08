@@ -112,6 +112,12 @@ public final class KingdomNpcWorkDiagnostics {
         if(w.contractPaused)work=warn("Зарплата не выплачена");
         else if(w.employer==null&&KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)==null)
             work=good("Ищет работу");
+        else if("miner".equals(w.job)){
+            var mine=KingdomMineSite.inspect(level.getServer(),level,w);
+            work=!mine.ready()?warn("Шахтёр: "+mine.reason())
+                :good("Шахтёр: "+(w.mineStatus==null||w.mineStatus.isBlank()
+                    ?"готов к добыче":w.mineStatus));
+        }
         else if("lumberjack".equals(w.job))work=forestry(level,w);
         else if("smith".equals(w.job))work=smith(level,w);
         else if(!w.hasSource&&KingdomNpcDuty.hasPhysicalExecutor(w.job))
