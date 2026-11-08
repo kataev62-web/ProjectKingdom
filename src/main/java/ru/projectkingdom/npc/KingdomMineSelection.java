@@ -117,7 +117,11 @@ public final class KingdomMineSelection {
             surfaceY,p.dimension());
         // The enterprise core does not have to touch the south wall and
         // does not need to share the selected area's Y coordinate.
-        if(!KingdomMineSettings.get(player.getServer()).setShaft(p.mine(),area))return true;
+        var mineSettings=KingdomMineSettings.get(player.getServer());
+        if(!mineSettings.setShaft(p.mine(),area))return true;
+        // Surveying a vertical shaft is explicit intent to use DOWN mode.
+        // Otherwise new mines silently remain in the default FORWARD mode.
+        mineSettings.choose(p.mine(),KingdomMineSettings.Start.DOWN);
         cancel(player.getUUID());
         ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
             ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,false);
@@ -125,7 +129,7 @@ public final class KingdomMineSelection {
             +width+"×"+length+", глубина "
             +(KingdomMineSettings.get(player.getServer()).levels(p.mine())*5)
             +". Схема сохранена. Вход рассчитан по центру южной стены. "
-            +"Режим и направление выбираются в блоке предприятия."));
+            +"Режим «Сразу вниз» включён автоматически. Направление галерей — в блоке предприятия."));
         return true;
     }
 }
