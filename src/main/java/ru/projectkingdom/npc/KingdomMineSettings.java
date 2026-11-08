@@ -36,10 +36,16 @@ public final class KingdomMineSettings extends SavedData {
         if(mine==null||area==null||started(mine)
                 ||area.width()<5||area.length()<5
                 ||area.width()>12||area.length()>12)return false;
-        shafts.put(mine,area);setDirty();return true;
+        shafts.put(mine,area);
+        // Selecting a central shaft is the explicit DOWN mode choice.
+        starts.put(mine,Start.DOWN);
+        explicitDirections.remove(mine);
+        setDirty();return true;
     }
 
     private final Map<UUID,Start> starts=new HashMap<>();
+    /** Distinguish an explicitly selected FORWARD route from the old default. */
+    private final java.util.Set<UUID> explicitDirections=new java.util.HashSet<>();
     private final java.util.Set<UUID> started=new java.util.HashSet<>();
 
     public static KingdomMineSettings get(MinecraftServer server){
@@ -58,7 +64,9 @@ public final class KingdomMineSettings extends SavedData {
     /** Caller must validate owner and enterprise kind; cannot reroute an active mine. */
     public boolean choose(UUID mine,Start next){
         if(mine==null||next==null||started.contains(mine))return false;
-        if(start(mine)!=next){starts.put(mine,next);setDirty();}
+        if(start(mine)!=next || explicitDirections.add(mine)){
+            starts.put(mine,next);setDirty();
+        }
         return true;
     }
 
@@ -69,7 +77,10 @@ public final class KingdomMineSettings extends SavedData {
             CompoundTag t=entries.getCompound(i);
             if(!t.hasUUID("Id"))continue;
             UUID id=t.getUUID("Id");
-            if("DOWN".equals(t.getString("Start")))data.starts.put(id,Start.DOWN);
+            String route=t.getString("Start");
+            if("DOWN".equals(route))data.starts.put(id,Start.DOWN);
+            if("FORWARD".equals(route))data.starts.put(id,Start.FORWARD);
+            if(t.getBoolean("RouteExplicit"))data.explicitDirections.add(id);
             if(t.getBoolean("Started"))data.started.add(id);
             if(t.contains("Shaft",Tag.TAG_COMPOUND)){
                 CompoundTag s=t.getCompound("Shaft");
@@ -80,6 +91,12 @@ public final class KingdomMineSettings extends SavedData {
                     data.shafts.put(id,area);
             }
         }
+        // Old saved worlds recorded FORWARD even after a central shaft was
+        // selected because the menu forgot to switch direction. Migrate only
+        // mines that never dug a block. Explicit new-version choices survive.
+        for(UUID id:data.shafts.keySet())
+            if(!data.started.contains(id)&&!data.explicitDirections.contains(id))
+                data.starts.put(id,Start.DOWN);
         return data;
     }
 
@@ -92,6 +109,7 @@ public final class KingdomMineSettings extends SavedData {
             CompoundTag tag=new CompoundTag();
             tag.putUUID("Id",id);
             tag.putString("Start",start(id).name());
+            tag.putBoolean("RouteExplicit",explicitDirections.contains(id));
             tag.putBoolean("Started",started.contains(id));
             Shaft area=shafts.get(id);
             if(area!=null){
