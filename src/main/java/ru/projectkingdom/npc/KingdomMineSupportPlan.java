@@ -20,12 +20,21 @@ public final class KingdomMineSupportPlan {
 
     /** At depth 5/10/15/20 of each level, posts are two blocks apart. */
     public static List<Frame> frames(BlockPos entrance) {
-        if (entrance == null) return List.of();
-        List<Frame> result = new ArrayList<>();
-        for (int distance=SPACING; distance<=KingdomMineGalleryPlan.MAIN_LENGTH; distance+=SPACING) {
-            BlockPos center=entrance.north(distance);
-            result.add(new Frame(center.west(),center.east(),center.above(2),
-                    center,distance));
+        return frames(entrance,net.minecraft.core.Direction.NORTH,
+            KingdomMineGalleryPlan.MAIN_LENGTH);
+    }
+
+    public static List<Frame> frames(BlockPos entrance,net.minecraft.core.Direction heading,
+            int length) {
+        if(entrance==null||heading==null||heading.getAxis().isVertical()
+            ||length<SPACING)return List.of();
+        List<Frame> result=new ArrayList<>();
+        for(int distance=SPACING;distance<=length;distance+=SPACING){
+            BlockPos center=entrance.relative(heading,distance);
+            boolean eastWest=heading.getAxis()==net.minecraft.core.Direction.Axis.Z;
+            result.add(new Frame(eastWest?center.west():center.north(),
+                eastWest?center.east():center.south(),
+                center.above(2),center,distance));
         }
         return List.copyOf(result);
     }
