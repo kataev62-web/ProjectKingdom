@@ -25,6 +25,13 @@ public final class KingdomMineStructurePlan {
         if(area==null||!isLevel(depth)||area.width()<7||area.length()<7)
             return List.of();
         int y=area.surfaceY()-depth-1;
+        BlockPos reserved=null;
+        if(core!=null&&depth<KingdomMineCentralShaftPlan.DEPTH)
+            for(var cell:KingdomMineCentralShaftPlan.cells(core,area))
+                if(cell.target().getY()==y
+                    &&cell.approach().getY()==y+1){
+                    reserved=cell.target();break;
+                }
         List<BlockPos> result=new ArrayList<>();
         for(int x=area.minX();x<=area.maxX();x++)
             for(int z=area.minZ();z<=area.maxZ();z++){
@@ -33,11 +40,7 @@ public final class KingdomMineStructurePlan {
                 if(edge<FLOOR_BAND){
                     BlockPos at=new BlockPos(x,y,z);
                     // The following descending stair step must stay open.
-                    if(core!=null && depth<KingdomMineCentralShaftPlan.DEPTH
-                        && KingdomMineCentralShaftPlan.cells(core,area).stream()
-                            .anyMatch(cell->cell.target().equals(at)
-                                &&cell.approach().getY()==at.getY()+1))
-                        continue;
+                    if(at.equals(reserved))continue;
                     result.add(at);
                 }
             }
