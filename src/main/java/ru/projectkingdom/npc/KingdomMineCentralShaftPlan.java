@@ -138,6 +138,21 @@ public final class KingdomMineCentralShaftPlan {
         return plan;
     }
 
+    /** Last physical cell of a gallery for a chosen horizon and heading. */
+    public static BlockPos galleryEnd(KingdomMineSettings.Shaft area,
+            int depth,KingdomMineSettings.Heading heading) {
+        if(area==null||heading==null||depth<1)return null;
+        int x=(area.minX()+area.maxX())/2;
+        int z=(area.minZ()+area.maxZ())/2;
+        BlockPos edge=switch(heading){
+            case NORTH -> new BlockPos(x,area.surfaceY()-depth,area.minZ());
+            case SOUTH -> new BlockPos(x,area.surfaceY()-depth,area.maxZ());
+            case WEST -> new BlockPos(area.minX(),area.surfaceY()-depth,z);
+            case EAST -> new BlockPos(area.maxX(),area.surfaceY()-depth,z);
+        };
+        return edge.relative(heading.direction(),GALLERY_LENGTH);
+    }
+
     private static boolean inside(KingdomMineSettings.Shaft a,BlockPos p) {
         return p.getX()>=a.minX()&&p.getX()<=a.maxX()
             &&p.getZ()>=a.minZ()&&p.getZ()<=a.maxZ();
