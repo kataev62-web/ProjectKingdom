@@ -133,9 +133,11 @@ public final class KingdomMineStructureWork {
 
     public static Result floorAt(ServerLevel level,Villager npc,
             KingdomNpcData.Worker worker,KingdomMineSettings.Shaft area,
-            int depth,BlockPos core) {
+            int depth,BlockPos core,int levels,
+            KingdomMineSettings.Heading heading) {
         if(!KingdomMineStructurePlan.isLevel(depth))return Result.READY;
-        for(BlockPos pos:KingdomMineStructurePlan.flooring(area,depth,core)) {
+        for(BlockPos pos:KingdomMineStructurePlan.flooring(
+                area,depth,core,levels,heading)) {
             Result result=plank(level,npc,worker,pos);
             if(result!=Result.READY)return result;
         }
