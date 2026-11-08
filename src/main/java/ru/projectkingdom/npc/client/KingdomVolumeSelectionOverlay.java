@@ -56,7 +56,7 @@ public final class KingdomVolumeSelectionOverlay {
         int y1=Math.min(first.getY(),second.getY()),y2=Math.max(first.getY(),second.getY());
         int z1=Math.min(first.getZ(),second.getZ()),z2=Math.max(first.getZ(),second.getZ());
         if(current.mode()==KingdomVolumeSelectionPacket.WAREHOUSE)y2=Math.max(y1+2,y2);
-        if(current.mode()==KingdomVolumeSelectionPacket.MINE){y1=y2-current.depth();y2=y2-1;}
+        if(current.mode()==KingdomVolumeSelectionPacket.MINE){y1=y2+1-current.depth();}
         return new AABB(x1,y1,z1,x2+1,y2+1,z2+1);
     }
     @SubscribeEvent public static void world(RenderLevelStageEvent e){
