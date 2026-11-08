@@ -36,6 +36,12 @@ public final class KingdomNpcWorkday {
         // Couriers use physical pickup/delivery coordinates from assigned paid orders;
         // they do not require a fixed personal raw/finished warehouse.
         if (kind == KingdomNpcDuty.Kind.DELIVERY) return true;
+        // A mine uses the enterprise's surveyed area, not a craft workstation.
+        // Do not route a miner through the generic FIELD depot as its worksite.
+        if ("miner".equals(worker.job)) {
+            var mine=KingdomMineSite.inspect(server,level,worker);
+            return mine.ready();
+        }
         if (site(server, level, worker) == null) return false;
         return switch (kind) {
             case NONE, DELIVERY -> false;
@@ -65,6 +71,10 @@ public final class KingdomNpcWorkday {
                 || KingdomNpcFarmOwner.workOwner(level,worker) == null) return null;
         var land = KingdomTerritories.get(server);
         var kind = KingdomNpcDuty.kind(worker.job);
+        if ("miner".equals(worker.job)) {
+            var mine=KingdomMineSite.inspect(server,level,worker);
+            return mine.ready()?mine.entrance():null;
+        }
         if ("lumberjack".equals(worker.job)) {
             BlockPos forest=KingdomTfcForestry.workSite(level,worker);
             if(forest!=null)return forest;
