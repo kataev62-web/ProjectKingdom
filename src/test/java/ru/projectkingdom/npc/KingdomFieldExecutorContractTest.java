@@ -21,7 +21,7 @@ final class KingdomFieldExecutorContractTest {
     @Test void realFallenItemCollectionRespectsOwnershipAndNoFakeStock() throws Exception {
         var forest=code("KingdomTfcForestry.java");
         assertTrue(forest.contains("entity.getOwner()"));
-        assertTrue(forest.contains("!owner.equals(worker.employer)"));
+        assertTrue(forest.contains("!itemOwner.getUUID().equals(worker.employer)"));
         assertTrue(forest.contains("ownedHarvestLand(level,entity.blockPosition(),worker.employer)"));
         assertTrue(forest.contains("area.inside(entity.blockPosition())"));
         assertTrue(forest.contains("NpcFieldWork.canFit(worker,List.of(stack))"));
