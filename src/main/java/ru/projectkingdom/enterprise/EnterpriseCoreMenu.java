@@ -32,7 +32,7 @@ import ru.projectkingdom.npc.KingdomForestMenu;
 
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
-    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,REGISTER_BUILDING=113,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123;
+    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,REGISTER_BUILDING=113,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123,OPEN_MINE_SURVEY=124,MINE_START=125,MINE_LEVELS=126,MINE_HEADING=127;
     public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190,MIGRATE_CASH=191;
     private record Closing(UUID enterprise,long expiration) {}
     private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
@@ -82,24 +82,26 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     private final boolean applied;
     private final Inventory inventory;private final BlockPos corePos;private final UUID enterpriseId;private final EnterpriseKind kind;
     private final String enterpriseName;private final UUID owner;private final long cash;private final int workers;private final long debt;
-    private final String cashboxState,rawState,finishedState,buildingState;private final boolean manager;
+    private final String cashboxState,rawState,finishedState,buildingState,mineSummary;private final boolean manager;
 
     public EnterpriseCoreMenu(int id,Inventory inventory,FriendlyByteBuf buffer){
         this(id,inventory,buffer.readBlockPos(),buffer.readUUID(),EnterpriseKind.byId(buffer.readUtf(24)),buffer.readUtf(48),
                 buffer.readUUID(),buffer.readLong(),buffer.readInt(),buffer.readLong(),buffer.readUtf(96),buffer.readUtf(96),buffer.readUtf(96),buffer.readBoolean(),
                 readOffers(buffer),buffer.readVarInt(),buffer.readUtf(32),buffer.readBoolean(),
-                readStockLines(buffer),readStockLines(buffer),buffer.readUtf(180));
+                readStockLines(buffer),readStockLines(buffer),buffer.readUtf(180),
+                buffer.readUtf(180));
     }
     private EnterpriseCoreMenu(int id,Inventory inventory,BlockPos pos,UUID enterprise,EnterpriseKind kind,String name,UUID owner,
                                long cash,int workers,long debt,String cashbox,String raw,String finished,boolean manager,
                                List<ShopOffer> offers,int applications,String firstApplicant,boolean applied,
-                               List<StockLine> rawStocks,List<StockLine> finishedStocks,String buildingState){
+                               List<StockLine> rawStocks,List<StockLine> finishedStocks,
+                               String buildingState,String mineSummary){
         super(KingdomEnterpriseRegistry.CORE_MENU.get(),id);this.inventory=inventory;this.corePos=pos;this.enterpriseId=enterprise;this.kind=kind;
         this.enterpriseName=name;this.owner=owner;this.cash=cash;this.workers=workers;this.debt=debt;
         this.cashboxState=cashbox;this.rawState=raw;this.finishedState=finished;this.manager=manager;
         this.publicOffers=List.copyOf(offers);this.applications=applications;this.firstApplicant=firstApplicant;this.applied=applied;
         this.rawStocks=List.copyOf(rawStocks);this.finishedStocks=List.copyOf(finishedStocks);
-        this.buildingState=buildingState;
+        this.buildingState=buildingState;this.mineSummary=mineSummary;
     }
     private static List<ShopOffer> readOffers(FriendlyByteBuf buffer) {
         int size=Math.min(4,Math.max(0,buffer.readVarInt()));
@@ -153,12 +155,14 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
         final String actualBuilding=manager
                 ?EnterpriseBuildingRegistration.get(player.getServer()).status(player,firm.id(),core.getBlockPos())
                 :"";
+        final String mineSummary=manager&&core.kind()==EnterpriseKind.MINE
+            ?mineSummary(player.getServer(),firm.id()):"";
         NetworkHooks.openScreen(player,new MenuProvider(){
             @Override public Component getDisplayName(){return Component.literal(firm.name());}
             @Override public AbstractContainerMenu createMenu(int id,Inventory inv,Player ignored){
                 return new EnterpriseCoreMenu(id,inv,core.getBlockPos(),firm.id(),core.kind(),firm.name(),
                     firm.owner(),visibleCash,workerCount,visibleDebt,cashState,rawState,finishedState,manager,
-                    offers,count,applicant,applied,rawInventory,finishedInventory,actualBuilding);
+                    offers,count,applicant,applied,rawInventory,finishedInventory,actualBuilding,mineSummary);
             }
         },buffer->{
             buffer.writeBlockPos(core.getBlockPos());buffer.writeUUID(firm.id());
@@ -173,8 +177,20 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
             buffer.writeVarInt(count);buffer.writeUtf(applicant,32);buffer.writeBoolean(applied);
             writeStockLines(buffer,rawInventory);writeStockLines(buffer,finishedInventory);
             buffer.writeUtf(actualBuilding,180);
+            buffer.writeUtf(mineSummary,180);
         });
     }
+    private static String mineSummary(net.minecraft.server.MinecraftServer server,UUID id){
+        var settings=ru.projectkingdom.npc.KingdomMineSettings.get(server);
+        var shaft=settings.shaft(id);
+        return "Начало: "+settings.start(id).label()
+            +" | Горизонтов: "+settings.levels(id)
+            +" (шаг 5, глубина "+(settings.levels(id)*5)+")"
+            +" | Галереи: "+settings.heading(id).label()
+            +" | Ствол: "+(shaft==null?"не размечен":shaft.width()+"×"+shaft.length())
+            +(settings.started(id)?" | Проходка началась":"");
+    }
+
     private static String status(ServerPlayer player,KingdomEnterpriseData data,UUID firm,EnterpriseBindingRole role){
         return EnterpriseAccessService.display(
             EnterpriseAccessService.snapshot(player.serverLevel(),data,firm,role).status());
@@ -182,7 +198,8 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public UUID enterpriseId(){return enterpriseId;}public EnterpriseKind kind(){return kind;}public String enterpriseName(){return enterpriseName;}
     public UUID owner(){return owner;}public long cash(){return cash;}public int workers(){return workers;}public long debt(){return debt;}
     public String cashboxState(){return cashboxState;}public String rawState(){return rawState;}public String finishedState(){return finishedState;}
-    public String buildingState(){return buildingState;}public boolean manager(){return manager;}
+    public String buildingState(){return buildingState;}public String mineSummary(){return mineSummary;}
+    public boolean manager(){return manager;}
     public List<ShopOffer> publicOffers(){return publicOffers;}
     public int applications(){return applications;}
     public String firstApplicant(){return firstApplicant;}
@@ -191,6 +208,41 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
     public List<StockLine> finishedStocks(){return finishedStocks;}
     @Override public boolean clickMenuButton(Player player,int action){
         if(!(player instanceof ServerPlayer server)||!stillValid(player))return false;var data=KingdomEnterpriseData.get(server.getServer());
+        if(kind==EnterpriseKind.MINE
+            &&(action==OPEN_MINE_SURVEY||action==MINE_START
+                ||action==MINE_LEVELS||action==MINE_HEADING)){
+            var enterprise=data.find(enterpriseId);
+            if(enterprise==null||!enterprise.owner().equals(server.getUUID())
+                ||data.kind(enterpriseId)!=EnterpriseKind.MINE)return false;
+            var settings=ru.projectkingdom.npc.KingdomMineSettings.get(server.getServer());
+            if(action==OPEN_MINE_SURVEY){
+                boolean ok=ru.projectkingdom.npc.KingdomMineSelection.begin(server,enterpriseId);
+                if(ok)server.closeContainer();
+                else server.sendSystemMessage(Component.literal(
+                    "[Шахта] Разметка заблокирована: проверь права, ядро и начало работ."));
+                return ok;
+            }
+            if(settings.started(enterpriseId)){
+                server.sendSystemMessage(Component.literal(
+                    "[Шахта] Проходка уже началась: проект зафиксирован."));
+                return false;
+            }
+            boolean ok=switch(action){
+                case MINE_START -> settings.choose(enterpriseId,
+                    settings.start(enterpriseId)==ru.projectkingdom.npc.KingdomMineSettings.Start.DOWN
+                        ?ru.projectkingdom.npc.KingdomMineSettings.Start.FORWARD
+                        :ru.projectkingdom.npc.KingdomMineSettings.Start.DOWN);
+                case MINE_LEVELS -> settings.chooseLevels(enterpriseId,
+                    settings.levels(enterpriseId)%ru.projectkingdom.npc.KingdomMineSettings.MAX_LEVELS+1);
+                case MINE_HEADING -> settings.chooseHeading(enterpriseId,
+                    settings.heading(enterpriseId).next());
+                default -> false;
+            };
+            server.sendSystemMessage(Component.literal("[Шахта] "
+                +(ok?mineSummary(server.getServer(),enterpriseId):"Изменение отклонено.")
+                +" (обновите экран, чтобы увидеть значение)."));
+            return ok;
+        }
         if(action==REGISTER_BUILDING){
             if(!data.mayManage(server.getUUID(),enterpriseId))return false;
             boolean started=EnterpriseBuildingSelection.begin(server,enterpriseId);
