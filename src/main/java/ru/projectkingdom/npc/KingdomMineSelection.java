@@ -40,7 +40,7 @@ public final class KingdomMineSelection {
             ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,true);
         player.sendSystemMessage(Component.literal(
             "[Шахта] Выдели два противоположных угла ЦЕНТРАЛЬНОГО СТВОЛА на одном уровне: "
-            +"Shift+ПКМ пустой рукой. Размер 5×5 ... 12×12 блоков, глубина 10. "
+            +"Shift+ПКМ пустой рукой. Размер 7×7 ... 12×12 блоков, глубина 12. "
             +"Участок должен принадлежать владельцу шахты."));
         return true;
     }
@@ -92,17 +92,17 @@ public final class KingdomMineSelection {
         int width=maxX-minX+1,length=maxZ-minZ+1;
         var core=firms.core(p.mine());
         if(core==null||!core.active()||!core.dimension().equals(p.dimension())
-            ||first.getY()!=at.getY()||width<5||length<5||width>12||length>12){
-            player.sendSystemMessage(Component.literal("[Шахта] Нужен прямоугольник от 5×5 до 12×12 на одной высоте. Повтори второй угол."));
+            ||first.getY()!=at.getY()||width<7||length<7||width>12||length>12){
+            player.sendSystemMessage(Component.literal("[Шахта] Нужен прямоугольник от 7×7 до 12×12 на одной высоте. Повтори второй угол."));
             return true;
         }
         var territory=KingdomTerritories.get(player.getServer());
         for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++) {
-            for(int y=at.getY()-10;y<=at.getY();y++) {
+            for(int y=at.getY()-12;y<=at.getY();y++) {
                 BlockPos cell=new BlockPos(x,y,z);
                 if(!level.hasChunkAt(cell)
                     ||!territory.canUse(level,cell,company.owner())){
-                    player.sendSystemMessage(Component.literal("[Шахта] Вся область и 10 блоков вниз должны быть загружены и принадлежать владельцу."));
+                    player.sendSystemMessage(Component.literal("[Шахта] Вся область и 12 блоков вниз должны быть загружены и принадлежать владельцу."));
                     return true;
                 }
             }
@@ -121,7 +121,7 @@ public final class KingdomMineSelection {
         ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
             ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,false);
         player.sendSystemMessage(Component.literal("[Шахта] Центральный ствол: "
-            +width+"×"+length+", глубина 10. Схема сохранена. "
+            +width+"×"+length+", глубина 12. Схема сохранена. "
             +"Включи «Сразу вниз» в меню NPC."));
         return true;
     }
