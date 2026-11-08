@@ -45,21 +45,36 @@ public final class KingdomMineWork {
             || KingdomTfcFieldRules.ore(id);
     }
 
+    /** Natural surface dirt often covers the first step of a TFC shaft.
+     * It must be removable before the miner can reach stone beneath it.
+     */
+    static boolean surfaceSoil(String id) {
+        return "minecraft:dirt".equals(id) || "minecraft:grass_block".equals(id)
+            || "minecraft:coarse_dirt".equals(id)
+            || id.startsWith("tfc:soil/dirt/")
+            || id.startsWith("tfc:soil/grass/")
+            || id.startsWith("tfc:soil/grass_path/")
+            || id.startsWith("tfc:soil/coarse_dirt/");
+    }
+
     static boolean safeToBreak(ServerLevel level, BlockPos pos,
                                        KingdomNpcData.Worker worker) {
         if (!level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
             || pos.getY() >= level.getMaxBuildHeight() - 3
-            || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,pos)))
+            || worker.employer==null
+            || !KingdomTfcForestry.ownedHarvestLand(level,pos,worker.employer))
             return false;
         BlockState state=level.getBlockState(pos);
         String id=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        if (!naturalRock(id) || !state.is(BlockTags.MINEABLE_WITH_PICKAXE)
+        boolean rock=naturalRock(id);
+        boolean surface=surfaceSoil(id);
+        if ((!rock&&!surface) || (rock&&!state.is(BlockTags.MINEABLE_WITH_PICKAXE))
             || !state.getFluidState().isEmpty() || level.getBlockEntity(pos)!=null
             || state.getDestroySpeed(level,pos)<0) return false;
         if (worker.fieldTool.isEmpty()
             || !(worker.fieldTool.is(ItemTags.PICKAXES)
                  || worker.fieldTool.getItem() instanceof PickaxeItem)
-            || !worker.fieldTool.isCorrectToolForDrops(state)) return false;
+            || (rock && !worker.fieldTool.isCorrectToolForDrops(state))) return false;
         // Never deliberately open a liquid pocket or let loose gravel/sand fall.
         for (var direction : net.minecraft.core.Direction.values()) {
             BlockPos neighbor=pos.relative(direction);
@@ -75,12 +90,21 @@ public final class KingdomMineWork {
      * and supported by a floor; the NPC must physically approach that cell.
      */
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker) {
-        if (!"miner".equals(worker.job) || worker.employer==null
-            || worker.contractPaused || !KingdomNpcWorkday.employed(level.getServer(),worker)
-            || !worker.hasSource || !worker.hasDestination
-            || !worker.dimension.equals(level.dimension().location().toString())
-            || !"work".equals(worker.order) && !"wander".equals(worker.order))
-            return false;
+        if (!"miner".equals(worker.job))return false;
+        if(worker.employer==null){status(level,worker,"Нет работодателя шахты");return false;}
+        if(worker.contractPaused){status(level,worker,"Шахтёр: работа остановлена из-за задолженности");return false;}
+        if(!KingdomNpcWorkday.employed(level.getServer(),worker)){
+            status(level,worker,"Шахтёр: нет действующего трудового договора");return false;
+        }
+        if(!worker.hasSource||!worker.hasDestination){
+            status(level,worker,"Шахтёр: назначь склады сырья и продукции");return false;
+        }
+        if(!worker.dimension.equals(level.dimension().location().toString())){
+            status(level,worker,"Шахтёр: неправильное измерение");return false;
+        }
+        if(!"work".equals(worker.order)&&!"wander".equals(worker.order)){
+            status(level,worker,"Шахтёр: включи приказ Работать");return false;
+        }
 
         UUID id;
         try { id=UUID.fromString(worker.workplaceId); }
@@ -93,7 +117,9 @@ public final class KingdomMineWork {
             || !mine.owner().equals(worker.employer)
             || !binding.dimension().equals(worker.dimension)) {status(level,worker,"Нет действующей шахты");return false;}
         BlockPos core=BlockPos.of(binding.packedPos());
-        if (!level.hasChunkAt(core)) return false;
+        if (!level.hasChunkAt(core)){
+            status(level,worker,"Шахтёр: чанк ядра шахты не загружен");return false;
+        }
         int carried=KingdomMineCargo.minedCount(worker);
         // Construction stock is not finished ore. Deposit on cargo threshold,
         // and let the shared physical route bring the miner back to the depot.
@@ -101,7 +127,13 @@ public final class KingdomMineWork {
             status(level,worker,"Доставка добычи на склад");
             return NpcFieldWork.deposit(level,npc,worker);
         }
-        if (!NpcFieldWork.borrowTool(level,npc,worker)) {status(level,worker,"Нужна исправная кирка на складе сырья");return false;}
+        if (!NpcFieldWork.borrowTool(level,npc,worker)) {
+            status(level,worker,"Шахтёр: идёт за киркой или кирки нет на складе");return false;
+        }
+        if(!(worker.fieldTool.is(ItemTags.PICKAXES)
+                || worker.fieldTool.getItem() instanceof PickaxeItem)){
+            status(level,worker,"Шахтёр: в руках не кирка; убери другой инструмент");return false;
+        }
 
         var settings=KingdomMineSettings.get(level.getServer());
         var start=settings.start(id);
@@ -130,22 +162,32 @@ public final class KingdomMineWork {
             BlockPos previous=cell.approach();
             if (!level.hasChunkAt(floorCell) || !level.hasChunkAt(previous)
                 || !level.hasChunkAt(floorCell.below())
-                || !level.hasChunkAt(previous.above())) return false;
+                || !level.hasChunkAt(previous.above())){
+                status(level,worker,"Шахтёр: не загружен участок "+floorCell.toShortString());return false;
+            }
             // Only horizontal moves or exactly one downward step are allowed.
             int deltaY=previous.getY()-floorCell.getY();
-            if(deltaY<0 || deltaY>1 || previous.distManhattan(floorCell)!=1+deltaY)
-                return false;
+            if(deltaY<0 || deltaY>1 || previous.distManhattan(floorCell)!=1+deltaY){
+                status(level,worker,"Шахтёр: ошибка геометрии маршрута "+floorCell.toShortString());return false;
+            }
             // Do not enter a void, cave opening or flooded unsupported cell.
             if (level.getBlockState(floorCell.below()).isAir()
-                || !level.getFluidState(floorCell.below()).isEmpty()) return false;
+                || !level.getFluidState(floorCell.below()).isEmpty()){
+                status(level,worker,"Шахтёр: нет устойчивого пола под "+floorCell.toShortString());return false;
+            }
             if (!KingdomMineMaintenance.passable(level.getBlockState(previous))
                 || !level.getBlockState(previous.above()).isAir()
                 || level.getBlockState(previous.below()).isAir()
-                || !level.getFluidState(previous).isEmpty()) return false;
+                || !level.getFluidState(previous).isEmpty()){
+                status(level,worker,"Шахтёр: подход к выработке заблокирован у "+previous.toShortString());
+                return false;
+            }
             for (int height=0;height<2;height++) {
                 BlockPos target=floorCell.above(height);
                 if (KingdomMineMaintenance.passable(level.getBlockState(target))) {
-                    if (!level.getFluidState(target).isEmpty()) return false;
+                    if (!level.getFluidState(target).isEmpty()){
+                        status(level,worker,"Шахтёр: обнаружена жидкость у "+target.toShortString());return false;
+                    }
                     continue;
                 }
                 var supportSafety=KingdomMineSupportSafety.inspect(level,target);
@@ -209,7 +251,12 @@ public final class KingdomMineWork {
                     status(level,worker,"Опасная порода: нет безопасного места для установки опор TFC");
                     return false;
                 }
-                if (!safeToBreak(level,target,worker)) {status(level,worker,"Проходка остановлена: опасная или защищённая порода");return false;}
+                if (!safeToBreak(level,target,worker)) {
+                    String material=BuiltInRegistries.BLOCK.getKey(level.getBlockState(target).getBlock()).toString();
+                    status(level,worker,"Шахтёр: нельзя копать "+material+" у "+target.toShortString()
+                        +" (территория, инструмент или опасная порода)");
+                    return false;
+                }
                 if (npc.distanceToSqr(previous.getX()+0.5,
                     previous.getY(),previous.getZ()+0.5)>REACH_SQR) {
                     if(!npc.getNavigation().moveTo(previous.getX()+0.5,
@@ -222,7 +269,10 @@ public final class KingdomMineWork {
                 var drops=Block.getDrops(state,level,target,level.getBlockEntity(target),
                     npc,worker.fieldTool);
                 if (!NpcFieldWork.canFit(worker,drops)) {status(level,worker,"Сумка переполнена");return false;}
-                if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)) return false;
+                if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)){
+                    status(level,worker,"Шахтёр: Minecraft отклонил разрушение "+target.toShortString());
+                    return false;
+                }
                 settings.markStarted(id);
                 for (ItemStack stack:drops) NpcFieldWork.put(worker,stack);
                 worker.fieldTool.hurt(1,level.random,null);
