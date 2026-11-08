@@ -20,7 +20,7 @@ class KingdomMineCentralShaftPlanTest {
         assertFalse(plan.isEmpty());
         assertTrue(plan.size()>depth);
         var visited=new HashSet<BlockPos>();
-        visited.add(core.north());
+        visited.add(KingdomMineCentralShaftPlan.entrance(shaft));
         int stepsDown=0;
         for(int i=0;i<plan.size();i++){
             var cell=plan.get(i);
@@ -62,10 +62,24 @@ class KingdomMineCentralShaftPlanTest {
     @Test void rejectsSmallAndUnreachableShafts() {
         assertFalse(KingdomMineCentralShaftPlan.valid(
             area(6,7),new BlockPos(3,80,7)));
-        assertFalse(KingdomMineCentralShaftPlan.valid(
-            area(7,7),new BlockPos(3,79,7)));
+        // The business block can be elsewhere and at a different elevation.
+        assertTrue(KingdomMineCentralShaftPlan.valid(
+            area(7,7),new BlockPos(100,65,-200)));
+        assertEquals(new BlockPos(3,80,7),
+            KingdomMineCentralShaftPlan.entrance(area(7,7)));
         assertTrue(KingdomMineCentralShaftPlan.cells(
             null,area(7,7),3,KingdomMineSettings.Heading.NORTH).isEmpty());
+    }
+
+    @Test void surveyedShaftDoesNotDependOnBusinessBlockCoordinates() {
+        var shaft=area(7,7);
+        var near=new BlockPos(3,80,7);
+        var remote=new BlockPos(-1991,78,731);
+        assertEquals(KingdomMineCentralShaftPlan.cells(near,shaft,3,
+                KingdomMineSettings.Heading.NORTH),
+            KingdomMineCentralShaftPlan.cells(remote,shaft,3,
+                KingdomMineSettings.Heading.NORTH));
+        assertTrue(KingdomMineCentralShaftPlan.valid(shaft,remote));
     }
 
     @Test void locksChangesAfterRealWorkBegins() {
