@@ -341,6 +341,55 @@ public final class KingdomTfcForestry {
         }
         return false;
     }
+    /** Nearest native-compatible tree that also passes the *entire* land and
+     * canopy safety preflight. Previously we always retried the nearest
+     * candidate even when safeTree rejected it, starving all later trees.
+     * No chunks are loaded or modified during this search.
+     */
+    static BlockPos nearestSafeTree(ServerLevel level,BlockPos observer,
+                                   KingdomNpcData.Worker worker,KingdomForestData.Area area) {
+        if(!init() || !axe(worker.fieldTool))return null;
+        String species=wood(area.sapling());
+        if(species.isBlank())return null;
+        List<BlockPos> roots=new ArrayList<>();
+        for(int x=area.minX();x<=area.maxX();x++)
+            for(int z=area.minZ();z<=area.maxZ();z++)
+                for(int y=area.y()-2;y<=area.y()+16;y++){
+                    BlockPos pos=new BlockPos(x,y,z);
+                    if(!level.hasChunkAt(pos)||!treeLog(level,pos,species)
+                        ||!authorized(level,pos,worker.employer,area)
+                        ||!validRoot(level,pos,worker.fieldTool))continue;
+                    roots.add(pos);
+                }
+        roots.sort(Comparator.comparingDouble(p->p.distSqr(observer)));
+        // Every candidate must pass its own bounded connected-tree preflight.
+        for(BlockPos root:roots)
+            if(!safeTree(level,root,worker.employer,area,species).isEmpty())
+                return root;
+        return null;
+    }
+
+    /** Read-only explanation for the owner; never claim that cutting is underway
+     * just because the TFC API and an axe exist.
+     */
+    public static String harvestBlocker(ServerLevel level,KingdomNpcData.Worker worker,
+                                         KingdomForestData.Area area) {
+        String species=wood(area.sapling());
+        if(species.isBlank())return "Выбери породу TFC в лесном участке";
+        if(!level.hasChunkAt(area.center()))return "Лесной участок не загружен";
+        if(nearestSafeTree(level,area.center(),worker,area)!=null)return null;
+        boolean found=false;
+        for(int x=area.minX();x<=area.maxX()&&!found;x++)
+            for(int z=area.minZ();z<=area.maxZ()&&!found;z++)
+                for(int y=area.y()-2;y<=area.y()+16;y++){
+                    BlockPos p=new BlockPos(x,y,z);
+                    if(level.hasChunkAt(p)&&treeLog(level,p,species)){found=true;break;}
+                }
+        return found
+            ?"Нет безопасного дерева для рубки: проверь крону, границы, права и топор TFC"
+            :"Нет взрослого дерева выбранной породы на участке. Нужен рост саженцев";
+    }
+
     public static BlockPos workSite(ServerLevel level,KingdomNpcData.Worker w){
         if(w.employer==null)return null;
         var firms=KingdomEnterpriseData.get(level.getServer());
@@ -409,17 +458,7 @@ public final class KingdomTfcForestry {
                     if(plant(level,npc,w,area,raw,source))return true;
                     continue;
                 }
-                BlockPos best=null;double closest=Double.MAX_VALUE;
-                for(int x=area.minX();x<=area.maxX();x++)
-                    for(int z=area.minZ();z<=area.maxZ();z++)
-                        for(int y=area.y()-2;y<=area.y()+16;y++){
-                            BlockPos p=new BlockPos(x,y,z);
-                            if(!level.hasChunkAt(p)||!treeLog(level,p,wood))continue;
-                            if(!authorized(level,p,w.employer,area)
-                                    ||!validRoot(level,p,w.fieldTool))continue;
-                            double distance=p.distSqr(npc.blockPosition());
-                            if(distance<closest){closest=distance;best=p;}
-                        }
+                BlockPos best=nearestSafeTree(level,npc.blockPosition(),w,area);
                 if(best!=null){
                     if(fell(level,npc,w,area,best))return true;
                     // An unharvestable adult tree is not a reason to plant forever.
