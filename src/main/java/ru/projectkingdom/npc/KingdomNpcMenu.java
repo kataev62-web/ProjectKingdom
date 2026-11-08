@@ -175,7 +175,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             try {
                 var mineId=java.util.UUID.fromString(w.workplaceId);
                 var shaft=KingdomMineSettings.get(viewer.getServer()).shaft(mineId);
-                if(shaft!=null)areaLabel=shaft.width()+"×"+shaft.length()+"×10";
+                if(shaft!=null)areaLabel=shaft.width()+"×"+shaft.length()+"×12";
             }catch(IllegalArgumentException ignored){}
             icon(16, Items.IRON_PICKAXE, "НАЧАЛО: "+mineChoice
                 +" | ЛКМ: Вперёд / Сразу вниз | ПКМ: выделить центральный ствол "
