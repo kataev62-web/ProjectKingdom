@@ -6,7 +6,6 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.entity.BlockEntity;
 import ru.projectkingdom.enterprise.EnterpriseBindingRole;
 
 /** Read-only, fail-closed view of registered + worker physical storage.
@@ -49,7 +48,11 @@ public final class KingdomEnterpriseStock {
         if(positions.isEmpty())return new Snapshot(0,0,false);
         long total=0;
         String usage=role==EnterpriseBindingRole.RAW_STORAGE?"raw":"finished";
+        List<BlockPos> counted=new ArrayList<>();
         for(BlockPos pos:positions){
+            boolean duplicate=counted.stream().anyMatch(countedPos->
+                KingdomContainerAccess.samePhysicalStorage(level,pos,countedPos));
+            if(duplicate)continue;
             // Registered enterprise storage is authorized by its binding + land claim.
             // Legacy worker chests require their explicit raw/finished territory marker.
             boolean registered=binding!=null&&binding.pos().equals(pos);
@@ -58,8 +61,9 @@ public final class KingdomEnterpriseStock {
                     : KingdomTerritories.get(level.getServer()).usable(level,pos,firm.owner(),usage);
             if(!level.hasChunkAt(pos)||firms.storageClaimedByOther(enterprise,dim,pos)||!allowed)
                 return new Snapshot(0,0,false);
-            BlockEntity be=level.getBlockEntity(pos);
-            if(!(be instanceof Container c))return new Snapshot(0,0,false);
+            Container c=KingdomContainerAccess.resolve(level,pos,firm.owner());
+            if(c==null)return new Snapshot(0,0,false);
+            counted.add(pos);
             for(int i=0;i<c.getContainerSize();i++){
                 ItemStack stack=c.getItem(i);
                 if(!stack.isEmpty()&&item.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()))

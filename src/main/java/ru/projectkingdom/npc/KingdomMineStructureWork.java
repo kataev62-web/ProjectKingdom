@@ -39,7 +39,7 @@ public final class KingdomMineStructureWork {
         if(!level.hasChunkAt(depot)
             ||!KingdomTerritories.get(level.getServer()).usable(level,depot,w.employer,"raw"))
             return Result.NEED_MATERIAL;
-        Container c=KingdomContainerAccess.resolve(level,depot);
+        Container c=KingdomContainerAccess.resolve(level,depot,w.employer);
         if(c==null)return Result.NEED_MATERIAL;
         int slot=-1;
         for(int i=0;i<c.getContainerSize();i++)
@@ -57,7 +57,7 @@ public final class KingdomMineStructureWork {
     }
     private static boolean authorized(ServerLevel level,BlockPos at,KingdomNpcData.Worker w){
         return w.employer!=null&&level.hasChunkAt(at)
-            &&w.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,at));
+            &&KingdomTerritories.get(level.getServer()).canUse(level,at,w.employer);
     }
     private static Result ladder(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                  KingdomMineSettings.Shaft area,BlockPos at){

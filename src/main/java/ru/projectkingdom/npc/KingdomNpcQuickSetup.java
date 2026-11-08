@@ -109,21 +109,26 @@ public final class KingdomNpcQuickSetup {
         String actual=KingdomTerritories.get(level.getServer()).role(level,position);
         return role.equals(actual)||"не назначено".equals(actual);
     }
+    private static boolean differentStorage(ServerLevel level,BlockPos candidate,
+                                            BlockPos excluded){
+        return excluded==null
+            ||!KingdomContainerAccess.samePhysicalStorage(level,candidate,excluded);
+    }
     private static BlockPos storage(ServerLevel level,KingdomEnterpriseData firms,
         UUID enterprise,UUID owner,BlockPos center,EnterpriseBindingRole role,
         BlockPos excluded){
         String label=role==EnterpriseBindingRole.RAW_STORAGE?"raw":"finished";
         var registered=firms.storageBinding(enterprise,role);
         if(registered!=null&&registered.dimension().equals(level.dimension().location().toString())
-                &&!registered.pos().equals(excluded)
+                &&differentStorage(level,registered.pos(),excluded)
                 &&registered.pos().distSqr(center)<=36
                 &&acceptable(level,registered.pos(),owner,label,enterprise,firms)
-                &&NpcLogistics.isContainer(level,registered.pos()))return registered.pos();
+                &&KingdomContainerAccess.resolve(level,registered.pos(),owner)!=null)return registered.pos();
         BlockPos best=null;double distance=Double.MAX_VALUE;
         for(int x=-7;x<=7;x++)for(int y=-3;y<=3;y++)for(int z=-7;z<=7;z++){
             BlockPos p=center.offset(x,y,z);
-            if(p.equals(excluded)||p.distSqr(center)>36||!level.hasChunkAt(p)
-                ||!NpcLogistics.isContainer(level,p)
+            if(!differentStorage(level,p,excluded)||p.distSqr(center)>36||!level.hasChunkAt(p)
+                ||KingdomContainerAccess.resolve(level,p,owner)==null
                 ||!acceptable(level,p,owner,label,enterprise,firms))continue;
             double score=p.distSqr(center);
             if(score<distance){best=p.immutable();distance=score;}
@@ -282,13 +287,13 @@ public final class KingdomNpcQuickSetup {
             worker.hasWorkstation=false;
         }
         worker.order="work";
-        // Apply the mine order immediately when all real prerequisites pass.
+        // Apply the order immediately when the physical assignment is ready.
         // The usual day/night and survival scheduler will re-evaluate later.
         long dayTime=server.overworld().getDayTime()%24000L;
-        if("miner".equals(worker.job) && !worker.contractPaused
+        if(KingdomNpcDuty.hasPhysicalExecutor(worker.job) && !worker.contractPaused
             &&dayTime>=0&&dayTime<12000
             &&worker.hunger>25&&worker.energy>25&&worker.safety>=25
-            &&KingdomMineSite.inspect(server,level,worker).ready())
+            &&KingdomNpcWorkday.hasAssignment(server,level,worker))
             worker.autonomousIntent=NpcAutonomyPlanner.Intention.CONTINUE_ASSIGNED_JOB.name();
         KingdomNpcData.get(server).setDirty();
         if(worker.contractPaused)

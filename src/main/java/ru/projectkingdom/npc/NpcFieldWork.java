@@ -119,7 +119,7 @@ public final class NpcFieldWork {
         BlockPos pos=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
         if(!level.hasChunkAt(pos)||!KingdomTerritories.get(level.getServer()).usable(level,pos,w.employer,"raw"))return false;
         if(npc.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>6.25){npc.getNavigation().moveTo(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5,0.8);return false;}
-        BlockEntity be=level.getBlockEntity(pos);if(!(be instanceof Container c))return false;
+        Container c=KingdomContainerAccess.resolve(level,pos,w.employer);if(c==null)return false;
         for(int i=0;i<c.getContainerSize();i++){
             ItemStack stack=c.getItem(i);
             if(("lumberjack".equals(w.job)&&(stack.is(ItemTags.AXES)||stack.getItem() instanceof AxeItem) ||
@@ -138,7 +138,8 @@ public final class NpcFieldWork {
         if(!level.hasChunkAt(pos)||!KingdomTerritories.get(level.getServer()).usable(level,pos,
                 KingdomNpcFarmOwner.workOwner(level,w),"finished"))return false;
         if(npc.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>6.25){npc.getNavigation().moveTo(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5,0.8);return false;}
-        BlockEntity be=level.getBlockEntity(pos);if(!(be instanceof Container c))return false;
+        Container c=KingdomContainerAccess.resolve(level,pos,
+            KingdomNpcFarmOwner.workOwner(level,w));if(c==null)return false;
         boolean moved=false;
         java.util.Set<String> reservedSeeds=new java.util.HashSet<>();
         if("farmer".equals(w.job))for(var contract:KingdomEnterprisePayrollData.get(level.getServer()).all())
@@ -158,14 +159,21 @@ public final class NpcFieldWork {
                 inv++;continue; // Keep genuine seeds in the NPC's persistent planting bag.
             }
             for(int slot=0;slot<c.getContainerSize()&&!s.isEmpty();slot++){
-                if(!c.canPlaceItem(slot,s))continue;
                 ItemStack cur=c.getItem(slot);
                 if(cur.isEmpty()){
                     int n=Math.min(s.getCount(),Math.min(s.getMaxStackSize(),c.getMaxStackSize()));
-                    ItemStack movedStack=s.copy();movedStack.setCount(n);c.setItem(slot,movedStack);s.shrink(n);moved=true;
+                    ItemStack updated=s.copy();updated.setCount(n);
+                    if(!c.canPlaceItem(slot,updated))continue;
+                    c.setItem(slot,updated);
+                    if(ItemStack.matches(c.getItem(slot),updated)){s.shrink(n);moved=true;}
                 }else if(ItemStack.isSameItemSameTags(cur,s)){
                     int n=Math.min(s.getCount(),Math.min(cur.getMaxStackSize(),c.getMaxStackSize())-cur.getCount());
-                    if(n>0){cur.grow(n);s.shrink(n);moved=true;}
+                    if(n>0){
+                        ItemStack updated=cur.copy();updated.grow(n);
+                        if(!c.canPlaceItem(slot,updated))continue;
+                        c.setItem(slot,updated);
+                        if(ItemStack.matches(c.getItem(slot),updated)){s.shrink(n);moved=true;}
+                    }
                 }
             }
             if(s.isEmpty())w.fieldInventory.remove(inv);else inv++;
