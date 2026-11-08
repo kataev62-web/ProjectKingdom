@@ -297,8 +297,7 @@ public final class KingdomMineWork {
             for(BlockPos candidate:anchors)
                 if(candidate.getY()==floorCell.getY())galleryAnchor=candidate;
             if(central && KingdomMineStructurePlan.isLevel(depth)
-                && floorCell.equals(KingdomMineCentralShaftPlan.galleryEnd(
-                    area,depth,heading)))
+                && depth<=requestedLevels*KingdomMineSettings.LEVEL_INTERVAL)
                 galleryAnchor=KingdomMineCentralShaftPlan.galleryEnd(
                     area,depth,heading).relative(
                         heading.direction().getOpposite(),
