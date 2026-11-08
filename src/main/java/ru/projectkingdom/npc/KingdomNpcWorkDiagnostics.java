@@ -131,12 +131,47 @@ public final class KingdomNpcWorkDiagnostics {
             if(stock.physical()>=area.maxLogs()){
                 blocked=warn("Лесоруб: склад древесины достиг нормы; вырубка приостановлена");continue;
             }
+            if(KingdomTfcForestry.hasRecoverableLogs(level,w,area))
+                return good("Лесоруб: собирает настоящие брёвна с участка");
             String problem=KingdomTfcForestry.harvestBlocker(level,w,area);
             if(problem==null)return good("Лесоруб: найдено дерево TFC для безопасной рубки");
             blocked=warn("Лесоруб: "+problem);
         }
         return blocked==null?warn("Лесоруб: все лесные участки отключены"):blocked;
     }
+    private static Status miner(ServerLevel level,KingdomNpcData.Worker w){
+        if(!KingdomNpcDuty.autonomousOrder(w.order))
+            return warn("Шахтёр: нажми Работать в меню NPC");
+        if(!KingdomNpcWorkday.employed(level.getServer(),w))
+            return warn("Шахтёр: нет активного договора или не выплачена зарплата");
+        if(!w.hasSource||!w.hasDestination)
+            return warn("Шахтёр: нужны два подключённых склада");
+        UUID mine=company(w);
+        if(mine==null)return warn("Шахтёр: не привязано предприятие Шахта");
+        var firms=KingdomEnterpriseData.get(level.getServer());
+        if(firms.kind(mine)!=EnterpriseKind.MINE||firms.find(mine)==null)
+            return warn("Шахтёр: ядро предприятия Шахта не найдено");
+        var settings=KingdomMineSettings.get(level.getServer());
+        if(settings.start(mine)==KingdomMineSettings.Start.DOWN&&settings.shaft(mine)==null)
+            return warn("Шахтёр: направление вниз, но ствол ещё не выделен");
+        if(!"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)){
+            String reason=switch(w.autonomousIntent){
+                case "EAT" -> "Шахтёр: перерыв на еду";
+                case "REST" -> "Шахтёр: нужен отдых";
+                case "SEEK_SHELTER" -> "Шахтёр: возвращается домой / ищет укрытие";
+                case "REPORT_BLOCKED" -> "Шахтёр: нет рабочего назначения или прав";
+                default -> "Шахтёр: не рабочая смена ("+w.autonomousIntent+")";
+            };
+            return warn(reason);
+        }
+        String state=w.mineStatus==null?"":w.mineStatus;
+        if(state.isBlank()||"Не назначена шахта".equals(state))
+            return warn("Шахтёр: ожидается первая проверка проходки");
+        return state.startsWith("Добывает")||state.startsWith("Все выработки")
+            ||state.startsWith("Ствол ")||state.startsWith("Идёт")
+            ?good(state):warn(state);
+    }
+
     public static Status forWorker(ServerLevel level,Villager npc,KingdomNpcData.Worker w){
         if(level==null||npc==null||w==null)return warn("NPC: нет данных");
         String personal=w.safety<25?"Нужна защита":w.hunger<30?"Нужна еда"
@@ -146,6 +181,7 @@ public final class KingdomNpcWorkDiagnostics {
         else if(w.employer==null&&KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)==null)
             work=good("Ищет работу");
         else if("lumberjack".equals(w.job))work=forestry(level,w);
+        else if("miner".equals(w.job))work=miner(level,w);
         else if("smith".equals(w.job))work=smith(level,w);
         else if(!w.hasSource&&KingdomNpcDuty.hasPhysicalExecutor(w.job))
             work=warn("Для работы нужен склад сырья");
