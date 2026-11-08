@@ -307,14 +307,14 @@ public final class KingdomNpcQuickSetup {
             if(start==KingdomMineSettings.Start.DOWN
                 &&!KingdomMineCentralShaftPlan.valid(settings.shaft(business.id()),center))
                 return new Result(false,"Шахтёр оформлен, но ствол ещё не размечен. "
-                    +"В меню NPC: слот 16 → ПКМ → выдели два угла "
-                    +"области 7×7–12×12. Затем включи «Сразу вниз».");
+                    +"Открой блок предприятия «Шахта» → Производство → Разметить ствол, выбери два угла "
+                    +"области 7×7–12×12. Затем включи режим «Сразу вниз» там же.");
             if(!level.hasChunkAt(entrance)
                 ||!level.getBlockState(entrance).isAir()
                 ||!level.getBlockState(entrance.above()).isAir())
                 return new Result(false,"Договор шахтёра и склады настроены. "
                     +"Освободи проход 1×2 блока СЕВЕРНЕЕ ядра шахты. "
-                    +"Начальный маршрут: "+start.label()+". Измени его в меню шахтёра до добычи.");
+                    +"Начальный маршрут: "+start.label()+". Измени его в блоке предприятия до начала проходки.");
         }
         if(workshop(worker.job) && "minecraft:crafting_table".equals(
             BuiltInRegistries.BLOCK.getKey(level.getBlockState(machine).getBlock()).toString())
