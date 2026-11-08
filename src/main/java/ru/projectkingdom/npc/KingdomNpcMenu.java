@@ -175,11 +175,11 @@ public final class KingdomNpcMenu extends ChestMenu {
             try {
                 var mineId=java.util.UUID.fromString(w.workplaceId);
                 var shaft=KingdomMineSettings.get(viewer.getServer()).shaft(mineId);
-                if(shaft!=null)areaLabel=shaft.width()+"×"+shaft.length()+"×12";
+                if(shaft!=null)areaLabel=shaft.width()+"×"+shaft.length();
             }catch(IllegalArgumentException ignored){}
-            icon(16, Items.IRON_PICKAXE, "НАЧАЛО: "+mineChoice
-                +" | ЛКМ: Вперёд / Сразу вниз | ПКМ: выделить центральный ствол "
-                +areaLabel+" | Состояние: "+w.mineStatus);
+            icon(16, Items.IRON_PICKAXE, "Шахта: "+mineChoice
+                +" | Ствол: "+areaLabel
+                +" | Настройки в блоке предприятия | "+w.mineStatus);
         }
         icon(17, Items.BARREL, "Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
         if(!"miner".equals(w.job)) icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
@@ -305,38 +305,7 @@ public final class KingdomNpcMenu extends ChestMenu {
         boolean owner = controls(w);
         boolean changed = false;
         switch (slotId) {
-            case 16 -> {
-                if(!"miner".equals(w.job))break;
-                if(!owner || w.employer==null) {
-                    info("Изменять направление может только владелец шахты.");break;
-                }
-                java.util.UUID mineId;
-                try {mineId=java.util.UUID.fromString(w.workplaceId);}
-                catch(IllegalArgumentException error) {
-                    info("Сначала настрой шахтёра и привяжи предприятие «Шахта».");break;
-                }
-                var firms=KingdomEnterpriseData.get(viewer.getServer());
-                var mine=firms.find(mineId);
-                if(mine==null || firms.kind(mineId)!=ru.projectkingdom.enterprise.EnterpriseKind.MINE
-                    ||!mine.owner().equals(viewer.getUUID())) {
-                    info("Не найдена принадлежащая тебе шахта.");break;
-                }
-                var settings=KingdomMineSettings.get(viewer.getServer());
-                if(button==1){
-                    if(KingdomMineSelection.begin(viewer,mineId)){
-                        viewer.closeContainer();
-                        return;
-                    }
-                    info("Разметка недоступна: проверь права, ядро и отсутствие начатой проходки.");
-                    break;
-                }
-                var next=settings.start(mineId)==KingdomMineSettings.Start.FORWARD
-                    ?KingdomMineSettings.Start.DOWN:KingdomMineSettings.Start.FORWARD;
-                if(!settings.choose(mineId,next))
-                    info("Маршрут уже начат. Во избежание разрушения существующих ходов направление заблокировано.");
-                else info("Начало проходки для шахты «"+mine.name()+"»: "+next.label()
-                    +". Настройка сохранена для всех её шахтёров.");
-            }
+            case 16 -> info("Шахта: начало, уровни, направление и выделение ствола настраиваются через блок предприятия «Шахта».");
             case 11 -> {
                 if (!viewer.hasPermissions(2)) {
                     info("Изменение пола доступно только администратору.");
