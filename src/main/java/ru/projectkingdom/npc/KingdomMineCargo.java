@@ -13,6 +13,9 @@ public final class KingdomMineCargo {
 
     public static boolean isSupplyId(String id) {
         return "minecraft:torch".equals(id)
+            || "minecraft:ladder".equals(id)
+            || id.startsWith("tfc:wood/planks/")
+            || id.startsWith("minecraft:") && id.endsWith("_planks")
             || KingdomMineSupportPlan.supports(id);
     }
 
