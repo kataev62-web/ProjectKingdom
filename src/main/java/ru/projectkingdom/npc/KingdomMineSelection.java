@@ -105,7 +105,7 @@ public final class KingdomMineSelection {
                 BlockPos cell=new BlockPos(x,y,z);
                 if(!level.hasChunkAt(cell)
                     ||!territory.canUse(level,cell,company.owner())){
-                    player.sendSystemMessage(Component.literal("[Шахта] Вся область до заданной глубины должна быть загружены и принадлежать владельцу."));
+                    player.sendSystemMessage(Component.literal("[Шахта] Вся область до заданной глубины должна быть загружена и принадлежать владельцу."));
                     return true;
                 }
             }
@@ -126,7 +126,7 @@ public final class KingdomMineSelection {
         player.sendSystemMessage(Component.literal("[Шахта] Центральный ствол: "
             +width+"×"+length+", глубина "
             +(KingdomMineSettings.get(player.getServer()).levels(p.mine())*5)
-            +". Схема сохранена. 
+            +". Схема сохранена. "
             +"Режим и направление выбираются в блоке предприятия."));
         return true;
     }
