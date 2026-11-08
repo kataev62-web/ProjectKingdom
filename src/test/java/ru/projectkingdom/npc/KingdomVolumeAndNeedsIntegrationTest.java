@@ -31,9 +31,12 @@ final class KingdomVolumeAndNeedsIntegrationTest {
         var main=source("npc/KingdomNpcMod.java");
         assertTrue(main.contains("KingdomTfcForestry.tick(level,resident,w)"));
         var forest=source("npc/KingdomTfcForestry.java");
-        assertTrue(forest.contains("validRoot(level,p,w.fieldTool)"));
+        assertTrue(forest.contains("validRoot(level,pos,worker.fieldTool)"));
         assertTrue(forest.contains("nativeLogging.invoke(null,level,root,fake,w.fieldTool)"));
-        assertTrue(forest.contains("ownedHarvestLand(level,next,owner)"));
+        assertTrue(forest.contains("nearestSafeTree(level,npc.blockPosition(),w,area)"));
+        assertTrue(forest.contains("ownedHarvestLand(level,p,owner)"));
+        assertTrue(forest.contains("nativeFindLogs.invoke(null,level,root)"));
+        assertFalse(forest.contains("if(state.is(BlockTags.LEAVES)"));
     }
     @Test void liveNpcNeedDescriptionsDoNotMintItemsOrChangeEmployment() throws Exception {
         String diagnostics=source("npc/KingdomNpcWorkDiagnostics.java");

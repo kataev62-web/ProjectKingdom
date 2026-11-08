@@ -25,19 +25,92 @@ public final class KingdomMineCentralShaftPlan {
     public static final int[] LEVELS={3,6,10};
     public record Stage(int depth,BlockPos entrance,List<KingdomMineGalleryPlan.Cell> chamber) {}
 
-    public static boolean valid(KingdomMineSettings.Shaft area,BlockPos core) {
+    /** Direction from the enterprise core into the selected footprint. */
+    public static Direction entryDirection(KingdomMineSettings.Shaft area,BlockPos core) {
         if(area==null||core==null||area.width()<5||area.length()<5
-            ||area.width()>12||area.length()>12)return false;
-        BlockPos entrance=core.north();
-        // The NPC enters from outside through the SOUTH wall of the shaft.
-        return entrance.getY()==area.surfaceY()
-            && entrance.getZ()==area.maxZ()
-            && entrance.getX()>=area.minX()&&entrance.getX()<=area.maxX();
+            ||area.width()>12||area.length()>12
+            ||core.getY()!=area.surfaceY() || area.contains(core))return null;
+        for(Direction side:Direction.Plane.HORIZONTAL) {
+            BlockPos entry=core.relative(side);
+            if(!area.contains(entry))continue;
+            if(side==Direction.NORTH && entry.getZ()==area.maxZ()
+                ||side==Direction.SOUTH && entry.getZ()==area.minZ()
+                ||side==Direction.EAST && entry.getX()==area.minX()
+                ||side==Direction.WEST && entry.getX()==area.maxX())return side;
+        }
+        return null;
+    }
+
+    public static boolean valid(KingdomMineSettings.Shaft area,BlockPos core) {
+        return entryDirection(area,core)!=null;
+    }
+
+    public static BlockPos entrance(KingdomMineSettings.Shaft area,BlockPos core) {
+        Direction side=entryDirection(area,core);
+        return side==null?null:core.relative(side);
+    }
+
+    /** Rotate into a canonical north-facing footprint; the original MineColonies
+     * excavation order is reused unchanged for all four sides of the core.
+     */
+    private static BlockPos intoNorth(BlockPos pos,Direction side) {
+        return switch(side) {
+            case SOUTH -> new BlockPos(-pos.getX(),pos.getY(),-pos.getZ());
+            case EAST -> new BlockPos(pos.getZ(),pos.getY(),-pos.getX());
+            case WEST -> new BlockPos(-pos.getZ(),pos.getY(),pos.getX());
+            default -> pos;
+        };
+    }
+    private static BlockPos fromNorth(BlockPos pos,Direction side) {
+        return switch(side) {
+            case SOUTH -> new BlockPos(-pos.getX(),pos.getY(),-pos.getZ());
+            case EAST -> new BlockPos(-pos.getZ(),pos.getY(),pos.getX());
+            case WEST -> new BlockPos(pos.getZ(),pos.getY(),-pos.getX());
+            default -> pos;
+        };
+    }
+    private static KingdomMineSettings.Shaft canonical(
+            KingdomMineSettings.Shaft area,Direction side) {
+        BlockPos a=intoNorth(new BlockPos(area.minX(),area.surfaceY(),area.minZ()),side);
+        BlockPos b=intoNorth(new BlockPos(area.maxX(),area.surfaceY(),area.maxZ()),side);
+        return new KingdomMineSettings.Shaft(
+            Math.min(a.getX(),b.getX()),Math.max(a.getX(),b.getX()),
+            Math.min(a.getZ(),b.getZ()),Math.max(a.getZ(),b.getZ()),
+            area.surfaceY(),area.dimension());
+    }
+
+    /** The inner anchor at the far side, in the direction of mining. */
+    public static BlockPos galleryAnchor(KingdomMineSettings.Shaft area,BlockPos core,int y) {
+        Direction side=entryDirection(area,core);
+        if(side==null)return null;
+        var rotated=canonical(area,side);
+        return fromNorth(new BlockPos((rotated.minX()+rotated.maxX())/2,
+                y,rotated.minZ()+1),side);
+    }
+    public static boolean beyondGallery(KingdomMineSettings.Shaft area,BlockPos core,BlockPos cell) {
+        Direction side=entryDirection(area,core);
+        if(side==null)return false;
+        var rotated=canonical(area,side);
+        BlockPos p=intoNorth(cell,side);
+        return p.getX()==(rotated.minX()+rotated.maxX())/2
+            && p.getZ()<rotated.minZ();
     }
 
     public static List<KingdomMineGalleryPlan.Cell> cells(
             BlockPos core,KingdomMineSettings.Shaft area) {
-        if(!valid(area,core))return List.of();
+        Direction side=entryDirection(area,core);
+        if(side==null)return List.of();
+        if(side==Direction.NORTH)return northCells(core,area);
+        var original=northCells(intoNorth(core,side),canonical(area,side));
+        return original.stream()
+            .map(c->new KingdomMineGalleryPlan.Cell(
+                fromNorth(c.target(),side),fromNorth(c.approach(),side)))
+            .toList();
+    }
+
+    private static List<KingdomMineGalleryPlan.Cell> northCells(
+            BlockPos core,KingdomMineSettings.Shaft area) {
+        if(core==null || area==null || core.north().getZ()!=area.maxZ())return List.of();
         List<BlockPos> rim=new ArrayList<>();
         BlockPos entrance=core.north();
         // Move west, north, east, south, using each perimeter coordinate once.

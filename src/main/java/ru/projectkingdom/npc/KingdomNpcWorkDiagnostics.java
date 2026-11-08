@@ -83,27 +83,95 @@ public final class KingdomNpcWorkDiagnostics {
     private static Status forestry(ServerLevel level,KingdomNpcData.Worker w){
         UUID firm=company(w);
         if(firm==null)return warn("Лесоруб: назначьте лесозаготовку");
+        var enterprises=KingdomEnterpriseData.get(level.getServer());
+        if(enterprises.find(firm)==null
+            ||enterprises.kind(firm)!=EnterpriseKind.LUMBER)
+            return warn("Лесоруб: не найдено действующее предприятие");
+        if(!KingdomNpcWorkday.employed(level.getServer(),w))
+            return warn("Лесоруб: трудовой договор не активен");
         var areas=KingdomForestData.get(level.getServer()).of(firm);
         if(areas.isEmpty())return warn("Лесоруб: выделите лесной участок");
-        var active=areas.stream().filter(a->a.enabled()&&a.dimension().equals(w.dimension)).findFirst();
-        if(active.isEmpty())return warn("Лесоруб: лесной участок отключён");
-        var area=active.get();
-        if(!KingdomTfcForestry.validSapling(area.sapling()))
-            return warn("Лесоруб: выберите породу дерева TFC");
+        if(!KingdomNpcDuty.autonomousOrder(w.order))
+            return warn("Лесоруб: включи приказ «Работать»");
+        if(!"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent))
+            return warn("Лесоруб: ожидает рабочую смену или отдых/питание");
         if(!w.hasSource||!w.hasDestination)
             return warn("Лесоруб: нужны два склада");
         BlockPos source=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
-        if(!level.hasChunkAt(source))return warn("Лесоруб: склад сырья не загружен");
-        var raw=KingdomContainerAccess.resolve(level,source);
-        if(raw==null)return warn("Лесоруб: склад сырья не совместим");
-        boolean hasAxe=KingdomTfcForestry.usableAxe(w.fieldTool);
+        BlockPos dest=new BlockPos(w.destX,w.destY,w.destZ);
+        if(!level.hasChunkAt(source)||!level.hasChunkAt(dest))
+            return warn("Лесоруб: склад не загружен");
+        if(!KingdomTerritories.get(level.getServer()).usable(level,source,w.employer,"raw")
+                ||!KingdomTerritories.get(level.getServer()).usable(level,dest,w.employer,"finished"))
+            return warn("Лесоруб: у склада нет прав / правильной роли");
+        Container raw=KingdomContainerAccess.resolve(level,source);
+        Container finished=KingdomContainerAccess.resolve(level,dest);
+        if(raw==null||finished==null)
+            return warn("Лесоруб: склад недоступен или несовместим");
+        if(!KingdomTfcForestry.nativeAvailable())
+            return warn("Лесоруб: не найден совместимый API рубки TFC");
+        boolean carrying=KingdomTfcForestry.usableAxe(w.fieldTool);
+        boolean hasAxe=carrying;
         for(int i=0;i<raw.getContainerSize()&&!hasAxe;i++)
             if(KingdomTfcForestry.usableAxe(raw.getItem(i)))hasAxe=true;
         if(!hasAxe)return warn("Лесоруб: нужен топор TFC (axes_that_log)");
-        if(!KingdomTfcForestry.nativeAvailable())
-            return warn("Лесоруб: не найден совместимый API рубки TFC");
-        return good("Лесоруб: готов рубить деревья");
+        if(!carrying)return warn("Лесоруб: идёт за топором на склад");
+        Status blocked=null;
+        for(var area:areas){
+            if(!area.enabled()||!area.dimension().equals(w.dimension))continue;
+            if(!KingdomTfcForestry.validSapling(area.sapling())){
+                blocked=warn("Лесоруб: выбери породу саженца TFC");continue;
+            }
+            var stock=KingdomEnterpriseStock.inspect(level,firm,
+                KingdomTfcForestry.logId(area.sapling()),
+                ru.projectkingdom.enterprise.EnterpriseBindingRole.FINISHED_STORAGE,dest);
+            if(!stock.complete()){
+                blocked=warn("Лесоруб: не удалось проверить склад древесины");continue;
+            }
+            if(stock.physical()>=area.maxLogs()){
+                blocked=warn("Лесоруб: склад древесины достиг нормы; вырубка приостановлена");continue;
+            }
+            if(KingdomTfcForestry.hasRecoverableLogs(level,w,area))
+                return good("Лесоруб: собирает настоящие брёвна с участка");
+            String problem=KingdomTfcForestry.harvestBlocker(level,w,area);
+            if(problem==null)return good("Лесоруб: найдено дерево TFC для безопасной рубки");
+            blocked=warn("Лесоруб: "+problem);
+        }
+        return blocked==null?warn("Лесоруб: все лесные участки отключены"):blocked;
     }
+    private static Status miner(ServerLevel level,KingdomNpcData.Worker w){
+        if(!KingdomNpcDuty.autonomousOrder(w.order))
+            return warn("Шахтёр: нажми Работать в меню NPC");
+        if(!KingdomNpcWorkday.employed(level.getServer(),w))
+            return warn("Шахтёр: нет активного договора или не выплачена зарплата");
+        if(!w.hasSource||!w.hasDestination)
+            return warn("Шахтёр: нужны два подключённых склада");
+        UUID mine=company(w);
+        if(mine==null)return warn("Шахтёр: не привязано предприятие Шахта");
+        var firms=KingdomEnterpriseData.get(level.getServer());
+        if(firms.kind(mine)!=EnterpriseKind.MINE||firms.find(mine)==null)
+            return warn("Шахтёр: ядро предприятия Шахта не найдено");
+        var settings=KingdomMineSettings.get(level.getServer());
+        if(settings.start(mine)==KingdomMineSettings.Start.DOWN&&settings.shaft(mine)==null)
+            return warn("Шахтёр: направление вниз, но ствол ещё не выделен");
+        if(!"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)){
+            String reason=switch(w.autonomousIntent){
+                case "EAT" -> "Шахтёр: перерыв на еду";
+                case "REST" -> "Шахтёр: нужен отдых";
+                case "SEEK_SHELTER" -> "Шахтёр: возвращается домой / ищет укрытие";
+                case "REPORT_BLOCKED" -> "Шахтёр: нет рабочего назначения или прав";
+                default -> "Шахтёр: не рабочая смена ("+w.autonomousIntent+")";
+            };
+            return warn(reason);
+        }
+        String state=w.mineStatus==null?"":w.mineStatus;
+        if(state.isBlank()||"Не назначена шахта".equals(state))
+            return warn("Шахтёр: ожидается первая проверка проходки");
+        return state.startsWith("Добывает")||state.startsWith("Все выработки")
+            ||state.startsWith("Ствол ")||state.startsWith("Идёт")
+            ?good(state):warn(state);
+    }
+
     public static Status forWorker(ServerLevel level,Villager npc,KingdomNpcData.Worker w){
         if(level==null||npc==null||w==null)return warn("NPC: нет данных");
         String personal=w.safety<25?"Нужна защита":w.hunger<30?"Нужна еда"
@@ -113,6 +181,7 @@ public final class KingdomNpcWorkDiagnostics {
         else if(w.employer==null&&KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)==null)
             work=good("Ищет работу");
         else if("lumberjack".equals(w.job))work=forestry(level,w);
+        else if("miner".equals(w.job))work=miner(level,w);
         else if("smith".equals(w.job))work=smith(level,w);
         else if(!w.hasSource&&KingdomNpcDuty.hasPhysicalExecutor(w.job))
             work=warn("Для работы нужен склад сырья");

@@ -17,6 +17,38 @@ public final class KingdomMineSupportExcavation {
 
     public enum Result { CLEAR, EXCAVATED, WALKING, UNSAFE }
 
+    /** Read-only reason for an unsafe support site. Never remove collapse
+     * protection to make progress; report the exact offending coordinate.
+     */
+    public static String blocker(ServerLevel level,KingdomNpcData.Worker worker,
+                                 KingdomMineSupportPlan.Frame frame) {
+        if(frame==null||!KingdomMineSupportPlan.valid(frame))
+            return "Неверная схема стоек для выбранного направления";
+        BlockPos[] positions={
+            frame.leftPost().above(2),frame.rightPost().above(2),
+            frame.crossbeam(),frame.leftPost().above(),frame.rightPost().above(),
+            frame.leftPost(),frame.rightPost()
+        };
+        for(BlockPos pos:positions){
+            if(!level.hasChunkAt(pos)||!level.hasChunkAt(pos.above()))
+                return "Чанк крепления не загружен: "+pos.toShortString();
+            BlockState block=level.getBlockState(pos);
+            String id=net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(block.getBlock()).toString();
+            if(block.isAir() || id.startsWith("tfc:wood/vertical_support/")
+                ||KingdomMineSupportSafety.isTfcHorizontalSupport(block))
+                continue;
+            if(KingdomMineSupportSafety.inspect(level,pos)
+                !=KingdomMineSupportSafety.Result.SAFE)
+                return "Нельзя безопасно расчистить стойку: "+pos.toShortString()
+                    +" ("+id+"). Сначала требуется действующая опора TFC";
+            if(!KingdomMineWork.safeToBreak(level,pos,worker))
+                return "Запрещено расчищать карман крепления: "+pos.toShortString()
+                    +" ("+id+"). Проверь границы, инструмент, воду и породу";
+        }
+        return "Карман крепления не удалось подготовить: путь, место или сумка";
+    }
+
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                               KingdomMineSupportPlan.Frame frame) {
         if(frame==null || !KingdomMineSupportPlan.valid(frame))return Result.UNSAFE;

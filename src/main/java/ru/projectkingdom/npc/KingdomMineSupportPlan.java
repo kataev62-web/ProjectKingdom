@@ -3,6 +3,7 @@ package ru.projectkingdom.npc;
 import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 
 /**
  * Geometric plan for proper three-wide TFC mine support frames.
@@ -20,12 +21,16 @@ public final class KingdomMineSupportPlan {
 
     /** At depth 5/10/15/20 of each level, posts are two blocks apart. */
     public static List<Frame> frames(BlockPos entrance) {
-        if (entrance == null) return List.of();
-        List<Frame> result = new ArrayList<>();
-        for (int distance=SPACING; distance<=KingdomMineGalleryPlan.MAIN_LENGTH; distance+=SPACING) {
-            BlockPos center=entrance.north(distance);
-            result.add(new Frame(center.west(),center.east(),center.above(2),
-                    center,distance));
+        return frames(entrance,Direction.NORTH);
+    }
+    public static List<Frame> frames(BlockPos entrance,Direction forward) {
+        if(entrance==null || forward==null || forward.getAxis()==Direction.Axis.Y)
+            return List.of();
+        List<Frame> result=new ArrayList<>();
+        for(int distance=SPACING;distance<=KingdomMineGalleryPlan.MAIN_LENGTH;distance+=SPACING){
+            BlockPos center=entrance.relative(forward,distance);
+            result.add(new Frame(center.relative(forward.getCounterClockWise()),
+                center.relative(forward.getClockWise()),center.above(2),center,distance));
         }
         return List.copyOf(result);
     }
@@ -36,11 +41,14 @@ public final class KingdomMineSupportPlan {
         int dx=target.getX()-approach.getX();
         int dz=target.getZ()-approach.getZ();
         if(Math.abs(dx)+Math.abs(dz)!=1)return null;
-        // Existing TFC builder currently supports east-west spanning beams.
-        // North/south frames require a separate orientation-aware executor.
-        if(dx!=0)return null;
-        return new Frame(approach.west(),approach.east(),
-            approach.above(2),approach,0);
+        // For a descending stair, the crossbeam must remain within TFC's
+        // support_up radius (2 blocks) of the LOWER target. A frame rooted at
+        // the upper approach would put the beam three blocks above it.
+        BlockPos base=target.getY()<approach.getY()?approach.below():approach;
+        if(dx!=0)return new Frame(base.north(),base.south(),
+            base.above(2),base,0);
+        return new Frame(base.west(),base.east(),
+            base.above(2),base,0);
     }
 
     public static boolean valid(Frame frame) {

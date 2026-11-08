@@ -118,6 +118,12 @@ public final class KingdomNpcMod {
         KingdomMineSelection.select(event);
     }
 
+    /** Shaft area can be marked with Shift+LMB as well as Shift+RMB. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST,receiveCanceled=true)
+    public void selectMineShaftLeft(PlayerInteractEvent.LeftClickBlock event) {
+        KingdomMineSelection.select(event);
+    }
+
     /** Enterprise selection owns these two clicks, including canceled inventory clicks. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
     public void selectEnterpriseCorners(PlayerInteractEvent.RightClickBlock event){
@@ -1228,8 +1234,8 @@ public final class KingdomNpcMod {
                                     case WORKSHOP -> 40.0 * 40.0;
                                     // Farmer decides which of multiple assigned plots needs attention.
                                     // Generic commute must not override crop/warehouse navigation.
-                                    case FIELD -> "lumberjack".equals(w.job)
-                                        ? Double.MAX_VALUE // Lumber NPC controls forest/warehouse routes.
+                                    case FIELD -> ("lumberjack".equals(w.job)||"miner".equals(w.job))
+                                        ? Double.MAX_VALUE // Physical field executor owns forest/mine routes.
                                         : ("farmer".equals(w.job) || "breeder".equals(w.job))
                                             ? 40.0 * 40.0 : 10.0 * 10.0;
                                     case DELIVERY -> 10.0 * 10.0;

@@ -22,15 +22,22 @@ class KingdomMineSupportPlanTest {
         }
     }
 
-    @Test void emergencySupportUsesAccessibleApproachAndRejectsUnsupportedAxis() {
+    @Test void emergencySupportUsesAccessibleApproachForBothHorizontalAxes() {
         BlockPos previous=new BlockPos(8,64,12);
         var north=KingdomMineSupportPlan.emergency(previous,previous.north().below());
         assertNotNull(north);
         assertTrue(KingdomMineSupportPlan.valid(north));
-        assertEquals(previous,north.walkway());
-        assertEquals(previous.west(),north.leftPost());
-        assertEquals(previous.east(),north.rightPost());
-        assertNull(KingdomMineSupportPlan.emergency(previous,previous.east()));
+        // The descending target must be no more than two Y blocks below
+        // the real TFC support beam (TFC horizontal_support_beam support_up=2).
+        assertEquals(previous.below(),north.walkway());
+        assertEquals(previous.west().below(),north.leftPost());
+        assertEquals(previous.east().below(),north.rightPost());
+        assertEquals(2,north.crossbeam().getY()-previous.north().below().getY());
+        var east=KingdomMineSupportPlan.emergency(previous,previous.east());
+        assertNotNull(east);
+        assertTrue(KingdomMineSupportPlan.valid(east));
+        assertEquals(previous.north(),east.leftPost());
+        assertEquals(previous.south(),east.rightPost());
         assertNull(KingdomMineSupportPlan.emergency(previous,previous.above()));
         assertNull(KingdomMineSupportPlan.emergency(null,previous));
     }

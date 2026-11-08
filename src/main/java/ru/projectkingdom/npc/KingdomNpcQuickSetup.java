@@ -301,19 +301,21 @@ public final class KingdomNpcQuickSetup {
         if("lumberjack".equals(worker.job)&&KingdomTfcForestry.workSite(level,worker)==null)
             return new Result(false,"Склады настроены. Открой лесозаготовку → Лесные участки.");
         if("miner".equals(worker.job)) {
-            BlockPos entrance=center.north();
             var settings=KingdomMineSettings.get(server);
             var start=settings.start(business.id());
+            var shaft=settings.shaft(business.id());
+            BlockPos entrance=start==KingdomMineSettings.Start.DOWN
+                ?KingdomMineCentralShaftPlan.entrance(shaft,center):center.north();
             if(start==KingdomMineSettings.Start.DOWN
                 &&!KingdomMineCentralShaftPlan.valid(settings.shaft(business.id()),center))
                 return new Result(false,"Шахтёр оформлен, но ствол ещё не размечен. "
                     +"В меню NPC: слот 16 → ПКМ → выдели два угла "
                     +"области 5×5–12×12. Затем включи «Сразу вниз».");
-            if(!level.hasChunkAt(entrance)
+            if(entrance==null || !level.hasChunkAt(entrance)
                 ||!level.getBlockState(entrance).isAir()
                 ||!level.getBlockState(entrance.above()).isAir())
                 return new Result(false,"Договор шахтёра и склады настроены. "
-                    +"Освободи проход 1×2 блока СЕВЕРНЕЕ ядра шахты. "
+                    +"Освободи проход 1×2 блока между ядром и стволом (для обычной штольни — севернее ядра). "
                     +"Начальный маршрут: "+start.label()+". Измени его в меню шахтёра до добычи.");
         }
         if(workshop(worker.job) && "minecraft:crafting_table".equals(

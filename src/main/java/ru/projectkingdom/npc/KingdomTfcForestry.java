@@ -6,12 +6,12 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.tags.BlockTags;
 import net.minecraft.tags.ItemTags;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SaplingBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.Property;
 import net.minecraft.world.item.*;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.Villager;
@@ -43,7 +43,7 @@ public final class KingdomTfcForestry {
         new ResourceLocation("tfc","axes_that_log"));
     private static final int MAX_TREE=160;
     private static boolean initialized,available;
-    private static Method nativeLogging,nativeShouldLog;
+    private static Method nativeLogging,nativeShouldLog,nativeFindLogs,nativeLoggingBlock,nativeBranchConnected;
     private static final String LOG_LOOT_OWNER="KingdomForestWorker";
     private record HarvestContext(ServerLevel level,UUID worker,List<ItemEntity> drops){}
     private static final ThreadLocal<HarvestContext> CURRENT=new ThreadLocal<>();
@@ -82,6 +82,11 @@ public final class KingdomTfcForestry {
                 net.minecraft.world.entity.player.Player.class,ItemStack.class);
             nativeShouldLog=helper.getMethod("shouldLog",LevelAccessor.class,BlockPos.class,
                 BlockState.class,ItemStack.class);
+            nativeFindLogs=helper.getMethod("findLogs",LevelAccessor.class,BlockPos.class);
+            nativeLoggingBlock=helper.getMethod("isLoggingBlock",BlockState.class);
+            nativeBranchConnected=Class.forName(
+                "net.dries007.tfc.common.blocks.wood.BranchDirection"
+            ).getMethod("connected",BlockPos.class,BlockPos.class);
             available=true;
         }catch(ReflectiveOperationException|LinkageError ex){
             System.err.println("[Kingdom] TFC natural tree logging unavailable: "+ex);
@@ -125,49 +130,84 @@ public final class KingdomTfcForestry {
                                       UUID owner,KingdomForestData.Area area) {
         return area.inside(at) && ownedHarvestLand(level,at,owner);
     }
-    /**
-     * 26-neighbour BFS is deliberately MORE conservative than the native
-     * direction-dependent branch traversal. Entire connected wood cluster and
-     * adjacent leaves must be on our actual land, loaded, inside selected plot.
-     * Never run an unbounded TFC findLogs against unloaded terrain.
+    /** Native TFC trees are *directionally* connected. A blanket 26-neighbour
+     * check falsely rejected valid, densely planted trees and overhanging leaves.
+     * The preflight traverses only BranchDirection-connected natural logs,
+     * ensuring that ALL native reads remain in already-loaded chunks. We then
+     * compare to TFC's own findLogs() before calling doLogging().
      */
+    private record TreeCheck(List<BlockPos> logs,String blocker) {
+        static TreeCheck blocked(String reason) {return new TreeCheck(List.of(),reason);}
+    }
+
+    @SuppressWarnings({"unchecked","rawtypes"})
+    private static boolean nativeConnection(BlockPos from,BlockPos to,BlockState state)
+            throws ReflectiveOperationException {
+        if(!Boolean.TRUE.equals(nativeLoggingBlock.invoke(null,state)))return false;
+        for(Property<?> property:state.getProperties())
+            if("branch_direction".equals(property.getName())){
+                Object direction=state.getValue((Property)property);
+                return Boolean.TRUE.equals(nativeBranchConnected.invoke(direction,from,to));
+            }
+        return false;
+    }
+
+    private static TreeCheck checkTree(ServerLevel level,BlockPos root,UUID owner,
+                                       KingdomForestData.Area area,String species) {
+        if(!init())return TreeCheck.blocked("TFC API рубки недоступен");
+        if(!treeLog(level,root,species))
+            return TreeCheck.blocked("Выбранная порода не совпадает с деревом");
+        var queue=new ArrayDeque<BlockPos>();
+        var seen=new LinkedHashSet<BlockPos>();
+        queue.add(root.immutable());
+        seen.add(root.immutable());
+        try{
+            while(!queue.isEmpty()){
+                BlockPos p=queue.removeFirst();
+                if(seen.size()>MAX_TREE)
+                    return TreeCheck.blocked("Дерево больше безопасного лимита "+MAX_TREE+" брёвен");
+                if(Math.abs(p.getX()-root.getX())>12||Math.abs(p.getZ()-root.getZ())>12
+                    ||Math.abs(p.getY()-root.getY())>32)
+                    return TreeCheck.blocked("Ветви уходят слишком далеко от ствола "+root.toShortString());
+                if(!ownedHarvestLand(level,p,owner))
+                    return TreeCheck.blocked("Бревно "+p.toShortString()+" вне земли с правом рубки");
+                if(!treeLog(level,p,species))
+                    return TreeCheck.blocked("Соединённое бревно "+p.toShortString()
+                        +" имеет другую породу или тип");
+                for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)
+                    for(int dz=-1;dz<=1;dz++){
+                        if(dx==0&&dy==0&&dz==0)continue;
+                        BlockPos next=p.offset(dx,dy,dz);
+                        if(!level.hasChunkAt(next))
+                            return TreeCheck.blocked("Чанк рядом с веткой "+next.toShortString()
+                                +" не загружен");
+                        if(!seen.contains(next)
+                            &&nativeConnection(p,next,level.getBlockState(next))){
+                            seen.add(next.immutable());
+                            queue.add(next.immutable());
+                        }
+                    }
+            }
+            if(seen.size()<2)
+                return TreeCheck.blocked("TFC не нашёл соединённых природных ветвей");
+            Object result=nativeFindLogs.invoke(null,level,root);
+            if(!(result instanceof List<?> actual)
+                ||actual.size()!=seen.size()
+                ||actual.stream().anyMatch(pos->!(pos instanceof BlockPos)
+                    ||!seen.contains(pos)))
+                return TreeCheck.blocked("Маршрут TFC не совпал с безопасной проверкой");
+            // Use TFC's exact reverse-order list, never a blanket neighbouring-log list.
+            return new TreeCheck(actual.stream().map(pos->(BlockPos)pos).toList(),null);
+        }catch(ReflectiveOperationException|RuntimeException ex){
+            return TreeCheck.blocked("Ошибка проверки направления ветвей TFC");
+        }
+    }
+
     private static List<BlockPos> safeTree(ServerLevel level,BlockPos root,UUID owner,
                                            KingdomForestData.Area area,String species) {
-        if(!treeLog(level,root,species))return List.of();
-        var queue=new ArrayDeque<BlockPos>();
-        var seen=new HashSet<BlockPos>();
-        queue.add(root.immutable());
-        while(!queue.isEmpty()){
-            if(seen.size()>=MAX_TREE)return List.of();
-            BlockPos p=queue.removeFirst();
-            if(!seen.add(p))continue;
-            if(Math.abs(p.getX()-root.getX())>12||Math.abs(p.getZ()-root.getZ())>12
-                ||Math.abs(p.getY()-root.getY())>32
-                ||!ownedHarvestLand(level,p,owner)
-                ||!treeLog(level,p,species))return List.of();
-            for(int dx=-1;dx<=1;dx++)for(int dy=-1;dy<=1;dy++)
-                for(int dz=-1;dz<=1;dz++){
-                    if(dx==0&&dy==0&&dz==0)continue;
-                    var next=p.offset(dx,dy,dz);
-                    if(!level.hasChunkAt(next))return List.of();
-                    BlockState state=level.getBlockState(next);
-                    // Protect the whole canopy, even where it overhangs plots.
-                    // A natural canopy often crosses the selected 16x16 forest
-                    // work area; leaves may overhang it while remaining on this
-                    // owner's legally protected land. Do not require area.inside
-                    // for leaves, but never touch another citizen's chunk.
-                    if(state.is(BlockTags.LEAVES)
-                        &&!ownedHarvestLand(level,next,owner))
-                        return List.of();
-                    if(state.is(TFC_LOGS)){
-                        if(!treeLog(level,next,species)||!ownedHarvestLand(level,next,owner))
-                            return List.of();
-                        if(!seen.contains(next))queue.add(next.immutable());
-                    }
-                }
-        }
-        return seen.size()<2?List.of():List.copyOf(seen);
+        return checkTree(level,root,owner,area,species).logs();
     }
+
     private static boolean near(Villager npc,BlockPos at){
         return npc.distanceToSqr(at.getX()+.5,at.getY()+.5,at.getZ()+.5)<=6.25;
     }
@@ -303,27 +343,70 @@ public final class KingdomTfcForestry {
         KingdomNpcData.get(level.getServer()).setDirty();
         return changed || !treeLog(level,root,wood(area.sapling()));
     }
-    /** Pick only real tree drops marked by this NPC's native logging action. */
-    private static boolean recoverDrops(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
-                                        KingdomForestData.Area area){
+    /** Genuine fallen timber is collectable even when the employer felled the
+     * tree by hand. The lumberjack may ONLY take matching TFC logs in its
+     * registered, loaded and owned forest area. Never pick up another player's
+     * explicitly owned items or another NPC's tagged felling drops.
+     */
+    static boolean eligibleGroundLog(String itemId,String species) {
+        if(itemId==null||species==null||species.isBlank())return false;
+        return ("tfc:wood/log/"+species).equals(itemId)
+            || ("tfc:wood/stripped_log/"+species).equals(itemId)
+            || ("tfc:wood/wood/"+species).equals(itemId);
+    }
+    private enum Recovery { NONE, WALKING, PICKED, FULL, NO_ROUTE }
+
+    private static boolean recoverable(ServerLevel level,ItemEntity entity,
+                                        KingdomNpcData.Worker worker,KingdomForestData.Area area) {
+        if(entity==null || !entity.isAlive() || entity.getItem().isEmpty()
+            || !level.hasChunkAt(entity.blockPosition())
+            || !area.inside(entity.blockPosition())
+            || !ownedHarvestLand(level,entity.blockPosition(),worker.employer))return false;
+        var tag=entity.getPersistentData();
+        if(tag.hasUUID(LOG_LOOT_OWNER))
+            return worker.entityId.equals(tag.getUUID(LOG_LOOT_OWNER));
+        var itemOwner=entity.getOwner();
+        if(itemOwner!=null && !itemOwner.getUUID().equals(worker.employer))return false;
+        String id=BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()).toString();
+        return eligibleGroundLog(id,wood(area.sapling()));
+    }
+
+    private static List<ItemEntity> fallenLogs(ServerLevel level,KingdomNpcData.Worker worker,
+                                                KingdomForestData.Area area) {
         var bounds=new AABB(area.minX(),area.y()-2,area.minZ(),
             area.maxX()+1,area.y()+36,area.maxZ()+1);
-        for(ItemEntity item:level.getEntitiesOfClass(ItemEntity.class,bounds,
-                entity->entity.isAlive()&&entity.getPersistentData().hasUUID(LOG_LOOT_OWNER)
-                    &&w.entityId.equals(entity.getPersistentData().getUUID(LOG_LOOT_OWNER)))){
+        return level.getEntitiesOfClass(ItemEntity.class,bounds,
+            entity->recoverable(level,entity,worker,area));
+    }
+
+    /** The diagnostic is read-only and never picks an item or force-loads a chunk. */
+    public static boolean hasRecoverableLogs(ServerLevel level,KingdomNpcData.Worker worker,
+                                              KingdomForestData.Area area) {
+        return !fallenLogs(level,worker,area).isEmpty();
+    }
+
+    /** Navigate to the nearest allowed stack; never run the planting/harvest
+     * navigation in the same tick while approaching a dropped stack.
+     */
+    private static Recovery recoverDrops(ServerLevel level,Villager npc,
+                                         KingdomNpcData.Worker worker,KingdomForestData.Area area) {
+        var drops=fallenLogs(level,worker,area);
+        drops.sort(Comparator.comparingDouble(npc::distanceToSqr));
+        for(ItemEntity item:drops){
             ItemStack stack=item.getItem();
-            if(stack.isEmpty()||!NpcFieldWork.canFit(w,List.of(stack)))return false;
-            if(npc.distanceToSqr(item)>8){
-                npc.getNavigation().moveTo(item,.8);
-                return false;
-            }
-            NpcFieldWork.put(w,stack.copy());
-            w.fieldHarvested+=stack.getCount();
+            if(!NpcFieldWork.canFit(worker,List.of(stack)))return Recovery.FULL;
+            if(npc.distanceToSqr(item)>8)
+                return npc.getNavigation().moveTo(item,.8)
+                    ?Recovery.WALKING:Recovery.NO_ROUTE;
+            // The actual world ItemEntity is the only source of transferred
+            // items. No duplicate representation or virtual goods are created.
+            NpcFieldWork.put(worker,stack.copy());
+            worker.fieldHarvested+=stack.getCount();
             item.discard();
             KingdomNpcData.get(level.getServer()).setDirty();
-            return true;
+            return Recovery.PICKED;
         }
-        return false;
+        return Recovery.NONE;
     }
     private static boolean employedOnLumber(ServerLevel level,KingdomNpcData.Worker w){
         if(w.employer==null||!"lumberjack".equals(w.job)
@@ -341,6 +424,67 @@ public final class KingdomTfcForestry {
         }
         return false;
     }
+    /** Nearest native-compatible tree that also passes the *entire* land and
+     * canopy safety preflight. Previously we always retried the nearest
+     * candidate even when safeTree rejected it, starving all later trees.
+     * No chunks are loaded or modified during this search.
+     */
+    static BlockPos nearestSafeTree(ServerLevel level,BlockPos observer,
+                                   KingdomNpcData.Worker worker,KingdomForestData.Area area) {
+        if(!init() || !axe(worker.fieldTool))return null;
+        String species=wood(area.sapling());
+        if(species.isBlank())return null;
+        List<BlockPos> roots=new ArrayList<>();
+        for(int x=area.minX();x<=area.maxX();x++)
+            for(int z=area.minZ();z<=area.maxZ();z++)
+                for(int y=area.y()-2;y<=area.y()+16;y++){
+                    BlockPos pos=new BlockPos(x,y,z);
+                    if(!level.hasChunkAt(pos)||!treeLog(level,pos,species)
+                        ||!authorized(level,pos,worker.employer,area)
+                        ||!validRoot(level,pos,worker.fieldTool))continue;
+                    roots.add(pos);
+                }
+        roots.sort(Comparator.comparingDouble(p->p.distSqr(observer)));
+        // Every candidate must pass its own bounded connected-tree preflight.
+        for(BlockPos root:roots)
+            if(!safeTree(level,root,worker.employer,area,species).isEmpty())
+                return root;
+        return null;
+    }
+
+    /** Read-only explanation for the owner; never claim that cutting is underway
+     * just because the TFC API and an axe exist.
+     */
+    public static String harvestBlocker(ServerLevel level,KingdomNpcData.Worker worker,
+                                         KingdomForestData.Area area) {
+        String species=wood(area.sapling());
+        if(species.isBlank())return "Выбери породу TFC в лесном участке";
+        if(!level.hasChunkAt(area.center()))return "Лесной участок не загружен";
+        boolean found=false,hasNativeRoot=false;
+        String blocker=null;
+        for(int x=area.minX();x<=area.maxX();x++)
+            for(int z=area.minZ();z<=area.maxZ();z++)
+                for(int y=area.y()-2;y<=area.y()+16;y++){
+                    BlockPos pos=new BlockPos(x,y,z);
+                    if(!level.hasChunkAt(pos)||!treeLog(level,pos,species))continue;
+                    found=true;
+                    if(!authorized(level,pos,worker.employer,area)){
+                        if(blocker==null)blocker="Нет прав рубки у "+pos.toShortString();
+                        continue;
+                    }
+                    if(!validRoot(level,pos,worker.fieldTool))continue;
+                    hasNativeRoot=true;
+                    var check=checkTree(level,pos,worker.employer,area,species);
+                    if(!check.logs().isEmpty())return null;
+                    if(blocker==null)blocker=check.blocker();
+                }
+        if(!found)return "Нет взрослого дерева выбранной породы на участке";
+        if(blocker!=null)return blocker;
+        if(!hasNativeRoot)
+            return "TFC не разрешает рубить выбранный ствол: проверь форму дерева и топор";
+        return "Нет дерева, проходящего проверку безопасности TFC";
+    }
+
     public static BlockPos workSite(ServerLevel level,KingdomNpcData.Worker w){
         if(w.employer==null)return null;
         var firms=KingdomEnterpriseData.get(level.getServer());
@@ -368,8 +512,11 @@ public final class KingdomTfcForestry {
         if(!level.hasChunkAt(source)||!level.hasChunkAt(dest)
             ||!land.usable(level,source,w.employer,"raw")
             ||!land.usable(level,dest,w.employer,"finished")
-            ||!(level.getBlockEntity(source) instanceof Container raw)
-            ||!(level.getBlockEntity(dest) instanceof Container finished))return false;
+            )return false;
+        // Resolve vanilla or modded/TFC mutable inventories uniformly.
+        Container raw=KingdomContainerAccess.resolve(level,source);
+        Container finished=KingdomContainerAccess.resolve(level,dest);
+        if(raw==null||finished==null)return false;
         // Deliver carried physical goods first, even when the desired stock is full.
         boolean hasGoods=w.fieldInventory.stream().anyMatch(stack->
             !stack.isEmpty()&&!validSapling(BuiltInRegistries.ITEM
@@ -392,8 +539,11 @@ public final class KingdomTfcForestry {
                 var stock=KingdomEnterpriseStock.inspect(level,contract.enterprise(),
                     log,EnterpriseBindingRole.FINISHED_STORAGE,dest);
                 if(!stock.complete())continue;
-                // Real leftovers stay as uniquely marked world drops until collected.
-                if(recoverDrops(level,npc,w,area))return true;
+                // Collect genuine matching loose timber (including logs felled
+                // by the employer) before either planting or cutting a new tree.
+                var recovery=recoverDrops(level,npc,w,area);
+                if(recovery==Recovery.PICKED)return true;
+                if(recovery!=Recovery.NONE)return false;
                 // Harvest first; otherwise perpetual planting starves woodcutting.
                 var limits=new EnterpriseStockPolicy.Thresholds(area.minLogs(),area.maxLogs());
                 boolean allowedHarvest=KingdomForestData.get(level.getServer()).harvestAllowed(
@@ -406,17 +556,7 @@ public final class KingdomTfcForestry {
                     if(plant(level,npc,w,area,raw,source))return true;
                     continue;
                 }
-                BlockPos best=null;double closest=Double.MAX_VALUE;
-                for(int x=area.minX();x<=area.maxX();x++)
-                    for(int z=area.minZ();z<=area.maxZ();z++)
-                        for(int y=area.y()-2;y<=area.y()+16;y++){
-                            BlockPos p=new BlockPos(x,y,z);
-                            if(!level.hasChunkAt(p)||!treeLog(level,p,wood))continue;
-                            if(!authorized(level,p,w.employer,area)
-                                    ||!validRoot(level,p,w.fieldTool))continue;
-                            double distance=p.distSqr(npc.blockPosition());
-                            if(distance<closest){closest=distance;best=p;}
-                        }
+                BlockPos best=nearestSafeTree(level,npc.blockPosition(),w,area);
                 if(best!=null){
                     if(fell(level,npc,w,area,best))return true;
                     // An unharvestable adult tree is not a reason to plant forever.

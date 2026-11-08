@@ -184,6 +184,49 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         }
         return proposed;
     }
+
+    /** Manual emergency wage payment from the employer's REAL wallet.
+     * Keeps the employee's existing contract and all old debt; no coins are minted
+     * from the virtual salary reserve. Full repayment unpauses the NPC.
+     * Must run on the server thread, with the owner standing near the actual NPC.
+     * Returns the copper value transferred, or zero if no transfer was possible.
+     */
+    public long payNpcFromWallet(ServerPlayer owner,KingdomNpcData.Worker worker) {
+        if(owner==null || worker==null || worker.entityId==null
+                || !owner.getUUID().equals(worker.employer)
+                || !owner.serverLevel().dimension().location().toString().equals(worker.dimension))
+            return 0;
+        var live=owner.serverLevel().getEntity(worker.entityId);
+        if(live==null || live.distanceToSqr(owner)>64)return 0;
+        MinecraftServer server=owner.getServer();
+        var enterprises=KingdomEnterpriseData.get(server);
+        long balance=KingdomCurrency.balance(owner);
+        if(balance<=0)return 0;
+        for(Employment old:new ArrayList<>(entries.values())) {
+            if(!old.worker().equals(worker.entityId))continue;
+            var firm=enterprises.find(old.enterprise());
+            if(firm==null || !firm.owner().equals(owner.getUUID()))continue;
+            long due=accrue(server,old.enterprise(),old.worker());
+            if(due<=0)continue;
+            long amount=Math.min(10000L,Math.min(due,balance));
+            var received=coinsWithExisting(worker.wagePurse,amount);
+            if(received==null || !KingdomCurrency.debit(owner,amount))continue;
+            worker.wagePurse.clear();
+            worker.wagePurse.addAll(received);
+            var updated=entries.get(key(old.enterprise(),old.worker()));
+            entries.put(key(old.enterprise(),old.worker()),
+                new Employment(updated.enterprise(),updated.worker(),updated.dailyCopper(),
+                    updated.lastDay(),updated.owed()-amount,updated.active()));
+            if(totalDue(server,worker.entityId)==0 && worker.contractPaused){
+                worker.contractPaused=false;
+                worker.unpaidDays=0;
+            }
+            KingdomNpcData.get(server).setDirty();
+            setDirty();
+            return amount;
+        }
+        return 0;
+    }
     /** A player physically visits the employer's registered cash desk and claims an earned wage. */
     public boolean claim(MinecraftServer server,ServerPlayer worker,UUID enterprise){
         long owed=accrue(server,enterprise,worker.getUUID());if(owed<=0)return false;
