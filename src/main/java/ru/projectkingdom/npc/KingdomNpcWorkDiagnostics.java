@@ -83,26 +83,59 @@ public final class KingdomNpcWorkDiagnostics {
     private static Status forestry(ServerLevel level,KingdomNpcData.Worker w){
         UUID firm=company(w);
         if(firm==null)return warn("Лесоруб: назначьте лесозаготовку");
+        var enterprises=KingdomEnterpriseData.get(level.getServer());
+        if(enterprises.find(firm)==null
+            ||enterprises.kind(firm)!=EnterpriseKind.LUMBER)
+            return warn("Лесоруб: не найдено действующее предприятие");
+        if(!KingdomNpcWorkday.employed(level.getServer(),w))
+            return warn("Лесоруб: трудовой договор не активен");
         var areas=KingdomForestData.get(level.getServer()).of(firm);
         if(areas.isEmpty())return warn("Лесоруб: выделите лесной участок");
-        var active=areas.stream().filter(a->a.enabled()&&a.dimension().equals(w.dimension)).findFirst();
-        if(active.isEmpty())return warn("Лесоруб: лесной участок отключён");
-        var area=active.get();
-        if(!KingdomTfcForestry.validSapling(area.sapling()))
-            return warn("Лесоруб: выберите породу дерева TFC");
+        if(!KingdomNpcDuty.autonomousOrder(w.order))
+            return warn("Лесоруб: включи приказ «Работать»");
+        if(!"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent))
+            return warn("Лесоруб: ожидает рабочую смену или отдых/питание");
         if(!w.hasSource||!w.hasDestination)
             return warn("Лесоруб: нужны два склада");
         BlockPos source=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
-        if(!level.hasChunkAt(source))return warn("Лесоруб: склад сырья не загружен");
-        var raw=KingdomContainerAccess.resolve(level,source);
-        if(raw==null)return warn("Лесоруб: склад сырья не совместим");
-        boolean hasAxe=KingdomTfcForestry.usableAxe(w.fieldTool);
+        BlockPos dest=new BlockPos(w.destX,w.destY,w.destZ);
+        if(!level.hasChunkAt(source)||!level.hasChunkAt(dest))
+            return warn("Лесоруб: склад не загружен");
+        if(!KingdomTerritories.get(level.getServer()).usable(level,source,w.employer,"raw")
+                ||!KingdomTerritories.get(level.getServer()).usable(level,dest,w.employer,"finished"))
+            return warn("Лесоруб: у склада нет прав / правильной роли");
+        Container raw=KingdomContainerAccess.resolve(level,source);
+        Container finished=KingdomContainerAccess.resolve(level,dest);
+        if(raw==null||finished==null)
+            return warn("Лесоруб: склад недоступен или несовместим");
+        if(!KingdomTfcForestry.nativeAvailable())
+            return warn("Лесоруб: не найден совместимый API рубки TFC");
+        boolean carrying=KingdomTfcForestry.usableAxe(w.fieldTool);
+        boolean hasAxe=carrying;
         for(int i=0;i<raw.getContainerSize()&&!hasAxe;i++)
             if(KingdomTfcForestry.usableAxe(raw.getItem(i)))hasAxe=true;
         if(!hasAxe)return warn("Лесоруб: нужен топор TFC (axes_that_log)");
-        if(!KingdomTfcForestry.nativeAvailable())
-            return warn("Лесоруб: не найден совместимый API рубки TFC");
-        return good("Лесоруб: готов рубить деревья");
+        if(!carrying)return warn("Лесоруб: идёт за топором на склад");
+        Status blocked=null;
+        for(var area:areas){
+            if(!area.enabled()||!area.dimension().equals(w.dimension))continue;
+            if(!KingdomTfcForestry.validSapling(area.sapling())){
+                blocked=warn("Лесоруб: выбери породу саженца TFC");continue;
+            }
+            var stock=KingdomEnterpriseStock.inspect(level,firm,
+                KingdomTfcForestry.logId(area.sapling()),
+                ru.projectkingdom.enterprise.EnterpriseBindingRole.FINISHED_STORAGE,dest);
+            if(!stock.complete()){
+                blocked=warn("Лесоруб: не удалось проверить склад древесины");continue;
+            }
+            if(stock.physical()>=area.maxLogs()){
+                blocked=warn("Лесоруб: склад древесины достиг нормы; вырубка приостановлена");continue;
+            }
+            String problem=KingdomTfcForestry.harvestBlocker(level,w,area);
+            if(problem==null)return good("Лесоруб: найдено дерево TFC для безопасной рубки");
+            blocked=warn("Лесоруб: "+problem);
+        }
+        return blocked==null?warn("Лесоруб: все лесные участки отключены"):blocked;
     }
     public static Status forWorker(ServerLevel level,Villager npc,KingdomNpcData.Worker w){
         if(level==null||npc==null||w==null)return warn("NPC: нет данных");
