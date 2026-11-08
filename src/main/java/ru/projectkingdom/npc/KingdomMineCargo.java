@@ -17,8 +17,10 @@ public final class KingdomMineCargo {
     }
 
     public static boolean isSupply(ItemStack item) {
-        return !item.isEmpty() && isSupplyId(
-            BuiltInRegistries.ITEM.getKey(item.getItem()).toString());
+        return !item.isEmpty() && (
+            isSupplyId(BuiltInRegistries.ITEM.getKey(item.getItem()).toString())
+            || KingdomMineTools.matches(item,KingdomMineTools.Tool.SHOVEL)
+            || KingdomMineTools.matches(item,KingdomMineTools.Tool.PICKAXE));
     }
 
     public static int minedCount(KingdomNpcData.Worker worker) {
