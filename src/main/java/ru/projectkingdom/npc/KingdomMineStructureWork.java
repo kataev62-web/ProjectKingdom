@@ -60,12 +60,14 @@ public final class KingdomMineStructureWork {
             &&w.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,at));
     }
     private static Result ladder(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
-                                 BlockPos at){
+                                 KingdomMineSettings.Shaft area,BlockPos at){
         if(!authorized(level,at,w)||!level.hasChunkAt(at.above()))return Result.UNSAFE;
         if(level.getBlockState(at).is(Blocks.LADDER))return Result.READY;
         if(!level.getBlockState(at).isAir())return Result.UNSAFE;
         BlockState placing=null;
         for(Direction wall:Direction.Plane.HORIZONTAL){
+            // Only the OUTER wall is permanent. Inner walls become galleries.
+            if(area!=null && area.contains(at.relative(wall)))continue;
             BlockState proposed=Blocks.LADDER.defaultBlockState()
                 .setValue(LadderBlock.FACING,wall.getOpposite());
             if(level.hasChunkAt(at.relative(wall))&&proposed.canSurvive(level,at)){
@@ -124,8 +126,9 @@ public final class KingdomMineStructureWork {
         return Result.BUILT;
     }
     public static Result ladderAt(ServerLevel level,Villager npc,
-            KingdomNpcData.Worker worker,BlockPos landing) {
-        return ladder(level,npc,worker,landing);
+            KingdomNpcData.Worker worker,KingdomMineSettings.Shaft area,
+            BlockPos landing) {
+        return ladder(level,npc,worker,area,landing);
     }
 
     public static Result floorAt(ServerLevel level,Villager npc,
@@ -142,7 +145,7 @@ public final class KingdomMineStructureWork {
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
             KingdomMineSettings.Shaft area,int depth,BlockPos landing){
         if(KingdomMineStructurePlan.requiresLadder(depth)) {
-            Result installed=ladder(level,npc,w,landing);
+            Result installed=ladder(level,npc,w,area,landing);
             if(installed!=Result.READY)return installed;
         }
         if(KingdomMineStructurePlan.isLevel(depth))
