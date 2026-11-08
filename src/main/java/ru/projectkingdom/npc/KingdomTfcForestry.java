@@ -368,8 +368,11 @@ public final class KingdomTfcForestry {
         if(!level.hasChunkAt(source)||!level.hasChunkAt(dest)
             ||!land.usable(level,source,w.employer,"raw")
             ||!land.usable(level,dest,w.employer,"finished")
-            ||!(level.getBlockEntity(source) instanceof Container raw)
-            ||!(level.getBlockEntity(dest) instanceof Container finished))return false;
+            )return false;
+        // Resolve vanilla or modded/TFC mutable inventories uniformly.
+        Container raw=KingdomContainerAccess.resolve(level,source);
+        Container finished=KingdomContainerAccess.resolve(level,dest);
+        if(raw==null||finished==null)return false;
         // Deliver carried physical goods first, even when the desired stock is full.
         boolean hasGoods=w.fieldInventory.stream().anyMatch(stack->
             !stack.isEmpty()&&!validSapling(BuiltInRegistries.ITEM
