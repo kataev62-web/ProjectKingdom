@@ -36,11 +36,13 @@ public final class KingdomMineSupportPlan {
         int dx=target.getX()-approach.getX();
         int dz=target.getZ()-approach.getZ();
         if(Math.abs(dx)+Math.abs(dz)!=1)return null;
-        // Existing TFC builder currently supports east-west spanning beams.
-        // North/south frames require a separate orientation-aware executor.
-        if(dx!=0)return null;
-        return new Frame(approach.west(),approach.east(),
-            approach.above(2),approach,0);
+        // Cross-beams span the corridor rather than obstructing its axis.
+        // Both north-south and east-west tunnelling use TFC native placement.
+        return dx!=0
+            ?new Frame(approach.north(),approach.south(),
+                approach.above(2),approach,0)
+            :new Frame(approach.west(),approach.east(),
+                approach.above(2),approach,0);
     }
 
     public static boolean valid(Frame frame) {
