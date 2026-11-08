@@ -37,10 +37,11 @@ public final class KingdomMineSelection {
         ACTIVE.put(player.getUUID(),new Pending(mine,binding.dimension(),null,
             player.serverLevel().getGameTime()+2400));
         ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
-            ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,true);
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,true,
+                KingdomMineSettings.get(player.getServer()).levels(mine)*5);
         player.sendSystemMessage(Component.literal(
             "[Шахта] Выдели два противоположных угла ЦЕНТРАЛЬНОГО СТВОЛА на одном уровне: "
-            +"Shift+ПКМ пустой рукой. Размер 7×7 ... 12×12 блоков, глубина 12. "
+            +"Shift+ПКМ пустой рукой. Размер 7×7 ... 12×12, шаг уровней 5 блоков. "
             +"Участок должен принадлежать владельцу шахты."));
         return true;
     }
@@ -81,7 +82,8 @@ public final class KingdomMineSelection {
             ACTIVE.put(player.getUUID(),new Pending(p.mine(),p.dimension(),
                 at.immutable(),p.expiry()));
             ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
-                ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,at,true);
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,at,true,
+                KingdomMineSettings.get(player.getServer()).levels(p.mine())*5);
             player.sendSystemMessage(Component.literal("[Шахта] Первый угол "
                 +at.toShortString()+". Отметь второй угол по диагонали."));
             return true;
@@ -98,11 +100,12 @@ public final class KingdomMineSelection {
         }
         var territory=KingdomTerritories.get(player.getServer());
         for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++) {
-            for(int y=at.getY()-12;y<=at.getY();y++) {
+            for(int y=at.getY()-KingdomMineSettings.get(player.getServer()).levels(p.mine())*5;
+                    y<=at.getY();y++) {
                 BlockPos cell=new BlockPos(x,y,z);
                 if(!level.hasChunkAt(cell)
                     ||!territory.canUse(level,cell,company.owner())){
-                    player.sendSystemMessage(Component.literal("[Шахта] Вся область и 12 блоков вниз должны быть загружены и принадлежать владельцу."));
+                    player.sendSystemMessage(Component.literal("[Шахта] Вся область до заданной глубины должна быть загружены и принадлежать владельцу."));
                     return true;
                 }
             }
@@ -121,8 +124,10 @@ public final class KingdomMineSelection {
         ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
             ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,false);
         player.sendSystemMessage(Component.literal("[Шахта] Центральный ствол: "
-            +width+"×"+length+", глубина 12. Схема сохранена. "
-            +"Включи «Сразу вниз» в меню NPC."));
+            +width+"×"+length+", глубина "
+            +(KingdomMineSettings.get(player.getServer()).levels(p.mine())*5)
+            +". Схема сохранена. 
+            +"Режим и направление выбираются в блоке предприятия."));
         return true;
     }
 }
