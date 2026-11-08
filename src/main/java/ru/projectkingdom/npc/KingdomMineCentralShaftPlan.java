@@ -54,11 +54,12 @@ public final class KingdomMineCentralShaftPlan {
             rim.add(new BlockPos(area.minX(),area.surfaceY(),z));
         for(int x=area.minX()+1;x<=area.maxX();x++)
             rim.add(new BlockPos(x,area.surfaceY(),area.minZ()));
-        for(int z=area.minZ()+1;z<area.maxZ();z++)
+        for(int z=area.minZ()+1;z<=area.maxZ();z++)
             rim.add(new BlockPos(area.maxX(),area.surfaceY(),z));
         for(int x=area.maxX()-1;x>entrance.getX();x--)
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
-        rim.add(entrance); // Close the walkable perimeter before the next lap.
+        if(!rim.get(rim.size()-1).equals(entrance))
+            rim.add(entrance); // Close the perimeter without repeating the entry.
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
         List<BlockPos> landings=new ArrayList<>();
         BlockPos previous=entrance;
