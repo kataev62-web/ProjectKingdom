@@ -154,10 +154,14 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                     line(g,"Выделите лес, породу TFC и нормы древесины.",54,90);
                     line(g,"NPC рубит деревья и сажает реальные саженцы.",54,108);
                 } else if(menu.kind()==EnterpriseKind.MINE) {
-                    String line=menu.mineSummary();
-                    if(font.width(line)>245)line=font.plainSubstrByWidth(line,243)+"…";
-                    line(g,line,54,85);
-                    line(g,"Ствол от 7×7 | шаг 5 | настил 2 блока",54,99);
+                    String[] values=menu.mineSummary().split("[|]");
+                    if(values.length>=4){
+                        String start=values[0].trim()+" | "+values[1].trim();
+                        String direction=values[2].trim()+" | "+values[3].trim();
+                        line(g,font.plainSubstrByWidth(start,253),54,78);
+                        line(g,font.plainSubstrByWidth(direction,253),54,91);
+                    } else line(g,menu.mineSummary(),54,85);
+                    line(g,"От 7×7 | шаг 5 | настил 2 | проход для лестниц",54,104);
                 } else if(menu.kind()==EnterpriseKind.CONSTRUCTION) {
                     line(g,"Заказы, проекты, NPC-строители и молот",54,90);
                     line(g,"открываются в едином меню Kingdom.",54,108);
