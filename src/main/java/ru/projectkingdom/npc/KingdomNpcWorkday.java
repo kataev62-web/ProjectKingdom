@@ -69,6 +69,20 @@ public final class KingdomNpcWorkday {
             BlockPos forest=KingdomTfcForestry.workSite(level,worker);
             if(forest!=null)return forest;
         }
+        if ("miner".equals(worker.job)) {
+            try{
+                var mine=java.util.UUID.fromString(worker.workplaceId);
+                var enterprises=KingdomEnterpriseData.get(server);
+                var core=enterprises.core(mine);
+                if(enterprises.kind(mine)==ru.projectkingdom.enterprise.EnterpriseKind.MINE
+                    &&core!=null&&core.active()
+                    &&core.dimension().equals(worker.dimension)){
+                    BlockPos center=BlockPos.of(core.packedPos());
+                    if(level.hasChunkAt(center)&&land.canUse(level,center,worker.employer))
+                        return center;
+                }
+            }catch(IllegalArgumentException ignored){}
+        }
         if ("breeder".equals(worker.job)) {
             BlockPos pen=KingdomLivestockWork.workSite(level,worker);
             if(pen!=null)return pen;
