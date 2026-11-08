@@ -24,7 +24,13 @@ public final class KingdomContainerAccess {
     private KingdomContainerAccess() {}
 
     public static Container resolve(ServerLevel level,BlockPos pos) {
+        return resolve(level,pos,null);
+    }
+
+    public static Container resolve(ServerLevel level,BlockPos pos,java.util.UUID owner) {
         if(level==null||pos==null||!level.hasChunkAt(pos))return null;
+        if(owner!=null&&!KingdomTerritories.get(level.getServer()).canUse(level,pos,owner))
+            return null;
         BlockEntity entity=level.getBlockEntity(pos);
         if(entity instanceof Container container){
             var block=level.getBlockState(pos);
@@ -33,6 +39,8 @@ public final class KingdomContainerAccess {
                 for(Direction side:Direction.Plane.HORIZONTAL){
                     BlockPos otherPos=pos.relative(side);
                     if(!samePhysicalStorage(level,pos,otherPos))continue;
+                    if(owner!=null&&!KingdomTerritories.get(level.getServer())
+                            .canUse(level,otherPos,owner))continue;
                     BlockEntity opposite=level.getBlockEntity(otherPos);
                     if(opposite instanceof Container other)return new CompoundContainer(container,other);
                 }

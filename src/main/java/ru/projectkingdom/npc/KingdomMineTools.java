@@ -61,7 +61,7 @@ public final class KingdomMineTools {
         if(!level.hasChunkAt(depot)
             ||!KingdomTerritories.get(level.getServer())
                 .usable(level,depot,worker.employer,"raw"))return false;
-        Container storage=KingdomContainerAccess.resolve(level,depot);
+        Container storage=KingdomContainerAccess.resolve(level,depot,worker.employer);
         if(storage==null)return false;
         int slot=-1;
         for(int i=0;i<storage.getContainerSize();i++){

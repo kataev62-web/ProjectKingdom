@@ -49,7 +49,7 @@ public final class KingdomMineWork {
                                        KingdomNpcData.Worker worker) {
         if (!level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
             || pos.getY() >= level.getMaxBuildHeight() - 3
-            || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,pos)))
+            || !KingdomTerritories.get(level.getServer()).canUse(level,pos,worker.employer))
             return false;
         BlockState state=level.getBlockState(pos);
         String id=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();

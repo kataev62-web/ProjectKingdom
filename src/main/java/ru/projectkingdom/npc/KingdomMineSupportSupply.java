@@ -36,7 +36,7 @@ public final class KingdomMineSupportSupply {
                 ||!KingdomTerritories.get(level.getServer())
                     .usable(level,pos,worker.employer,"raw"))
             return State.WAREHOUSE_UNAVAILABLE;
-        Container storage=KingdomContainerAccess.resolve(level,pos);
+        Container storage=KingdomContainerAccess.resolve(level,pos,worker.employer);
         if(storage==null)return State.WAREHOUSE_UNAVAILABLE;
         // A single matching wood species must supply the whole frame.
         // The builder withdraws eight from one actual inventory slot.

@@ -101,7 +101,7 @@ public final class KingdomMineSupportBuilder {
         if(!level.hasChunkAt(pos)
             ||!KingdomTerritories.get(level.getServer()).usable(level,pos,worker.employer,"raw"))
             return Result.NO_STOCK;
-        Container source=KingdomContainerAccess.resolve(level,pos);
+        Container source=KingdomContainerAccess.resolve(level,pos,worker.employer);
         if(source==null)return Result.NO_STOCK;
         int slot=-1;
         for(int i=0;i<source.getContainerSize();i++){
