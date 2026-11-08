@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.nbt.Tag;
@@ -27,6 +28,32 @@ public final class KingdomMineSettings extends SavedData {
             return pos.getX()>=minX&&pos.getX()<=maxX
                 &&pos.getZ()>=minZ&&pos.getZ()<=maxZ;
         }
+    }
+
+    public enum Heading {
+        NORTH("Север",Direction.NORTH), EAST("Восток",Direction.EAST),
+        SOUTH("Юг",Direction.SOUTH), WEST("Запад",Direction.WEST);
+        private final String label;
+        private final Direction direction;
+        Heading(String label,Direction direction){this.label=label;this.direction=direction;}
+        public String label(){return label;}
+        public Direction direction(){return direction;}
+        public Heading next(){return values()[(ordinal()+1)%values().length];}
+    }
+
+    public static final int LEVEL_INTERVAL=5;
+    public static final int MAX_LEVELS=4;
+    private final Map<UUID,Integer> levelCounts=new HashMap<>();
+    private final Map<UUID,Heading> headings=new HashMap<>();
+    public int levels(UUID mine){return levelCounts.getOrDefault(mine,3);}
+    public Heading heading(UUID mine){return headings.getOrDefault(mine,Heading.NORTH);}
+    public boolean chooseLevels(UUID mine,int value){
+        if(mine==null||started(mine)||value<1||value>MAX_LEVELS)return false;
+        levelCounts.put(mine,value);setDirty();return true;
+    }
+    public boolean chooseHeading(UUID mine,Heading value){
+        if(mine==null||started(mine)||value==null)return false;
+        headings.put(mine,value);setDirty();return true;
     }
 
     private final Map<UUID,Shaft> shafts=new HashMap<>();
@@ -70,6 +97,10 @@ public final class KingdomMineSettings extends SavedData {
             if(!t.hasUUID("Id"))continue;
             UUID id=t.getUUID("Id");
             if("DOWN".equals(t.getString("Start")))data.starts.put(id,Start.DOWN);
+            int levels=t.contains("Levels",Tag.TAG_INT)?t.getInt("Levels"):3;
+            if(levels>=1&&levels<=MAX_LEVELS)data.levelCounts.put(id,levels);
+            try{data.headings.put(id,Heading.valueOf(t.getString("Heading")));}
+            catch(IllegalArgumentException ignored){data.headings.put(id,Heading.NORTH);}
             if(t.getBoolean("Started"))data.started.add(id);
             if(t.contains("Shaft",Tag.TAG_COMPOUND)){
                 CompoundTag s=t.getCompound("Shaft");
@@ -88,10 +119,14 @@ public final class KingdomMineSettings extends SavedData {
         java.util.Set<UUID> ids=new java.util.HashSet<>(starts.keySet());
         ids.addAll(started);
         ids.addAll(shafts.keySet());
+        ids.addAll(levelCounts.keySet());
+        ids.addAll(headings.keySet());
         for(UUID id:ids){
             CompoundTag tag=new CompoundTag();
             tag.putUUID("Id",id);
             tag.putString("Start",start(id).name());
+            tag.putInt("Levels",levels(id));
+            tag.putString("Heading",heading(id).name());
             tag.putBoolean("Started",started.contains(id));
             Shaft area=shafts.get(id);
             if(area!=null){
