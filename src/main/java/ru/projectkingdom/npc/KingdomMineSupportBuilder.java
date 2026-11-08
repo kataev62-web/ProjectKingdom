@@ -188,6 +188,7 @@ public final class KingdomMineSupportBuilder {
             return nativePlace(level,npc,worker,right.below(),Direction.UP,right,false);
         // Side-click on the left top support, allowing TFC's horizontal rule
         // to link the right support via its real block-item implementation.
-        return nativePlace(level,npc,worker,left.above(2),Direction.EAST,middle,true);
+        Direction span=left.getX()!=right.getX()?Direction.EAST:Direction.SOUTH;
+        return nativePlace(level,npc,worker,left.above(2),span,middle,true);
     }
 }
