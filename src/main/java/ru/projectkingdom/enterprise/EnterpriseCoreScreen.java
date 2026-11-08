@@ -32,6 +32,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     private Button stockPrevious,stockNext;
     private EditBox rename;private Button renameButton,closeButton,registerBuildingButton;
     private Button fieldsButton,forestButton;
+    private final List<Button> mineButtons=new ArrayList<>();
     private boolean closureArmed;
     public EnterpriseCoreScreen(EnterpriseCoreMenu menu,Inventory inventory,Component title){super(menu,inventory,KingdomFonts.readable(title));imageWidth=EnterpriseMenuLayout.WIDTH;imageHeight=EnterpriseMenuLayout.HEIGHT;}
     @Override protected void init(){
@@ -62,6 +63,14 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         cashButtons.add(addRenderableWidget(action("Перенести монеты старой кассы",68,166,235,EnterpriseCoreMenu.MIGRATE_CASH)));
         fieldsButton=addRenderableWidget(action("Поля и семена",72,132,205,EnterpriseCoreMenu.OPEN_FARM_FIELDS));
         forestButton=addRenderableWidget(action("Лесные участки и посадки",72,132,205,EnterpriseCoreMenu.OPEN_FOREST));
+        mineButtons.add(addRenderableWidget(action("Разметить центральный ствол",66,110,233,
+            EnterpriseCoreMenu.OPEN_MINE_SURVEY)));
+        mineButtons.add(addRenderableWidget(action("Начало: вперёд / сразу вниз",66,134,233,
+            EnterpriseCoreMenu.MINE_START)));
+        mineButtons.add(addRenderableWidget(action("Количество горизонтов: 1–4",66,158,233,
+            EnterpriseCoreMenu.MINE_LEVELS)));
+        mineButtons.add(addRenderableWidget(action("Направление галерей: С / В / Ю / З",66,182,233,
+            EnterpriseCoreMenu.MINE_HEADING)));
         constructionButtons.add(addRenderableWidget(action("Архитектор",62,132,110,EnterpriseCoreMenu.OPEN_ARCHITECT)));
         constructionButtons.add(addRenderableWidget(action("Мои проекты",182,132,110,EnterpriseCoreMenu.OPEN_PROJECTS)));
         rename=new EditBox(font,leftPos+68,topPos+94,190,20,KingdomFonts.readable("Название"));rename.setMaxLength(48);rename.setValue(menu.enterpriseName());addRenderableWidget(rename);
@@ -111,6 +120,9 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();
         if(fieldsButton!=null)fieldsButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.FARM;
         if(forestButton!=null)forestButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.LUMBER;
+        for(Button button:mineButtons)button.visible=
+            selected==EnterpriseMenuLayout.Tab.PRODUCTION
+            &&menu.kind()==EnterpriseKind.MINE&&menu.manager();
         for(Button b:constructionButtons)b.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION
             &&menu.kind()==EnterpriseKind.CONSTRUCTION&&menu.manager();
         boolean settings=selected==EnterpriseMenuLayout.Tab.SETTINGS&&menu.manager();if(rename!=null)rename.setVisible(settings);if(renameButton!=null)renameButton.visible=settings;if(closeButton!=null)closeButton.visible=settings;}
@@ -141,6 +153,11 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 } else if(menu.kind()==EnterpriseKind.LUMBER) {
                     line(g,"Выделите лес, породу TFC и нормы древесины.",54,90);
                     line(g,"NPC рубит деревья и сажает реальные саженцы.",54,108);
+                } else if(menu.kind()==EnterpriseKind.MINE) {
+                    String line=menu.mineSummary();
+                    if(font.width(line)>245)line=font.plainSubstrByWidth(line,243)+"…";
+                    line(g,line,54,85);
+                    line(g,"Ствол от 7×7 | шаг 5 | настил 2 блока",54,99);
                 } else if(menu.kind()==EnterpriseKind.CONSTRUCTION) {
                     line(g,"Заказы, проекты, NPC-строители и молот",54,90);
                     line(g,"открываются в едином меню Kingdom.",54,108);
