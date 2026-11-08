@@ -32,6 +32,15 @@ final class KingdomMineWorkplaceIntegrationTest {
         assertTrue(diagnostics.contains("mine.reason()"));
     }
 
+    @Test void selectingShaftEnablesDownAndWorkOrderIsScheduledPromptly() throws Exception {
+        String selection=source("KingdomMineSelection.java");
+        String setup=source("KingdomNpcQuickSetup.java");
+        assertTrue(selection.contains("mineSettings.choose(p.mine(),KingdomMineSettings.Start.DOWN)"));
+        assertTrue(setup.contains("worker.order=\"work\""));
+        assertTrue(setup.contains("KingdomMineSite.inspect(server,level,worker).ready()"));
+        assertTrue(setup.contains("CONTINUE_ASSIGNED_JOB.name()"));
+    }
+
     @Test void quickSetupAndExecutorUseSameSurveyedEntrance() throws Exception {
         assertTrue(source("KingdomNpcQuickSetup.java")
             .contains("KingdomMineCentralShaftPlan.entrance(settings.shaft(business.id()))"));
