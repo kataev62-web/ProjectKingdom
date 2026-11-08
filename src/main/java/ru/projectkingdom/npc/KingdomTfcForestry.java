@@ -325,8 +325,8 @@ public final class KingdomTfcForestry {
         var tag=entity.getPersistentData();
         if(tag.hasUUID(LOG_LOOT_OWNER))
             return worker.entityId.equals(tag.getUUID(LOG_LOOT_OWNER));
-        UUID owner=entity.getOwner();
-        if(owner!=null && !owner.equals(worker.employer))return false;
+        var itemOwner=entity.getOwner();
+        if(itemOwner!=null && !itemOwner.getUUID().equals(worker.employer))return false;
         String id=BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()).toString();
         return eligibleGroundLog(id,wood(area.sapling()));
     }
