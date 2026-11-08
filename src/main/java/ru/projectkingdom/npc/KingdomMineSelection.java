@@ -146,6 +146,14 @@ public final class KingdomMineSelection {
             player.sendSystemMessage(Component.literal("[Шахта] Изменение ствола запрещено после начала проходки."));
             return true;
         }
+        // Worker statuses were still saying "choose direction" after the
+        // authoritative shaft and route were saved. Refresh all miners employed
+        // at this mine, without changing their work order or creating materials.
+        var workers=KingdomNpcData.get(player.getServer());
+        for(var worker:workers.all())
+            if("miner".equals(worker.job) && p.mine().toString().equals(worker.workplaceId))
+                worker.mineStatus="Ствол "+width+"×"+length+"×10 выбран, направление Сразу вниз";
+        workers.setDirty();
         cancel(player.getUUID());
         ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
             ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,false);
