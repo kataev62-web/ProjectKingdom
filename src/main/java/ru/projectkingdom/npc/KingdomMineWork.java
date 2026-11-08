@@ -105,7 +105,14 @@ public final class KingdomMineWork {
             status(level,worker,"Доставка добычи на склад");
             return NpcFieldWork.deposit(level,npc,worker);
         }
-        if (!NpcFieldWork.borrowTool(level,npc,worker)) {status(level,worker,"Нужна исправная кирка на складе сырья");return false;}
+        // Central shaft selects shovel or pickaxe from the actual target block.
+        // Requiring a pickaxe first would block a soil-only start with a shovel.
+        if(KingdomMineSettings.get(level.getServer()).start(id)
+                ==KingdomMineSettings.Start.FORWARD
+            &&!NpcFieldWork.borrowTool(level,npc,worker)) {
+            status(level,worker,"Нужна исправная кирка на складе сырья");
+            return false;
+        }
 
         var settings=KingdomMineSettings.get(level.getServer());
         var start=settings.start(id);
