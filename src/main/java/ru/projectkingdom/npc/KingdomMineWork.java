@@ -253,7 +253,7 @@ public final class KingdomMineWork {
             // lay the three-block perimeter deck after its level is excavated.
             int depth=central?area.surfaceY()-floorCell.getY():0;
             if(central && deltaY==1 && KingdomMineStructurePlan.requiresLadder(depth)){
-                var built=KingdomMineStructureWork.ladderAt(level,npc,worker,floorCell);
+                var built=KingdomMineStructureWork.ladderAt(level,npc,worker,area,floorCell);
                 if(built==KingdomMineStructureWork.Result.BUILT){
                     settings.markStarted(id);
                     status(level,worker,"Устанавливает лестницу на глубине "+depth);
