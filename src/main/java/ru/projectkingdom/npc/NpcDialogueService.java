@@ -64,6 +64,21 @@ public final class NpcDialogueService {
                 w.safety, w.employer != null, w.contractPaused, w.hasHome, w.hasWorkstation,
                 w.order, before.reputation());
         NpcDialogueEngine.Reply reply = NpcDialogueEngine.reply(utterance, snapshot);
+        // A miner has no crafting workstation. Query the enterprise, shaft
+        // and actual blocking condition instead of w.hasWorkstation.
+        if(reply.intent()==NpcDialogueEngine.Intent.WORK
+            &&"miner".equals(w.job) && w.employer!=null && !w.contractPaused) {
+            var site=KingdomMineSite.inspect(player.getServer(),player.serverLevel(),w);
+            String detail=site.ready()
+                ?(w.mineStatus==null||w.mineStatus.isBlank()
+                    ?"Шахта готова. Приказ: "+w.order
+                    :w.mineStatus)
+                :site.reason();
+            reply=new NpcDialogueEngine.Reply(NpcDialogueEngine.Intent.WORK,
+                NpcDialogueEngine.Action.NONE,
+                "Шахтёр: "+detail,
+                site.ready()?NpcVoiceLine.WORKING:NpcVoiceLine.WORKSTATION);
+        }
         long day = player.serverLevel().getDayTime() / 24000L;
         NpcSocialMemory memory = before.talked(reply.intent().name(), day);
         String text = reply.text();
