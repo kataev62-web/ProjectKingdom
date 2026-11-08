@@ -41,10 +41,14 @@ public final class KingdomMineSupportPlan {
         int dx=target.getX()-approach.getX();
         int dz=target.getZ()-approach.getZ();
         if(Math.abs(dx)+Math.abs(dz)!=1)return null;
-        if(dx!=0)return new Frame(approach.north(),approach.south(),
-            approach.above(2),approach,0);
-        return new Frame(approach.west(),approach.east(),
-            approach.above(2),approach,0);
+        // For a descending stair, the crossbeam must remain within TFC's
+        // support_up radius (2 blocks) of the LOWER target. A frame rooted at
+        // the upper approach would put the beam three blocks above it.
+        BlockPos base=target.getY()<approach.getY()?approach.below():approach;
+        if(dx!=0)return new Frame(base.north(),base.south(),
+            base.above(2),base,0);
+        return new Frame(base.west(),base.east(),
+            base.above(2),base,0);
     }
 
     public static boolean valid(Frame frame) {
