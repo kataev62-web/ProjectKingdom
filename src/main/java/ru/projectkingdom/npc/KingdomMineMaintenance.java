@@ -30,7 +30,7 @@ public final class KingdomMineMaintenance {
     }
 
     public static boolean passable(BlockState state) {
-        return state.isAir() || state.is(Blocks.TORCH);
+        return state.isAir() || state.is(Blocks.TORCH) || state.is(Blocks.LADDER);
     }
 
     public static Result light(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
