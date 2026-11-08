@@ -94,14 +94,17 @@ public final class KingdomMineSelection {
         int width=maxX-minX+1,length=maxZ-minZ+1;
         var core=firms.core(p.mine());
         if(core==null||!core.active()||!core.dimension().equals(p.dimension())
-            ||first.getY()!=at.getY()||width<7||length<7||width>12||length>12){
-            player.sendSystemMessage(Component.literal("[Шахта] Нужен прямоугольник от 7×7 до 12×12 на одной высоте. Повтори второй угол."));
+            ||width<7||length<7||width>12||length>12){
+            player.sendSystemMessage(Component.literal("[Шахта] Нужен прямоугольник от 7×7 до 12×12. Повтори второй угол."));
             return true;
         }
+        // Clicked blocks can have different heights. The shaft begins one
+        // block above the higher corner, where the miner will stand.
+        int surfaceY=Math.max(first.getY(),at.getY())+1;
         var territory=KingdomTerritories.get(player.getServer());
         for(int x=minX;x<=maxX;x++)for(int z=minZ;z<=maxZ;z++) {
-            for(int y=at.getY()-KingdomMineSettings.get(player.getServer()).levels(p.mine())*5;
-                    y<=at.getY();y++) {
+            for(int y=surfaceY-KingdomMineSettings.get(player.getServer()).levels(p.mine())*5;
+                    y<=surfaceY;y++) {
                 BlockPos cell=new BlockPos(x,y,z);
                 if(!level.hasChunkAt(cell)
                     ||!territory.canUse(level,cell,company.owner())){
@@ -111,14 +114,9 @@ public final class KingdomMineSelection {
             }
         }
         var area=new KingdomMineSettings.Shaft(minX,maxX,minZ,maxZ,
-            at.getY(),p.dimension());
-        if(!KingdomMineCentralShaftPlan.valid(area,BlockPos.of(core.packedPos()))) {
-            player.sendSystemMessage(Component.literal(
-                "[Шахта] Вход должен быть на ЮЖНОЙ границе выделения: "
-                +"клетка непосредственно к северу от ядра. "
-                +"Уровень выделения должен совпадать с Y ядра. Повтори второй угол."));
-            return true;
-        }
+            surfaceY,p.dimension());
+        // The enterprise core does not have to touch the south wall and
+        // does not need to share the selected area's Y coordinate.
         if(!KingdomMineSettings.get(player.getServer()).setShaft(p.mine(),area))return true;
         cancel(player.getUUID());
         ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
@@ -126,7 +124,7 @@ public final class KingdomMineSelection {
         player.sendSystemMessage(Component.literal("[Шахта] Центральный ствол: "
             +width+"×"+length+", глубина "
             +(KingdomMineSettings.get(player.getServer()).levels(p.mine())*5)
-            +". Схема сохранена. "
+            +". Схема сохранена. Вход рассчитан по центру южной стены. "
             +"Режим и направление выбираются в блоке предприятия."));
         return true;
     }
