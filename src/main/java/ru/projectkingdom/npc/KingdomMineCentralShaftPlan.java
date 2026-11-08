@@ -10,8 +10,8 @@ import net.minecraft.core.Direction;
 
 /**
  * MineColonies-like bounded central shaft:
- *  - Twelve consecutive, walkable descending cells around the perimeter.
- *  - At depths 4, 8 and 12, excavate the INSIDE of the selected footprint,
+ *  - Five cells per level of walkable descent, with selectable level count around the perimeter.
+ *  - At every fifth depth, excavate the INSIDE of the selected footprint,
  *    preserving the outer staircase and its support floor.
  *  - Each room cell has a previously cleared adjacent approach.
  *
@@ -20,9 +20,9 @@ import net.minecraft.core.Direction;
  */
 public final class KingdomMineCentralShaftPlan {
     private KingdomMineCentralShaftPlan(){}
-    public static final int DEPTH=12;
+    public static final int DEPTH=15; // Default: 3 levels, five blocks each.
     public static final int GALLERY_LENGTH=12;
-    public static final int[] LEVELS={4,8,12};
+    public static final int[] LEVELS={5,10,15};
     public record Stage(int depth,BlockPos entrance,List<KingdomMineGalleryPlan.Cell> chamber) {}
 
     public static boolean valid(KingdomMineSettings.Shaft area,BlockPos core) {
@@ -37,10 +37,17 @@ public final class KingdomMineCentralShaftPlan {
 
     public static List<KingdomMineGalleryPlan.Cell> cells(
             BlockPos core,KingdomMineSettings.Shaft area) {
-        if(!valid(area,core))return List.of();
+        return cells(core,area,3,KingdomMineSettings.Heading.NORTH);
+    }
+
+    public static List<KingdomMineGalleryPlan.Cell> cells(
+            BlockPos core,KingdomMineSettings.Shaft area,int levels,
+            KingdomMineSettings.Heading heading) {
+        if(!valid(area,core)||levels<1||levels>KingdomMineSettings.MAX_LEVELS
+            ||heading==null)return List.of();
+        int depth=levels*KingdomMineSettings.LEVEL_INTERVAL;
         List<BlockPos> rim=new ArrayList<>();
         BlockPos entrance=core.north();
-        // Move west, north, east, south, using each perimeter coordinate once.
         for(int x=entrance.getX()-1;x>=area.minX();x--)
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
         for(int z=area.maxZ()-1;z>=area.minZ();z--)
@@ -51,21 +58,25 @@ public final class KingdomMineCentralShaftPlan {
             rim.add(new BlockPos(area.maxX(),area.surfaceY(),z));
         for(int x=area.maxX()-1;x>entrance.getX();x--)
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
-        if(rim.size()<DEPTH)return List.of();
+        rim.add(entrance); // Close the walkable perimeter before the next lap.
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
+        List<BlockPos> landings=new ArrayList<>();
         BlockPos previous=entrance;
-        for(int step=1;step<=DEPTH;step++) {
-            BlockPos down=rim.get(step-1).below(step);
+        for(int step=1;step<=depth;step++) {
+            BlockPos down=rim.get((step-1)%rim.size()).below(step);
             result.add(new KingdomMineGalleryPlan.Cell(down,previous));
             previous=down;
-            for(int level:LEVELS)if(step==level)
-                result.addAll(chamber(area,down));
+            if(step%KingdomMineSettings.LEVEL_INTERVAL==0)landings.add(down);
         }
+        // All shaft excavation runs first. Only then do NPCs open levels.
+        // Structural wooden decks are installed after each gallery completes.
+        for(BlockPos landing:landings)result.addAll(chamber(area,landing,heading));
         return List.copyOf(result);
     }
 
     private static List<KingdomMineGalleryPlan.Cell> chamber(
-            KingdomMineSettings.Shaft area,BlockPos entrance) {
+            KingdomMineSettings.Shaft area,BlockPos entrance,
+            KingdomMineSettings.Heading heading) {
         List<KingdomMineGalleryPlan.Cell> plan=new ArrayList<>();
         Set<BlockPos> visited=new HashSet<>();
         ArrayDeque<BlockPos> queue=new ArrayDeque<>();
@@ -106,20 +117,24 @@ public final class KingdomMineCentralShaftPlan {
                 }
             }
         }
-        // Each level opens one north-facing extraction gallery beyond the
-        // central shaft; the miner still checks legal ownership at every cell.
+        // Create one physical gallery in the enterprise-selected cardinal
+        // direction; use the already excavated central chamber as its approach.
+        Direction direction=heading.direction();
         int x=(area.minX()+area.maxX())/2;
-        BlockPos galleryApproach=new BlockPos(x,entrance.getY(),area.minZ()+1);
-        BlockPos exit=new BlockPos(x,entrance.getY(),area.minZ());
-        // At some entrance offsets the descending stair already cleared the
-        // north rim cell at this Y. Never schedule it twice.
+        int z=(area.minZ()+area.maxZ())/2;
+        BlockPos exit=switch(heading){
+            case NORTH -> new BlockPos(x,entrance.getY(),area.minZ());
+            case SOUTH -> new BlockPos(x,entrance.getY(),area.maxZ());
+            case WEST -> new BlockPos(area.minX(),entrance.getY(),z);
+            case EAST -> new BlockPos(area.maxX(),entrance.getY(),z);
+        };
+        BlockPos inner=exit.relative(direction.getOpposite());
         if(!exit.equals(entrance))
-            plan.add(new KingdomMineGalleryPlan.Cell(exit,galleryApproach));
-        for(int distance=1;distance<=GALLERY_LENGTH;distance++){
-            BlockPos target=exit.north(distance);
-            BlockPos previous=distance==1?exit:exit.north(distance-1);
-            plan.add(new KingdomMineGalleryPlan.Cell(target,previous));
-        }
+            plan.add(new KingdomMineGalleryPlan.Cell(exit,inner));
+        for(int distance=1;distance<=GALLERY_LENGTH;distance++)
+            plan.add(new KingdomMineGalleryPlan.Cell(
+                exit.relative(direction,distance),
+                exit.relative(direction,distance-1)));
         return plan;
     }
 
