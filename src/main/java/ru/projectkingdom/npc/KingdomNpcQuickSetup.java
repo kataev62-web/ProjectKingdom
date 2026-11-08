@@ -308,7 +308,7 @@ public final class KingdomNpcQuickSetup {
                 &&!KingdomMineCentralShaftPlan.valid(settings.shaft(business.id()),center))
                 return new Result(false,"Шахтёр оформлен, но ствол ещё не размечен. "
                     +"В меню NPC: слот 16 → ПКМ → выдели два угла "
-                    +"области 5×5–12×12. Затем включи «Сразу вниз».");
+                    +"области 7×7–12×12. Затем включи «Сразу вниз».");
             if(!level.hasChunkAt(entrance)
                 ||!level.getBlockState(entrance).isAir()
                 ||!level.getBlockState(entrance.above()).isAir())
