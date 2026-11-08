@@ -242,11 +242,47 @@ public final class KingdomMineWork {
                 KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
             }
+            // At each two-block descent checkpoint build a real ladder, then
+            // lay the three-block perimeter deck after its level is excavated.
+            int depth=central?area.surfaceY()-floorCell.getY():0;
+            if(central && deltaY==1 && KingdomMineStructurePlan.requiresLadder(depth)){
+                var built=KingdomMineStructureWork.ladderAt(level,npc,worker,floorCell);
+                if(built==KingdomMineStructureWork.Result.BUILT){
+                    settings.markStarted(id);
+                    status(level,worker,"Устанавливает лестницу на глубине "+depth);
+                    return true;
+                }
+                if(built!=KingdomMineStructureWork.Result.READY){
+                    status(level,worker,built==KingdomMineStructureWork.Result.NEED_MATERIAL
+                        ?"Нужны лестницы на складе сырья"
+                        :"Ожидает безопасную установку лестницы");
+                    return false;
+                }
+            }
+            if(central && KingdomMineStructurePlan.isLevel(depth)
+                && floorCell.getX()==(area.minX()+area.maxX())/2
+                && floorCell.getZ()==area.minZ()-KingdomMineCentralShaftPlan.GALLERY_LENGTH){
+                var flooring=KingdomMineStructureWork.floorAt(
+                    level,npc,worker,area,depth,core);
+                if(flooring==KingdomMineStructureWork.Result.BUILT){
+                    settings.markStarted(id);
+                    status(level,worker,"Укладывает деревянный настил уровня "+depth);
+                    return true;
+                }
+                if(flooring!=KingdomMineStructureWork.Result.READY){
+                    status(level,worker,switch(flooring){
+                        case NEED_MATERIAL -> "Нужны деревянные доски на складе";
+                        case NEED_TOOL -> "Нужна лопата или кирка для подготовки пола";
+                        case WALKING -> "Идёт строить настил";
+                        default -> "Настил нельзя безопасно построить";
+                    });
+                    return false;
+                }
+            }
             // Every completed shaft landing requires a REAL warehouse torch
             // before excavating the connected room or descending further.
-            int depth=central?area.surfaceY()-floorCell.getY():0;
-            if(central && previous.getY()==floorCell.getY()+1
-                && (depth==3||depth==6||depth==10)) {
+            if(central && false && previous.getY()==floorCell.getY()+1
+                && (depth==4||depth==8||depth==12)) {
                 var lighting=KingdomMineMaintenance.lightAtCheckpoint(
                     level,npc,worker,floorCell);
                 if(lighting==KingdomMineMaintenance.Result.PLACED) {
