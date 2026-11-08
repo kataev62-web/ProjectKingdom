@@ -279,27 +279,8 @@ public final class KingdomMineWork {
                     return false;
                 }
             }
-            // Every completed shaft landing requires a REAL warehouse torch
-            // before excavating the connected room or descending further.
-            if(central && false && previous.getY()==floorCell.getY()+1
-                && (depth==4||depth==8||depth==12)) {
-                var lighting=KingdomMineMaintenance.lightAtCheckpoint(
-                    level,npc,worker,floorCell);
-                if(lighting==KingdomMineMaintenance.Result.PLACED) {
-                    settings.markStarted(id);
-                    status(level,worker,"Осветил центральный ствол на глубине "+depth);
-                    return true;
-                }
-                if(lighting!=KingdomMineMaintenance.Result.READY) {
-                    status(level,worker,switch(lighting) {
-                        case NO_SUPPLIES -> "Нужны факелы для ствола шахты";
-                        case WALKING_TO_SUPPLIES -> "Идёт за факелами для ствола";
-                        case WALKING_TO_SITE -> "Несёт факел на нижний уровень";
-                        default -> "Не удаётся осветить нижний уровень";
-                    });
-                    return false;
-                }
-            }
+            // Ladder occupies the descent cell, so no floor torch is placed
+            // in that same block. Gallery lighting remains independent.
             // Build a real TFC support frame every five cells. The native
             // TFC item controls column/link creation. On any failure we
             // stop rather than allowing unsupported excavation.
