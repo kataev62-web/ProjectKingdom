@@ -93,11 +93,6 @@ public final class KingdomMineWork {
             || !binding.dimension().equals(worker.dimension)) {status(level,worker,"Нет действующей шахты");return false;}
         BlockPos core=BlockPos.of(binding.packedPos());
         if (!level.hasChunkAt(core)) return false;
-        // This first gallery extends north of the mine core and has a hard limit.
-        // The entrance itself must be prepared by the player (two air blocks).
-        BlockPos entrance=core.north();
-        if (!level.hasChunkAt(entrance) || !level.getBlockState(entrance).isAir()
-            || !level.getBlockState(entrance.above()).isAir()) {status(level,worker,"Освободи вход 1×2 севернее ядра");return false;}
         int carried=KingdomMineCargo.minedCount(worker);
         // Construction stock is not finished ore. Deposit on cargo threshold,
         // and let the shared physical route bring the miner back to the depot.
@@ -118,6 +113,16 @@ public final class KingdomMineWork {
         var start=settings.start(id);
         var area=settings.shaft(id);
         boolean central=start==KingdomMineSettings.Start.DOWN;
+        BlockPos entrance=central && area!=null
+            ?KingdomMineCentralShaftPlan.entrance(area):core.north();
+        if(!level.hasChunkAt(entrance)
+            ||!level.getBlockState(entrance).isAir()
+            ||!level.getBlockState(entrance.above()).isAir()
+            ||level.getBlockState(entrance.below()).isAir()) {
+            status(level,worker,"Нужен свободный вход 1×2 с опорой под ногами: "
+                +entrance.toShortString());
+            return false;
+        }
         if(central && (area==null
                 ||!area.dimension().equals(worker.dimension)
                 ||!KingdomMineCentralShaftPlan.valid(area,core))) {
