@@ -151,7 +151,8 @@ public final class KingdomMineSelection {
             ru.projectkingdom.network.KingdomVolumeSelectionPacket.MINE,null,false);
         player.sendSystemMessage(Component.literal("[Шахта] Центральный ствол: "
             +width+"×"+length+", глубина 10. Схема сохранена. "
-            +"Включи «Сразу вниз» в меню NPC."));
+            +"Направление «Сразу вниз» включено автоматически. "
+            +"Нажми «Работать» в меню шахтёра."));
         return true;
     }
 }
