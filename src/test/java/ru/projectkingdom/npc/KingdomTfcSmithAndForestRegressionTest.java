@@ -78,7 +78,16 @@ final class KingdomTfcSmithAndForestRegressionTest {
         assertTrue(f.contains("return !stack.isEmpty()&&stack.is(TFC_AXES)"));
         assertTrue(f.contains("ownedHarvestLand(level,p,owner)"));
         assertTrue(f.contains("nativeAvailable()"));
-        assertTrue(f.contains("validRoot(level,p,w.fieldTool)"));
+        assertTrue(f.contains("validRoot(level,pos,worker.fieldTool)"));
+        assertTrue(f.contains("nearestSafeTree(level,npc.blockPosition(),w,area)"));
+        assertTrue(f.contains("!safeTree(level,root,worker.employer,area,species).isEmpty()"));
+        String stock=source("npc/KingdomEnterpriseStock.java");
+        assertTrue(stock.contains("KingdomContainerAccess.resolve(level,pos)"));
+        String field=source("npc/NpcFieldWork.java");
+        assertTrue(field.contains("Container c=KingdomContainerAccess.resolve(level,pos)"));
+        String status=source("npc/KingdomNpcWorkDiagnostics.java");
+        assertFalse(status.contains("Лесоруб: готов рубить деревья"));
+        assertTrue(status.contains("harvestBlocker(level,w,area)"));
         assertTrue(source("npc/KingdomNpcMod.java").contains("KingdomTfcForestry.tick(level,resident,w)"));
         assertTrue(f.contains("if(best!=null){"));
         assertTrue(f.contains("return fell(level,npc,w,area,best)")||f.contains("if(fell(level,npc,w,area,best))return true;"));
