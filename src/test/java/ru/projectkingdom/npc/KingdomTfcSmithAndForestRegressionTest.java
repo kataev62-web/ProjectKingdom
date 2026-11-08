@@ -77,6 +77,8 @@ final class KingdomTfcSmithAndForestRegressionTest {
         assertTrue(f.contains("stack.is(TFC_AXES)"));
         assertTrue(f.contains("return !stack.isEmpty()&&stack.is(TFC_AXES)"));
         assertTrue(f.contains("ownedHarvestLand(level,p,owner)"));
+        assertTrue(f.contains("nativeBranchConnected.invoke(direction,from,to)"));
+        assertTrue(f.contains("nativeFindLogs.invoke(null,level,root)"));
         assertTrue(f.contains("nativeAvailable()"));
         assertTrue(f.contains("validRoot(level,pos,worker.fieldTool)"));
         assertTrue(f.contains("nearestSafeTree(level,npc.blockPosition(),w,area)"));
