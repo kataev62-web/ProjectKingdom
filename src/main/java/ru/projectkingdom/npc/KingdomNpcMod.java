@@ -118,6 +118,12 @@ public final class KingdomNpcMod {
         KingdomMineSelection.select(event);
     }
 
+    /** Shaft area can be marked with Shift+LMB as well as Shift+RMB. */
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST,receiveCanceled=true)
+    public void selectMineShaftLeft(PlayerInteractEvent.LeftClickBlock event) {
+        KingdomMineSelection.select(event);
+    }
+
     /** Enterprise selection owns these two clicks, including canceled inventory clicks. */
     @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST, receiveCanceled=true)
     public void selectEnterpriseCorners(PlayerInteractEvent.RightClickBlock event){
