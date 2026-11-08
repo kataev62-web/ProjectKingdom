@@ -4,30 +4,37 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.core.BlockPos;
 
-/** Exact construction coordinates. Floor is three blocks IN from the walls;
+/** Exact construction coordinates. Floor is two blocks IN from the walls;
  * a central opening remains to serve as the continuation of the shaft.
  */
 public final class KingdomMineStructurePlan {
     private KingdomMineStructurePlan(){}
-    public static final int FLOOR_BAND=3;
+    public static final int FLOOR_BAND=2;
     public static boolean isLevel(int depth){
-        return depth>0&&depth<=KingdomMineCentralShaftPlan.DEPTH&&depth%4==0;
+        return depth>0&&depth<=KingdomMineSettings.MAX_LEVELS*KingdomMineSettings.LEVEL_INTERVAL
+            &&depth%KingdomMineSettings.LEVEL_INTERVAL==0;
     }
     public static boolean requiresLadder(int depth){
-        return depth>0&&depth<=KingdomMineCentralShaftPlan.DEPTH&&depth%2==0;
+        return depth>0&&depth<=KingdomMineSettings.MAX_LEVELS*KingdomMineSettings.LEVEL_INTERVAL&&depth%2==0;
     }
     public static List<BlockPos> flooring(KingdomMineSettings.Shaft area,int depth){
-        return flooring(area,depth,null);
+        return flooring(area,depth,null,3,KingdomMineSettings.Heading.NORTH);
     }
 
     public static List<BlockPos> flooring(
             KingdomMineSettings.Shaft area,int depth,BlockPos core){
-        if(area==null||!isLevel(depth)||area.width()<7||area.length()<7)
+        return flooring(area,depth,core,3,KingdomMineSettings.Heading.NORTH);
+    }
+    public static List<BlockPos> flooring(
+            KingdomMineSettings.Shaft area,int depth,BlockPos core,
+            int levels,KingdomMineSettings.Heading heading){
+        if(area==null||!isLevel(depth)||depth>levels*KingdomMineSettings.LEVEL_INTERVAL
+            ||area.width()<7||area.length()<7)
             return List.of();
         int y=area.surfaceY()-depth-1;
         BlockPos reserved=null;
-        if(core!=null&&depth<KingdomMineCentralShaftPlan.DEPTH)
-            for(var cell:KingdomMineCentralShaftPlan.cells(core,area))
+        if(core!=null&&depth<levels*KingdomMineSettings.LEVEL_INTERVAL)
+            for(var cell:KingdomMineCentralShaftPlan.cells(core,area,levels,heading))
                 if(cell.target().getY()==y
                     &&cell.approach().getY()==y+1){
                     reserved=cell.target();break;
