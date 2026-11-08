@@ -45,7 +45,8 @@ public final class KingdomMineSelection {
         player.sendSystemMessage(Component.literal(
             "[Шахта] Отметь 2 противоположных угла прямоугольника: "
             +"Shift+ЛКМ или Shift+ПКМ пустой рукой. Размер 5×5 ... 12×12 блоков. "
-            +"Высота ствола берётся по ядру шахты; после первой точки выделение не сбрасывается."));
+            +"Ствол должен примыкать к ядру с любой стороны. "
+            +"Высота берётся по ядру; после первой точки выделение не сбрасывается."));
         return true;
     }
 
@@ -135,10 +136,10 @@ public final class KingdomMineSelection {
             surfaceY,p.dimension());
         if(!KingdomMineCentralShaftPlan.valid(area,BlockPos.of(core.packedPos()))) {
             player.sendSystemMessage(Component.literal(
-                "[Шахта] Прямоугольник должен прилегать к ядру: клетка "
-                +BlockPos.of(core.packedPos()).north().toShortString()
-                +" должна лежать на южной границе выделения. "
-                +"Уровень берётся от ядра (Y="+surfaceY+"). Первая точка сохранена."));
+                "[Шахта] Ствол должен примыкать к ядру с СЕВЕРА, ЮГА, ЗАПАДА "
+                +"или ВОСТОКА: между ядром и прямоугольником должна быть "
+                +"общая граница без промежутка. Уровень Y="+surfaceY
+                +". Первая точка сохранена."));
             return true;
         }
         if(!KingdomMineSettings.get(player.getServer()).setShaft(p.mine(),area)){
