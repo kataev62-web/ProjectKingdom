@@ -58,8 +58,8 @@ public final class KingdomEnterpriseStock {
                     : KingdomTerritories.get(level.getServer()).usable(level,pos,firm.owner(),usage);
             if(!level.hasChunkAt(pos)||firms.storageClaimedByOther(enterprise,dim,pos)||!allowed)
                 return new Snapshot(0,0,false);
-            BlockEntity be=level.getBlockEntity(pos);
-            if(!(be instanceof Container c))return new Snapshot(0,0,false);
+            Container c=KingdomContainerAccess.resolve(level,pos);
+            if(c==null)return new Snapshot(0,0,false);
             for(int i=0;i<c.getContainerSize();i++){
                 ItemStack stack=c.getItem(i);
                 if(!stack.isEmpty()&&item.equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString()))
