@@ -19,6 +19,36 @@ class KingdomMineStartDirectionTest {
         assertEquals(KingdomMineSettings.Start.DOWN,settings.start(mine));
     }
 
+    @Test void selectingShaftAutomaticallyChoosesDownAndPreservesExplicitOverride() throws Exception {
+        KingdomMineSettings settings=new KingdomMineSettings();
+        UUID mine=UUID.randomUUID();
+        var area=new KingdomMineSettings.Shaft(0,6,0,6,80,"minecraft:overworld");
+        assertEquals(KingdomMineSettings.Start.FORWARD,settings.start(mine));
+        assertTrue(settings.setShaft(mine,area));
+        assertEquals(KingdomMineSettings.Start.DOWN,settings.start(mine));
+
+        var tag=settings.save(new net.minecraft.nbt.CompoundTag());
+        var loader=KingdomMineSettings.class.getDeclaredMethod("load",net.minecraft.nbt.CompoundTag.class);
+        loader.setAccessible(true);
+        var reloaded=(KingdomMineSettings)loader.invoke(null,tag);
+        assertEquals(KingdomMineSettings.Start.DOWN,reloaded.start(mine));
+
+        // Older saves did not record whether FORWARD was explicitly chosen.
+        var oldTag=settings.save(new net.minecraft.nbt.CompoundTag());
+        var rows=oldTag.getList("Mines",net.minecraft.nbt.Tag.TAG_COMPOUND);
+        rows.getCompound(0).putString("Start","FORWARD");
+        rows.getCompound(0).remove("RouteExplicit");
+        var migrated=(KingdomMineSettings)loader.invoke(null,oldTag);
+        assertEquals(KingdomMineSettings.Start.DOWN,migrated.start(mine));
+
+        assertTrue(settings.choose(mine,KingdomMineSettings.Start.FORWARD));
+        assertEquals(KingdomMineSettings.Start.FORWARD,settings.start(mine));
+        var explicit=(KingdomMineSettings)loader.invoke(null,settings.save(new net.minecraft.nbt.CompoundTag()));
+        assertEquals(KingdomMineSettings.Start.FORWARD,explicit.start(mine));
+        settings.markStarted(mine);
+        assertFalse(settings.choose(mine,KingdomMineSettings.Start.DOWN));
+    }
+
     @Test void forwardRetainsExistingGeometryAndDownBeginsWithDescendingStairs() {
         BlockPos core=new BlockPos(10,80,20);
         var forward=KingdomMineLevelPlan.cells(core,KingdomMineSettings.Start.FORWARD);
