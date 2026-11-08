@@ -121,13 +121,15 @@ public final class KingdomMineWork {
         if(central && (area==null
                 ||!area.dimension().equals(worker.dimension)
                 ||!KingdomMineCentralShaftPlan.valid(area,core))) {
-            status(level,worker,"Выдели центральный ствол 7×7–12×12 через ПКМ в меню NPC");
+            status(level,worker,"Выдели ствол 7×7–12×12 через блок предприятия «Шахта»");
             return false;
         }
         var anchors=central?java.util.List.<BlockPos>of()
             :KingdomMineLevelPlan.anchors(core,start);
-        var excavation=central?KingdomMineCentralShaftPlan.cells(core,area)
-            :KingdomMineLevelPlan.cells(core,start);
+        int requestedLevels=settings.levels(id);
+        var heading=settings.heading(id);
+        var excavation=central?KingdomMineCentralShaftPlan.cells(
+            core,area,requestedLevels,heading):KingdomMineLevelPlan.cells(core,start);
         for (var cell : excavation) {
             BlockPos floorCell=cell.target();
             BlockPos previous=cell.approach();
@@ -267,10 +269,10 @@ public final class KingdomMineWork {
                 }
             }
             if(central && KingdomMineStructurePlan.isLevel(depth)
-                && floorCell.getX()==(area.minX()+area.maxX())/2
-                && floorCell.getZ()==area.minZ()-KingdomMineCentralShaftPlan.GALLERY_LENGTH){
+                && floorCell.equals(KingdomMineCentralShaftPlan.galleryEnd(
+                    area,depth,heading))) {
                 var flooring=KingdomMineStructureWork.floorAt(
-                    level,npc,worker,area,depth,core);
+                    level,npc,worker,area,depth,core,requestedLevels,heading);
                 if(flooring==KingdomMineStructureWork.Result.BUILT){
                     settings.markStarted(id);
                     status(level,worker,"Укладывает деревянный настил уровня "+depth);
@@ -294,13 +296,18 @@ public final class KingdomMineWork {
             BlockPos galleryAnchor=null;
             for(BlockPos candidate:anchors)
                 if(candidate.getY()==floorCell.getY())galleryAnchor=candidate;
-            if(central && (depth==4||depth==8||depth==12)
-                && floorCell.getX()==(area.minX()+area.maxX())/2
-                && floorCell.getZ()<area.minZ())
-                galleryAnchor=new BlockPos(floorCell.getX(),floorCell.getY(),
-                    area.minZ()+1);
+            if(central && KingdomMineStructurePlan.isLevel(depth)
+                && floorCell.equals(KingdomMineCentralShaftPlan.galleryEnd(
+                    area,depth,heading)))
+                galleryAnchor=KingdomMineCentralShaftPlan.galleryEnd(
+                    area,depth,heading).relative(
+                        heading.direction().getOpposite(),
+                        KingdomMineCentralShaftPlan.GALLERY_LENGTH+1);
             if(galleryAnchor!=null) {
-                for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
+                for(var frame:central
+                    ?KingdomMineSupportPlan.frames(galleryAnchor,
+                        heading.direction(),KingdomMineCentralShaftPlan.GALLERY_LENGTH)
+                    :KingdomMineSupportPlan.frames(galleryAnchor)) {
                     if(frame.walkway().equals(floorCell)) {
                         var prepare=KingdomMineSupportExcavation.tick(level,npc,worker,frame);
                         if(prepare==KingdomMineSupportExcavation.Result.EXCAVATED) {
