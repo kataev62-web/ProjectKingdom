@@ -147,6 +147,35 @@ public final class KingdomMineWork {
                 || !level.getBlockState(previous.above()).isAir()
                 || level.getBlockState(previous.below()).isAir()
                 || !level.getFluidState(previous).isEmpty()) return false;
+            // Finish the central shaft and ladder route FIRST. Once an inner
+            // chamber is clear, build its two-wide wooden deck BEFORE extending
+            // that level's outward ore gallery.
+            if(central) {
+                int currentDepth=area.surfaceY()-floorCell.getY();
+                if(KingdomMineStructurePlan.isLevel(currentDepth)
+                    && currentDepth<=requestedLevels*KingdomMineSettings.LEVEL_INTERVAL
+                    && floorCell.equals(KingdomMineCentralShaftPlan.galleryEnd(
+                        area,currentDepth,heading).relative(
+                            heading.direction().getOpposite(),
+                            KingdomMineCentralShaftPlan.GALLERY_LENGTH-1))) {
+                    var deck=KingdomMineStructureWork.floorAt(
+                        level,npc,worker,area,currentDepth,core,requestedLevels,heading);
+                    if(deck==KingdomMineStructureWork.Result.BUILT) {
+                        settings.markStarted(id);
+                        status(level,worker,"Строит настил горизонта "+currentDepth);
+                        return true;
+                    }
+                    if(deck!=KingdomMineStructureWork.Result.READY) {
+                        status(level,worker,switch(deck) {
+                            case NEED_MATERIAL -> "Нужны доски для настила";
+                            case NEED_TOOL -> "Нужна лопата или кирка для настила";
+                            case WALKING -> "Идёт укладывать настил";
+                            default -> "Нельзя безопасно завершить настил";
+                        });
+                        return false;
+                    }
+                }
+            }
             for (int height=0;height<2;height++) {
                 BlockPos target=floorCell.above(height);
                 if (KingdomMineMaintenance.passable(level.getBlockState(target))) {
@@ -265,26 +294,6 @@ public final class KingdomMineWork {
                     status(level,worker,built==KingdomMineStructureWork.Result.NEED_MATERIAL
                         ?"Нужны лестницы на складе сырья"
                         :"Ожидает безопасную установку лестницы");
-                    return false;
-                }
-            }
-            if(central && KingdomMineStructurePlan.isLevel(depth)
-                && floorCell.equals(KingdomMineCentralShaftPlan.galleryEnd(
-                    area,depth,heading))) {
-                var flooring=KingdomMineStructureWork.floorAt(
-                    level,npc,worker,area,depth,core,requestedLevels,heading);
-                if(flooring==KingdomMineStructureWork.Result.BUILT){
-                    settings.markStarted(id);
-                    status(level,worker,"Укладывает деревянный настил уровня "+depth);
-                    return true;
-                }
-                if(flooring!=KingdomMineStructureWork.Result.READY){
-                    status(level,worker,switch(flooring){
-                        case NEED_MATERIAL -> "Нужны деревянные доски на складе";
-                        case NEED_TOOL -> "Нужна лопата или кирка для подготовки пола";
-                        case WALKING -> "Идёт строить настил";
-                        default -> "Настил нельзя безопасно построить";
-                    });
                     return false;
                 }
             }
