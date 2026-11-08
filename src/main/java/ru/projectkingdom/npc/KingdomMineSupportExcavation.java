@@ -35,6 +35,8 @@ public final class KingdomMineSupportExcavation {
                 ||id.startsWith("tfc:wood/vertical_support/")
                 ||KingdomMineSupportSafety.isTfcHorizontalSupport(block))
                 continue;
+            if(!KingdomMineTools.equip(level,npc,worker,
+                    KingdomMineTools.required(block)))return Result.UNSAFE;
             if(!KingdomMineWork.safeToBreak(level,pos,worker)
                 ||KingdomMineSupportSafety.inspect(level,pos)
                     !=KingdomMineSupportSafety.Result.SAFE)return Result.UNSAFE;
