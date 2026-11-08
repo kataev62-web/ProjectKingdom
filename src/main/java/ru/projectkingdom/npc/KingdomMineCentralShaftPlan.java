@@ -53,22 +53,24 @@ public final class KingdomMineCentralShaftPlan {
         if(!valid(area,core)||levels<1||levels>KingdomMineSettings.MAX_LEVELS
             ||heading==null)return List.of();
         int depth=levels*KingdomMineSettings.LEVEL_INTERVAL;
-        List<BlockPos> rim=new ArrayList<>();
         BlockPos entrance=entrance(area);
-        // First work cell directly north of the entry, on the southern rim.
-        rim.add(new BlockPos(entrance.getX(),area.surfaceY(),area.maxZ()));
-        for(int x=entrance.getX()-1;x>=area.minX();x--)
-            rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
+        List<BlockPos> perimeter=new ArrayList<>();
+        // A complete clockwise cycle with no repeated corner cells.
+        for(int x=area.minX();x<=area.maxX();x++)
+            perimeter.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
         for(int z=area.maxZ()-1;z>=area.minZ();z--)
-            rim.add(new BlockPos(area.minX(),area.surfaceY(),z));
-        for(int x=area.minX()+1;x<=area.maxX();x++)
-            rim.add(new BlockPos(x,area.surfaceY(),area.minZ()));
-        for(int z=area.minZ()+1;z<=area.maxZ();z++)
-            rim.add(new BlockPos(area.maxX(),area.surfaceY(),z));
-        for(int x=area.maxX()-1;x>entrance.getX();x--)
-            rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
-        // The perimeter closes at the first south-rim cell; never descend
-        // outside the player's selected boundary.
+            perimeter.add(new BlockPos(area.maxX(),area.surfaceY(),z));
+        for(int x=area.maxX()-1;x>=area.minX();x--)
+            perimeter.add(new BlockPos(x,area.surfaceY(),area.minZ()));
+        for(int z=area.minZ()+1;z<area.maxZ();z++)
+            perimeter.add(new BlockPos(area.minX(),area.surfaceY(),z));
+        // Begin at the centre of the south wall, immediately next to entry.
+        BlockPos first=entrance.north();
+        int origin=perimeter.indexOf(first);
+        if(origin<0)return List.of();
+        List<BlockPos> rim=new ArrayList<>(perimeter.size());
+        for(int k=0;k<perimeter.size();k++)
+            rim.add(perimeter.get((origin+k)%perimeter.size()));
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
         List<BlockPos> landings=new ArrayList<>();
         BlockPos previous=entrance;
