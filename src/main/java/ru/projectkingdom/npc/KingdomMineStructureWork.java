@@ -123,6 +123,21 @@ public final class KingdomMineStructureWork {
         KingdomNpcData.get(level.getServer()).setDirty();
         return Result.BUILT;
     }
+    public static Result ladderAt(ServerLevel level,Villager npc,
+            KingdomNpcData.Worker worker,BlockPos landing) {
+        return ladder(level,npc,worker,landing);
+    }
+
+    public static Result floorAt(ServerLevel level,Villager npc,
+            KingdomNpcData.Worker worker,KingdomMineSettings.Shaft area,int depth) {
+        if(!KingdomMineStructurePlan.isLevel(depth))return Result.READY;
+        for(BlockPos pos:KingdomMineStructurePlan.flooring(area,depth)) {
+            Result result=plank(level,npc,worker,pos);
+            if(result!=Result.READY)return result;
+        }
+        return Result.READY;
+    }
+
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
             KingdomMineSettings.Shaft area,int depth,BlockPos landing){
         if(KingdomMineStructurePlan.requiresLadder(depth)) {
