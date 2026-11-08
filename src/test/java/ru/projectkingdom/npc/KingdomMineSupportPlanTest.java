@@ -22,7 +22,7 @@ class KingdomMineSupportPlanTest {
         }
     }
 
-    @Test void emergencySupportUsesAccessibleApproachAndRejectsUnsupportedAxis() {
+    @Test void emergencySupportUsesAccessibleApproachForBothHorizontalAxes() {
         BlockPos previous=new BlockPos(8,64,12);
         var north=KingdomMineSupportPlan.emergency(previous,previous.north().below());
         assertNotNull(north);
@@ -30,7 +30,11 @@ class KingdomMineSupportPlanTest {
         assertEquals(previous,north.walkway());
         assertEquals(previous.west(),north.leftPost());
         assertEquals(previous.east(),north.rightPost());
-        assertNull(KingdomMineSupportPlan.emergency(previous,previous.east()));
+        var east=KingdomMineSupportPlan.emergency(previous,previous.east());
+        assertNotNull(east);
+        assertTrue(KingdomMineSupportPlan.valid(east));
+        assertEquals(previous.north(),east.leftPost());
+        assertEquals(previous.south(),east.rightPost());
         assertNull(KingdomMineSupportPlan.emergency(previous,previous.above()));
         assertNull(KingdomMineSupportPlan.emergency(null,previous));
     }
