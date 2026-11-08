@@ -114,7 +114,7 @@ public final class KingdomMineWork {
         if(central && (area==null
                 ||!area.dimension().equals(worker.dimension)
                 ||!KingdomMineCentralShaftPlan.valid(area,core))) {
-            status(level,worker,"Выдели центральный ствол 5×5–12×12 через ПКМ в меню NPC");
+            status(level,worker,"Выдели центральный ствол 7×7–12×12 через ПКМ в меню NPC");
             return false;
         }
         var anchors=central?java.util.List.<BlockPos>of()
@@ -287,7 +287,7 @@ public final class KingdomMineWork {
             BlockPos galleryAnchor=null;
             for(BlockPos candidate:anchors)
                 if(candidate.getY()==floorCell.getY())galleryAnchor=candidate;
-            if(central && (depth==3||depth==6||depth==10)
+            if(central && (depth==4||depth==8||depth==12)
                 && floorCell.getX()==(area.minX()+area.maxX())/2
                 && floorCell.getZ()<area.minZ())
                 galleryAnchor=new BlockPos(floorCell.getX(),floorCell.getY(),
