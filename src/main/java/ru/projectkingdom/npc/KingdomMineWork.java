@@ -248,7 +248,9 @@ public final class KingdomMineWork {
                                 return false;
                         }
                     }
-                    status(level,worker,"Опасная порода: нет безопасного места для установки опор TFC");
+                    status(level,worker,"Опасная порода у "+target.toShortString()
+                        +": "+(frame==null?"нет схемы опоры":
+                            KingdomMineSupportExcavation.blocker(level,worker,frame)));
                     return false;
                 }
                 if (!safeToBreak(level,target,worker)) {
