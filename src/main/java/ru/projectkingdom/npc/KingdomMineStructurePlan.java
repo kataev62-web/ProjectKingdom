@@ -17,6 +17,11 @@ public final class KingdomMineStructurePlan {
         return depth>0&&depth<=KingdomMineCentralShaftPlan.DEPTH&&depth%2==0;
     }
     public static List<BlockPos> flooring(KingdomMineSettings.Shaft area,int depth){
+        return flooring(area,depth,null);
+    }
+
+    public static List<BlockPos> flooring(
+            KingdomMineSettings.Shaft area,int depth,BlockPos core){
         if(area==null||!isLevel(depth)||area.width()<7||area.length()<7)
             return List.of();
         int y=area.surfaceY()-depth-1;
@@ -25,8 +30,16 @@ public final class KingdomMineStructurePlan {
             for(int z=area.minZ();z<=area.maxZ();z++){
                 int edge=Math.min(Math.min(x-area.minX(),area.maxX()-x),
                                   Math.min(z-area.minZ(),area.maxZ()-z));
-                if(edge<FLOOR_BAND)
-                    result.add(new BlockPos(x,y,z));
+                if(edge<FLOOR_BAND){
+                    BlockPos at=new BlockPos(x,y,z);
+                    // The following descending stair step must stay open.
+                    if(core!=null && depth<KingdomMineCentralShaftPlan.DEPTH
+                        && KingdomMineCentralShaftPlan.cells(core,area).stream()
+                            .anyMatch(cell->cell.target().equals(at)
+                                &&cell.approach().getY()==at.getY()+1))
+                        continue;
+                    result.add(at);
+                }
             }
         return List.copyOf(result);
     }
