@@ -39,6 +39,9 @@ public final class KingdomMineSite {
             return new Inspection(false,null,"Шахта находится в другом измерении");
         if(!worker.hasSource||!worker.hasDestination)
             return new Inspection(false,null,"Привяжи склады сырья и продукции шахты");
+        if(!KingdomNpcWorkday.employed(server,worker))
+            return new Inspection(false,null,
+                "Нет активного трудового договора шахтёра; назначь через меню NPC");
         var settings=KingdomMineSettings.get(server);
         BlockPos entrance;
         if(settings.start(mineId)==KingdomMineSettings.Start.DOWN){
