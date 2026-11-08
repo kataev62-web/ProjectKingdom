@@ -90,8 +90,8 @@ public final class KingdomMineStructureWork {
         if(!authorized(level,at,w)||!level.hasChunkAt(at.below())
             ||!authorized(level,at.above(),w))return Result.UNSAFE;
         BlockState state=level.getBlockState(at);
-        if(state.getBlock() instanceof net.minecraft.world.level.block.Block
-            && BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString().endsWith("_planks"))
+        String installed=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        if(installed.endsWith("_planks")||installed.startsWith("tfc:wood/planks/"))
             return Result.READY;
         ItemStack supply=carried(w,false);
         if(supply.isEmpty())return acquire(level,npc,w,false);
@@ -129,9 +129,10 @@ public final class KingdomMineStructureWork {
     }
 
     public static Result floorAt(ServerLevel level,Villager npc,
-            KingdomNpcData.Worker worker,KingdomMineSettings.Shaft area,int depth) {
+            KingdomNpcData.Worker worker,KingdomMineSettings.Shaft area,
+            int depth,BlockPos core) {
         if(!KingdomMineStructurePlan.isLevel(depth))return Result.READY;
-        for(BlockPos pos:KingdomMineStructurePlan.flooring(area,depth)) {
+        for(BlockPos pos:KingdomMineStructurePlan.flooring(area,depth,core)) {
             Result result=plank(level,npc,worker,pos);
             if(result!=Result.READY)return result;
         }
