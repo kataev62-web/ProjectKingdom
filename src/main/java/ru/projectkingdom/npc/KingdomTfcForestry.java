@@ -303,27 +303,70 @@ public final class KingdomTfcForestry {
         KingdomNpcData.get(level.getServer()).setDirty();
         return changed || !treeLog(level,root,wood(area.sapling()));
     }
-    /** Pick only real tree drops marked by this NPC's native logging action. */
-    private static boolean recoverDrops(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
-                                        KingdomForestData.Area area){
+    /** Genuine fallen timber is collectable even when the employer felled the
+     * tree by hand. The lumberjack may ONLY take matching TFC logs in its
+     * registered, loaded and owned forest area. Never pick up another player's
+     * explicitly owned items or another NPC's tagged felling drops.
+     */
+    static boolean eligibleGroundLog(String itemId,String species) {
+        if(itemId==null||species==null||species.isBlank())return false;
+        return ("tfc:wood/log/"+species).equals(itemId)
+            || ("tfc:wood/stripped_log/"+species).equals(itemId)
+            || ("tfc:wood/wood/"+species).equals(itemId);
+    }
+    private enum Recovery { NONE, WALKING, PICKED, FULL, NO_ROUTE }
+
+    private static boolean recoverable(ServerLevel level,ItemEntity entity,
+                                        KingdomNpcData.Worker worker,KingdomForestData.Area area) {
+        if(entity==null || !entity.isAlive() || entity.getItem().isEmpty()
+            || !level.hasChunkAt(entity.blockPosition())
+            || !area.inside(entity.blockPosition())
+            || !ownedHarvestLand(level,entity.blockPosition(),worker.employer))return false;
+        var tag=entity.getPersistentData();
+        if(tag.hasUUID(LOG_LOOT_OWNER))
+            return worker.entityId.equals(tag.getUUID(LOG_LOOT_OWNER));
+        UUID owner=entity.getOwner();
+        if(owner!=null && !owner.equals(worker.employer))return false;
+        String id=BuiltInRegistries.ITEM.getKey(entity.getItem().getItem()).toString();
+        return eligibleGroundLog(id,wood(area.sapling()));
+    }
+
+    private static List<ItemEntity> fallenLogs(ServerLevel level,KingdomNpcData.Worker worker,
+                                                KingdomForestData.Area area) {
         var bounds=new AABB(area.minX(),area.y()-2,area.minZ(),
             area.maxX()+1,area.y()+36,area.maxZ()+1);
-        for(ItemEntity item:level.getEntitiesOfClass(ItemEntity.class,bounds,
-                entity->entity.isAlive()&&entity.getPersistentData().hasUUID(LOG_LOOT_OWNER)
-                    &&w.entityId.equals(entity.getPersistentData().getUUID(LOG_LOOT_OWNER)))){
+        return level.getEntitiesOfClass(ItemEntity.class,bounds,
+            entity->recoverable(level,entity,worker,area));
+    }
+
+    /** The diagnostic is read-only and never picks an item or force-loads a chunk. */
+    public static boolean hasRecoverableLogs(ServerLevel level,KingdomNpcData.Worker worker,
+                                              KingdomForestData.Area area) {
+        return !fallenLogs(level,worker,area).isEmpty();
+    }
+
+    /** Navigate to the nearest allowed stack; never run the planting/harvest
+     * navigation in the same tick while approaching a dropped stack.
+     */
+    private static Recovery recoverDrops(ServerLevel level,Villager npc,
+                                         KingdomNpcData.Worker worker,KingdomForestData.Area area) {
+        var drops=fallenLogs(level,worker,area);
+        drops.sort(Comparator.comparingDouble(npc::distanceToSqr));
+        for(ItemEntity item:drops){
             ItemStack stack=item.getItem();
-            if(stack.isEmpty()||!NpcFieldWork.canFit(w,List.of(stack)))return false;
-            if(npc.distanceToSqr(item)>8){
-                npc.getNavigation().moveTo(item,.8);
-                return false;
-            }
-            NpcFieldWork.put(w,stack.copy());
-            w.fieldHarvested+=stack.getCount();
+            if(!NpcFieldWork.canFit(worker,List.of(stack)))return Recovery.FULL;
+            if(npc.distanceToSqr(item)>8)
+                return npc.getNavigation().moveTo(item,.8)
+                    ?Recovery.WALKING:Recovery.NO_ROUTE;
+            // The actual world ItemEntity is the only source of transferred
+            // items. No duplicate representation or virtual goods are created.
+            NpcFieldWork.put(worker,stack.copy());
+            worker.fieldHarvested+=stack.getCount();
             item.discard();
             KingdomNpcData.get(level.getServer()).setDirty();
-            return true;
+            return Recovery.PICKED;
         }
-        return false;
+        return Recovery.NONE;
     }
     private static boolean employedOnLumber(ServerLevel level,KingdomNpcData.Worker w){
         if(w.employer==null||!"lumberjack".equals(w.job)
@@ -444,8 +487,11 @@ public final class KingdomTfcForestry {
                 var stock=KingdomEnterpriseStock.inspect(level,contract.enterprise(),
                     log,EnterpriseBindingRole.FINISHED_STORAGE,dest);
                 if(!stock.complete())continue;
-                // Real leftovers stay as uniquely marked world drops until collected.
-                if(recoverDrops(level,npc,w,area))return true;
+                // Collect genuine matching loose timber (including logs felled
+                // by the employer) before either planting or cutting a new tree.
+                var recovery=recoverDrops(level,npc,w,area);
+                if(recovery==Recovery.PICKED)return true;
+                if(recovery!=Recovery.NONE)return false;
                 // Harvest first; otherwise perpetual planting starves woodcutting.
                 var limits=new EnterpriseStockPolicy.Thresholds(area.minLogs(),area.maxLogs());
                 boolean allowedHarvest=KingdomForestData.get(level.getServer()).harvestAllowed(
