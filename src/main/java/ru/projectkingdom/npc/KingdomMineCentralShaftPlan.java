@@ -28,11 +28,18 @@ public final class KingdomMineCentralShaftPlan {
     public static boolean valid(KingdomMineSettings.Shaft area,BlockPos core) {
         if(area==null||core==null||area.width()<7||area.length()<7
             ||area.width()>12||area.length()>12)return false;
-        BlockPos entrance=core.north();
-        // The NPC enters from outside through the SOUTH wall of the shaft.
-        return entrance.getY()==area.surfaceY()
-            && entrance.getZ()==area.maxZ()
-            && entrance.getX()>=area.minX()&&entrance.getX()<=area.maxX();
+        // Enterprise core is a controller, not a corner or entrance marker.
+        // Only the surveyed footprint determines the shaft placement.
+        return area.minX()<=area.maxX() && area.minZ()<=area.maxZ();
+    }
+
+    /** The independent, walkable entry is one cell SOUTH of the surveyed
+     * rectangle, centered on its southern edge. Core position does not matter.
+     */
+    public static BlockPos entrance(KingdomMineSettings.Shaft area) {
+        if(area==null)return null;
+        return new BlockPos((area.minX()+area.maxX())/2,
+            area.surfaceY(),area.maxZ()+1);
     }
 
     public static List<KingdomMineGalleryPlan.Cell> cells(
@@ -47,7 +54,9 @@ public final class KingdomMineCentralShaftPlan {
             ||heading==null)return List.of();
         int depth=levels*KingdomMineSettings.LEVEL_INTERVAL;
         List<BlockPos> rim=new ArrayList<>();
-        BlockPos entrance=core.north();
+        BlockPos entrance=entrance(area);
+        // First work cell directly north of the entry, on the southern rim.
+        rim.add(new BlockPos(entrance.getX(),area.surfaceY(),area.maxZ()));
         for(int x=entrance.getX()-1;x>=area.minX();x--)
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
         for(int z=area.maxZ()-1;z>=area.minZ();z--)
@@ -58,8 +67,8 @@ public final class KingdomMineCentralShaftPlan {
             rim.add(new BlockPos(area.maxX(),area.surfaceY(),z));
         for(int x=area.maxX()-1;x>entrance.getX();x--)
             rim.add(new BlockPos(x,area.surfaceY(),area.maxZ()));
-        if(!rim.get(rim.size()-1).equals(entrance))
-            rim.add(entrance); // Close the perimeter without repeating the entry.
+        // The perimeter closes at the first south-rim cell; never descend
+        // outside the player's selected boundary.
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
         List<BlockPos> landings=new ArrayList<>();
         BlockPos previous=entrance;
