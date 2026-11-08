@@ -94,11 +94,6 @@ public final class KingdomMineWork {
             || !binding.dimension().equals(worker.dimension)) {status(level,worker,"Нет действующей шахты");return false;}
         BlockPos core=BlockPos.of(binding.packedPos());
         if (!level.hasChunkAt(core)) return false;
-        // This first gallery extends north of the mine core and has a hard limit.
-        // The entrance itself must be prepared by the player (two air blocks).
-        BlockPos entrance=core.north();
-        if (!level.hasChunkAt(entrance) || !level.getBlockState(entrance).isAir()
-            || !level.getBlockState(entrance.above()).isAir()) {status(level,worker,"Освободи вход 1×2 севернее ядра");return false;}
         int carried=KingdomMineCargo.minedCount(worker);
         // Construction stock is not finished ore. Deposit on cargo threshold,
         // and let the shared physical route bring the miner back to the depot.
@@ -117,6 +112,14 @@ public final class KingdomMineWork {
                 ||!KingdomMineCentralShaftPlan.valid(area,core))) {
             status(level,worker,"Выдели центральный ствол 5×5–12×12 через ПКМ в меню NPC");
             return false;
+        }
+        // Forward keeps the legacy northern entrance; a central shaft can face
+        // any cardinal side, provided the chosen area touches the core.
+        BlockPos entrance=central?KingdomMineCentralShaftPlan.entrance(area,core):core.north();
+        if (entrance==null || !level.hasChunkAt(entrance)
+            || !level.getBlockState(entrance).isAir()
+            || !level.getBlockState(entrance.above()).isAir()) {
+            status(level,worker,"Освободи вход 1×2 между ядром и выделенным стволом");return false;
         }
         var anchors=central?java.util.List.<BlockPos>of()
             :KingdomMineLevelPlan.anchors(core,start);
@@ -261,12 +264,13 @@ public final class KingdomMineWork {
             for(BlockPos candidate:anchors)
                 if(candidate.getY()==floorCell.getY())galleryAnchor=candidate;
             if(central && (depth==3||depth==6||depth==10)
-                && floorCell.getX()==(area.minX()+area.maxX())/2
-                && floorCell.getZ()<area.minZ())
-                galleryAnchor=new BlockPos(floorCell.getX(),floorCell.getY(),
-                    area.minZ()+1);
+                && KingdomMineCentralShaftPlan.beyondGallery(area,core,floorCell))
+                galleryAnchor=KingdomMineCentralShaftPlan.galleryAnchor(area,core,floorCell.getY());
             if(galleryAnchor!=null) {
-                for(var frame:KingdomMineSupportPlan.frames(galleryAnchor)) {
+                var galleryDirection=central
+                    ?KingdomMineCentralShaftPlan.entryDirection(area,core)
+                    :net.minecraft.core.Direction.NORTH;
+                for(var frame:KingdomMineSupportPlan.frames(galleryAnchor,galleryDirection)) {
                     if(frame.walkway().equals(floorCell)) {
                         var prepare=KingdomMineSupportExcavation.tick(level,npc,worker,frame);
                         if(prepare==KingdomMineSupportExcavation.Result.EXCAVATED) {
