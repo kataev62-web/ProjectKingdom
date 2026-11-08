@@ -64,9 +64,11 @@ public final class KingdomMineSettings extends SavedData {
     /** Caller must validate owner and enterprise kind; cannot reroute an active mine. */
     public boolean choose(UUID mine,Start next){
         if(mine==null||next==null||started.contains(mine))return false;
-        if(start(mine)!=next || explicitDirections.add(mine)){
-            starts.put(mine,next);setDirty();
-        }
+        // Record explicit route choices even when switching route; a short-
+        // circuited || used to skip the explicit marker on actual changes.
+        boolean changed=start(mine)!=next;
+        boolean explicit=explicitDirections.add(mine);
+        if(changed || explicit){starts.put(mine,next);setDirty();}
         return true;
     }
 
