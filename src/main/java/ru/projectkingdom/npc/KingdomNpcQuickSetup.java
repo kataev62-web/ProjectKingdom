@@ -282,6 +282,14 @@ public final class KingdomNpcQuickSetup {
             worker.hasWorkstation=false;
         }
         worker.order="work";
+        // Apply the mine order immediately when all real prerequisites pass.
+        // The usual day/night and survival scheduler will re-evaluate later.
+        long dayTime=server.overworld().getDayTime()%24000L;
+        if("miner".equals(worker.job) && !worker.contractPaused
+            &&dayTime>=0&&dayTime<12000
+            &&worker.hunger>25&&worker.energy>25&&worker.safety>=25
+            &&KingdomMineSite.inspect(server,level,worker).ready())
+            worker.autonomousIntent=NpcAutonomyPlanner.Intention.CONTINUE_ASSIGNED_JOB.name();
         KingdomNpcData.get(server).setDirty();
         if(worker.contractPaused)
             return new Result(false,"Склады и договор назначены, но трудовой договор приостановлен. "
