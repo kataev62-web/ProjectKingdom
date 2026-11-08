@@ -31,7 +31,7 @@ class KingdomMineCentralShaftPlanTest {
             assertTrue(shaft.contains(cell.target())
                 || cell.target().getX()==(shaft.minX()+shaft.maxX())/2
                     && cell.target().getZ()<shaft.minZ()
-                    && (cell.target().getY()==77
+                    && (cell.target().getY()==76
                         || cell.target().getY()==72
                         || cell.target().getY()==68),
                 "out-of-range excavation: "+cell);
@@ -41,7 +41,7 @@ class KingdomMineCentralShaftPlanTest {
             else for(int i=0;i<levels.length;i++)
                 if(cell.target().getY()==80-levels[i])perLevel[i]++;
         }
-        assertEquals(12,drops,"must descend exactly ten blocks");
+        assertEquals(12,drops,"must descend exactly twelve blocks");
         assertTrue(cells.size()>=12+3*((width-2)*(length-2)+12));
         for(int depth:new int[]{4,8,12}) {
             BlockPos end=new BlockPos((shaft.minX()+shaft.maxX())/2,
@@ -51,7 +51,7 @@ class KingdomMineCentralShaftPlanTest {
         for(int count:perLevel)assertTrue(count>=(width-2)*(length-2));
     }
 
-    @Test void centralShaftHasTenStepDescentAndThreeConnectedWorkingLevels() {
+    @Test void centralShaftHasTwelveStepDescentAndThreeConnectedWorkingLevels() {
         check(7,7,3);
         check(8,9,4);
         check(12,12,6);
@@ -77,7 +77,7 @@ class KingdomMineCentralShaftPlanTest {
     @Test void shaftSettingsCannotChangeAfterFirstExcavation() {
         var settings=new KingdomMineSettings();
         var mine=java.util.UUID.randomUUID();
-        var footprint=area(5,5,2);
+        var footprint=area(7,7,3);
         assertTrue(settings.setShaft(mine,footprint));
         assertEquals(7,settings.shaft(mine).width());
         settings.markStarted(mine);
