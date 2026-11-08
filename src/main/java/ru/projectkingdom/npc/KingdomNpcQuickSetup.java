@@ -301,8 +301,11 @@ public final class KingdomNpcQuickSetup {
         if("lumberjack".equals(worker.job)&&KingdomTfcForestry.workSite(level,worker)==null)
             return new Result(false,"Склады настроены. Открой лесозаготовку → Лесные участки.");
         if("miner".equals(worker.job)) {
-            BlockPos entrance=center.north();
             var settings=KingdomMineSettings.get(server);
+            BlockPos entrance=settings.start(business.id())==KingdomMineSettings.Start.DOWN
+                &&settings.shaft(business.id())!=null
+                ?KingdomMineCentralShaftPlan.entrance(settings.shaft(business.id()))
+                :center.north();
             var start=settings.start(business.id());
             if(start==KingdomMineSettings.Start.DOWN
                 &&!KingdomMineCentralShaftPlan.valid(settings.shaft(business.id()),center))
@@ -313,7 +316,7 @@ public final class KingdomNpcQuickSetup {
                 ||!level.getBlockState(entrance).isAir()
                 ||!level.getBlockState(entrance.above()).isAir())
                 return new Result(false,"Договор шахтёра и склады настроены. "
-                    +"Освободи проход 1×2 блока СЕВЕРНЕЕ ядра шахты. "
+                    +"Освободи вход 1×2 по координатам "+entrance.toShortString()+". "
                     +"Начальный маршрут: "+start.label()+". Измени его в блоке предприятия до начала проходки.");
         }
         if(workshop(worker.job) && "minecraft:crafting_table".equals(
