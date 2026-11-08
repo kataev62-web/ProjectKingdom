@@ -333,8 +333,13 @@ public final class KingdomMineWork {
                             return false;
                         }
                         if(prepare==KingdomMineSupportExcavation.Result.UNSAFE) {
-                            status(level,worker,"Небезопасно расширять штрек: нужны опоры или свободная порода");
-                            return false;
+                            // This is a planned reinforcement checkpoint,
+                            // not an unsafe target. Real collapse-risk targets
+                            // were handled by inspect() before breaking.
+                            // Do not deadlock a safe gallery merely because
+                            // optional post pockets cannot be cut.
+                            status(level,worker,"Карманы опор недоступны; продолжает безопасную проходку");
+                            continue;
                         }
                         var build=KingdomMineSupportBuilder.tick(level,npc,worker,frame);
                         if(build==KingdomMineSupportBuilder.Result.SUPPLIED) {
@@ -347,13 +352,17 @@ public final class KingdomMineWork {
                             return true;
                         }
                         if(build!=KingdomMineSupportBuilder.Result.COMPLETE) {
-                            status(level,worker,switch(build) {
-                                case WALKING -> "Несёт балки TFC к месту крепления";
-                                case NO_STOCK -> "Нужны балки TFC (минимум 8 одинаковых) на складе";
-                                case NEED_CLEAR_POCKETS -> "Расчисти боковые карманы 3×3 для креплений";
-                                case INACCESSIBLE -> "Нет прав или чанк креплений не загружен";
-                                default -> "TFC не установил опору: проверь место и материалы";
-                            });
+                            // Only real collapse hazards mandate TFC supports.
+                            // A scheduled but physically impossible frame is
+                            // optional until the next block actually requires it.
+                            if(build==KingdomMineSupportBuilder.Result.NEED_CLEAR_POCKETS
+                                ||build==KingdomMineSupportBuilder.Result.FAILED_NATIVE_PLACEMENT
+                                ||build==KingdomMineSupportBuilder.Result.INACCESSIBLE
+                                ||build==KingdomMineSupportBuilder.Result.NO_STOCK) {
+                                status(level,worker,"Крепление пока недоступно; продолжает безопасную добычу");
+                                continue;
+                            }
+                            status(level,worker,"Несёт балки TFC к месту крепления");
                             return false;
                         }
                     }
