@@ -5,8 +5,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import java.util.UUID;
@@ -182,7 +180,7 @@ public final class KingdomConstructionWork {
         KingdomConstructionData.get(server).advance(project.id(), 1, design.blocks().size());
     }
 
-    private static Container depot(MinecraftServer server, ServerLevel level,
+    static Container depot(MinecraftServer server, ServerLevel level,
                                    BlockPos marker, UUID owner) {
         for (Direction direction : Direction.Plane.HORIZONTAL) {
             BlockPos adjacent = marker.relative(direction);
