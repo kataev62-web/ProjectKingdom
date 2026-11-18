@@ -3,6 +3,10 @@ package ru.projectkingdom.npc;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.world.CompoundContainer;
+import net.minecraft.world.SimpleContainer;
+import net.minecraft.world.level.block.entity.BarrelBlockEntity;
+import net.minecraft.world.level.block.entity.ChestBlockEntity;
+import net.minecraft.world.level.block.entity.TrappedChestBlockEntity;
 import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.server.level.ServerLevel;
@@ -23,6 +27,44 @@ import net.minecraftforge.items.IItemHandlerModifiable;
 public final class KingdomContainerAccess {
     private KingdomContainerAccess() {}
 
+    /** Explicit provenance for trusted aggregate wrappers, never guessed by contents. */
+    public interface PhysicalSlotProvider {
+        KingdomPhysicalSlotGuard.Slot physicalSlot(int visibleSlot);
+    }
+
+    /**
+     * Direct vanilla chests/barrels or exact SimpleContainer instances own their slots.
+     * Unknown modded/third-party wrappers fail closed unless they expose a trusted
+     * PhysicalSlotProvider mapping each visible slot to its actual backing.
+     */
+    public static KingdomPhysicalSlotGuard.Slot physicalSlot(Container view, int slot) {
+        if(view==null || slot<0 || slot>=view.getContainerSize())return null;
+        if(view instanceof PhysicalSlotProvider provider){
+            return provider.physicalSlot(slot);
+        }
+        Class<?> type=view.getClass();
+        if(type==SimpleContainer.class || type==ChestBlockEntity.class
+                || type==TrappedChestBlockEntity.class || type==BarrelBlockEntity.class)
+            return new KingdomPhysicalSlotGuard.Slot(view,slot);
+        return null;
+    }
+
+    /** CompoundContainer does not expose physical backing; only our traced one is movable. */
+    private static final class TrackedCompoundContainer extends CompoundContainer implements PhysicalSlotProvider {
+        private final Container left,right;
+        TrackedCompoundContainer(Container left,Container right) {
+            super(left,right);
+            this.left=left;
+            this.right=right;
+        }
+        @Override public KingdomPhysicalSlotGuard.Slot physicalSlot(int slot) {
+            if(slot<0 || slot>=getContainerSize())return null;
+            int leftSize=left.getContainerSize();
+            return slot<leftSize ? KingdomContainerAccess.physicalSlot(left,slot)
+                    : KingdomContainerAccess.physicalSlot(right,slot-leftSize);
+        }
+    }
+
     public static Container resolve(ServerLevel level,BlockPos pos) {
         if(level==null||pos==null||!level.hasChunkAt(pos))return null;
         BlockEntity entity=level.getBlockEntity(pos);
@@ -34,7 +76,7 @@ public final class KingdomContainerAccess {
                     BlockPos otherPos=pos.relative(side);
                     if(!samePhysicalStorage(level,pos,otherPos))continue;
                     BlockEntity opposite=level.getBlockEntity(otherPos);
-                    if(opposite instanceof Container other)return new CompoundContainer(container,other);
+                    if(opposite instanceof Container other)return new TrackedCompoundContainer(container,other);
                 }
             }
             return container;

@@ -468,8 +468,17 @@ public final class KingdomNpcMenu extends ChestMenu {
                     default -> "wander";
                 };
                 if(next.equals("work")){
-                    var result=KingdomNpcQuickSetup.configure(viewer,w);
-                    info(result.message());
+                    if ("miner".equals(w.job)) {
+                        // Test-only two physical blocks; do not run the full mine prerequisites.
+                        KingdomMineFirstCut.start(w.entityId);
+                        w.order="work";
+                        info("Тест шахтёра: поставь рядом грунт и камень. "
+                            +"Грунт должен копать настоящей лопатой, камень — киркой. "
+                            +"Инструменты положи в сумку NPC или склад сырья.");
+                    } else {
+                        var result=KingdomNpcQuickSetup.configure(viewer,w);
+                        info(result.message());
+                    }
                     changed=true;
                     break;
                 }

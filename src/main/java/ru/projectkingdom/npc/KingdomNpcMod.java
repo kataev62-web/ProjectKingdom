@@ -1045,6 +1045,12 @@ public final class KingdomNpcMod {
                     // Food is a REAL owned item: a hungry self-employed owner
                     // can collect it even when its daily goal is EAT, not WORK.
                     executed |= KingdomNpcFoodRoutine.tick(level,resident,w);
+                    // Isolated first-cut acceptance: only test real dirt/shovel and rock/pickaxe.
+                    // No enterprise, shaft, payroll, warehouse, food or schedule preconditions.
+                    if ("miner".equals(w.job) && "work".equals(w.order)) {
+                        executed |= KingdomMineFirstCut.tick(level,resident,w);
+                        continue;
+                    }
                     // The physical adapters are shared by the workday scheduler.
                     // Existing independent gatherers remain independent.
                     if (KingdomNpcNutrition.permittedWorkTick(w,server.getTickCount())
