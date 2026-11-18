@@ -40,7 +40,9 @@ final class KingdomVolumeAndNeedsIntegrationTest {
         assertTrue(diagnostics.contains("Нужна еда"));
         assertTrue(diagnostics.contains("не выплачена"));
         assertTrue(diagnostics.contains("нужен топор TFC"));
-        assertTrue(diagnostics.contains("привяжите здание"));
+        assertTrue(diagnostics.contains("KingdomSmithySite.inspect(level,w)"));
+        assertTrue(source("npc/KingdomSmithySite.java")
+                .contains("здание этой кузницы не зарегистрировано"));
         assertTrue(source("npc/KingdomNpcNeedsBroadcast.java").contains("player.distanceToSqr(npc)>20*20"));
         assertTrue(source("npc/client/KingdomNpcNeedsOverlay.java")
                 .contains("RenderLivingEvent.Post"));

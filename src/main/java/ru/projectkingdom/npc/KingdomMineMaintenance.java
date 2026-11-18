@@ -49,7 +49,7 @@ public final class KingdomMineMaintenance {
                 || level.getBlockState(at.above()).isAir()==false
                 || !Blocks.TORCH.defaultBlockState().canSurvive(level,at)
                 || worker.employer==null
-                || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,at)))
+                || !KingdomTerritories.get(level.getServer()).canUse(level,at,worker.employer))
             return Result.BLOCKED;
 
         // Carry one real torch from the warehouse to the gallery, even when
