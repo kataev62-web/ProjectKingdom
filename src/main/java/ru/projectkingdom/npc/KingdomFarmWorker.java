@@ -76,6 +76,13 @@ public final class KingdomFarmWorker {
             if(available.isEmpty()||!raw.canTakeItem(raw,i,available)
                 ||!seedId.equals(BuiltInRegistries.ITEM.getKey(available.getItem()).toString()))continue;
             int n=Math.min(Math.min(16,available.getCount()),NpcFieldWork.MAX_CARRIED-carried(w));
+            // The worker NBT stores at most 36 ItemStacks; item count alone
+            // is insufficient if distinct seed NBT occupies every slot.
+            while(n>0){
+                ItemStack proposed=available.copy();proposed.setCount(n);
+                if(NpcFieldWork.canFit(w,List.of(proposed)))break;
+                n--;
+            }
             if(n<=0)return false;
             ItemStack taken=raw.removeItem(i,n);
             if(taken.isEmpty())return false;
