@@ -217,12 +217,15 @@ public final class KingdomBankData extends SavedData {
         if(vault==null||previous>Long.MAX_VALUE-amount||admin.bankReserve(town)>Long.MAX_VALUE-amount
                 ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
                         admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
-                ||!KingdomPhysicalCash.deposit(player,vault,amount))return false;
+                )return false;
+        return BankOperations.execute(player,town,player.getUUID(),BankOperationLedger.Kind.PERSONAL_DEPOSIT,amount,()->{
+            if(!KingdomPhysicalCash.deposit(player,vault,amount))return false; {
         if(!admin.depositBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical deposit");
         accounts.put(player.getUUID(),previous+amount);
         accountHomes.put(player.getUUID(),town);
         player.getInventory().setChanged();setDirty();return true;
+        });
     }
     public boolean withdraw(ServerPlayer player,long amount) {
         if(!atBranch(player)||amount<=0||amount>1_000_000||balance(player.getUUID())<amount)return false;
@@ -233,11 +236,14 @@ public final class KingdomBankData extends SavedData {
         if(vault==null||admin.bankReserve(town)<amount
                 ||!covered(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
                         admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
-                ||!KingdomPhysicalCash.withdraw(player,vault,amount))return false;
+                )return false;
+        return BankOperations.execute(player,town,player.getUUID(),BankOperationLedger.Kind.PERSONAL_WITHDRAW,amount,()->{
+            if(!KingdomPhysicalCash.withdraw(player,vault,amount))return false; {
         if(!admin.withdrawBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical withdrawal");
         accounts.put(player.getUUID(),balance(player.getUUID())-amount);
         player.getInventory().setChanged();setDirty();return true;
+        });
     }
     /** Coins physically placed in the bank but not booked to any citizen/city.
      * Never spend bank balances that are already owned by someone.
@@ -262,7 +268,8 @@ public final class KingdomBankData extends SavedData {
         long free=freePhysicalCopper(KingdomPhysicalCash.value(vault),admin.bankReserve(town),
                 admin.treasuryReserve(town),admin.heldExpansionProceeds(town));
         if(free<amount)return false;
-        return KingdomCivicsData.get(manager.getServer()).creditTownBankFunds(town,amount);
+        return BankOperations.execute(manager,town,manager.getUUID(),BankOperationLedger.Kind.FREE_CASH_ASSIGN,amount,()->
+                KingdomCivicsData.get(manager.getServer()).creditTownBankFunds(town,amount));
     }
 
     public String freeVaultCoinsProblem(ServerPlayer manager,UUID town,long amount) {
@@ -302,6 +309,7 @@ public final class KingdomBankData extends SavedData {
         var next=TownBankFunds.plan(municipalSnapshot(player,town,vault),
                 TownBankFunds.Operation.DONATE,amount);
         if(next==null)return false;
+        return BankOperations.execute(player,town,player.getUUID(),BankOperationLedger.Kind.DONATE,amount,()-> {
         if(!civics.creditTownBankFunds(town,amount))return false;
         if(!admin.withdrawBankReserve(town,amount)){
             if(!civics.withdrawTownAuthorized(town,player.getUUID(),amount))
@@ -311,6 +319,7 @@ public final class KingdomBankData extends SavedData {
         accounts.put(player.getUUID(),next.personal());
         setDirty();
         return true;
+        });
     }
 
     /** A mayor/founder/treasurer manages town funds, never other citizens' personal receipts. */
@@ -339,6 +348,8 @@ public final class KingdomBankData extends SavedData {
                 admin.treasuryReserve(town),admin.heldExpansionProceeds(town)))return false;
         var next=TownBankFunds.plan(municipalSnapshot(player,town,vault),operation,amount);
         if(next==null)return false;
+        var kind=operation==TownBankFunds.Operation.DEPOSIT?BankOperationLedger.Kind.CITY_DEPOSIT:BankOperationLedger.Kind.CITY_WITHDRAW;
+        return BankOperations.execute(player,town,player.getUUID(),kind,amount,()-> {
         var civics=KingdomCivicsData.get(player.getServer());
         if(operation==TownBankFunds.Operation.DEPOSIT){
             if(!KingdomPhysicalCash.deposit(player,vault,amount))return false;
@@ -354,6 +365,7 @@ public final class KingdomBankData extends SavedData {
             }
         }
         player.getInventory().setChanged();return true;
+        });
     }
     public String municipalProblem(ServerPlayer player,UUID town,long amount,TownBankFunds.Operation operation) {
         if(!mayUseMunicipalAccount(player,town))return "Счёт поселения доступен мэру, основателю и казначею в банке своего города.";
@@ -400,6 +412,7 @@ public final class KingdomBankData extends SavedData {
                 ||KingdomCurrency.balance(payer)<amount
                 ||prior>Long.MAX_VALUE-amount
                 ||KingdomAdministrationData.get(payer.getServer()).bankReserve(bank)>Long.MAX_VALUE-amount)return false;
+        return BankOperations.execute(payer,bank,recipient,BankOperationLedger.Kind.THIRD_PARTY_CREDIT,amount,()-> {
         if(!KingdomPhysicalCash.deposit(payer,physical,amount))return false;
         boolean recorded=renewal
                 ? civics.renewLease(payer.getUUID(),dimension,x,z,now,amount,7L*24*60*60*1000)
@@ -414,6 +427,7 @@ public final class KingdomBankData extends SavedData {
         accounts.put(recipient,prior+amount);
         accountHomes.put(recipient,bank);
         payer.getInventory().setChanged();setDirty();return true;
+        });
     }
     /** Settle an assessed rent debt using coins presented at a real bank branch.
      * Never debit the tenant's bank account; the landlord receives a backed receipt.
@@ -437,6 +451,7 @@ public final class KingdomBankData extends SavedData {
         if(KingdomCurrency.balance(payer)<amount
                 ||previous>Long.MAX_VALUE-amount
                 ||KingdomAdministrationData.get(payer.getServer()).bankReserve(bank)>Long.MAX_VALUE-amount)return false;
+        return BankOperations.execute(payer,bank,landlord,BankOperationLedger.Kind.THIRD_PARTY_CREDIT,amount,()-> {
         if(!KingdomPhysicalCash.deposit(payer,physical,amount))return false;
         if(!civics.recordLeaseDebtPayment(payer.getUUID(),dimension,x,z,amount)) {
             if(!KingdomPhysicalCash.withdraw(payer,physical,amount))
@@ -448,6 +463,7 @@ public final class KingdomBankData extends SavedData {
         accounts.put(landlord,previous+amount);
         accountHomes.put(landlord,bank);
         payer.getInventory().setChanged();setDirty();return true;
+        });
     }
     /** Buyer brings coins to a real bank counter. Seller receives a backed deposit receipt. */
     public boolean payLandSaleCash(ServerPlayer buyer,String dimension,int x,int z) {
@@ -472,6 +488,7 @@ public final class KingdomBankData extends SavedData {
                 ||KingdomCurrency.balance(buyer)<amount
                 ||previous>Long.MAX_VALUE-amount
                 ||KingdomAdministrationData.get(buyer.getServer()).bankReserve(bank)>Long.MAX_VALUE-amount)return false;
+        return BankOperations.execute(buyer,bank,seller,BankOperationLedger.Kind.THIRD_PARTY_CREDIT,amount,()-> {
         if(!KingdomPhysicalCash.deposit(buyer,physical,amount))return false;
         if(!civics.completeSale(buyer.getUUID(),dimension,x,z)) {
             if(!KingdomPhysicalCash.withdraw(buyer,physical,amount))
@@ -483,6 +500,7 @@ public final class KingdomBankData extends SavedData {
         accounts.put(seller,previous+amount);
         accountHomes.put(seller,bank);
         buyer.getInventory().setChanged();setDirty();return true;
+        });
     }
     /** A bank branch must actually exist within interaction distance. */
     public boolean atBranch(ServerPlayer player) {
