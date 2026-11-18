@@ -50,7 +50,9 @@ final class KingdomTfcSmithAndForestRegressionTest {
         assertTrue(core.contains("selectedRecipe("));
         assertTrue(core.contains("cycleRecipe("));
         assertTrue(core.contains("smithOutputReady"));
-        assertTrue(core.contains("building==null"));
+        assertTrue(core.contains("KingdomSmithySite.inspect(level,w).ready()"));
+        assertTrue(source("npc/KingdomSmithySite.java").contains("room==null"));
+        assertTrue(source("npc/KingdomSmithySite.java").contains("room.core()!=core.packedPos()"));
         assertTrue(core.contains("anvilInv.getStackInSlot(2).isEmpty()"));
         var server=source("npc/KingdomNpcMod.java");
         assertTrue(server.contains("KingdomTfcSmithWork.tick(level,resident,w)"));
