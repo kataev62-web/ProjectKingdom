@@ -10,11 +10,12 @@ final class KingdomVolumeAndNeedsIntegrationTest {
     private static String source(String path) throws Exception {
         return Files.readString(Path.of("src/main/java/ru/projectkingdom/"+path));
     }
-    @Test void allThreeSurveysShareTheSameServerControlledPreview() throws Exception {
+    @Test void enterpriseAndCopySurveysUseServerControlledPreview() throws Exception {
         String selection=source("network/KingdomVolumeSelectionPacket.java");
         assertTrue(selection.contains("WAREHOUSE=1,ENTERPRISE=2,COPY=3"));
-        assertTrue(source("administration/KingdomCentralWarehouseRooms.java")
-                .contains("KingdomVolumeSelectionPacket.WAREHOUSE"));
+        assertFalse(source("administration/KingdomCentralWarehouseRooms.java")
+                .contains("KingdomVolumeSelectionPacket.WAREHOUSE"),
+            "Warehouse selection no longer uses visual overlay packets");
         assertTrue(source("enterprise/EnterpriseBuildingSelection.java")
                 .contains("KingdomVolumeSelectionPacket.ENTERPRISE"));
         assertTrue(source("npc/KingdomStructureCopy.java")
