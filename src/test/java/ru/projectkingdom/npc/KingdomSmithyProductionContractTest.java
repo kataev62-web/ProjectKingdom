@@ -11,15 +11,22 @@ final class KingdomSmithyProductionContractTest {
     private static String source(String path)throws Exception{
         return Files.readString(Path.of("src/main/java/ru/projectkingdom/"+path));
     }
-    public static final class Recipe {
-        private final String id;
-        public Recipe(String id){this.id=id;}
-        public String getId(){return id;}
+    private static net.minecraft.world.item.crafting.Recipe<?> recipe(String id){
+        return (net.minecraft.world.item.crafting.Recipe<?>)java.lang.reflect.Proxy.newProxyInstance(
+            net.minecraft.world.item.crafting.Recipe.class.getClassLoader(),
+            new Class[]{net.minecraft.world.item.crafting.Recipe.class},
+            (proxy,method,args)->{
+                if("getId".equals(method.getName()))return new net.minecraft.resources.ResourceLocation(id);
+                if("toString".equals(method.getName()))return id;
+                return null;
+            });
     }
 
     @Test void playerCanSelectOnlyNativeAnvilRecipeNotFabricatedIngredient() throws Exception{
         var smith=source("npc/KingdomTfcSmithWork.java");
         assertTrue(smith.contains("AnvilRecipe"));
+        assertTrue(smith.contains("candidate instanceof net.minecraft.world.item.crafting.Recipe<?> recipe"));
+        assertFalse(smith.contains("getMethod(\"getId\""));
         assertTrue(smith.contains("getMethod(\"getAll\""));
         assertTrue(smith.contains("getMethod(\"getTier\")"));
         assertTrue(smith.contains("!recipeId.startsWith(\"tfc:\")"));
@@ -29,8 +36,8 @@ final class KingdomSmithyProductionContractTest {
         assertTrue(smith.contains("order.input().equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())"));
         Method select=KingdomTfcSmithWork.class.getDeclaredMethod("selectedRecipe",List.class,String.class);
         select.setAccessible(true);
-        var real=new Recipe("tfc:anvil/steel_sword_blade");
-        assertSame(real,select.invoke(null,List.of(real),real.getId()));
+        var real=recipe("tfc:anvil/steel_sword_blade");
+        assertSame(real,select.invoke(null,List.of(real),"tfc:anvil/steel_sword_blade"));
         assertNull(select.invoke(null,List.of(real),"tfc:anvil/iron_pickaxe_head"));
     }
 
@@ -41,16 +48,17 @@ final class KingdomSmithyProductionContractTest {
         assertTrue(smith.contains("order.phase()==KingdomSmithyOrdersData.Phase.READY"));
         assertTrue(smith.contains("actual.equals(order.pendingItem())"));
         assertTrue(smith.contains("inAnvil.getCount()!=order.pendingCount()"));
-        assertTrue(smith.contains("if(!intoChest(finished,inAnvil))"));
-        assertTrue(smith.contains("anvilInv.setStackInSlot(0,ItemStack.EMPTY)"));
-        assertTrue(smith.contains("orders.delivered(company,w.entityId,actual,inAnvil.getCount())"));
-        assertTrue(smith.contains("forgeInv.setStackInSlot(slot,ItemStack.EMPTY)"));
+        assertTrue(smith.contains("if(!deliverNative(finished,anvil,anvilInv))"));
+        assertTrue(smith.contains("anvilSlots.setStackInSlot(0,ItemStack.EMPTY)"));
+        assertTrue(smith.contains("orders.delivered(company,w.entityId,actual,count)"));
+        assertTrue(smith.contains("moveNative(forge,forgeInv,slot,anvil,anvilInv,0)"));
         assertTrue(smith.contains("if(!hotEnough(inAnvil))"));
-        assertTrue(smith.contains("heatingSlots.setStackInSlot(slot,inAnvil.copy())"));
+        assertTrue(smith.contains("moveNative(anvil,anvilInv,0,forge,heatingSlots,slot)"));
         assertTrue(smith.contains("anvilInv.setStackInSlot(0,ItemStack.EMPTY)"));
         assertTrue(smith.contains("if(!alreadyHeating)"),
                 "One-item orders must not draw multiple metal inputs while heating");
-        assertTrue(smith.contains("stock.shrink(1);chest.setChanged();machine.setChanged()"));
+        assertTrue(smith.contains("chest.removeItem(source,1)"));
+        assertTrue(smith.contains("exact(dest.getStackInSlot(slot),unit)"));
         assertTrue(smith.contains("getMethod(\"work\""));
         assertFalse(smith.contains("new ItemStack(Items.IRON_INGOT)"));
     }
