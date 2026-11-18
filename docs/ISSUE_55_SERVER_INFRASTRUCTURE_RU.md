@@ -122,7 +122,7 @@ Append-only строки `KIND|payload|crc32`, каждая запись при�
 | Проверка | Команда | Результат |
 |---|---|---|
 | Стенд авторитета (чистая Java) | `bash validation/server_authority_harness/run.sh` | PASS, 10 сценариев, 11 точек падения |
-| Комплект выделенного сервера | `python3 server/validate_bundle.py` | PASS, 35 проверок |
+| Комплект выделенного сервера | `python3 server/validate_bundle.py` | PASS, 56 проверок |
 | Сборка Forge и тесты | `./gradlew test build` | см. раздел «Результаты сборки» |
 | Статическая проверка проекта | `python3 03_verify_project.py` | PASS |
 
