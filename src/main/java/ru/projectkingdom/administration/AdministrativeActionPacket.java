@@ -82,6 +82,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 sender.sendSystemMessage(Component.literal(ok
                     ?"[Банк] Внесено 100 медных: реальные монеты помещены в сейф."
                     :"[Банк] "+bank.depositProblem(sender,100)));
+                if(ok)sender.closeContainer(); // Old queued duplicate packet no longer matches the menu.
                 return;
             }
             if(packet.action==BANK_WITHDRAW_100){
@@ -90,6 +91,7 @@ public record AdministrativeActionPacket(UUID townId,AdministrativeKind kind,int
                 sender.sendSystemMessage(Component.literal(ok
                     ?"[Банк] Выдано 100 медных из реального банковского сейфа."
                     :"[Банк] "+bank.withdrawProblem(sender,100)));
+                if(ok)sender.closeContainer(); // Never issue again on the same menu.
                 return;
             }
             if(packet.action==CONSOLIDATE_BANK){
