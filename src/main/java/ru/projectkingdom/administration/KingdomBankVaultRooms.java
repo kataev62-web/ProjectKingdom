@@ -24,6 +24,7 @@ import net.minecraft.core.Direction;
 import net.minecraft.world.level.saveddata.SavedData;
 import ru.projectkingdom.npc.KingdomCivicsData;
 import ru.projectkingdom.npc.KingdomContainerAccess;
+import ru.projectkingdom.npc.KingdomPhysicalSlotGuard;
 import ru.projectkingdom.npc.KingdomCurrency;
 import ru.projectkingdom.npc.KingdomPhysicalCash;
 import ru.projectkingdom.npc.KingdomEnterpriseData;
@@ -267,7 +268,7 @@ public final class KingdomBankVaultRooms extends SavedData {
         return new Scan(new VaultContainer(contents),null);
     }
 
-    private static final class VaultContainer implements Container {
+    private static final class VaultContainer implements Container, KingdomContainerAccess.PhysicalSlotProvider {
         private final List<Container> chests;
         private final int size;
         VaultContainer(List<Container> chests){
@@ -283,6 +284,11 @@ public final class KingdomBankVaultRooms extends SavedData {
                 index-=chest.getContainerSize();
             }
             throw new IndexOutOfBoundsException();
+        }
+        @Override public KingdomPhysicalSlotGuard.Slot physicalSlot(int index){
+            if(index<0||index>=size)return null;
+            Slot source=slot(index);
+            return KingdomContainerAccess.physicalSlot(source.chest(),source.index());
         }
         @Override public int getContainerSize(){return size;}
         @Override public int getMaxStackSize(){
