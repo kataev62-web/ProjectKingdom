@@ -523,10 +523,34 @@ public final class KingdomTfcSmithWork {
                 orders.note(company,w.entityId,"Наковальня занята другим материалом; освободите её вручную.");
                 return false;
             }
+            // TFC metal cools on the anvil. Move the SAME partially worked
+            // stack back to a free native forge input slot; its forging NBT is
+            // preserved, and no new raw material is consumed while reheating.
+            if(!hotEnough(inAnvil)){
+                var heatingSlots=inventory(forge);
+                if(heatingSlots==null||heatingSlots.getSlots()<14){
+                    orders.note(company,w.entityId,"Нагрев невозможен: горн TFC недоступен.");
+                    return false;
+                }
+                for(int slot=5;slot<=9;slot++){
+                    if(!heatingSlots.getStackInSlot(slot).isEmpty()
+                            ||!nativeValid(forge,slot,inAnvil))continue;
+                    heatingSlots.setStackInSlot(slot,inAnvil.copy());
+                    anvilInv.setStackInSlot(0,ItemStack.EMPTY);
+                    forge.setChanged();anvil.setChanged();
+                    orders.working(company,w.entityId);
+                    orders.note(company,w.entityId,
+                        "Остывший металл возвращён в настоящий горн TFC для повторного нагрева.");
+                    return true;
+                }
+                orders.note(company,w.entityId,
+                    "Металл остыл, но в горне нет свободного слота для нагрева.");
+                return false;
+            }
             if(anvilWork(level,npc,anvil,anvilInv,w,order)){
                 orders.working(company,w.entityId);return true;
             }
-            orders.note(company,w.entityId,"Ожидание нагрева заготовки, молота или выполнения правил ковки.");
+            orders.note(company,w.entityId,"Ожидание молота TFC, выбора рецепта или выполнения правил ковки.");
             return false;
         }
         if(order.phase()==KingdomSmithyOrdersData.Phase.READY||w.smithOutputReady){
