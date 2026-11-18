@@ -1,1 +1,5 @@
-package net.minecraft.world.level.block.state.properties;public enum ChestType{SINGLE,LEFT,RIGHT}
+package net.minecraft.world.level.block.state.properties;
+
+public enum ChestType {
+    SINGLE, LEFT, RIGHT
+}
