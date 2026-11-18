@@ -91,7 +91,9 @@ public final class KingdomNpcQuickSetup {
         if("smith".equals(worker.job)){
             var registered=ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(
                     player.getServer());
-            var withRoom=owned.stream().filter(f->registered.room(f.id())!=null).toList();
+            var withRoom=owned.stream().filter(f->
+                KingdomSmithySite.registration(f.id(),f.owner(),f,enterprises.core(f.id()),
+                    registered.room(f.id()),level.dimension().location().toString()).ready()).toList();
             if(!withRoom.isEmpty())owned=withRoom;
         }
         for(var firm:owned)if(firm.id().toString().equals(worker.workplaceId))return firm;
@@ -197,9 +199,10 @@ public final class KingdomNpcQuickSetup {
         if("smith".equals(worker.job)){
             var building=ru.projectkingdom.enterprise.EnterpriseBuildingRegistration.get(server)
                     .room(business.id());
-            if(building==null)return new Result(false,
-                    "Нет привязки к этому ядру кузницы «"+business.name()
-                    +"». Открой именно её меню → Сведения → Привязать здание: 2 угла.");
+            var identity=KingdomSmithySite.registration(business.id(),owner,business,core,
+                    building,level.dimension().location().toString());
+            if(!identity.ready())return new Result(false,identity.message()
+                    +" («"+business.name()+"»).");
             // Old 7-block search can miss a perfectly valid forge in a
             // registered multi-floor building. Scan only the saved cuboid.
             if(machine==null||!KingdomTfcSmithWork.inside(building,machine)
@@ -245,7 +248,8 @@ public final class KingdomNpcQuickSetup {
             return new Result(false,"Склады заняты другой ролью или предприятием. "
                 +"Выбери свободные сундуки на своей земле.");
         if(machine!=null && !land.register(level,machine,owner,"workstation"))
-            machine=null;
+            return new Result(false,"Не удалось закрепить станок на земле предприятия. "
+                    +"Проверь права на участок и назначь другое рабочее место.");
         var payroll=KingdomEnterprisePayrollData.get(server);
         // Preserve accrued debt and never silently erase a legitimate old contract.
         for(var old:new ArrayList<>(payroll.all()))

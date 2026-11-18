@@ -187,8 +187,11 @@ public final class KingdomTfcSmithWork {
 
     /** Left click Recipe in the NPC menu cycles valid native TFC anvil outputs. */
     public static String cycleRecipe(net.minecraft.server.level.ServerPlayer owner,KingdomNpcData.Worker w){
-        if(owner==null||w==null||!"smith".equals(w.job)||!owner.getUUID().equals(w.employer)
-                ||!w.hasWorkstation||!w.hasSource)return "Сначала найми кузнеца и настрой его рабочее место.";
+        if(owner==null||w==null||!"smith".equals(w.job)||!owner.getUUID().equals(w.employer))
+            return "Сначала найми кузнеца и выбери его предприятие.";
+        var site=KingdomSmithySite.inspect(owner.serverLevel(),w);
+        if(!site.ready())return site.message();
+        if(!w.hasSource)return "Кузнец: привяжи склад сырья.";
         var server=owner.getServer();var firms=KingdomEnterpriseData.get(server);
         UUID firm;
         try{firm=UUID.fromString(w.workplaceId);}catch(IllegalArgumentException ex){return "Не привязана кузница.";}
@@ -196,14 +199,15 @@ public final class KingdomTfcSmithWork {
             return "Нет прав на эту кузницу.";
         var room=EnterpriseBuildingRegistration.get(server).room(firm);
         var level=owner.serverLevel();var pos=new BlockPos(w.workX,w.workY,w.workZ);
-        if(room==null||!room.dimension().equals(w.dimension)||!inside(room,pos))
-            return "Зарегистрируй здание кузницы.";
         BlockPos anvilPos=findAnvil(level,room,pos);
+        if(anvilPos==null)return "Кузнец: в зарегистрированном здании не найдена наковальня TFC.";
+        if(!KingdomTerritories.get(server).canUse(level,anvilPos,w.employer))
+            return "Кузнец: нет прав на участок с наковальней.";
         BlockPos rawPos=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
-        if(anvilPos==null||!level.hasChunkAt(rawPos)
+        if(!level.hasChunkAt(rawPos)
                 ||!KingdomTerritories.get(server).usable(level,rawPos,w.employer,"raw")
                 ||!(level.getBlockEntity(rawPos) instanceof Container raw))
-            return "Нужны наковальня TFC внутри здания и привязанный склад сырья.";
+            return "Кузнец: склад сырья не загружен, не привязан или недоступен.";
         BlockEntity anvil=level.getBlockEntity(anvilPos);
         var inv=inventory(anvil);
         if(inv==null)return "Инвентарь наковальни TFC недоступен.";
@@ -360,13 +364,10 @@ public final class KingdomTfcSmithWork {
                 ||binding==null||!binding.active()
                 ||contract==null||!contract.active()
                 ||!w.dimension.equals(level.dimension().location().toString()))return false;
+        if(!KingdomSmithySite.inspect(level,w).ready())return false;
         var building=EnterpriseBuildingRegistration.get(server).room(company);
         BlockPos forgePos=new BlockPos(w.workX,w.workY,w.workZ);
-        if(building==null||!building.dimension().equals(w.dimension)
-                ||!inside(building,forgePos)||!level.hasChunkAt(forgePos)
-                ||!FORGE.equals(id(level,forgePos)))return false;
         BlockEntity forge=level.getBlockEntity(forgePos);
-        if(!isSmithMachine(forge,FORGE_BE))return false;
         BlockPos fromPos=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
         BlockPos toPos=new BlockPos(w.destX,w.destY,w.destZ);
         var land=KingdomTerritories.get(server);
@@ -376,7 +377,7 @@ public final class KingdomTfcSmithWork {
                 ||!(level.getBlockEntity(fromPos) instanceof Container raw)
                 ||!(level.getBlockEntity(toPos) instanceof Container finished))return false;
         BlockPos anvilPos=findAnvil(level,building,forgePos);
-        if(anvilPos==null)return false;
+        if(anvilPos==null||!land.canUse(level,anvilPos,w.employer))return false;
         BlockEntity anvil=level.getBlockEntity(anvilPos);
         IItemHandlerModifiable anvilInv=inventory(anvil);
         if(anvilInv==null||anvilInv.getSlots()<4)return false;
