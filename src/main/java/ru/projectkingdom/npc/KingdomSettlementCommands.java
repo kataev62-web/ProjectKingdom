@@ -52,6 +52,7 @@ public final class KingdomSettlementCommands {
     @SubscribeEvent
     public static void stopping(ServerStoppingEvent event) {
         KingdomSettlementAuthority.forget(event.getServer());
+        KingdomDemandDelivery.forget(event.getServer());
     }
 
     private static LiteralArgumentBuilder<CommandSourceStack> root() {
@@ -96,6 +97,17 @@ public final class KingdomSettlementCommands {
                     }
                     return 1;
                 }))
+            .then(Commands.literal("pending").executes(context -> {
+                var markers = KingdomDemandDelivery.get(context.getSource().getServer()).openMarkers();
+                if (markers.isEmpty()) reply(context.getSource(), "Открытых доставок нет.");
+                for (String marker : markers)
+                    reply(context.getSource(), marker + ". Проверьте четыре сундука вручную перед закрытием.");
+                return markers.isEmpty() ? 0 : 1;
+            }).requires(source -> source.hasPermission(2)))
+            .then(Commands.literal("pending-resolve")
+            .requires(source -> source.hasPermission(4))
+            .then(Commands.argument("uuid", StringArgumentType.word()).executes(context ->
+                    closeMarker(context.getSource(), StringArgumentType.getString(context, "uuid")))))
             .then(Commands.literal("resolve")
                 .requires(source -> source.hasPermission(4))
                 .then(Commands.argument("uuid", StringArgumentType.word())
@@ -127,6 +139,33 @@ public final class KingdomSettlementCommands {
             return 0;
         }
         return 1;
+    }
+
+    /**
+     * Closes the marker of an open delivery.
+     *
+     * <p>The marker is the trace of a delivery that may have moved goods
+     * partially. Only an operator that checked the four containers by hand may
+     * close it.
+     */
+    private static int closeMarker(CommandSourceStack source, String raw) {
+        try {
+            UUID.fromString(raw);
+        } catch (IllegalArgumentException ex) {
+            reply(source, "Некорректный идентификатор доставки: " + raw);
+            return 0;
+        }
+        boolean closed;
+        try {
+            closed = KingdomDemandDelivery.get(source.getServer()).closeMarker(raw);
+        } catch (RuntimeException ex) {
+            reply(source, "Маркеры доставки недоступны: " + ex.getMessage());
+            return 0;
+        }
+        reply(source, closed
+                ? "Маркер доставки " + raw + " закрыт. Предметы и монеты не изменялись."
+                : "Маркер доставки " + raw + " не найден.");
+        return closed ? 1 : 0;
     }
 
     private static void reply(CommandSourceStack source, String message) {

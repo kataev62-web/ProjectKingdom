@@ -2,9 +2,17 @@ name: Build Project Kingdom
 
 on:
   push:
-    branches: [main, feature/vanilla-female-skirt-bust-20261026]
+    branches:
+      - main
+      - feature/vanilla-female-skirt-bust-20261026
+      # The server branch of Issue #55 and the delivery branch of Issue #70 are
+      # stacked: they are built on their own, before they reach main.
+      - minimax/kingdom-server-authority-20261118
+      - minimax/kingdom-settlement-delivery-20261118
   pull_request:
-    branches: [main]
+    branches:
+      - main
+      - minimax/kingdom-server-authority-20261118
   workflow_dispatch:
 
 jobs:

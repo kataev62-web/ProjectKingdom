@@ -57,6 +57,48 @@ public final class SettlementAuthority {
          * A failed write is an error, not a partial success.
          */
         void apply(String item, long delta) throws IOException;
+
+        /**
+         * The variants of the item in this container.
+         *
+         * <p>A variant is the fingerprint of the exact state of an item: the
+         * tags of the stack, for example the freshness of a perishable item of
+         * TerraFirmaCraft. The empty string is the item without any tag.
+         *
+         * <p>A container that cannot tell the variants apart returns only the
+         * empty variant: the delivery is then limited to items without a state.
+         */
+        default java.util.List<String> variants(String item) { return java.util.List.of(""); }
+
+        /**
+         * The amount of the item in the exact variant.
+         *
+         * <p>A container that cannot separate the variants must refuse instead
+         * of counting every variant together: the delivery would move the
+         * wrong goods.
+         */
+        default long count(String item, String variant) {
+            if (variant == null || variant.isEmpty()) return count(item);
+            throw new UnsupportedOperationException("the container cannot separate the variants of " + item);
+        }
+
+        /** The free space of the container for the exact variant. */
+        default long capacity(String item, String variant) {
+            if (variant == null || variant.isEmpty()) return capacity(item);
+            throw new UnsupportedOperationException("the container cannot separate the variants of " + item);
+        }
+
+        /**
+         * Moves the amount of the exact variant.
+         *
+         * <p>A container that cannot separate the variants must refuse: moving
+         * the amount of another variant would destroy goods that were never
+         * offered.
+         */
+        default void apply(String item, String variant, long delta) throws IOException {
+            if (variant == null || variant.isEmpty()) { apply(item, delta); return; }
+            throw new IOException("the container cannot move the variants of " + item);
+        }
     }
 
     public enum Outcome { COMMITTED, DUPLICATE, REJECTED, QUARANTINED, INCONSISTENT }
@@ -65,8 +107,17 @@ public final class SettlementAuthority {
     public enum Resolution { CONFIRMED_APPLIED, CONFIRMED_NOT_APPLIED }
 
     /** One delivery request. The id is the idempotency key of the delivery. */
-    public record Request(UUID id, String item, int quantity, long unitCopper,
-                           Container supplier, Container warehouse, Container cashbox, Container wallet) {}
+    public record Request(UUID id, String item, String goodsVariant, int quantity, long unitCopper,
+                           Container supplier, Container warehouse, Container cashbox, Container wallet) {
+        /**
+         * A request without a variant: only items without a state are delivered.
+         * Kept for the callers of the older journal format.
+         */
+        public Request(UUID id, String item, int quantity, long unitCopper,
+                       Container supplier, Container warehouse, Container cashbox, Container wallet) {
+            this(id, item, "", quantity, unitCopper, supplier, warehouse, cashbox, wallet);
+        }
+    }
 
     /** Read-only view of a delivery known to the authority. */
     public record TxView(UUID id, State state, String item, int quantity, long totalCopper, String problem) {}
@@ -81,7 +132,7 @@ public final class SettlementAuthority {
     private static final String SAFE_ID = "[A-Za-z0-9_.:-]{1,96}";
 
     /** A touched (container, item) pair with the counts before and after the delivery. */
-    private record Check(String container, String item, long before, long after) {}
+    private record Check(String container, String item, String variant, long before, long after) {}
 
     /** The durable plan of one delivery. */
     private record Plan(UUID id, String item, int quantity, long unitCopper, long totalCopper,
@@ -93,6 +144,19 @@ public final class SettlementAuthority {
                .append(";total=").append(totalCopper);
             appendChecks(out, "goods", goods);
             appendChecks(out, "coins", coins);
+            // The variants live in their own section: a log of the older format
+            // has none, and a reader of the older format ignores this section.
+            // The counts stay in the older four field form for the same reason.
+            StringBuilder variants = new StringBuilder();
+            for (List<Check> checks : List.of(goods, coins)) {
+                for (Check check : checks) {
+                    if (check.variant().isEmpty()) continue;
+                    if (variants.length() > 0) variants.append(',');
+                    variants.append(check.container()).append('~').append(check.item())
+                            .append('~').append(check.variant());
+                }
+            }
+            if (variants.length() > 0) out.append(";variants=").append(variants);
             return out.toString();
         }
         private static void appendChecks(StringBuilder out, String name, List<Check> checks) {
@@ -291,8 +355,31 @@ public final class SettlementAuthority {
     /** Read-only view of every delivery known to the authority. */
     public synchronized List<TxView> transactions() { return views(); }
 
+    /**
+     * The state of one delivery, null when the authority does not know it.
+     *
+     * <p>A caller uses it to find out whether a delivery was already
+     * finished: a delivery with a durable receipt must never be moved again.
+     */
+    public synchronized State stateOf(UUID id) throws IOException {
+        ensureLoaded();
+        TxState state = states.get(id);
+        return state == null ? null : state.state;
+    }
+
     /** Bytes of the durable log. */
     public synchronized long journalSize() throws IOException { return journal.durableLength(); }
+
+    /**
+     * Whether the durable log was damaged when it was read.
+     *
+     * <p>A damaged log means that records are missing. The delivery must not
+     * continue on such a log: the state of the world is unknown.
+     */
+    public synchronized boolean journalDamaged() throws IOException {
+        ensureLoaded();
+        return journalDamaged;
+    }
 
     /** Compacts the durable log so that it stops growing without end. */
     public synchronized int compact() throws IOException { return journal.compact(); }
@@ -415,7 +502,7 @@ public final class SettlementAuthority {
             if (container == null) return Outcome.QUARANTINED;
             long actual;
             try {
-                actual = container.count(check.item());
+                actual = container.count(check.item(), check.variant());
             } catch (RuntimeException ex) {
                 // An unreadable container is an inconsistent state, never a guess.
                 return Outcome.INCONSISTENT;
@@ -423,21 +510,46 @@ public final class SettlementAuthority {
             if (actual == check.after()) continue;
             if (actual != check.before()) return Outcome.INCONSISTENT;
             try {
-                container.apply(check.item(), check.after() - check.before());
+                container.apply(check.item(), check.variant(), check.after() - check.before());
             } catch (IOException | RuntimeException ex) {
                 return Outcome.INCONSISTENT;
             }
-            if (container.count(check.item()) != check.after()) return Outcome.INCONSISTENT;
+            long applied;
+            try {
+                applied = container.count(check.item(), check.variant());
+            } catch (RuntimeException ex) {
+                return Outcome.INCONSISTENT;
+            }
+            if (applied != check.after()) return Outcome.INCONSISTENT;
         }
         return Outcome.COMMITTED;
     }
 
     private Plan plan(Request request) {
-        long supplierHave = request.supplier().count(request.item());
+        String variant = request.goodsVariant();
+        long supplierHave;
+        long warehouseHave;
+        try {
+            supplierHave = request.supplier().count(request.item(), variant);
+            warehouseHave = request.warehouse().count(request.item(), variant);
+        } catch (UnsupportedOperationException ex) {
+            // The container cannot tell the variants apart: the delivery of a
+            // stateful item would move the wrong goods.
+            throw new Rejection("VARIANT_UNSUPPORTED");
+        } catch (RuntimeException ex) {
+            // The container cannot be read: the amount of the goods is unknown.
+            throw new Rejection("CONTAINER_UNREADABLE");
+        }
         if (supplierHave < request.quantity()) throw new Rejection("INSUFFICIENT_GOODS");
-        long warehouseHave = request.warehouse().count(request.item());
-        if (request.warehouse().capacity(request.item()) - warehouseHave < request.quantity())
-            throw new Rejection("NO_GOODS_SPACE");
+        long space;
+        try {
+            space = request.warehouse().capacity(request.item(), variant);
+        } catch (UnsupportedOperationException ex) {
+            throw new Rejection("VARIANT_UNSUPPORTED");
+        } catch (RuntimeException ex) {
+            throw new Rejection("CONTAINER_UNREADABLE");
+        }
+        if (space - warehouseHave < request.quantity()) throw new Rejection("NO_GOODS_SPACE");
 
         long price;
         try {
@@ -459,15 +571,15 @@ public final class SettlementAuthority {
         }
 
         List<Check> goods = new ArrayList<>();
-        goods.add(new Check(request.supplier().id(), request.item(), supplierHave, supplierHave - request.quantity()));
-        goods.add(new Check(request.warehouse().id(), request.item(), warehouseHave, warehouseHave + request.quantity()));
+        goods.add(new Check(request.supplier().id(), request.item(), variant, supplierHave, supplierHave - request.quantity()));
+        goods.add(new Check(request.warehouse().id(), request.item(), variant, warehouseHave, warehouseHave + request.quantity()));
         List<Check> money = new ArrayList<>();
         for (int index = 0; index < coins.length; index++) {
             if (selected[index] <= 0) continue;
             long cashHave = request.cashbox().count(coins[index]);
             long walletHave = request.wallet().count(coins[index]);
-            money.add(new Check(request.cashbox().id(), coins[index], cashHave, cashHave - selected[index]));
-            money.add(new Check(request.wallet().id(), coins[index], walletHave, walletHave + selected[index]));
+            money.add(new Check(request.cashbox().id(), coins[index], "", cashHave, cashHave - selected[index]));
+            money.add(new Check(request.wallet().id(), coins[index], "", walletHave, walletHave + selected[index]));
         }
         return new Plan(request.id(), request.item(), request.quantity(), request.unitCopper(), price,
                 List.copyOf(goods), List.copyOf(money));
@@ -486,6 +598,9 @@ public final class SettlementAuthority {
         Objects.requireNonNull(request, "request");
         Objects.requireNonNull(request.id(), "id");
         requireSafe("item", request.item());
+        String variant = request.goodsVariant();
+        if (variant == null) throw new IllegalArgumentException("variant");
+        if (!variant.isEmpty()) requireSafe("variant", variant);
         if (request.quantity() <= 0) throw new IllegalArgumentException("quantity must be positive");
         if (request.unitCopper() <= 0) throw new IllegalArgumentException("unit price must be positive");
         Container[] containers = { request.supplier(), request.warehouse(), request.cashbox(), request.wallet() };
@@ -517,24 +632,47 @@ public final class SettlementAuthority {
 
     private static Plan parsePlan(String payload) {
         Map<String, String> fields = fields(payload);
+        Map<String, String> variants = parseVariants(fields.get("variants"));
         Plan plan = new Plan(UUID.fromString(fields.get("tx")), fields.get("item"),
                 Integer.parseInt(fields.get("qty")), Long.parseLong(fields.get("unit")),
                 Long.parseLong(fields.get("total")),
-                parseChecks(fields.get("goods")), parseChecks(fields.get("coins")));
+                parseChecks(fields.get("goods"), variants), parseChecks(fields.get("coins"), variants));
         requireSafe("item", plan.item());
         for (Check check : plan.goods()) requireSafe("container", check.container());
         for (Check check : plan.coins()) requireSafe("container", check.container());
         return plan;
     }
 
-    private static List<Check> parseChecks(String payload) {
+    /**
+     * The variants of a plan, by container and item.
+     *
+     * <p>A log of the older format has no variants: the delivery of such a
+     * record keeps the older rule, the amount of the item is checked as a
+     * whole. A record of the new format always names its variant.
+     */
+    private static Map<String, String> parseVariants(String payload) {
+        Map<String, String> out = new LinkedHashMap<>();
+        if (payload == null || payload.isEmpty()) return out;
+        for (String part : payload.split(",")) {
+            if (part.isEmpty()) continue;
+            String[] bits = part.split("~", -1);
+            if (bits.length != 3) throw new IllegalArgumentException("bad variant");
+            requireSafe("variant", bits[2]);
+            out.put(bits[0] + "~" + bits[1], bits[2]);
+        }
+        return out;
+    }
+
+    private static List<Check> parseChecks(String payload, Map<String, String> variants) {
         List<Check> checks = new ArrayList<>();
         if (payload == null || payload.isEmpty()) return List.of();
         for (String part : payload.split(",")) {
             if (part.isEmpty()) continue;
             String[] bits = part.split("~", -1);
             if (bits.length != 4) throw new IllegalArgumentException("bad check");
-            checks.add(new Check(bits[0], bits[1], Long.parseLong(bits[2]), Long.parseLong(bits[3])));
+            String variant = variants.getOrDefault(bits[0] + "~" + bits[1], "");
+            checks.add(new Check(bits[0], bits[1], variant,
+                    Long.parseLong(bits[2]), Long.parseLong(bits[3])));
         }
         return List.copyOf(checks);
     }

@@ -488,6 +488,8 @@ public final class SettlementAuthorityHarness {
         compaction();
         compactionKeepsThePlanOfAnUndecidedDelivery();
         damagedLogIsNotCompacted();
+        SettlementDeliveryHarness.run();
         System.out.println("PASS settlement authority: durable decision, idempotent projection, crash recovery, conservation");
+        System.out.println("PASS settlement delivery: one owner of the exchange, no double debit, no loss, no repeat after a restart");
     }
 }
