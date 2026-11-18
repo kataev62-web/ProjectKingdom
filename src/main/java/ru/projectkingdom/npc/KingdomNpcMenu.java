@@ -488,12 +488,10 @@ public final class KingdomNpcMenu extends ChestMenu {
                 };
                 if(next.equals("work")){
                     if ("miner".equals(w.job)) {
-                        // Test-only two physical blocks; do not run the full mine prerequisites.
-                        KingdomMineFirstCut.start(w.entityId);
+                        // Exactly ONE block per press. The block decides the tool,
+                        // not a mandatory dirt-before-rock test sequence.
                         w.order="work";
-                        info("Тест шахтёра: поставь рядом грунт и камень. "
-                            +"Грунт должен копать настоящей лопатой, камень — киркой. "
-                            +"Инструменты положи в сумку NPC или склад сырья.");
+                        info(KingdomMineFirstCut.tryNow(viewer,w));
                     } else {
                         var result=KingdomNpcQuickSetup.configure(viewer,w);
                         info(result.message());
