@@ -63,10 +63,16 @@ public final class BankOperations {
         if(actor==null||actor.getServer()==null||mutation==null
                 ||!actor.getServer().isSameThread()||town==null||recipient==null||kind==null)
             return false;
-        if(!town.equals(KingdomBankData.get(actor.getServer()).bankTown(actor)))return false;
+        boolean atBank=town.equals(KingdomBankData.get(actor.getServer()).bankTown(actor));
+        var currentCity=KingdomCivicsData.get(actor.getServer()).townOf(actor.getUUID());
+        boolean remoteFounderDonation=kind==BankOperationLedger.Kind.DONATE
+                &&currentCity!=null&&town.equals(currentCity.id())
+                &&actor.getUUID().equals(
+                        KingdomAdministrationData.get(actor.getServer()).founder(town));
+        if(!atBank&&!remoteFounderDonation)return false;
         BankOperationLedger log=journal(actor.getServer());
         if(log==null||log.blocked(town))return false;
-        var before=snapshot(actor,actor,town,recipient);
+        var before=snapshot(actor,actor,town,recipient,remoteFounderDonation);
         if(before==null)return false;
         var tx=log.prepare(town,actor.getUUID(),recipient,kind,amount,before);
         if(tx==null)return false;
@@ -76,7 +82,7 @@ public final class BankOperations {
             System.err.println("[Kingdom bank] Operation "+tx.id()+" failed; reconcile bank: "+failure);
             success=false;
         }
-        var after=snapshot(actor,actor,town,recipient);
+        var after=snapshot(actor,actor,town,recipient,remoteFounderDonation);
         if(!success) {
             if(!log.abortUnchanged(tx,after))
                 System.err.println("[Kingdom bank] Unresolved transaction "+tx.id());
@@ -100,13 +106,13 @@ public final class BankOperations {
             return false;
         ServerPlayer actor=operator.getServer().getPlayerList().getPlayer(entry.actor());
         if(actor==null)return false;
-        return log.reconcile(id,snapshot(actor,operator,entry.town(),entry.recipient()));
+        return log.reconcile(id,snapshot(actor,operator,entry.town(),entry.recipient(),false));
     }
 
     static BankOperationLedger.Snapshot snapshot(ServerPlayer walletOwner,ServerPlayer bankViewer,
-                                                 UUID town,UUID recipient) {
+                                                 UUID town,UUID recipient,boolean remoteFounderDonation) {
         if(walletOwner==null||bankViewer==null||town==null||recipient==null
-                ||!town.equals(KingdomBankData.get(bankViewer.getServer()).bankTown(bankViewer)))
+                ||(!remoteFounderDonation&&!town.equals(KingdomBankData.get(bankViewer.getServer()).bankTown(bankViewer))))
             return null;
         Container vault=KingdomPhysicalCash.townVault(bankViewer,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null)return null;
