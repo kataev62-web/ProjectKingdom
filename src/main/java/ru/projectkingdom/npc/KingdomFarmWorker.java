@@ -172,11 +172,29 @@ public final class KingdomFarmWorker {
         var fields=KingdomFarmFieldData.get(level.getServer()).of(id);
         BlockPos preferred=null;double best=Double.MAX_VALUE;
         boolean owner=KingdomNpcFarmOwner.ownedFarm(level.getServer(),w)!=null;
+        UUID landOwner=KingdomNpcFarmOwner.workOwner(level,w);
+        if(landOwner==null)return null;
+        var territory=KingdomTerritories.get(level.getServer());
         for(var field:fields)if(field.enabled()
             &&field.dimension().equals(w.dimension)
             && (owner || !field.seedId().isBlank())){
-            var pos=field.centerCrop();
-            if(!level.hasChunkAt(pos))continue;
+            BlockPos pos=field.centerCrop();
+            if(!level.hasChunkAt(pos)||!territory.canUse(level,pos.below(),landOwner)){
+                // A farm can cross a chunk border. Never require its CENTER
+                // chunk to be loaded when other legal farmland cells are loaded.
+                BlockPos candidate=null;
+                double nearest=Double.MAX_VALUE;
+                for(int x=field.minX();x<=field.maxX();x++)
+                    for(int z=field.minZ();z<=field.maxZ();z++){
+                        BlockPos cell=new BlockPos(x,field.y()+1,z);
+                        if(!level.hasChunkAt(cell)
+                                ||!territory.canUse(level,cell.below(),landOwner))continue;
+                        double distance=cell.distSqr(field.centerCrop());
+                        if(distance<nearest){candidate=cell;nearest=distance;}
+                    }
+                pos=candidate;
+            }
+            if(pos==null)continue;
             double d=pos.distSqr(new BlockPos(w.hasHome?w.homeX:w.sourceX,
                 w.hasHome?w.homeY:w.sourceY,w.hasHome?w.homeZ:w.sourceZ));
             if(d<best){best=d;preferred=pos;}
