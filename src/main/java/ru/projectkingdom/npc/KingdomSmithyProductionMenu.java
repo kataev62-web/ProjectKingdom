@@ -166,6 +166,14 @@ public final class KingdomSmithyProductionMenu extends ChestMenu {
                     player.sendSystemMessage(Component.literal("[Кузница] Сначала завершите действующий заказ."));
                 }else if(w==null||selected==null){
                     player.sendSystemMessage(Component.literal("[Кузница] Нет действительного TFC-рецепта или нанятого кузнеца."));
+                }else if(!enterprise.toString().equals(w.workplaceId)
+                        ||!player.getUUID().equals(w.employer)
+                        ||KingdomEnterprisePayrollData.get(player.getServer())
+                            .contract(enterprise,w.entityId)==null
+                        ||!KingdomEnterprisePayrollData.get(player.getServer())
+                            .contract(enterprise,w.entityId).active()){
+                    player.sendSystemMessage(Component.literal(
+                        "[Кузница] Договор кузнеца изменён: назначьте действующего работника."));
                 }else if(!KingdomTfcSmithWork.availableRecipes(player.serverLevel(),w).contains(selected)
                         ||!KingdomTfcSmithWork.idleAnvil(player.serverLevel(),w)){
                     player.sendSystemMessage(Component.literal("[Кузница] Проверьте настоящее сырьё, наковальню и свободное место для ковки."));
