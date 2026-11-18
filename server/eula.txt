@@ -1,0 +1,5 @@
+# By changing this file to "true" you are agreeing to the Minecraft EULA.
+# The operator of this server has to accept it before the first start:
+#   sed -i 's/eula=false/eula=true/' server/eula.txt
+# The start script refuses to run while this is "false".
+eula=false

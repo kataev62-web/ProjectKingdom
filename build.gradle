@@ -11,7 +11,13 @@ minecraft {
     mappings channel: 'official', version: '1.20.1'
     runs {
         client { workingDirectory project.file('run'); mods { kingdomnpc { source sourceSets.main } } }
-        server { workingDirectory project.file('run'); args '--nogui'; mods { kingdomnpc { source sourceSets.main } } }
+        server {
+            workingDirectory project.file('run')
+            args '--nogui'
+            // The server speaks Russian: the encoding must not depend on the locale of the host.
+            jvmArgs '-Dfile.encoding=UTF-8', '-Dsun.jnu.encoding=UTF-8'
+            mods { kingdomnpc { source sourceSets.main } }
+        }
     }
 }
 repositories { mavenCentral() }
