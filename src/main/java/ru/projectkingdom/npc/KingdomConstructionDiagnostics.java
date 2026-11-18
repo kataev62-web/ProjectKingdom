@@ -31,7 +31,7 @@ public final class KingdomConstructionDiagnostics {
             }
         if (level == null) return List.of();
         BlockPos marker = KingdomConstructionData.get(server).marker(site);
-        Container depot = level.hasChunkAt(marker) ? supplies(level, marker) : null;
+        Container depot = level.hasChunkAt(marker) ? supplies(server, level, marker, site.owner()) : null;
         Map<Item,Integer> needed = new LinkedHashMap<>();
         int progress = KingdomConstructionData.get(server).progress(site.id());
         for (int i = progress; i < design.blocks().size(); i++) {
@@ -63,10 +63,12 @@ public final class KingdomConstructionDiagnostics {
         ServerLevel level=null;
         for(var candidate:server.getAllLevels())if(candidate.dimension().location().toString().equals(site.dimension())){level=candidate;break;}
         if(level==null)return "Измерение недоступно";
-        BlockPos marker=new BlockPos(site.x()-2,site.y(),site.z()-2);
+        if (KingdomConstructionData.get(server).hasPendingStep(site.id()))
+            return "Стройка на сверке после незавершённого размещения: не запускай повторно";
+        BlockPos marker=KingdomConstructionData.get(server).marker(site);
         if(!level.hasChunkAt(marker))return "Прогрузи чанк строительной кафедры";
         if(!KingdomConstructionMarkers.isMarker(level,marker))return "Верни чертёжный стол или строительную кафедру";
-        Container supplies=supplies(level,marker);
+        Container supplies=supplies(server,level,marker,site.owner());
         if(supplies==null)return "Поставь сундук или бочку вплотную к кафедре";
         var cell=plan.get(index);
         BlockPos target=new BlockPos(site.x()+cell.x(),site.y()+cell.y(),site.z()+cell.z());
@@ -80,7 +82,7 @@ public final class KingdomConstructionDiagnostics {
                 && !KingdomConstructionWork.canClearObstacle(level,target,level.getBlockState(target)))
             return "Защищённый блок на площадке: "+target.toShortString();
         if (!level.getBlockState(target).isAir())
-            return "Препятствие будет автоматически разобрано при установке следующего блока";
+            return "Препятствие нужно убрать вручную: автоматический снос отключён";
         Item item=state.getBlock().asItem();
         if(!KingdomBlockStateCodec.buildable(state))return "Нельзя строить из предмета: "+cell.material();
         int available=0;
@@ -106,13 +108,8 @@ public final class KingdomConstructionDiagnostics {
         return missing==0?"Все материалы в соседнем складе":
             "Недостаёт "+count+" блоков ("+missing+" видов). Открой «Материалы», чтобы увидеть названия и значки.";
     }
-    private static Container supplies(ServerLevel level,BlockPos marker) {
-        for(Direction direction:Direction.Plane.HORIZONTAL) {
-            BlockPos at=marker.relative(direction);
-            if(!level.hasChunkAt(at))continue;
-            BlockEntity entity=level.getBlockEntity(at);
-            if(entity instanceof Container container)return container;
-        }
-        return null;
+    private static Container supplies(MinecraftServer server, ServerLevel level,
+                                      BlockPos marker, java.util.UUID owner) {
+        return KingdomConstructionWork.depot(server, level, marker, owner);
     }
 }

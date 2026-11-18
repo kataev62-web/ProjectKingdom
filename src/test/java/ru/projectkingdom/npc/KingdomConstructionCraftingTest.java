@@ -54,9 +54,11 @@ final class KingdomConstructionCraftingTest {
             "src/main/java/ru/projectkingdom/npc/KingdomSiteBuilder.java"));
         String main=java.nio.file.Files.readString(java.nio.file.Path.of(
             "src/main/java/ru/projectkingdom/npc/KingdomMainMenu.java"));
-        assertTrue(work.contains("level.destroyBlock(target, true)"));
+        assertFalse(work.contains("level.destroyBlock(target, true)"),
+            "The construction step must not demolish pre-existing terrain");
         assertTrue(work.contains("occupying.hasBlockEntity()") || work.contains("state.hasBlockEntity()"));
-        assertTrue(work.contains("depot.removeItem(slot, 1)"));
+        assertTrue(work.contains("KingdomConstructionMaterials.debit(depot, material)"));
+        assertTrue(work.contains("sites.hasPendingStep(project.id())"));
         assertTrue(sites.contains("KingdomConstructionWork.canClearObstacle"));
         assertTrue(main.contains("case MATERIALS ->"));
         assertTrue(main.contains("material.item().getDescription()"));
@@ -73,7 +75,7 @@ final class KingdomConstructionCraftingTest {
             "src/main/java/ru/projectkingdom/npc/KingdomConstructionWork.java"));
         assertTrue(builder.contains("KingdomConstructionWork.placeNext"));
         assertTrue(interaction.contains("KingdomConstructionWork.placeNext"));
-        assertTrue(placement.contains("depot.removeItem(slot, 1)"));
+        assertTrue(placement.contains("KingdomConstructionMaterials.debit(depot, material)"));
         assertTrue(placement.contains("KingdomConstructionAccess.canBuild"));
         assertTrue(placement.contains("level.hasChunkAt(target)"));
     }
