@@ -95,20 +95,25 @@ final class KingdomSmithySiteTest {
         assertEquals(firmId,persisted.getUUID("Enterprise"));
     }
 
-    public static final class RecipeStub {
-        private final String id;
-        public RecipeStub(String id){this.id=id;}
-        public String getId(){return id;}
+    private static net.minecraft.world.item.crafting.Recipe<?> recipe(String id){
+        return (net.minecraft.world.item.crafting.Recipe<?>)java.lang.reflect.Proxy.newProxyInstance(
+            net.minecraft.world.item.crafting.Recipe.class.getClassLoader(),
+            new Class[]{net.minecraft.world.item.crafting.Recipe.class},
+            (proxy,method,args)->{
+                if("getId".equals(method.getName()))return new net.minecraft.resources.ResourceLocation(id);
+                if("toString".equals(method.getName()))return id;
+                return null;
+            });
     }
 
     @Test void selectedNativeAnvilRecipeMustMatchAvailablePlan() throws Exception {
         Method choose=KingdomTfcSmithWork.class.getDeclaredMethod(
                 "selectedRecipe",List.class,String.class);
         choose.setAccessible(true);
-        var tool=new RecipeStub("tfc:anvil/steel_pickaxe_head");
-        var weapon=new RecipeStub("tfc:anvil/steel_sword_blade");
-        assertSame(tool,choose.invoke(null,List.of(tool,weapon),tool.getId()));
-        assertSame(weapon,choose.invoke(null,List.of(tool,weapon),weapon.getId()));
+        var tool=recipe("tfc:anvil/steel_pickaxe_head");
+        var weapon=recipe("tfc:anvil/steel_sword_blade");
+        assertSame(tool,choose.invoke(null,List.of(tool,weapon),"tfc:anvil/steel_pickaxe_head"));
+        assertSame(weapon,choose.invoke(null,List.of(tool,weapon),"tfc:anvil/steel_sword_blade"));
         assertNull(choose.invoke(null,List.of(tool,weapon),""));
         assertNull(choose.invoke(null,List.of(tool,weapon),"tfc:anvil/fake_item"));
         assertSame(tool,choose.invoke(null,List.of(tool),""));
@@ -120,9 +125,10 @@ final class KingdomSmithySiteTest {
         assertTrue(smith.contains("KingdomSmithySite.inspect(level,w).ready()"));
         assertTrue(smith.contains("KingdomTerritories.get(server).usable(level,rawPos,w.employer,\"raw\")"));
         assertTrue(smith.contains("!land.canUse(level,anvilPos,w.employer)"));
-        assertTrue(smith.contains("stock.shrink(1);chest.setChanged();machine.setChanged()"));
-        assertTrue(smith.contains("forgeInv.setStackInSlot(slot,ItemStack.EMPTY)"));
-        assertTrue(smith.contains("anvilInv.setStackInSlot(0,ItemStack.EMPTY)"));
+        assertTrue(smith.contains("chest.removeItem(source,1)"));
+        assertTrue(smith.contains("exact(dest.getStackInSlot(slot),unit)"));
+        assertTrue(smith.contains("moveNative(forge,forgeInv,slot,anvil,anvilInv,0)"));
+        assertTrue(smith.contains("deliverNative(finished,anvil,anvilInv)"));
         assertTrue(smith.contains("anvil.getClass().getMethod(\"work\""));
         assertTrue(smith.contains("getMethod(\"getAll\""));
         assertFalse(smith.contains("new ItemStack(Items.IRON_INGOT)"));
