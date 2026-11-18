@@ -3,3 +3,7 @@ build/
 run/
 out/
 *.log
+
+# The dedicated server instance: world, libraries, logs and backups.
+server/run/
+__pycache__/
