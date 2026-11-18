@@ -291,6 +291,30 @@ public final class SettlementAuthority {
     /** Read-only view of every delivery known to the authority. */
     public synchronized List<TxView> transactions() { return views(); }
 
+    /** Bytes of the durable log. */
+    public synchronized long journalSize() throws IOException { return journal.durableLength(); }
+
+    /** Compacts the durable log so that it stops growing without end. */
+    public synchronized int compact() throws IOException { return journal.compact(); }
+
+    /**
+     * Identifiers of the containers of the deliveries that are not finished.
+     *
+     * <p>The recovery needs them to rebuild the containers of a server that
+     * was restarted: the containers are not part of the in-memory state.
+     */
+    public synchronized List<String> pendingContainers() throws IOException {
+        ensureLoaded();
+        LinkedHashSet<String> ids = new LinkedHashSet<>();
+        for (TxState state : states.values()) {
+            if (state.state == State.RECEIPTED || state.state == State.REJECTED) continue;
+            if (state.plan == null) continue;
+            for (Check check : state.plan.goods()) ids.add(check.container());
+            for (Check check : state.plan.coins()) ids.add(check.container());
+        }
+        return List.copyOf(ids);
+    }
+
     // --- internals ------------------------------------------------------------
 
     /**
@@ -389,7 +413,13 @@ public final class SettlementAuthority {
         for (Check check : checks) {
             Container container = registry.get(check.container());
             if (container == null) return Outcome.QUARANTINED;
-            long actual = container.count(check.item());
+            long actual;
+            try {
+                actual = container.count(check.item());
+            } catch (RuntimeException ex) {
+                // An unreadable container is an inconsistent state, never a guess.
+                return Outcome.INCONSISTENT;
+            }
             if (actual == check.after()) continue;
             if (actual != check.before()) return Outcome.INCONSISTENT;
             try {

@@ -47,7 +47,11 @@ fi
 cp -f "$mod_jar" "$INSTANCE/mods/"
 log "mod: $(basename "$mod_jar")"
 
-printf '%s\n' "-Xms${MIN_HEAP}" "-Xmx${MAX_HEAP}" \
+# The server speaks Russian: the encoding must not depend on the locale of the host.
+export LANG="${LANG:-C.UTF-8}"
+export LC_ALL="${LC_ALL:-C.UTF-8}"
+
+printf '%s\n' "-Xms${MIN_HEAP}" "-Xmx${MAX_HEAP}" "-Dfile.encoding=UTF-8" "-Dsun.jnu.encoding=UTF-8" \
   > "$INSTANCE/user_jvm_args.txt"
 printf '%s\n' "-XX:+UseG1GC" "-XX:MaxGCPauseMillis=200" "-XX:+UnlockExperimentalVMOptions" \
   "-XX:+DisableExplicitGC" "-XX:+AlwaysPreTouch" \

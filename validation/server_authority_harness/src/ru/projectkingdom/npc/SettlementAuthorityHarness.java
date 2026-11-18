@@ -399,6 +399,84 @@ public final class SettlementAuthorityHarness {
         System.out.println("  ok: a damaged log is reported and quarantined, never applied blindly");
     }
 
+    static void compaction() throws Exception {
+        Path directory = freshDirectory("kingdom-authority-compact-");
+        SettlementAuthority authority = new SettlementAuthority(directory);
+        List<UUID> finished = new ArrayList<>();
+        for (int index = 0; index < 20; index++) {
+            World world = world();
+            UUID id = UUID.randomUUID();
+            yes(authority.settle(request(id, world)) == Outcome.COMMITTED, "delivery must commit");
+            finished.add(id);
+        }
+        int before = countRecords(directory);
+        yes(before >= 60, "the log must hold a record per state, was " + before);
+
+        int kept = authority.compact();
+        yes(kept == 20, "the compaction must keep one record per finished delivery, kept " + kept);
+        yes(countRecords(directory) == 20, "the log must not grow without end");
+
+        SettlementAuthority restarted = new SettlementAuthority(directory);
+        RecoveryReport report = restarted.recover(new World().registry());
+        yes(report.transactions().size() == 20, "every finished delivery must stay visible");
+        for (UUID id : finished) {
+            TxView view = view(report, id);
+            yes(view != null && view.state() == State.RECEIPTED, "a finished delivery must stay receipted");
+        }
+        System.out.println("  ok: the log is compacted, the finished deliveries stay readable");
+    }
+
+    static void compactionKeepsThePlanOfAnUndecidedDelivery() throws Exception {
+        Path directory = freshDirectory("kingdom-authority-compact-pending-");
+        World world = world();
+        UUID id = UUID.randomUUID();
+        CrashPlan plan = new CrashPlan("commit.before", 1);
+        SettlementAuthority crashing = new SettlementAuthority(directory, plan);
+        try {
+            crashing.settle(request(id, world));
+        } catch (Crash expected) {
+            // the decision was not made
+        }
+        plan.simulatePowerLoss(crashing.journalPath());
+
+        SettlementAuthority authority = new SettlementAuthority(directory);
+        int kept = authority.compact();
+        yes(kept == 1, "the plan of an undecided delivery must survive the compaction, kept " + kept);
+        RecoveryReport report = authority.recover(world.registry());
+        TxView view = view(report, id);
+        yes(view != null && view.state() == State.QUARANTINED,
+                "an undecided delivery must stay quarantined after the compaction");
+        yes(view.problem().equals("decision_not_durable"), "the reason must be kept");
+        System.out.println("  ok: the compaction keeps the plan of an undecided delivery");
+    }
+
+    static void damagedLogIsNotCompacted() throws Exception {
+        Path directory = freshDirectory("kingdom-authority-compact-damaged-");
+        SettlementAuthority authority = new SettlementAuthority(directory);
+        World world = world();
+        yes(authority.settle(request(UUID.randomUUID(), world)) == Outcome.COMMITTED, "delivery must commit");
+        Files.writeString(authority.journalPath(), "garbage\n", java.nio.charset.StandardCharsets.UTF_8,
+                StandardOpenOption.APPEND);
+        boolean refused = false;
+        try {
+            authority.compact();
+        } catch (IOException expected) {
+            refused = true;
+        }
+        yes(refused, "a damaged log must never be compacted");
+        yes(countRecords(directory) > 0, "the damaged log must stay on disk");
+        System.out.println("  ok: a damaged log is not compacted");
+    }
+
+    static int countRecords(Path directory) throws IOException {
+        Path log = directory.resolve("settlement-authority.log");
+        if (!Files.exists(log)) return 0;
+        int count = 0;
+        for (String line : Files.readAllLines(log, java.nio.charset.StandardCharsets.UTF_8))
+            if (!line.isEmpty()) count++;
+        return count;
+    }
+
     public static void main(String[] args) throws Exception {
         happyPath();
         crashMatrix();
@@ -407,6 +485,9 @@ public final class SettlementAuthorityHarness {
         parallelBuyers();
         operatorResolution();
         damagedJournal();
+        compaction();
+        compactionKeepsThePlanOfAnUndecidedDelivery();
+        damagedLogIsNotCompacted();
         System.out.println("PASS settlement authority: durable decision, idempotent projection, crash recovery, conservation");
     }
 }

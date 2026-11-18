@@ -12,7 +12,10 @@ import socket
 import struct
 import subprocess
 import sys
+import tarfile
+import tempfile
 import threading
+import zlib
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -71,6 +74,16 @@ def check_scripts() -> None:
         check(os.access(path, os.X_OK), f"{name} is executable")
 
 
+def check_encoding() -> None:
+    """The server speaks Russian: the encoding must not depend on the host locale."""
+    start = (HERE / "start_server.sh").read_text(encoding="utf-8")
+    check("-Dfile.encoding=UTF-8" in start,
+          "the server starts with an explicit UTF-8 encoding")
+    check("LC_ALL" in start, "the start script fixes the locale of the server")
+    backup = (HERE / "backup_world.sh").read_text(encoding="utf-8")
+    check("LC_ALL" in backup, "the backup script fixes the locale too")
+
+
 def check_gitignore() -> None:
     text = (ROOT / ".gitignore").read_text(encoding="utf-8")
     check("server/run" in text, "the server instance directory is not committed")
@@ -118,12 +131,97 @@ def check_rcon() -> None:
     check("Saved the game" in answer, "the RCON client runs a command against a server")
 
 
+
+def check_admin() -> None:
+    """The operator tool must read the journal and report a damaged tail."""
+    with tempfile.TemporaryDirectory() as folder:
+        journal = Path(folder) / "settlement-authority.log"
+        lines = []
+        for tx, kind, extra in (("a", "PREPARED", "item=tfc:ore;qty=20"),
+                                ("a", "COMMITTED", ""),
+                                ("a", "RECEIPT", ""),
+                                ("b", "PREPARED", "item=tfc:ore;qty=5"),
+                                ("b", "QUARANTINED", "reason=decision_not_durable")):
+            body = f"{kind}|tx={tx};{extra}".rstrip(";")
+            crc = format(zlib.crc32(body.encode("utf-8")) & 0xFFFFFFFF, "x")
+            lines.append(f"{body}|{crc}")
+        journal.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        result = subprocess.run([sys.executable, str(HERE / "settlement_admin.py"), str(journal)],
+                                capture_output=True, text=True)
+        check(result.returncode == 0, "the operator tool reads an intact journal")
+        check("RECEIPT" in result.stdout, "the operator tool shows the state of a delivery")
+        check("decision_not_durable" in result.stdout, "the operator tool shows the reason of a quarantine")
+
+        with journal.open("a", encoding="utf-8") as handle:
+            handle.write("garbage\n")
+        broken = subprocess.run([sys.executable, str(HERE / "settlement_admin.py"), str(journal)],
+                                capture_output=True, text=True)
+        check(broken.returncode == 1, "the operator tool reports a damaged journal")
+        check("Проблемы" in broken.stdout, "the operator tool explains the damage")
+
+
+def check_verify_backup() -> None:
+    """A backup must be checked before it is restored."""
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        world = root / "world"
+        (world / "data" / "kingdom_settlement").mkdir(parents=True)
+        (world / "level.dat").write_bytes(b"level")
+        body = "RECEIPT|tx=11111111-1111-1111-1111-111111111111"
+        crc = format(zlib.crc32(body.encode("utf-8")) & 0xFFFFFFFF, "x")
+        (world / "data" / "kingdom_settlement" / "settlement-authority.log").write_text(
+            f"{body}|{crc}\n", encoding="utf-8")
+        archive = root / "backup.tar.gz"
+        with tarfile.open(archive, "w:gz") as tar:
+            tar.add(world, arcname="world")
+        result = subprocess.run([sys.executable, str(HERE / "verify_backup.py"), str(archive)],
+                                capture_output=True, text=True)
+        check(result.returncode == 0, "a complete archive passes the verification")
+        check("пригоден" in result.stdout, "the verification states that the archive can be restored")
+
+        broken = root / "broken.tar.gz"
+        with tarfile.open(broken, "w:gz") as tar:
+            tar.add(world / "level.dat", arcname="level.dat")
+        failed = subprocess.run([sys.executable, str(HERE / "verify_backup.py"), str(broken)],
+                                capture_output=True, text=True)
+        check(failed.returncode == 1, "an archive without a world does not pass the verification")
+        check("world/level.dat" in failed.stdout, "the verification names the missing part")
+
+        broken_world = root / "broken-world"
+        (broken_world / "data" / "kingdom_settlement").mkdir(parents=True)
+        (broken_world / "level.dat").write_bytes(b"level")
+        (broken_world / "data" / "kingdom_settlement" / "settlement-authority.log").write_text(
+            "RECEIPT|tx=11111111-1111-1111-1111-111111111111|deadbeef\n", encoding="utf-8")
+        damaged = root / "damaged.tar.gz"
+        with tarfile.open(damaged, "w:gz") as tar:
+            tar.add(broken_world, arcname="world")
+        result = subprocess.run([sys.executable, str(HERE / "verify_backup.py"), str(damaged)],
+                                capture_output=True, text=True)
+        check(result.returncode == 1, "an archive with a damaged journal does not pass the verification")
+        check("журнал" in result.stdout, "the verification names the damaged journal")
+
+
+def check_restore_script() -> None:
+    path = HERE / "restore_world.sh"
+    check(path.is_file(), "restore_world.sh exists")
+    result = subprocess.run(["bash", "-n", str(path)], capture_output=True, text=True)
+    check(result.returncode == 0, "restore_world.sh has a valid shell syntax")
+    check(os.access(path, os.X_OK), "restore_world.sh is executable")
+    text = path.read_text(encoding="utf-8")
+    check("verify_backup.py" in text, "the restore verifies the archive before it touches the world")
+    check("world.before-restore" in text, "the restore keeps the current world aside")
+
+
 def main() -> int:
     check_properties()
     check_eula()
     check_scripts()
     check_gitignore()
+    check_encoding()
     check_rcon()
+    check_admin()
+    check_verify_backup()
+    check_restore_script()
     if FAILURES:
         print(f"\n{len(FAILURES)} check(s) failed")
         return 1

@@ -7,3 +7,4 @@ out/
 # The dedicated server instance: world, libraries, logs and backups.
 server/run/
 __pycache__/
+logs/

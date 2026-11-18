@@ -6,8 +6,10 @@ import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.BiConsumer;
@@ -95,6 +97,76 @@ public final class SettlementJournal {
             records.add(new Record(kind, body.substring(bar + 1)));
         }
         return new LoadResult(records, false, null);
+    }
+
+    /** The transaction id of a record payload, or null when the payload has none. */
+    public static String transactionId(String payload) {
+        for (String part : payload.split(";")) {
+            if (part.startsWith("tx=")) return part.substring(3);
+        }
+        return null;
+    }
+
+    /**
+     * Rewrites the log so that it stops growing without end.
+     *
+     * <p>A finished delivery keeps one terminal record. A delivery that is not
+     * finished keeps its plan together with its last record, so the recovery
+     * can still read the plan of a quarantined delivery.
+     *
+     * <p>The new log is written to a temporary file, forced to disk and moved
+     * over the old one. A crash during the rewrite leaves the previous log
+     * untouched. A damaged log is never compacted: its tail may still hold a
+     * decision.
+     *
+     * @return the number of records kept.
+     */
+    public synchronized int compact() throws IOException {
+        LoadResult load = load();
+        if (load.damaged()) throw new IOException("the settlement log is damaged and must not be compacted");
+        LinkedHashMap<String, List<Record>> grouped = new LinkedHashMap<>();
+        for (Record record : load.records()) {
+            String id = transactionId(record.payload());
+            if (id == null) throw new IOException("a record without a transaction id");
+            grouped.computeIfAbsent(id, key -> new ArrayList<>()).add(record);
+        }
+        List<Record> kept = new ArrayList<>();
+        for (List<Record> group : grouped.values()) {
+            Record last = group.get(group.size() - 1);
+            if (last.kind() == Kind.RECEIPT || last.kind() == Kind.REJECTED) {
+                kept.add(last);
+                continue;
+            }
+            for (Record record : group)
+                if (record.kind() == Kind.PREPARED) kept.add(record);
+            // The plan of an undecided delivery is its last record already.
+            if (last.kind() != Kind.PREPARED) kept.add(last);
+        }
+        StringBuilder out = new StringBuilder();
+        for (Record record : kept) {
+            String body = record.kind().name() + "|" + record.payload();
+            out.append(body).append('|').append(checksum(body)).append('\n');
+        }
+        byte[] bytes = out.toString().getBytes(StandardCharsets.UTF_8);
+        Path temp = Files.createTempFile(file.getParent(), "settlement-compact-", ".tmp");
+        boolean moved = false;
+        try {
+            try (FileChannel channel = FileChannel.open(temp, StandardOpenOption.WRITE,
+                    StandardOpenOption.TRUNCATE_EXISTING)) {
+                ByteBuffer buffer = ByteBuffer.wrap(bytes);
+                while (buffer.hasRemaining()) channel.write(buffer);
+                channel.force(true);
+            }
+            Files.move(temp, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
+            moved = true;
+            try (FileChannel directory = FileChannel.open(file.getParent(), StandardOpenOption.READ)) {
+                directory.force(true);
+            }
+        } finally {
+            if (!moved) Files.deleteIfExists(temp);
+        }
+        durableBytes = bytes.length;
+        return kept.size();
     }
 
     private static LoadResult damaged(List<Record> records, int index, String reason) {

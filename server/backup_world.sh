@@ -11,6 +11,9 @@ INSTANCE="${KINGDOM_SERVER_DIR:-$HERE/run}"
 KEEP_DAYS="${KINGDOM_BACKUP_KEEP_DAYS:-14}"
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 
+export LANG="${LANG:-C.UTF-8}"
+export LC_ALL="${LC_ALL:-C.UTF-8}"
+
 log() { printf '[kingdom] %s\n' "$*"; }
 die() { printf '[kingdom] ERROR: %s\n' "$*" >&2; exit 1; }
 
