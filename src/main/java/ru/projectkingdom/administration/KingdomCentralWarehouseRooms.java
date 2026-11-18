@@ -114,6 +114,8 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         ru.projectkingdom.npc.KingdomStructureCopy.cancel(player.getUUID());
         SESSIONS.put(player.getUUID(),new Session(menu.townId(),
             player.level().dimension().location().toString(),menu.corePos(),kind,null));
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.WAREHOUSE,null,true);
         return true;
     }
     public Result select(ServerPlayer player,BlockPos position){
@@ -134,15 +136,17 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         if(session.first()==null){
             SESSIONS.put(player.getUUID(),new Session(session.town(),session.dimension(),
                 session.desk(),session.kind(),position.immutable()));
+            ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                    ru.projectkingdom.network.KingdomVolumeSelectionPacket.WAREHOUSE,position,true);
             return Result.FIRST_CORNER;
         }
         BlockPos first=session.first();
         // Two opposite floor corners define a three-block-high room by default.
         // Keep the first corner while an invalid second corner is retried.
         int bottom=Math.min(first.getY(),position.getY());
-        // A single elevation step is common on TFC floors. Enforce three
-        // blocks of room height without making players click a precise Y layer.
-        int top=Math.max(bottom+2,Math.max(first.getY(),position.getY()));
+        // Allow diagonal selection at different heights. Only enforce 3-block
+        // minimum when both corners are on the same Y level (floor-to-floor).
+        int top=first.getY()==position.getY()?bottom+2:Math.max(first.getY(),position.getY());
         BlockPos min=new BlockPos(Math.min(first.getX(),position.getX()),
             bottom,Math.min(first.getZ(),position.getZ()));
         BlockPos max=new BlockPos(Math.max(first.getX(),position.getX()),
@@ -153,6 +157,7 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
             ||max.getX()-min.getX()<1||max.getZ()-min.getZ()<1||max.getY()-min.getY()<2)
             return Result.TOO_LARGE;
         if(rooms(session.town()).size()>=MAX_ROOMS)return Result.ROOM_LIMIT;
+        if(proposed.contains(session.desk()))return Result.OVERLAP;
         for(var rooms:byTown.values())for(Room room:rooms)
             if(proposed.overlaps(room))return Result.OVERLAP;
         var bank=KingdomBankVaultRooms.get(player.getServer()).at(level,min);
@@ -173,6 +178,8 @@ public final class KingdomCentralWarehouseRooms extends SavedData {
         byTown.computeIfAbsent(session.town(),id->new ArrayList<>()).add(proposed);
         setDirty();
         SESSIONS.remove(player.getUUID());
+        ru.projectkingdom.network.KingdomVolumeSelectionPacket.send(player,
+                ru.projectkingdom.network.KingdomVolumeSelectionPacket.WAREHOUSE,null,false);
         return Result.CREATED;
     }
     private boolean reservedStorage(ServerLevel level,Room room){
