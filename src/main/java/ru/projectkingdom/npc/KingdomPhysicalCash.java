@@ -192,34 +192,6 @@ public final class KingdomPhysicalCash {
         return result;
     }
 
-    /**
-     * Try to restore exact NBT snapshots on an in-memory write failure.
-     * If any wrapper refuses restoration, throw instead of reporting false success
-     * or retrying an uncertain operation.
-     */
-    private static void rollbackOrQuarantine(Container source,List<ItemStack> oldSource,
-                                              Container target,List<ItemStack> oldTarget,
-                                              RuntimeException cause) {
-        RuntimeException rollbackProblem=null;
-        try{apply(target,oldTarget);}catch(RuntimeException failure){rollbackProblem=failure;}
-        try{apply(source,oldSource);}catch(RuntimeException failure){
-            if(rollbackProblem==null)rollbackProblem=failure;
-            else rollbackProblem.addSuppressed(failure);
-        }
-        boolean restored=false;
-        try{restored=matches(source,oldSource)&&matches(target,oldTarget);}
-        catch(RuntimeException failure){
-            if(rollbackProblem==null)rollbackProblem=failure;
-            else rollbackProblem.addSuppressed(failure);
-        }
-        if(!restored||rollbackProblem!=null){
-            IllegalStateException unsafe=new IllegalStateException(
-                    "Physical cash transfer rollback is uncertain: lock both containers for operator reconciliation",cause);
-            if(rollbackProblem!=null)unsafe.addSuppressed(rollbackProblem);
-            throw unsafe;
-        }
-    }
-
     /** Transfer physical coin items only between provably disjoint storage slots. */
     public static boolean canMove(Container source,Container target,long amount) {
         if(!independentPhysicalSlots(source,target))return false;
@@ -235,20 +207,22 @@ public final class KingdomPhysicalCash {
         if(!matches(source,oldSource)||!matches(target,oldTarget))return false;
         if(!java.util.Arrays.equals(coinCounts(oldSource,oldTarget),coinCounts(taken,added)))
             return false;
-        try{
-            apply(source,taken);
-            if(!matches(source,taken)||!matches(target,oldTarget))
-                throw new IllegalStateException("Physical source changed or storage wrappers alias");
-            apply(target,added);
-            if(!matches(source,taken)||!matches(target,added)
-                    ||!java.util.Arrays.equals(coinCounts(oldSource,oldTarget),
-                            coinCounts(snapshot(source),snapshot(target))))
-                throw new IllegalStateException("Physical cash movement was not conserved");
-            return true;
-        }catch(RuntimeException unsafe){
-            rollbackOrQuarantine(source,oldSource,target,oldTarget,unsafe);
-            return false;
-        }
+        return PhysicalCashCommitGate.commit(
+                ()->{
+                    apply(source,taken);
+                    if(!matches(source,taken)||!matches(target,oldTarget))
+                        throw new IllegalStateException("Source write failed or wrappers alias");
+                },
+                ()->{
+                    apply(target,added);
+                    if(!matches(source,taken)||!matches(target,added)
+                            ||!java.util.Arrays.equals(coinCounts(oldSource,oldTarget),
+                                    coinCounts(snapshot(source),snapshot(target))))
+                        throw new IllegalStateException("Cash movement did not conserve every denomination");
+                },
+                ()->apply(target,oldTarget),
+                ()->apply(source,oldSource),
+                ()->matches(source,oldSource)&&matches(target,oldTarget));
     }
     /** Trusted NPC settlement: the payroll layer validates the recipient's physical purse
      * capacity before taking actual coins from the company's protected container. */
