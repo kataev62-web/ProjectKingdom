@@ -155,6 +155,11 @@ final class KingdomMineRealWorkFlowTest {
         assertFalse(site.contains("worker.hasWorkstation"));
         assertTrue(site.contains("EnterpriseCoreBlockEntity"));
         assertTrue(site.contains("KingdomMineCentralShaftPlan.entrance(area)"));
+        String quickSetup=Files.readString(Path.of(
+            "src/main/java/ru/projectkingdom/npc/KingdomNpcQuickSetup.java"));
+        assertTrue(quickSetup.contains("var mineInspection=KingdomMineSite.inspect(server,level,worker)"),
+            "The Work button must not claim success when the mine entrance is blocked");
+        assertTrue(quickSetup.contains("mineInspection.reason()"));
         String structures=Files.readString(Path.of(
             "src/main/java/ru/projectkingdom/npc/KingdomMineStructureWork.java"));
         assertTrue(structures.contains("KingdomTerritories.get(level.getServer()).canUse(level,at,w.employer)"));
