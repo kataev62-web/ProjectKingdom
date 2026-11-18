@@ -62,6 +62,8 @@ final class KingdomSmithyProductionContractTest {
         assertTrue(menu.contains("be.bound()&&enterprise.equals(be.enterpriseId())"));
         assertTrue(menu.contains("KingdomTfcSmithWork.availableRecipes(player.serverLevel(),w).contains(selected)"));
         assertTrue(menu.contains("KingdomTfcSmithWork.idleAnvil(player.serverLevel(),w)"));
+        assertTrue(menu.contains(".contract(enterprise,w.entityId).active()"),
+            "Recheck current employment before accepting owner-approved order");
         assertTrue(menu.contains("orders.create(enterprise,w.entityId,selected.recipeId(),selected.inputId(),quantity)"));
         String core=source("enterprise/EnterpriseCoreMenu.java");
         assertTrue(core.contains("OPEN_SMITHY_PRODUCTION=128"));
