@@ -56,6 +56,9 @@ public final class KingdomAdministrationData extends SavedData {
         for(KingdomCivicsData.Town town:KingdomCivicsData.get(server).towns()){
             changed|=data.migrateFounder(town.id(),town.mayor())==1;
             changed|=data.ensureHistoricalTreasury(town.id(),town.treasury());
+            // Migrate old saves where prior mayor appointments left stale MAYOR roles.
+            // The authoritative mayor is in CivicsData; founder rights remain separate.
+            data.adminChangeMayor(town.id(),null,town.mayor());
         }
         if(changed)data.setDirty();
         return data;
@@ -82,13 +85,22 @@ public final class KingdomAdministrationData extends SavedData {
     public void adminChangeMayor(UUID townId,UUID former,UUID next){
         if(townId==null||next==null)return;
         Map<UUID,EnumSet<MunicipalRole>> roster=roles.computeIfAbsent(townId,k->new LinkedHashMap<>());
-        if(former!=null){
-            var old=roster.get(former);
-            if(old!=null){old.remove(MunicipalRole.MAYOR);if(old.isEmpty())roster.remove(former);}
+        // Reconcile old versions that appended MAYOR badges on every succession.
+        // Preserve unrelated official positions, but only the active mayor has
+        // the MAYOR badge. The founder's independent authority is unchanged.
+        boolean changed=false;
+        var iterator=roster.entrySet().iterator();
+        while(iterator.hasNext()){
+            var entry=iterator.next();
+            if(entry.getKey().equals(next))continue;
+            if(entry.getValue().remove(MunicipalRole.MAYOR)){
+                changed=true;
+                if(entry.getValue().isEmpty())iterator.remove();
+            }
         }
-        roster.computeIfAbsent(next,k->EnumSet.noneOf(MunicipalRole.class))
-            .add(MunicipalRole.MAYOR);
-        setDirty();
+        if(roster.computeIfAbsent(next,k->EnumSet.noneOf(MunicipalRole.class))
+                .add(MunicipalRole.MAYOR))changed=true;
+        if(changed)setDirty();
     }
 
     /** A city with money, legacy liabilities or pending treasury recoveries is NEVER deleted. */
