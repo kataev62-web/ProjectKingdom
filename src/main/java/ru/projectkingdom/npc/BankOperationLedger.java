@@ -22,7 +22,7 @@ import java.util.zip.CRC32;
 public final class BankOperationLedger {
     public enum Kind {
         PERSONAL_DEPOSIT, PERSONAL_WITHDRAW, CITY_DEPOSIT, CITY_WITHDRAW,
-        DONATE, THIRD_PARTY_CREDIT, TAX_PAYMENT
+        DONATE, THIRD_PARTY_CREDIT, TAX_PAYMENT, FREE_CASH_ASSIGN
     }
     public enum State { PREPARED, RECEIPT, ABORTED, RECONCILED }
 
@@ -167,6 +167,9 @@ public final class BankOperationLedger {
                 case CITY_WITHDRAW -> {
                     wallet=Math.addExact(wallet,n);vault=Math.subtractExact(vault,n);
                     city=Math.subtractExact(city,n);treasury=Math.subtractExact(treasury,n);
+                }
+                case FREE_CASH_ASSIGN -> {
+                    city=Math.addExact(city,n);treasury=Math.addExact(treasury,n);
                 }
                 case DONATE -> {
                     if(!a.walletHash().equals(b.walletHash())||!a.vaultHash().equals(b.vaultHash()))return false;
