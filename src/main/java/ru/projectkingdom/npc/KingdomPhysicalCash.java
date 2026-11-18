@@ -155,20 +155,100 @@ public final class KingdomPhysicalCash {
             if(moved[k]>0&&!insert(target,targetSlots,COINS[k],moved[k]))return null;
         return targetSlots;
     }
-    /** Transfer actual coin items between different cashboxes; never change denominations. */
+    /** Reject any unknown backing or alias, including two wrappers over one chest. */
+    static boolean independentPhysicalSlots(Container source,Container target) {
+        if(source==null||target==null||source==target
+                ||source.getContainerSize()<1||target.getContainerSize()<1)return false;
+        List<KingdomPhysicalSlotGuard.Slot> a=new ArrayList<>();
+        List<KingdomPhysicalSlotGuard.Slot> b=new ArrayList<>();
+        for(int i=0;i<source.getContainerSize();i++){
+            var key=KingdomContainerAccess.physicalSlot(source,i);
+            if(key==null)return false;
+            a.add(key);
+        }
+        for(int i=0;i<target.getContainerSize();i++){
+            var key=KingdomContainerAccess.physicalSlot(target,i);
+            if(key==null)return false;
+            b.add(key);
+        }
+        return KingdomPhysicalSlotGuard.disjoint(a,b);
+    }
+
+    /** Check full slot snapshots, not just total copper value: NBT must not change. */
+    private static boolean matches(Container container,List<ItemStack> expected) {
+        if(container.getContainerSize()!=expected.size())return false;
+        for(int i=0;i<expected.size();i++)
+            if(!ItemStack.matches(container.getItem(i),expected.get(i)))return false;
+        return true;
+    }
+
+    /** Preserve each physical denomination individually, not only total face value. */
+    private static long[] coinCounts(List<ItemStack> a,List<ItemStack> b) {
+        long[] result=new long[COINS.length];
+        for(List<ItemStack> stacks:List.of(a,b))
+            for(ItemStack stack:stacks)
+                for(int k=0;k<COINS.length;k++)
+                    if(stack.is(COINS[k]))result[k]=Math.addExact(result[k],stack.getCount());
+        return result;
+    }
+
+    /**
+     * Try to restore exact NBT snapshots on an in-memory write failure.
+     * If any wrapper refuses restoration, throw instead of reporting false success
+     * or retrying an uncertain operation.
+     */
+    private static void rollbackOrQuarantine(Container source,List<ItemStack> oldSource,
+                                              Container target,List<ItemStack> oldTarget,
+                                              RuntimeException cause) {
+        RuntimeException rollbackProblem=null;
+        try{apply(target,oldTarget);}catch(RuntimeException failure){rollbackProblem=failure;}
+        try{apply(source,oldSource);}catch(RuntimeException failure){
+            if(rollbackProblem==null)rollbackProblem=failure;
+            else rollbackProblem.addSuppressed(failure);
+        }
+        boolean restored=false;
+        try{restored=matches(source,oldSource)&&matches(target,oldTarget);}
+        catch(RuntimeException failure){
+            if(rollbackProblem==null)rollbackProblem=failure;
+            else rollbackProblem.addSuppressed(failure);
+        }
+        if(!restored||rollbackProblem!=null){
+            IllegalStateException unsafe=new IllegalStateException(
+                    "Physical cash transfer rollback is uncertain: lock both containers for operator reconciliation",cause);
+            if(rollbackProblem!=null)unsafe.addSuppressed(rollbackProblem);
+            throw unsafe;
+        }
+    }
+
+    /** Transfer physical coin items only between provably disjoint storage slots. */
     public static boolean canMove(Container source,Container target,long amount) {
-        if(source==null||target==null||source==target)return false;
+        if(!independentPhysicalSlots(source,target))return false;
         List<ItemStack> taken=planWithdrawal(source,amount);
         return taken!=null&&planExactMoveDeposit(source,taken,target)!=null;
     }
     public static boolean move(Container source,Container target,long amount) {
-        if(source==null||target==null||source==target)return false;
+        if(!independentPhysicalSlots(source,target))return false;
+        List<ItemStack> oldSource=snapshot(source),oldTarget=snapshot(target);
         List<ItemStack> taken=planWithdrawal(source,amount);
         List<ItemStack> added=planExactMoveDeposit(source,taken,target);
         if(taken==null||added==null)return false;
-        apply(source,taken);
-        apply(target,added);
-        return true;
+        if(!matches(source,oldSource)||!matches(target,oldTarget))return false;
+        if(!java.util.Arrays.equals(coinCounts(oldSource,oldTarget),coinCounts(taken,added)))
+            return false;
+        try{
+            apply(source,taken);
+            if(!matches(source,taken)||!matches(target,oldTarget))
+                throw new IllegalStateException("Physical source changed or storage wrappers alias");
+            apply(target,added);
+            if(!matches(source,taken)||!matches(target,added)
+                    ||!java.util.Arrays.equals(coinCounts(oldSource,oldTarget),
+                            coinCounts(snapshot(source),snapshot(target))))
+                throw new IllegalStateException("Physical cash movement was not conserved");
+            return true;
+        }catch(RuntimeException unsafe){
+            rollbackOrQuarantine(source,oldSource,target,oldTarget,unsafe);
+            return false;
+        }
     }
     /** Trusted NPC settlement: the payroll layer validates the recipient's physical purse
      * capacity before taking actual coins from the company's protected container. */
