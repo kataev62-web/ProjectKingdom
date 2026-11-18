@@ -49,7 +49,8 @@ public final class KingdomMineWork {
                                        KingdomNpcData.Worker worker) {
         if (!level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
             || pos.getY() >= level.getMaxBuildHeight() - 3
-            || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,pos)))
+            || worker.employer==null
+            || !KingdomTerritories.get(level.getServer()).canUse(level,pos,worker.employer))
             return false;
         BlockState state=level.getBlockState(pos);
         String id=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
@@ -92,22 +93,20 @@ public final class KingdomMineWork {
             || !mine.owner().equals(worker.employer)
             || !binding.dimension().equals(worker.dimension)) {status(level,worker,"Нет действующей шахты");return false;}
         BlockPos core=BlockPos.of(binding.packedPos());
-        if (!level.hasChunkAt(core)) return false;
+        if (!level.hasChunkAt(core)) {
+            status(level,worker,"Чанк ядра шахты не загружен");
+            return false;
+        }
         int carried=KingdomMineCargo.minedCount(worker);
         // Construction stock is not finished ore. Deposit on cargo threshold,
         // and let the shared physical route bring the miner back to the depot.
         if (carried >= 64) {
-            status(level,worker,"Доставка добычи на склад");
-            return NpcFieldWork.deposit(level,npc,worker);
+            var delivery=KingdomMineDelivery.deliver(level,npc,worker);
+            status(level,worker,KingdomMineDelivery.message(delivery));
+            return delivery==KingdomMineDelivery.Result.DELIVERED;
         }
-        // Central shaft selects shovel or pickaxe from the actual target block.
-        // Requiring a pickaxe first would block a soil-only start with a shovel.
-        if(KingdomMineSettings.get(level.getServer()).start(id)
-                ==KingdomMineSettings.Start.FORWARD
-            &&!NpcFieldWork.borrowTool(level,npc,worker)) {
-            status(level,worker,"Нужна исправная кирка на складе сырья");
-            return false;
-        }
+        // Use the actual TFC shovel or pickaxe for each target. No premature
+        // pickaxe requirement for a soil start; KingdomMineTools.equip handles it.
 
         var settings=KingdomMineSettings.get(level.getServer());
         var start=settings.start(id);
@@ -271,7 +270,15 @@ public final class KingdomMineWork {
                 BlockState state=level.getBlockState(target);
                 var drops=Block.getDrops(state,level,target,level.getBlockEntity(target),
                     npc,worker.fieldTool);
-                if (!NpcFieldWork.canFit(worker,drops)) {status(level,worker,"Сумка переполнена");return false;}
+                if (!KingdomMineDelivery.canCarry(worker,drops)) {
+                    if(KingdomMineCargo.minedCount(worker)>0){
+                        var delivery=KingdomMineDelivery.deliver(level,npc,worker);
+                        status(level,worker,KingdomMineDelivery.message(delivery));
+                        return delivery==KingdomMineDelivery.Result.DELIVERED;
+                    }
+                    status(level,worker,"Сумка занята инструментами и припасами — освободи место");
+                    return false;
+                }
                 if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)) return false;
                 settings.markStarted(id);
                 for (ItemStack stack:drops) NpcFieldWork.put(worker,stack);
@@ -390,8 +397,9 @@ public final class KingdomMineWork {
             }
         }
         if(KingdomMineCargo.minedCount(worker)>0) {
-            status(level,worker,"Все выработки пройдены. Возвращает последнюю добычу на склад");
-            return NpcFieldWork.deposit(level,npc,worker);
+            var delivery=KingdomMineDelivery.deliver(level,npc,worker);
+            status(level,worker,KingdomMineDelivery.message(delivery));
+            return delivery==KingdomMineDelivery.Result.DELIVERED;
         }
         status(level,worker,"Все доступные выработки пройдены; руда доставлена");
         return false;
