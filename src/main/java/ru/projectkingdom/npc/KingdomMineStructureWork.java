@@ -50,14 +50,21 @@ public final class KingdomMineStructureWork {
             npc.getNavigation().moveTo(depot.getX()+.5,depot.getY(),depot.getZ()+.5,.75);
             return Result.WALKING;
         }
-        ItemStack picked=c.removeItem(slot,Math.min(32,c.getItem(slot).getCount()));
+        int n=Math.min(32,c.getItem(slot).getCount());
+        while(n>0){
+            ItemStack sample=c.getItem(slot).copy();sample.setCount(n);
+            if(KingdomMineDelivery.canCarry(w,java.util.List.of(sample)))break;
+            n--;
+        }
+        if(n<=0)return Result.NEED_MATERIAL;
+        ItemStack picked=c.removeItem(slot,n);
         if(!picked.isEmpty())NpcFieldWork.put(w,picked);
         c.setChanged();KingdomNpcData.get(level.getServer()).setDirty();
         return picked.isEmpty()?Result.NEED_MATERIAL:Result.WALKING;
     }
     private static boolean authorized(ServerLevel level,BlockPos at,KingdomNpcData.Worker w){
         return w.employer!=null&&level.hasChunkAt(at)
-            &&w.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,at));
+            &&KingdomTerritories.get(level.getServer()).canUse(level,at,w.employer);
     }
     private static Result ladder(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                  KingdomMineSettings.Shaft area,BlockPos at){
