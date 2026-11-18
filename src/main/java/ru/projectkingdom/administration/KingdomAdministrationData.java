@@ -82,10 +82,14 @@ public final class KingdomAdministrationData extends SavedData {
     public void adminChangeMayor(UUID townId,UUID former,UUID next){
         if(townId==null||next==null)return;
         Map<UUID,EnumSet<MunicipalRole>> roster=roles.computeIfAbsent(townId,k->new LinkedHashMap<>());
-        if(former!=null){
-            var old=roster.get(former);
-            if(old!=null){old.remove(MunicipalRole.MAYOR);if(old.isEmpty())roster.remove(former);}
-        }
+        // Reconcile old versions that appended MAYOR badges on every succession.
+        // Preserve unrelated official positions, but only the active mayor has
+        // the MAYOR badge. The founder's independent authority is unchanged.
+        roster.entrySet().removeIf(entry -> {
+            if(entry.getKey().equals(next))return false;
+            entry.getValue().remove(MunicipalRole.MAYOR);
+            return entry.getValue().isEmpty();
+        });
         roster.computeIfAbsent(next,k->EnumSet.noneOf(MunicipalRole.class))
             .add(MunicipalRole.MAYOR);
         setDirty();
