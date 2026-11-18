@@ -65,6 +65,26 @@ final class KingdomPhysicalSlotGuardTest {
         assertThrows(IllegalArgumentException.class,()->slot(new Object(),-1));
     }
 
+    @Test void wrapperInstancesRecreatedAfterReloadStillRejectSharedPhysicalSlots() {
+        // Simulates a fresh world epoch: wrappers are re-created, backing remains
+        // the same for both views within that epoch.
+        Object beforeReloadBacking=new Object();
+        assertFalse(KingdomPhysicalSlotGuard.disjoint(
+                List.of(slot(beforeReloadBacking,0)),List.of(slot(beforeReloadBacking,0))));
+        Object afterReloadBacking=new Object();
+        assertNotSame(beforeReloadBacking,afterReloadBacking);
+        assertFalse(KingdomPhysicalSlotGuard.disjoint(
+                List.of(slot(afterReloadBacking,0),slot(afterReloadBacking,1)),
+                List.of(slot(afterReloadBacking,1))));
+    }
+
+    @Test void partialDoubleChestOverlapIsRejectedEvenIfMostSlotsAreIndependent() {
+        Object left=new Object(),right=new Object(),separate=new Object();
+        assertFalse(KingdomPhysicalSlotGuard.disjoint(
+                List.of(slot(left,0),slot(left,1),slot(right,0)),
+                List.of(slot(right,0),slot(separate,0),slot(separate,1))));
+    }
+
     @Test void distinctBackingsWithSameEqualsAreStillDistinctPhysicalEntities() {
         Object left=new String("chest"), right=new String("chest");
         assertEquals(left,right);
