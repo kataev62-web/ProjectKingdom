@@ -86,34 +86,142 @@ public final class KingdomTfcSmithWork {
         }
         return -1;
     }
+    /** The physical written slot must match item, NBT, and exact count. */
+    private static boolean exact(ItemStack actual,ItemStack expected){
+        return actual.getCount()==expected.getCount()
+            &&ItemStack.isSameItemSameTags(actual,expected);
+    }
     /**
-     * One genuine item is moved only after native TFC validity and slot checks.
-     * No recipe products, metal or money can be fabricated through this method.
+     * Read/verify machine destination before extracting raw inventory.
+     * Container.getItem may return a COPY; shrinking that copy is not an extraction.
+     * Rejected native setters must leave the raw stack untouched.
      */
     private static boolean fromChest(Container chest,BlockEntity machine,IItemHandlerModifiable dest,
                                      int slot,java.util.function.Predicate<ItemStack> acceptable){
-        if(dest==null||slot>=dest.getSlots()||!dest.getStackInSlot(slot).isEmpty())return false;
+        if(chest==null||machine==null||dest==null||slot<0||slot>=dest.getSlots()
+                ||!dest.getStackInSlot(slot).isEmpty())return false;
         int source=first(chest,stack->acceptable.test(stack)&&nativeValid(machine,slot,stack));
         if(source<0)return false;
-        ItemStack stock=chest.getItem(source);
+        ItemStack stock=chest.getItem(source).copy();
+        if(stock.isEmpty())return false;
         ItemStack unit=stock.copy();unit.setCount(1);
         if(!nativeValid(machine,slot,unit))return false;
-        dest.setStackInSlot(slot,unit);
-        stock.shrink(1);chest.setChanged();machine.setChanged();
+        // Stage destination first and verify it really contains precisely one item.
+        dest.setStackInSlot(slot,unit.copy());
+        if(!exact(dest.getStackInSlot(slot),unit)){
+            if(!dest.getStackInSlot(slot).isEmpty())
+                dest.setStackInSlot(slot,ItemStack.EMPTY);
+            return false;
+        }
+        // Remove from the REAL chest inventory, not a copy returned by getItem.
+        ItemStack removed=chest.removeItem(source,1);
+        ItemStack remainder=stock.copy();remainder.shrink(1);
+        if(!exact(removed,unit)||!exact(chest.getItem(source),remainder)){
+            chest.setItem(source,stock.copy());
+            dest.setStackInSlot(slot,ItemStack.EMPTY);
+            chest.setChanged();machine.setChanged();
+            return false;
+        }
+        chest.setChanged();machine.setChanged();
         return true;
     }
+
+    /**
+     * Native inventory transfer, verified on both physical endpoints.
+     * Stacks and capability-backed NBT are never re-created from item IDs.
+     */
+    private static boolean moveNative(BlockEntity source,IItemHandlerModifiable from,int fromSlot,
+                                      BlockEntity target,IItemHandlerModifiable to,int toSlot){
+        if(source==null||target==null||from==null||to==null
+                ||fromSlot<0||toSlot<0||fromSlot>=from.getSlots()||toSlot>=to.getSlots()
+                ||!to.getStackInSlot(toSlot).isEmpty())return false;
+        ItemStack moving=from.getStackInSlot(fromSlot).copy();
+        if(moving.isEmpty()||!nativeValid(target,toSlot,moving))return false;
+        to.setStackInSlot(toSlot,moving.copy());
+        if(!exact(to.getStackInSlot(toSlot),moving)){
+            if(!to.getStackInSlot(toSlot).isEmpty())
+                to.setStackInSlot(toSlot,ItemStack.EMPTY);
+            return false;
+        }
+        from.setStackInSlot(fromSlot,ItemStack.EMPTY);
+        if(!from.getStackInSlot(fromSlot).isEmpty()){
+            to.setStackInSlot(toSlot,ItemStack.EMPTY);
+            return false;
+        }
+        source.setChanged();target.setChanged();
+        return true;
+    }
+
+    /**
+     * Keep PR #74's item/container stack-size guards. A caller may clear
+     * an anvil only after the destination really contains the whole stack.
+     */
     private static boolean intoChest(Container chest,ItemStack carried){
         if(chest==null||carried.isEmpty())return false;
         for(int i=0;i<chest.getContainerSize();i++){
-            ItemStack existing=chest.getItem(i);
-            if(existing.isEmpty()&&chest.canPlaceItem(i,carried)){
-                chest.setItem(i,carried.copy());chest.setChanged();return true;
-            }
-            if(!existing.isEmpty()&&ItemStack.isSameItemSameTags(existing,carried)
+            ItemStack existing=chest.getItem(i).copy();
+            int limit=Math.min(chest.getMaxStackSize(),carried.getMaxStackSize());
+            ItemStack desired;
+            if(existing.isEmpty()&&chest.canPlaceItem(i,carried)
+                    &&carried.getCount()<=limit){
+                desired=carried.copy();
+            }else if(!existing.isEmpty()&&ItemStack.isSameItemSameTags(existing,carried)
                     &&chest.canPlaceItem(i,carried)
-                    &&existing.getCount()<=Math.min(chest.getMaxStackSize(),existing.getMaxStackSize())-carried.getCount()){
-                existing.grow(carried.getCount());chest.setChanged();return true;
+                    &&existing.getCount()<=Math.min(chest.getMaxStackSize(),
+                        existing.getMaxStackSize())-carried.getCount()){
+                desired=existing.copy();
+                desired.grow(carried.getCount());
+            }else continue;
+            // setItem is not guaranteed to accept the requested count. Its
+            // implementation can ignore the write or clamp it.
+            chest.setItem(i,desired.copy());
+            if(exact(chest.getItem(i),desired)){
+                chest.setChanged();
+                return true;
             }
+            // A partially accepted write must not count as a delivery.
+            if(!exact(chest.getItem(i),existing))
+                chest.setItem(i,existing.copy());
+            return false;
+        }
+        return false;
+    }
+    /**
+     * Verified anvil -> warehouse transfer. If the native anvil refuses
+     * to clear, restore the warehouse slot before ever crediting delivery.
+     */
+    private static boolean deliverNative(Container warehouse,BlockEntity anvil,
+                                         IItemHandlerModifiable anvilSlots){
+        if(warehouse==null||anvil==null||anvilSlots==null||anvilSlots.getSlots()<1)return false;
+        ItemStack ready=anvilSlots.getStackInSlot(0).copy();
+        if(ready.isEmpty())return false;
+        for(int slot=0;slot<warehouse.getContainerSize();slot++){
+            ItemStack previous=warehouse.getItem(slot).copy();
+            // This helper only changes one target slot when it succeeds.
+            if(previous.isEmpty()){
+                if(!warehouse.canPlaceItem(slot,ready)
+                    ||ready.getCount()>Math.min(warehouse.getMaxStackSize(),ready.getMaxStackSize()))
+                    continue;
+            }else if(!warehouse.canPlaceItem(slot,ready)
+                    ||!ItemStack.isSameItemSameTags(previous,ready)
+                    ||ready.getCount()>Math.min(warehouse.getMaxStackSize(),
+                        previous.getMaxStackSize())-previous.getCount())continue;
+            ItemStack desired=previous.isEmpty()?ready.copy():previous.copy();
+            if(!previous.isEmpty())desired.grow(ready.getCount());
+            warehouse.setItem(slot,desired.copy());
+            if(!exact(warehouse.getItem(slot),desired)){
+                if(!exact(warehouse.getItem(slot),previous))
+                    warehouse.setItem(slot,previous.copy());
+                return false;
+            }
+            anvilSlots.setStackInSlot(0,ItemStack.EMPTY);
+            if(!anvilSlots.getStackInSlot(0).isEmpty()){
+                warehouse.setItem(slot,previous.copy());
+                warehouse.setChanged();
+                return false;
+            }
+            warehouse.setChanged();anvil.setChanged();
+            return true;
         }
         return false;
     }
@@ -175,13 +283,21 @@ public final class KingdomTfcSmithWork {
         }catch(ReflectiveOperationException|LinkageError|RuntimeException e){return false;}
     }
 
+    /**
+     * TFC AnvilRecipe implements vanilla Recipe via ISimpleRecipe.
+     * Use Minecraft's mapped interface invocation instead of reflection on
+     * AnvilRecipe#getId: in production Forge/TFC 3.2.26 it is named m_6423_.
+     */
+    private static String recipeId(Object candidate){
+        return candidate instanceof net.minecraft.world.item.crafting.Recipe<?> recipe
+            ?recipe.getId().toString():null;
+    }
+
     private static Object selectedRecipe(List<?> options,String id){
         if(options==null||options.isEmpty())return null;
         if(id==null||id.isBlank())return options.size()==1?options.get(0):null;
-        for(Object option:options)try{
-            if(id.equals(option.getClass().getMethod("getId").invoke(option).toString()))
-                return option;
-        }catch(ReflectiveOperationException ignored){}
+        for(Object option:options)
+            if(id.equals(recipeId(option)))return option;
         return null;
     }
 
@@ -217,8 +333,8 @@ public final class KingdomTfcSmithWork {
                 if(!(rows instanceof List<?> candidates))continue;
                 String inputId=BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
                 for(Object candidate:candidates){
-                    String recipeId=candidate.getClass().getMethod("getId").invoke(candidate).toString();
-                    if(!recipeId.startsWith("tfc:"))continue; // real TFC recipes only
+                    String recipeId=recipeId(candidate);
+                    if(recipeId==null||!recipeId.startsWith("tfc:"))continue; // real TFC recipes only
                     unique.putIfAbsent(recipeId+"|"+inputId,new RecipeOption(recipeId,inputId));
                 }
             }
@@ -293,7 +409,7 @@ public final class KingdomTfcSmithWork {
             if(!(choices instanceof List<?> list)||list.isEmpty())return "Нет подходящего TFC-рецепта.";
             var ids=new ArrayList<String>();
             for(Object candidate:list)
-                ids.add(candidate.getClass().getMethod("getId").invoke(candidate).toString());
+                ids.add(recipeId(candidate));
             Collections.sort(ids);
             int old=ids.indexOf(w.smithRecipeId);
             w.smithRecipeId=ids.get((old+1)%ids.size());
