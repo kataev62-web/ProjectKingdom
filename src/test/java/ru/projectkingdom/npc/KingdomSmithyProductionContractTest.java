@@ -47,14 +47,14 @@ final class KingdomSmithyProductionContractTest {
         assertTrue(smith.contains("!order.worker().equals(w.entityId)"));
         assertTrue(smith.contains("order.phase()==KingdomSmithyOrdersData.Phase.READY"));
         assertTrue(smith.contains("actual.equals(order.pendingItem())"));
-        assertTrue(smith.contains("inAnvil.getCount()!=order.pendingCount()"));
+        assertTrue(smith.contains("count!=order.pendingCount()"));
         assertTrue(smith.contains("if(!deliverNative(finished,anvil,anvilInv))"));
         assertTrue(smith.contains("anvilSlots.setStackInSlot(0,ItemStack.EMPTY)"));
         assertTrue(smith.contains("orders.delivered(company,w.entityId,actual,count)"));
         assertTrue(smith.contains("moveNative(forge,forgeInv,slot,anvil,anvilInv,0)"));
         assertTrue(smith.contains("if(!hotEnough(inAnvil))"));
         assertTrue(smith.contains("moveNative(anvil,anvilInv,0,forge,heatingSlots,slot)"));
-        assertTrue(smith.contains("anvilInv.setStackInSlot(0,ItemStack.EMPTY)"));
+        assertTrue(smith.contains("from.setStackInSlot(fromSlot,ItemStack.EMPTY)"));
         assertTrue(smith.contains("if(!alreadyHeating)"),
                 "One-item orders must not draw multiple metal inputs while heating");
         assertTrue(smith.contains("chest.removeItem(source,1)"));
