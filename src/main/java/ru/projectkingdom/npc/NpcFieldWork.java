@@ -157,20 +157,32 @@ public final class NpcFieldWork {
                     || ("farmer".equals(w.job) && KingdomFarmNutrition.recognized(s))){
                 inv++;continue; // Keep genuine seeds in the NPC's persistent planting bag.
             }
-            for(int slot=0;slot<c.getContainerSize()&&!s.isEmpty();slot++){
-                if(!c.canPlaceItem(slot,s))continue;
-                ItemStack cur=c.getItem(slot);
-                if(cur.isEmpty()){
-                    int n=Math.min(s.getCount(),Math.min(s.getMaxStackSize(),c.getMaxStackSize()));
-                    ItemStack movedStack=s.copy();movedStack.setCount(n);c.setItem(slot,movedStack);s.shrink(n);moved=true;
-                }else if(ItemStack.isSameItemSameTags(cur,s)){
-                    int n=Math.min(s.getCount(),Math.min(cur.getMaxStackSize(),c.getMaxStackSize())-cur.getCount());
-                    if(n>0){cur.grow(n);s.shrink(n);moved=true;}
-                }
-            }
+            moved |= storeCargo(c,s);
             if(s.isEmpty())w.fieldInventory.remove(inv);else inv++;
         }
         if(moved){c.setChanged();KingdomNpcData.get(level.getServer()).setDirty();}return moved;
+    }
+    /** Commit copied stack updates before consuming persistent worker cargo. */
+    static boolean storeCargo(Container c,ItemStack cargo){
+        boolean moved=false;
+        for(int slot=0;slot<c.getContainerSize()&&!cargo.isEmpty();slot++){
+            ItemStack current=c.getItem(slot);
+            if(!current.isEmpty()&&!ItemStack.isSameItemSameTags(current,cargo))continue;
+            int previousCount=current.getCount();
+            int capacity=Math.min(cargo.getMaxStackSize(),c.getMaxStackSize())-previousCount;
+            int amount=Math.min(cargo.getCount(),capacity);
+            if(amount<=0)continue;
+            ItemStack updated=current.isEmpty()?cargo.copy():current.copy();
+            updated.setCount(previousCount+amount);
+            if(!c.canPlaceItem(slot,updated))continue;
+            c.setItem(slot,updated);
+            ItemStack committed=c.getItem(slot);
+            if(ItemStack.isSameItemSameTags(committed,updated)){
+                int accepted=Math.min(amount,Math.max(0,committed.getCount()-previousCount));
+                cargo.shrink(accepted);moved |= accepted>0;
+            }
+        }
+        return moved;
     }
     /** Execute ONE bounded action; called per NPC once every 2 seconds, never on unloaded chunks. */
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w) {
