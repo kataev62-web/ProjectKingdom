@@ -496,8 +496,7 @@ public final class KingdomTfcSmithWork {
             if(recipe==null&&!selectUniqueAnvilRecipe(level,anvil,metal,w))return false;
             recipe=forging.getClass().getMethod("getRecipe",net.minecraft.world.level.Level.class)
                     .invoke(forging,level);
-            if(recipe==null||!order.recipe().equals(
-                recipe.getClass().getMethod("getId").invoke(recipe).toString()))return false;
+            if(recipe==null||!order.recipe().equals(recipeId(recipe)))return false;
             int target=(int)forging.getClass().getMethod("getWorkTarget").invoke(forging);
             int work=(int)forging.getClass().getMethod("getWork").invoke(forging);
             Object stages=forging.getClass().getMethod("getSteps").invoke(forging);
@@ -615,19 +614,25 @@ public final class KingdomTfcSmithWork {
             ItemStack inAnvil=anvilInv.getStackInSlot(0);
             if(order.phase()==KingdomSmithyOrdersData.Phase.READY){
                 String actual=BuiltInRegistries.ITEM.getKey(inAnvil.getItem()).toString();
-                if(!actual.equals(order.pendingItem())||inAnvil.getCount()!=order.pendingCount()){
+                int count=inAnvil.getCount();
+                if(!actual.equals(order.pendingItem())||count!=order.pendingCount()){
                     orders.note(company,w.entityId,
                         "Готовое изделие в наковальне изменено: нужна ручная проверка, перенос остановлен.");
                     return false;
                 }
-                if(!intoChest(finished,inAnvil)){
-                    orders.note(company,w.entityId,"Готовый склад полон или не принимает изделие TFC.");
+                // Both destination and source must confirm the physical transfer
+                // BEFORE the order receives credit. A refused warehouse setter
+                // or refused anvil extraction is never a successful delivery.
+                if(!deliverNative(finished,anvil,anvilInv)){
+                    orders.note(company,w.entityId,
+                        "Доставка не подтверждена: проверь свободный склад и наковальню TFC.");
                     return false;
                 }
-                // These operations execute in one server tick: anvil stack is moved,
-                // not copied into the production count.
-                anvilInv.setStackInSlot(0,ItemStack.EMPTY);anvil.setChanged();
-                orders.delivered(company,w.entityId,actual,inAnvil.getCount());
+                if(!orders.delivered(company,w.entityId,actual,count)){
+                    orders.note(company,w.entityId,
+                        "Передача состоялась, но учёт заказа отклонён: остановить до сверки.");
+                    return false;
+                }
                 w.smithOutputReady=false;KingdomNpcData.get(server).setDirty();
                 return true;
             }
@@ -651,9 +656,11 @@ public final class KingdomTfcSmithWork {
                 for(int slot=5;slot<=9;slot++){
                     if(!heatingSlots.getStackInSlot(slot).isEmpty()
                             ||!nativeValid(forge,slot,inAnvil))continue;
-                    heatingSlots.setStackInSlot(slot,inAnvil.copy());
-                    anvilInv.setStackInSlot(0,ItemStack.EMPTY);
-                    forge.setChanged();anvil.setChanged();
+                    if(!moveNative(anvil,anvilInv,0,forge,heatingSlots,slot)){
+                        orders.note(company,w.entityId,
+                            "Нативная передача на повторный нагрев не подтверждена.");
+                        return false;
+                    }
                     orders.working(company,w.entityId);
                     orders.note(company,w.entityId,
                         "Остывший металл возвращён в настоящий горн TFC для повторного нагрева.");
@@ -731,9 +738,11 @@ public final class KingdomTfcSmithWork {
             if(!nativeValid(anvil,0,heated)
                 ||!selectUniqueAnvilRecipePreflight(level,anvil,heated,w))continue;
             // Move the SAME real hot stack to the anvil, with no copy left in forge.
-            anvilInv.setStackInSlot(0,heated.copy());
-            forgeInv.setStackInSlot(slot,ItemStack.EMPTY);
-            forge.setChanged();anvil.setChanged();
+            if(!moveNative(forge,forgeInv,slot,anvil,anvilInv,0)){
+                orders.note(company,w.entityId,
+                    "Нативная передача горячего металла в наковальню не подтверждена.");
+                return false;
+            }
             orders.working(company,w.entityId);
             orders.note(company,w.entityId,"Нагретый металл передан на настоящую TFC-наковальню.");
             return true;
