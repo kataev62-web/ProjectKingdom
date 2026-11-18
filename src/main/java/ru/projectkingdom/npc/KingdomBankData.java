@@ -219,7 +219,7 @@ public final class KingdomBankData extends SavedData {
                         admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
                 )return false;
         return BankOperations.execute(player,town,player.getUUID(),BankOperationLedger.Kind.PERSONAL_DEPOSIT,amount,()->{
-            if(!KingdomPhysicalCash.deposit(player,vault,amount))return false; {
+            if(!KingdomPhysicalCash.deposit(player,vault,amount))return false;
         if(!admin.depositBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical deposit");
         accounts.put(player.getUUID(),previous+amount);
@@ -238,7 +238,7 @@ public final class KingdomBankData extends SavedData {
                         admin.treasuryReserve(town),admin.heldExpansionProceeds(town))
                 )return false;
         return BankOperations.execute(player,town,player.getUUID(),BankOperationLedger.Kind.PERSONAL_WITHDRAW,amount,()->{
-            if(!KingdomPhysicalCash.withdraw(player,vault,amount))return false; {
+            if(!KingdomPhysicalCash.withdraw(player,vault,amount))return false;
         if(!admin.withdrawBankReserve(town,amount))
             throw new IllegalStateException("Bank reserve update failed after physical withdrawal");
         accounts.put(player.getUUID(),balance(player.getUUID())-amount);
