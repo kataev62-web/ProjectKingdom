@@ -37,7 +37,7 @@ final class KingdomMineWorkplaceIntegrationTest {
         String setup=source("KingdomNpcQuickSetup.java");
         assertTrue(selection.contains("mineSettings.choose(p.mine(),KingdomMineSettings.Start.DOWN)"));
         assertTrue(setup.contains("worker.order=\"work\""));
-        assertTrue(setup.contains("KingdomMineSite.inspect(server,level,worker).ready()"));
+        assertTrue(setup.contains("KingdomNpcWorkday.hasAssignment(server,level,worker)"));
         assertTrue(setup.contains("CONTINUE_ASSIGNED_JOB.name()"));
     }
 
