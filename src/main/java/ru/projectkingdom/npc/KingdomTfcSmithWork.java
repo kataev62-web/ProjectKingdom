@@ -106,7 +106,10 @@ public final class KingdomTfcSmithWork {
         if(chest==null||carried.isEmpty())return false;
         for(int i=0;i<chest.getContainerSize();i++){
             ItemStack existing=chest.getItem(i);
-            if(existing.isEmpty()&&chest.canPlaceItem(i,carried)){
+            // Do not count output that an empty container slot would clamp.
+            // Check both the destination's and item's native stack limits.
+            if(existing.isEmpty()&&chest.canPlaceItem(i,carried)
+                    &&carried.getCount()<=Math.min(chest.getMaxStackSize(),carried.getMaxStackSize())){
                 chest.setItem(i,carried.copy());chest.setChanged();return true;
             }
             if(!existing.isEmpty()&&ItemStack.isSameItemSameTags(existing,carried)
