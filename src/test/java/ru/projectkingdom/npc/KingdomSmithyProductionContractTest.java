@@ -45,6 +45,11 @@ final class KingdomSmithyProductionContractTest {
         assertTrue(smith.contains("anvilInv.setStackInSlot(0,ItemStack.EMPTY)"));
         assertTrue(smith.contains("orders.delivered(company,w.entityId,actual,inAnvil.getCount())"));
         assertTrue(smith.contains("forgeInv.setStackInSlot(slot,ItemStack.EMPTY)"));
+        assertTrue(smith.contains("if(!hotEnough(inAnvil))"));
+        assertTrue(smith.contains("heatingSlots.setStackInSlot(slot,inAnvil.copy())"));
+        assertTrue(smith.contains("anvilInv.setStackInSlot(0,ItemStack.EMPTY)"));
+        assertTrue(smith.contains("if(!alreadyHeating)"),
+                "One-item orders must not draw multiple metal inputs while heating");
         assertTrue(smith.contains("stock.shrink(1);chest.setChanged();machine.setChanged()"));
         assertTrue(smith.contains("getMethod(\"work\""));
         assertFalse(smith.contains("new ItemStack(Items.IRON_INGOT)"));
