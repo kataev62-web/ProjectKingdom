@@ -63,8 +63,8 @@ public final class KingdomMineMaintenance {
             if(!level.hasChunkAt(depot)
                     ||!KingdomTerritories.get(level.getServer()).usable(level,depot,worker.employer,"raw"))
                 return Result.NO_SUPPLIES;
-            BlockEntity blockEntity=level.getBlockEntity(depot);
-            if(!(blockEntity instanceof Container warehouse))return Result.NO_SUPPLIES;
+            Container warehouse=KingdomContainerAccess.resolve(level,depot);
+            if(warehouse==null)return Result.NO_SUPPLIES;
             int slot=-1;
             for(int i=0;i<warehouse.getContainerSize();i++){
                 ItemStack stack=warehouse.getItem(i);
