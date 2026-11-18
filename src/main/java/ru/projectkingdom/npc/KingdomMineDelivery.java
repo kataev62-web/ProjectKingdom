@@ -35,10 +35,15 @@ public final class KingdomMineDelivery {
      * items can lose unique NBT stacks on restart even below MAX_CARRIED.
      */
     public static boolean canCarry(KingdomNpcData.Worker worker,List<ItemStack> items){
-        if(worker==null||items==null)return false;
+        return worker!=null && canCarryStacks(worker.fieldInventory,items);
+    }
+
+    /** Simulate a tool exchange without modifying the actual persistent bag. */
+    static boolean canCarryStacks(List<ItemStack> current,List<ItemStack> items){
+        if(current==null||items==null)return false;
         final List<ItemStack> stacks=new ArrayList<>();
         int count=0;
-        for(ItemStack existing:worker.fieldInventory){
+        for(ItemStack existing:current){
             if(existing.isEmpty())continue;
             count+=existing.getCount();
             if(stacks.size()>=36||count>NpcFieldWork.MAX_CARRIED)return false;
