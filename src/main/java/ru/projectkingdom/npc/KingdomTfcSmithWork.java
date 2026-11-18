@@ -246,6 +246,13 @@ public final class KingdomTfcSmithWork {
     public static String cycleRecipe(net.minecraft.server.level.ServerPlayer owner,KingdomNpcData.Worker w){
         if(owner==null||w==null||!"smith".equals(w.job)||!owner.getUUID().equals(w.employer))
             return "Сначала найми кузнеца и выбери его предприятие.";
+        UUID assigned;
+        try{assigned=UUID.fromString(w.workplaceId);}catch(IllegalArgumentException ex){
+            return "Не привязана кузница.";
+        }
+        var activeOrder=KingdomSmithyOrdersData.get(owner.getServer()).order(assigned);
+        if(activeOrder!=null&&!activeOrder.finished())
+            return "Кузнец: рецепт закреплён действующим заказом; меняй его через блок кузницы после завершения.";
         var site=KingdomSmithySite.inspect(owner.serverLevel(),w);
         if(!site.ready())return site.message();
         if(!w.hasSource)return "Кузнец: привяжи склад сырья.";
@@ -356,9 +363,11 @@ public final class KingdomTfcSmithWork {
     }
 
     private static boolean anvilWork(ServerLevel level,Villager npc,BlockEntity anvil,
-                                     IItemHandlerModifiable slots,KingdomNpcData.Worker w){
+                                     IItemHandlerModifiable slots,KingdomNpcData.Worker w,
+                                     KingdomSmithyOrdersData.Order order){
         ItemStack metal=slots.getStackInSlot(0);
-        if(metal.isEmpty()||slots.getSlots()<4)return false;
+        if(metal.isEmpty()||slots.getSlots()<4||!order.input().equals(
+            BuiltInRegistries.ITEM.getKey(metal.getItem()).toString()))return false;
         var hammer=slots.getStackInSlot(2);
         if(hammer.isEmpty()||!hammer.is(net.minecraft.tags.TagKey.create(
                 net.minecraft.core.registries.Registries.ITEM,new ResourceLocation("tfc","hammers"))))return false;
@@ -371,7 +380,8 @@ public final class KingdomTfcSmithWork {
             if(recipe==null&&!selectUniqueAnvilRecipe(level,anvil,metal,w))return false;
             recipe=forging.getClass().getMethod("getRecipe",net.minecraft.world.level.Level.class)
                     .invoke(forging,level);
-            if(recipe==null)return false;
+            if(recipe==null||!order.recipe().equals(
+                recipe.getClass().getMethod("getId").invoke(recipe).toString()))return false;
             int target=(int)forging.getClass().getMethod("getWorkTarget").invoke(forging);
             int work=(int)forging.getClass().getMethod("getWork").invoke(forging);
             Object stages=forging.getClass().getMethod("getSteps").invoke(forging);
@@ -394,6 +404,14 @@ public final class KingdomTfcSmithWork {
                     forgeStep).invoke(anvil,fake,step);
             ItemStack after=slots.getStackInSlot(0);
             if(!after.isEmpty()&&!ItemStack.isSameItem(before,after)){
+                String outputId=BuiltInRegistries.ITEM.getKey(after.getItem()).toString();
+                boolean recorded=KingdomSmithyOrdersData.get(level.getServer()).ready(
+                    order.enterprise(),w.entityId,outputId,after.getCount());
+                if(!recorded){
+                    KingdomSmithyOrdersData.get(level.getServer()).note(order.enterprise(),w.entityId,
+                        "TFC создал изделие, но запись заказа заблокирована; предмет остаётся в наковальне.");
+                    return false; // Never fabricate a second copy or count a non-delivered item.
+                }
                 w.smithOutputReady=true;KingdomNpcData.get(level.getServer()).setDirty();
             }
             anvil.setChanged();
@@ -414,14 +432,27 @@ public final class KingdomTfcSmithWork {
         var enterprise=KingdomEnterpriseData.get(server);
         UUID company;
         try{company=UUID.fromString(w.workplaceId);}catch(IllegalArgumentException e){return false;}
+        var orders=KingdomSmithyOrdersData.get(server);
+        var order=orders.order(company);
+        if(order==null||!order.actionable()||!order.worker().equals(w.entityId))return false;
+        // The enterprise order, not a stale NPC menu selection, is authoritative.
+        if(!order.recipe().equals(w.smithRecipeId)){
+            w.smithRecipeId=order.recipe();KingdomNpcData.get(server).setDirty();
+        }
         var firm=enterprise.find(company);
         var binding=enterprise.core(company);
         var contract=KingdomEnterprisePayrollData.get(server).contract(company,w.entityId);
         if(firm==null||!firm.owner().equals(w.employer)||enterprise.kind(company)!=EnterpriseKind.SMITHY
                 ||binding==null||!binding.active()
                 ||contract==null||!contract.active()
-                ||!w.dimension.equals(level.dimension().location().toString()))return false;
-        if(!KingdomSmithySite.inspect(level,w).ready())return false;
+                ||!w.dimension.equals(level.dimension().location().toString())){
+            orders.note(company,w.entityId,"Ожидание: трудовой договор, предприятие или размерность недействительны.");
+            return false;
+        }
+        var site=KingdomSmithySite.inspect(level,w);
+        if(!site.ready()){
+            orders.note(company,w.entityId,site.message());return false;
+        }
         var building=EnterpriseBuildingRegistration.get(server).room(company);
         BlockPos forgePos=new BlockPos(w.workX,w.workY,w.workZ);
         BlockEntity forge=level.getBlockEntity(forgePos);
@@ -432,40 +463,73 @@ public final class KingdomTfcSmithWork {
                 ||!land.usable(level,fromPos,w.employer,"raw")
                 ||!land.usable(level,toPos,w.employer,"finished")
                 ||!(level.getBlockEntity(fromPos) instanceof Container raw)
-                ||!(level.getBlockEntity(toPos) instanceof Container finished))return false;
+                ||!(level.getBlockEntity(toPos) instanceof Container finished)){
+            orders.note(company,w.entityId,"Нет доступа к сырьевому/готовому складу или чанк выгружен.");
+            return false;
+        }
         BlockPos anvilPos=findAnvil(level,building,forgePos);
-        if(anvilPos==null||!land.canUse(level,anvilPos,w.employer))return false;
+        if(anvilPos==null||!land.canUse(level,anvilPos,w.employer)){
+            orders.note(company,w.entityId,"Нужна настоящая наковальня TFC на своей земле.");
+            return false;
+        }
         BlockEntity anvil=level.getBlockEntity(anvilPos);
         IItemHandlerModifiable anvilInv=inventory(anvil);
-        if(anvilInv==null||anvilInv.getSlots()<4)return false;
+        if(anvilInv==null||anvilInv.getSlots()<4){
+            orders.note(company,w.entityId,"Недоступен инвентарь наковальни TFC.");
+            return false;
+        }
         // 5: a REAL TFC hammer is placed in the anvil's own hammer slot by player;
         // it is not demanded from a warehouse chest.
         if(!anvilInv.getStackInSlot(0).isEmpty()){
             if(!near(npc,anvilPos)){walk(npc,anvilPos);return false;}
-            if(w.smithOutputReady){
-                ItemStack ready=anvilInv.getStackInSlot(0);
-                if(intoChest(finished,ready)){
-                    anvilInv.setStackInSlot(0,ItemStack.EMPTY);anvil.setChanged();
-                    w.smithOutputReady=false;KingdomNpcData.get(server).setDirty();return true;
+            ItemStack inAnvil=anvilInv.getStackInSlot(0);
+            if(order.phase()==KingdomSmithyOrdersData.Phase.READY){
+                String actual=BuiltInRegistries.ITEM.getKey(inAnvil.getItem()).toString();
+                if(!actual.equals(order.pendingItem())||inAnvil.getCount()!=order.pendingCount()){
+                    orders.note(company,w.entityId,
+                        "Готовое изделие в наковальне изменено: нужна ручная проверка, перенос остановлен.");
+                    return false;
                 }
-                return false; // Real output waits until the finished chest has space.
+                if(!intoChest(finished,inAnvil)){
+                    orders.note(company,w.entityId,"Готовый склад полон или не принимает изделие TFC.");
+                    return false;
+                }
+                // These operations execute in one server tick: anvil stack is moved,
+                // not copied into the production count.
+                anvilInv.setStackInSlot(0,ItemStack.EMPTY);anvil.setChanged();
+                orders.delivered(company,w.entityId,actual,inAnvil.getCount());
+                w.smithOutputReady=false;KingdomNpcData.get(server).setDirty();
+                return true;
             }
-            if(anvilWork(level,npc,anvil,anvilInv,w))return true;
+            if(w.smithOutputReady){
+                orders.note(company,w.entityId,"Изделие без подтверждённого заказа: требуется проверка владельца.");
+                return false;
+            }
+            if(!order.input().equals(BuiltInRegistries.ITEM.getKey(inAnvil.getItem()).toString())){
+                orders.note(company,w.entityId,"Наковальня занята другим материалом; освободите её вручную.");
+                return false;
+            }
+            if(anvilWork(level,npc,anvil,anvilInv,w,order)){
+                orders.working(company,w.entityId);return true;
+            }
+            orders.note(company,w.entityId,"Ожидание нагрева заготовки, молота или выполнения правил ковки.");
             return false;
         }
-        if(w.smithOutputReady){w.smithOutputReady=false;KingdomNpcData.get(server).setDirty();}
+        if(order.phase()==KingdomSmithyOrdersData.Phase.READY||w.smithOutputReady){
+            orders.note(company,w.entityId,"В наковальне нет ожидаемого изделия: задание остановлено.");
+            return false;
+        }
         if(!near(npc,forgePos)){walk(npc,forgePos);return false;}
         IItemHandlerModifiable forgeInv=inventory(forge);
-        if(forgeInv==null||forgeInv.getSlots()<14)return false;
-        for(int slot=10;slot<=13;slot++){
-            ItemStack mold=forgeInv.getStackInSlot(slot);
-            if(cooledFilledMold(mold)&&intoChest(finished,mold)){
-                forgeInv.setStackInSlot(slot,ItemStack.EMPTY);
-                forge.setChanged();return true;
-            }
+        if(forgeInv==null||forgeInv.getSlots()<14){
+            orders.note(company,w.entityId,"Горн TFC недоступен.");
+            return false;
         }
+        // Casting is a separate, unsupported production mode. This anvil order
+        // must never count cooled molds or unrelated objects as its output.
         // 1: fuel is consumed from the actual raw warehouse, by native TFC forge.
         if(fromChest(raw,forge,forgeInv,0,KingdomTfcSmithWork::forgeFuel)){
+            orders.note(company,w.entityId,"Топливо TFC доставлено в горн.");
             KingdomNpcData.get(server).setDirty();return true;
         }
         // 2: warm native forge, using its real light/consumeFuel method.
@@ -473,23 +537,41 @@ public final class KingdomTfcSmithWork {
             if(!Boolean.TRUE.equals(forge.getClass().getMethod("light",
                     net.minecraft.world.level.block.state.BlockState.class)
                     .invoke(forge,level.getBlockState(forgePos))))return false;
-        }catch(ReflectiveOperationException|RuntimeException ex){return false;}
-        // 3: actual molten metal molds/casting vessels occupy native extra slots.
-        for(int slot=10;slot<=13;slot++)if(fromChest(raw,forge,forgeInv,slot,
-                stack->!forgeFuel(stack)))return true;
-        // 4: input ores/metal are heated by TFC, never generated by Kingdom.
+        }catch(ReflectiveOperationException|RuntimeException ex){
+            orders.note(company,w.entityId,"Горн не разожжён: нет действительного топлива или условия TFC.");
+            return false;
+        }
+        // Anvil orders DO NOT auto-handle molds, ingots or smelting vessels.
+        // The only raw input is an already real, TFC-forge-compatible metal
+        // for the explicitly selected native anvil recipe.
         for(int slot=5;slot<=9;slot++)if(fromChest(raw,forge,forgeInv,slot,
-                stack->!forgeFuel(stack)&&!nativeValid(forge,10,stack)))return true;
-        if(anvilInv.getStackInSlot(2).isEmpty())return false;
+                stack->order.input().equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
+                    &&forgeCapability(stack)!=null
+                    &&selectUniqueAnvilRecipePreflight(level,anvil,stack,w))){
+            orders.working(company,w.entityId);
+            orders.note(company,w.entityId,"Настоящая TFC-заготовка помещена в горн для нагрева.");
+            return true;
+        }
+        if(anvilInv.getStackInSlot(2).isEmpty()){
+            orders.note(company,w.entityId,"Положите настоящий молот TFC в слот наковальни.");
+            return false;
+        }
         for(int slot=5;slot<=9;slot++){
             ItemStack heated=forgeInv.getStackInSlot(slot);
-            if(heated.isEmpty()||!hotEnough(heated)||forgeCapability(heated)==null)continue;
-            if(!selectUniqueAnvilRecipePreflight(level,anvil,heated,w))continue;
+            if(heated.isEmpty()||!hotEnough(heated)||forgeCapability(heated)==null
+                ||!order.input().equals(BuiltInRegistries.ITEM.getKey(heated.getItem()).toString()))continue;
+            if(!nativeValid(anvil,0,heated)
+                ||!selectUniqueAnvilRecipePreflight(level,anvil,heated,w))continue;
             // Move the SAME real hot stack to the anvil, with no copy left in forge.
             anvilInv.setStackInSlot(0,heated.copy());
             forgeInv.setStackInSlot(slot,ItemStack.EMPTY);
-            forge.setChanged();anvil.setChanged();return true;
+            forge.setChanged();anvil.setChanged();
+            orders.working(company,w.entityId);
+            orders.note(company,w.entityId,"Нагретый металл передан на настоящую TFC-наковальню.");
+            return true;
         }
+        orders.note(company,w.entityId,
+            "Ожидание: подходящее сырьё и топливо TFC, нагрев или доступная наковальня.");
         return false;
     }
     private static boolean selectUniqueAnvilRecipePreflight(ServerLevel level,BlockEntity anvil,
