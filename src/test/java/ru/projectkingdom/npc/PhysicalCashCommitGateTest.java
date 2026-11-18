@@ -64,7 +64,7 @@ final class PhysicalCashCommitGateTest {
     @Test void snapshotMismatchOnRollbackCannotBeHidden() {
         int[] slots={100,0};
         assertThrows(IllegalStateException.class,()->PhysicalCashCommitGate.commit(
-                ()->slots[0]-60,()->{slots[1]+=60;throw new IllegalStateException("target");},
+                ()->{slots[0]-=60;},()->{slots[1]+=60;throw new IllegalStateException("target");},
                 ()->{},()->slots[0]=100,()->slots[0]==100&&slots[1]==0));
     }
 
