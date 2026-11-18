@@ -28,10 +28,35 @@ jobs:
           chmod +x gradlew
           ./gradlew test build --no-daemon
           python3 03_verify_project.py
+          python3 -m unittest discover -s validation/runtime_smoke -p "test_*.py"
 
       - name: Upload mod JAR
         uses: actions/upload-artifact@v4
         with:
           name: kingdomnpc-stage0
           path: build/libs/kingdomnpc-*.jar
+          if-no-files-found: error
+
+  runtime-artifact:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download exact runtime-tested PR64 JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: kingdomnpc-stage0
+          run-id: 44356001242
+          github-token: ${{ github.token }}
+          path: build/pr64-artifact/
+
+      - name: Verify and package exact runtime-tested JAR
+        run: python3 validation/runtime_smoke/package.py --jar build/pr64-artifact/kingdomnpc-0.1.0-stage0-voice3.3.jar --jar-commit 00ace4ef9d00c2ddcba3b7b7525418d0cf6badea
+      - name: Upload reproducible runtime smoke artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdom-runtime-smoke
+          path: build/runtime-smoke-artifact/
           if-no-files-found: error
