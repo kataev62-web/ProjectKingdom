@@ -23,7 +23,7 @@ public final class KingdomLivestockWork {
     private KingdomLivestockWork(){}
     private static boolean loaded,compatible;
     private static Class<?> tfcAnimal;
-    private static Method hungry,isFood,getCalendar,getTotalDays,lastFed,getFamiliarity,
+    private static Method hungry,isFood,getCalendar,getTotalDays,lastFed,getAgeType,getFamiliarity,
         setFamiliarity,getFamiliarityCap,setFamiliarityDecay;
     private static boolean init(){
         if(loaded)return compatible;
@@ -37,6 +37,7 @@ public final class KingdomLivestockWork {
             // Call the public TFC calendar interface; concrete implementations may be non-public.
             getTotalDays=Class.forName("net.dries007.tfc.util.calendar.ICalendar").getMethod("getTotalDays");
             lastFed=tfcAnimal.getMethod("setLastFed",long.class);
+            getAgeType=tfcAnimal.getMethod("getAgeType");
             getFamiliarity=tfcAnimal.getMethod("getFamiliarity");
             setFamiliarity=tfcAnimal.getMethod("setFamiliarity",float.class);
             getFamiliarityCap=tfcAnimal.getMethod("getAdultFamiliarityCap");
@@ -66,10 +67,14 @@ public final class KingdomLivestockWork {
             long day=((Number)getTotalDays.invoke(calendar)).longValue();
             float familiar=((Number)getFamiliarity.invoke(animal)).floatValue();
             float cap=((Number)getFamiliarityCap.invoke(animal)).floatValue();
-            // Native TFC properties, following its feed-state semantics.
+            boolean child="CHILD".equals(String.valueOf(getAgeType.invoke(animal)));
+            // Match native TFC: juveniles have no adult familiarity cap;
+            // adults already at/above the cap must not be reduced.
             lastFed.invoke(animal,day);
             setFamiliarityDecay.invoke(animal,day);
-            setFamiliarity.invoke(animal,Math.min(cap,familiar+0.06f));
+            if(child||familiar<cap)
+                setFamiliarity.invoke(animal,child ? familiar+0.06f
+                    : Math.min(cap,familiar+0.06f));
             animal.heal(1f);
             item.shrink(1);
             return true;
