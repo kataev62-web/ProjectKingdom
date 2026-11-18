@@ -119,7 +119,7 @@ public final class KingdomMineStructureWork {
                     !=KingdomMineSupportSafety.Result.SAFE)return Result.UNSAFE;
             var drops=Block.getDrops(state,level,at,level.getBlockEntity(at),
                 npc,w.fieldTool);
-            if(!NpcFieldWork.canFit(w,drops))return Result.UNSAFE;
+            if(!KingdomMineDelivery.canCarry(w,drops))return Result.UNSAFE;
             if(!level.setBlock(at,Blocks.AIR.defaultBlockState(),3))return Result.UNSAFE;
             for(ItemStack drop:drops)NpcFieldWork.put(w,drop);
             w.fieldTool.hurt(1,level.random,null);
