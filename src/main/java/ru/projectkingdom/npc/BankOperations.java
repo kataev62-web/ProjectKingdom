@@ -26,6 +26,9 @@ public final class BankOperations {
             Collections.synchronizedMap(new WeakHashMap<>());
     private static final Set<MinecraftServer> FAILED=
             Collections.newSetFromMap(new WeakHashMap<>());
+    private record Recent(UUID town,UUID recipient,BankOperationLedger.Kind kind,long amount,long tick) {}
+    private static final Map<MinecraftServer,Map<UUID,Recent>> RECENT=
+            Collections.synchronizedMap(new WeakHashMap<>());
     private BankOperations() {}
 
     public static BankOperationLedger journal(MinecraftServer server) {
@@ -70,6 +73,14 @@ public final class BankOperations {
                 &&actor.getUUID().equals(
                         KingdomAdministrationData.get(actor.getServer()).founder(town));
         if(!atBank&&!remoteFounderDonation)return false;
+        long tick=actor.serverLevel().getGameTime();
+        synchronized(RECENT){
+            Recent last=RECENT.computeIfAbsent(actor.getServer(),k->new java.util.HashMap<>())
+                    .get(actor.getUUID());
+            if(last!=null&&town.equals(last.town())&&recipient.equals(last.recipient())
+                    &&kind==last.kind()&&amount==last.amount()
+                    &&tick>=last.tick()&&tick-last.tick()<=10)return false;
+        }
         BankOperationLedger log=journal(actor.getServer());
         if(log==null||log.blocked(town))return false;
         var before=snapshot(actor,actor,town,recipient,remoteFounderDonation);
@@ -91,6 +102,10 @@ public final class BankOperations {
         if(!log.receipt(tx,after)) {
             System.err.println("[Kingdom bank] Unsafe bank completion; quarantine "+tx.id());
             return false;
+        }
+        synchronized(RECENT){
+            RECENT.computeIfAbsent(actor.getServer(),k->new java.util.HashMap<>())
+                    .put(actor.getUUID(),new Recent(town,recipient,kind,amount,tick));
         }
         return true;
     }
