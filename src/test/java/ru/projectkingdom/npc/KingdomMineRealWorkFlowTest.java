@@ -93,6 +93,25 @@ final class KingdomMineRealWorkFlowTest {
             assertEquals(i,copy.fieldInventory.get(i).getTag().getInt("ore_nbt"));
     }
 
+    @Test void shovelToPickaxeSwapCannotDropUnstowableOldToolAtRestart() throws Exception {
+        var w=worker();
+        w.fieldTool=new ItemStack(Items.IRON_SHOVEL);
+        w.fieldTool.getOrCreateTag().putString("owner","original-miner");
+        for(int i=0;i<36;i++){
+            var occupied=new ItemStack(Items.DIAMOND_SWORD);
+            occupied.getOrCreateTag().putInt("slot",i);
+            w.fieldInventory.add(occupied);
+        }
+        assertFalse(KingdomMineDelivery.canCarry(w,List.of(w.fieldTool)));
+        var afterTakingTool=new java.util.ArrayList<ItemStack>(w.fieldInventory.subList(1,36));
+        assertTrue(KingdomMineDelivery.canCarryStacks(afterTakingTool,List.of(w.fieldTool)));
+        assertEquals("original-miner",w.fieldTool.getTag().getString("owner"));
+        String tools=Files.readString(Path.of(
+            "src/main/java/ru/projectkingdom/npc/KingdomMineTools.java"));
+        assertTrue(tools.contains("KingdomMineDelivery.canCarryStacks(remaining"));
+        assertTrue(tools.contains("KingdomMineDelivery.canCarry(worker,"));
+    }
+
     @Test void constructionSuppliesAndToolsNeverCountAsDeliveredOre(){
         var w=worker();
         w.fieldInventory.add(new ItemStack(Items.COBBLESTONE,20));
