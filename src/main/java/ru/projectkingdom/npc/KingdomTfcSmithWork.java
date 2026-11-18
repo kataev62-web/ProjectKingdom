@@ -422,11 +422,7 @@ public final class KingdomTfcSmithWork {
         }
     }
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w){
-        if(w==null||!"smith".equals(w.job)||w.employer==null||!w.hasWorkstation
-                ||!w.hasSource||!w.hasDestination||w.contractPaused
-                ||!NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)
-                ||!KingdomNpcDuty.autonomousOrder(w.order)
-                ||!"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)
+        if(w==null||!"smith".equals(w.job)||w.employer==null
                 ||!ModList.get().isLoaded("tfc"))return false;
         var server=level.getServer();
         var enterprise=KingdomEnterpriseData.get(server);
@@ -435,6 +431,21 @@ public final class KingdomTfcSmithWork {
         var orders=KingdomSmithyOrdersData.get(server);
         var order=orders.order(company);
         if(order==null||!order.actionable()||!order.worker().equals(w.entityId))return false;
+        if(w.contractPaused||!NpcLife.ableToWork(w.ageYears,w.hunger,w.energy,w.contractPaused)){
+            orders.note(company,w.entityId,w.contractPaused
+                ?"Работа остановлена: задолженность по зарплате."
+                :"Работа остановлена: нужен отдых, питание или безопасность NPC.");
+            return false;
+        }
+        if(!KingdomNpcDuty.autonomousOrder(w.order)
+                ||!"CONTINUE_ASSIGNED_JOB".equals(w.autonomousIntent)){
+            orders.note(company,w.entityId,"Ожидание рабочего дня или приказа NPC «Работать».");
+            return false;
+        }
+        if(!w.hasWorkstation||!w.hasSource||!w.hasDestination){
+            orders.note(company,w.entityId,"Требуется рабочий горн и оба привязанных склада.");
+            return false;
+        }
         // The enterprise order, not a stale NPC menu selection, is authoritative.
         if(!order.recipe().equals(w.smithRecipeId)){
             w.smithRecipeId=order.recipe();KingdomNpcData.get(server).setDirty();
@@ -481,7 +492,10 @@ public final class KingdomTfcSmithWork {
         // 5: a REAL TFC hammer is placed in the anvil's own hammer slot by player;
         // it is not demanded from a warehouse chest.
         if(!anvilInv.getStackInSlot(0).isEmpty()){
-            if(!near(npc,anvilPos)){walk(npc,anvilPos);return false;}
+            if(!near(npc,anvilPos)){
+                orders.note(company,w.entityId,"Кузнец идёт к настоящей наковальне.");
+                walk(npc,anvilPos);return false;
+            }
             ItemStack inAnvil=anvilInv.getStackInSlot(0);
             if(order.phase()==KingdomSmithyOrdersData.Phase.READY){
                 String actual=BuiltInRegistries.ITEM.getKey(inAnvil.getItem()).toString();
@@ -536,7 +550,10 @@ public final class KingdomTfcSmithWork {
         try{
             if(!Boolean.TRUE.equals(forge.getClass().getMethod("light",
                     net.minecraft.world.level.block.state.BlockState.class)
-                    .invoke(forge,level.getBlockState(forgePos))))return false;
+                    .invoke(forge,level.getBlockState(forgePos)))){
+                orders.note(company,w.entityId,"Горн TFC не разожжён: нужен настоящий топливный ресурс.");
+                return false;
+            }
         }catch(ReflectiveOperationException|RuntimeException ex){
             orders.note(company,w.entityId,"Горн не разожжён: нет действительного топлива или условия TFC.");
             return false;
@@ -544,13 +561,24 @@ public final class KingdomTfcSmithWork {
         // Anvil orders DO NOT auto-handle molds, ingots or smelting vessels.
         // The only raw input is an already real, TFC-forge-compatible metal
         // for the explicitly selected native anvil recipe.
-        for(int slot=5;slot<=9;slot++)if(fromChest(raw,forge,forgeInv,slot,
-                stack->order.input().equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
-                    &&forgeCapability(stack)!=null
-                    &&selectUniqueAnvilRecipePreflight(level,anvil,stack,w))){
-            orders.working(company,w.entityId);
-            orders.note(company,w.entityId,"Настоящая TFC-заготовка помещена в горн для нагрева.");
-            return true;
+        // Keep at most one matching workpiece in flight. Prevents a one-piece
+        // order from consuming several expensive ingots while the first heats.
+        boolean alreadyHeating=false;
+        for(int slot=5;slot<=9;slot++){
+            ItemStack heating=forgeInv.getStackInSlot(slot);
+            if(!heating.isEmpty()&&order.input().equals(
+                    BuiltInRegistries.ITEM.getKey(heating.getItem()).toString()))
+                alreadyHeating=true;
+        }
+        if(!alreadyHeating){
+            for(int slot=5;slot<=9;slot++)if(fromChest(raw,forge,forgeInv,slot,
+                    stack->order.input().equals(BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())
+                        &&forgeCapability(stack)!=null
+                        &&selectUniqueAnvilRecipePreflight(level,anvil,stack,w))){
+                orders.working(company,w.entityId);
+                orders.note(company,w.entityId,"Настоящая TFC-заготовка помещена в горн для нагрева.");
+                return true;
+            }
         }
         if(anvilInv.getStackInSlot(2).isEmpty()){
             orders.note(company,w.entityId,"Положите настоящий молот TFC в слот наковальни.");
