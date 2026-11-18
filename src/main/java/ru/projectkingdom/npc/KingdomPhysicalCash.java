@@ -77,7 +77,7 @@ public final class KingdomPhysicalCash {
         long remaining=total;
         for(int i=0;i<slots.size()&&remaining>0;i++){
             ItemStack present=slots.get(i);
-            if(!present.is(coin))continue;
+            if(!present.is(coin) || present.hasTag())continue;
             int available=Math.min(present.getMaxStackSize(),container.getMaxStackSize())-present.getCount();
             if(available<=0)continue;
             int move=(int)Math.min(remaining,available);
@@ -111,24 +111,17 @@ public final class KingdomPhysicalCash {
         if(vault==null||amount<1||amount>MAX)return null;
         long[] available={0,0,0};
         for(int i=0;i<vault.getContainerSize();i++)for(int k=0;k<COINS.length;k++)
-            if(vault.getItem(i).is(COINS[k]))available[k]+=vault.getItem(i).getCount();
-        long[] selection=null;
-        long maxGold=Math.min(available[0],amount/VALUES[0]);
-        for(long gold=maxGold;gold>=0&&selection==null;gold--){
-            long afterGold=amount-gold*VALUES[0];
-            long maxSilver=Math.min(available[1],afterGold/VALUES[1]);
-            long minSilver=Math.max(0,(afterGold-available[2]+99)/100);
-            if(minSilver>maxSilver)continue;
-            long silver=maxSilver,copper=afterGold-silver*100;
-            if(copper<=available[2])selection=new long[]{gold,silver,copper};
-        }
+            if(vault.getItem(i).is(COINS[k]) && !vault.getItem(i).hasTag())available[k]+=vault.getItem(i).getCount();
+        PhysicalCoinSelection.Coins selection = PhysicalCoinSelection.select(
+                amount, available[0], available[1], available[2]);
         if(selection==null)return null;
+        long[] selected={selection.gold(),selection.silver(),selection.copper()};
         var slots=snapshot(vault);
         for(int k=0;k<COINS.length;k++) {
-            long need=selection[k];
+            long need=selected[k];
             for(int i=0;i<slots.size()&&need>0;i++){
                 ItemStack stack=slots.get(i);
-                if(!stack.is(COINS[k]))continue;
+                if(!stack.is(COINS[k]) || stack.hasTag())continue;
                 int take=(int)Math.min(need,stack.getCount());
                 stack.shrink(take);need-=take;
             }
@@ -136,15 +129,42 @@ public final class KingdomPhysicalCash {
         }
         return slots;
     }
-    /** Transfer verified cash value between two distinct real business cashboxes. */
+    /**
+     * Deposits exactly the coin denominations removed by planWithdrawal.
+     * A 100-copper move may not silently replace 100 copper coins with 1 silver coin.
+     * Tagged/NBT coins are not fungible with ordinary coins and must be reconciled.
+     */
+    private static List<ItemStack> planExactMoveDeposit(
+            Container source, List<ItemStack> afterSource, Container target) {
+        if(source==null||afterSource==null||target==null
+                ||afterSource.size()!=source.getContainerSize())return null;
+        long[] moved={0,0,0};
+        for(int i=0;i<afterSource.size();i++){
+            ItemStack before=source.getItem(i), after=afterSource.get(i);
+            if(before.getCount()==after.getCount())continue;
+            if(before.getCount()<after.getCount()||before.hasTag())return null;
+            boolean found=false;
+            for(int k=0;k<COINS.length;k++)if(before.is(COINS[k])){
+                moved[k]+=before.getCount()-after.getCount();
+                found=true;break;
+            }
+            if(!found)return null;
+        }
+        List<ItemStack> targetSlots=snapshot(target);
+        for(int k=0;k<COINS.length;k++)
+            if(moved[k]>0&&!insert(target,targetSlots,COINS[k],moved[k]))return null;
+        return targetSlots;
+    }
+    /** Transfer actual coin items between different cashboxes; never change denominations. */
     public static boolean canMove(Container source,Container target,long amount) {
-        return source!=null&&target!=null&&source!=target
-            &&planWithdrawal(source,amount)!=null&&planDeposit(target,amount)!=null;
+        if(source==null||target==null||source==target)return false;
+        List<ItemStack> taken=planWithdrawal(source,amount);
+        return taken!=null&&planExactMoveDeposit(source,taken,target)!=null;
     }
     public static boolean move(Container source,Container target,long amount) {
         if(source==null||target==null||source==target)return false;
         List<ItemStack> taken=planWithdrawal(source,amount);
-        List<ItemStack> added=planDeposit(target,amount);
+        List<ItemStack> added=planExactMoveDeposit(source,taken,target);
         if(taken==null||added==null)return false;
         apply(source,taken);
         apply(target,added);
