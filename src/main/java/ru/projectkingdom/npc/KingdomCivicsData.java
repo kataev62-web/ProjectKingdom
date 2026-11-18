@@ -279,7 +279,9 @@ public final class KingdomCivicsData extends SavedData {
         if(!AdministrativePermissionService.mayPerformFounderOnly(actor,administration.founder(townId)))return false;
         if(replacement.equals(town.mayor()))return false;
         towns.put(town.id(),new Town(town.id(),town.name(),replacement,town.nation(),town.treasury()));
-        administration.appoint(townId,actor,town.mayor(),replacement,MunicipalRole.MAYOR);setDirty();return true;
+        // A mayoral handover must REVOKE the old MAYOR badge, not append a new one.
+        // Otherwise former mayors still pass TOWN_HALL management permission checks.
+        administration.adminChangeMayor(townId,town.mayor(),replacement);setDirty();return true;
     }
     public boolean landOfficeSetZone(UUID townId,UUID actor,String dimension,int x,int z,Zone zone) {
         Plot plot=plots.get(key(dimension,x,z));
