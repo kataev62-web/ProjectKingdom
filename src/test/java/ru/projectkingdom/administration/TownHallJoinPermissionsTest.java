@@ -95,6 +95,27 @@ final class TownHallJoinPermissionsTest {
         assertEquals(founder, reloaded.founder(city));
     }
 
+    @Test void legacySavedMayorBadgesAreReconciledIdempotently() throws Exception {
+        UUID town = UUID.randomUUID(), founder = UUID.randomUUID();
+        UUID former = UUID.randomUUID(), stray = UUID.randomUUID(), current = UUID.randomUUID();
+        var admin = new KingdomAdministrationData();
+        assertTrue(admin.ensureFounder(town, founder));
+        assertTrue(admin.appoint(town, founder, former, former, MunicipalRole.MAYOR));
+        assertTrue(admin.appoint(town, founder, former, stray, MunicipalRole.MAYOR));
+        var loaded = KingdomAdministrationData.fromTag(admin.save(new CompoundTag()));
+        loaded.adminChangeMayor(town, null, current);
+        loaded.adminChangeMayor(town, null, current);
+        assertTrue(loaded.roles(town, former).isEmpty());
+        assertTrue(loaded.roles(town, stray).isEmpty());
+        assertEquals(Set.of(MunicipalRole.MAYOR), loaded.roles(town, current));
+        assertEquals(founder, loaded.founder(town));
+
+        var source=Files.readString(Path.of(
+            "src/main/java/ru/projectkingdom/administration/KingdomAdministrationData.java"));
+        assertTrue(source.contains("data.adminChangeMayor(town.id(),null,town.mayor())"),
+            "Existing worlds must be repaired on normal SavedData access");
+    }
+
     @Test void packetAndMayorTransferUseAuthoritativeServerState() throws Exception {
         String action=Files.readString(Path.of("src/main/java/ru/projectkingdom/administration/AdministrativeActionPacket.java"));
         String text=Files.readString(Path.of("src/main/java/ru/projectkingdom/administration/AdministrativeTextPacket.java"));
