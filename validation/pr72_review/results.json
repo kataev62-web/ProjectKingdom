@@ -1,0 +1,35 @@
+{
+  "candidate": "6bdf94853af9968c0f2fce97c5593aef7560d0d7",
+  "counts": {
+    "tests": 590,
+    "failures": 4,
+    "errors": 0,
+    "skipped": 0
+  },
+  "failures": [
+    {
+      "test": "rejectedForgeInsertionMustNotConsumeRawMetal()",
+      "message": "org.opentest4j.AssertionFailedError: Conservation after rejected insertion ==> expected: <10> but was: <9>"
+    },
+    {
+      "test": "copyingRawInventoryMustNotDuplicateMetal()",
+      "message": "org.opentest4j.AssertionFailedError: Conservation after loading actual forge slot ==> expected: <10> but was: <11>"
+    },
+    {
+      "test": "deliveryMustNotReportSuccessWhenWriteWasRejected()",
+      "message": "org.opentest4j.AssertionFailedError: Otherwise tick clears the anvil and credits an undelivered product ==> expected: <false> but was: <true>"
+    },
+    {
+      "test": "mergeIntoCopyingInventoryMustActuallyIncreaseStock()",
+      "message": "org.opentest4j.AssertionFailedError: No source removal or progress credit before actual stock increase ==> expected: <12> but was: <10>"
+    }
+  ],
+  "native_api": {
+    "TFC": "3.2.26",
+    "loader": "cpw.mods.modlauncher.TransformingClassLoader",
+    "getId": "MISSING",
+    "m_6423_": "PRESENT"
+  },
+  "baseline": "49db1b411c43653c29b55275126cdf9116b3236c",
+  "baseline_gradle": "PASS; Java tests UP-TO-DATE from 592-test base; not a test of PR72"
+}
