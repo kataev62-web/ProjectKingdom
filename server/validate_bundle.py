@@ -54,8 +54,12 @@ def check_properties() -> None:
           "sync-chunk-writes=true: chunk writes are flushed, a settled delivery survives a power loss")
     check(values.get("white-list") == "true" and values.get("enforce-whitelist") == "true",
           "the white list is enforced")
-    check(values.get("online-mode") == "false",
-          "online-mode=false: the launcher token and the white list stay the authority")
+    check(values.get("online-mode") == "true",
+          "online-mode=true: the launcher token gate is not wired into the login flow yet")
+    check(values.get("spawn-animals") == "true",
+          "spawn-animals=true: the ranch counts and feeds real animals")
+    check(values.get("spawn-npcs") == "true",
+          "spawn-npcs=true: the professions work with real villagers")
     check(values.get("op-permission-level") == "4", "operators keep the full operator level")
     check(values.get("spawn-protection", "0").isdigit(), "spawn-protection is a number")
 
@@ -212,6 +216,73 @@ def check_restore_script() -> None:
     check("world.before-restore" in text, "the restore keeps the current world aside")
 
 
+
+def check_backup_failure() -> None:
+    """A failed flush must not leave the world frozen."""
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        instance = root / "run"
+        (instance / "world").mkdir(parents=True)
+        (instance / "world" / "level.dat").write_bytes(b"level")
+        log = root / "rcon.log"
+        fake = root / "fake_rcon.py"
+        fake.write_text(
+            "#!/usr/bin/env python3\n"
+            "import sys\n"
+            "from pathlib import Path\n"
+            "Path(__import__('os').environ['KINGDOM_TEST_RCON_LOG']).open('a').write(' '.join(sys.argv[1:]) + chr(10))\n"
+            "if any('save-all' in arg for arg in sys.argv):\n"
+            "    print('rcon error: the world did not answer')\n"
+            "    raise SystemExit(1)\n"
+            "print('Saved the game')\n", encoding="utf-8")
+        environment = dict(os.environ)
+        environment.update({
+            "KINGDOM_SERVER_DIR": str(instance),
+            "KINGDOM_RCON_BIN": str(fake),
+            "KINGDOM_RCON_PASSWORD": "test",
+            "KINGDOM_FORCE_LIVE": "1",
+            "KINGDOM_TEST_RCON_LOG": str(log),
+        })
+        result = subprocess.run(["bash", str(HERE / "backup_world.sh")],
+                                capture_output=True, text=True, env=environment)
+        check(result.returncode != 0, "a failed flush must fail the backup")
+        calls = log.read_text(encoding="utf-8") if log.exists() else ""
+        check("save-off" in calls, "the saving is switched off before the copy")
+        check("save-on" in calls, "the saving is switched on again even when the backup fails")
+        check("saving is enabled again" in result.stdout.lower()
+              or "save-on" in result.stdout.lower()
+              or "enabled again" in result.stdout,
+              "the operator is told that the world is writable again")
+
+
+def check_restore() -> None:
+    """A restore must bring the world back and keep the old one aside."""
+    with tempfile.TemporaryDirectory() as folder:
+        root = Path(folder)
+        source = root / "source" / "world"
+        (source / "data").mkdir(parents=True)
+        (source / "level.dat").write_bytes(b"level")
+        (source / "marker.txt").write_text("restored", encoding="utf-8")
+        archive = root / "backup.tar.gz"
+        with tarfile.open(archive, "w:gz") as tar:
+            tar.add(source, arcname="world")
+
+        instance = root / "run"
+        (instance / "world").mkdir(parents=True)
+        (instance / "world" / "old.txt").write_text("old", encoding="utf-8")
+        environment = dict(os.environ)
+        environment["KINGDOM_SERVER_DIR"] = str(instance)
+        result = subprocess.run(["bash", str(HERE / "restore_world.sh"), str(archive)],
+                                capture_output=True, text=True, env=environment)
+        check(result.returncode == 0, "the restore must succeed on a valid archive")
+        check((instance / "world" / "marker.txt").is_file(), "the world of the archive must be restored")
+        check(not (instance / "world" / "old.txt").exists(), "the old world must not stay in place")
+        kept = list(instance.glob("world.before-restore-*"))
+        check(bool(kept), "the previous world must be kept aside")
+        if kept:
+            check((kept[0] / "old.txt").is_file(), "the kept world must hold the previous state")
+
+
 def main() -> int:
     check_properties()
     check_eula()
@@ -222,6 +293,8 @@ def main() -> int:
     check_admin()
     check_verify_backup()
     check_restore_script()
+    check_backup_failure()
+    check_restore()
     if FAILURES:
         print(f"\n{len(FAILURES)} check(s) failed")
         return 1
