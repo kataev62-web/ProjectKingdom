@@ -37,18 +37,11 @@ public final class KingdomNpcWorkDiagnostics {
     }
     private static Status smith(ServerLevel level,KingdomNpcData.Worker w){
         var server=level.getServer();
+        var site=KingdomSmithySite.inspect(level,w);
+        if(!site.ready())return warn(site.message());
         UUID firm=company(w);
-        if(firm==null)return warn("Кузнец: не выбрана кузница");
-        var enterprises=KingdomEnterpriseData.get(server);
-        if(enterprises.kind(firm)!=EnterpriseKind.SMITHY
-                ||enterprises.find(firm)==null)return warn("Кузнец: выбрано неверное предприятие");
         var room=EnterpriseBuildingRegistration.get(server).room(firm);
-        if(room==null)return warn("Кузнец: привяжите здание к этой кузнице");
-        if(!w.hasWorkstation)return warn("Кузнец: назначьте горн TFC");
         BlockPos forge=new BlockPos(w.workX,w.workY,w.workZ);
-        if(!room.contains(forge))return warn("Кузнец: горн находится за границами здания");
-        if(!level.hasChunkAt(forge))return warn("Кузнец: участок с горном не загружен");
-        if(!KingdomTfcSmithWork.isForge(level,w))return warn("Кузнец: требуется настоящий горн TFC");
         boolean foundAnvil=false;
         for(int x=Math.max(room.minX(),forge.getX()-8);x<=Math.min(room.maxX(),forge.getX()+8)&&!foundAnvil;x++)
             for(int z=Math.max(room.minZ(),forge.getZ()-8);z<=Math.min(room.maxZ(),forge.getZ()+8)&&!foundAnvil;z++)
@@ -56,7 +49,9 @@ public final class KingdomNpcWorkDiagnostics {
                     BlockPos at=new BlockPos(x,y,z);
                     if(!level.hasChunkAt(at))continue;
                     var e=level.getBlockEntity(at);
-                    if(e!=null && e.getClass().getName().endsWith("AnvilBlockEntity")){
+                    if(e!=null && e.getClass().getName().equals(
+                            "net.dries007.tfc.common.blockentities.AnvilBlockEntity")
+                            &&KingdomTerritories.get(server).canUse(level,at,w.employer)){
                         foundAnvil=true;break;
                     }
                 }
