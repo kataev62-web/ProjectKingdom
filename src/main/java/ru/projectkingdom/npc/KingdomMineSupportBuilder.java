@@ -114,6 +114,8 @@ public final class KingdomMineSupportBuilder {
             npc.getNavigation().moveTo(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5,0.75);
             return Result.WALKING;
         }
+        ItemStack preview=source.getItem(slot).copy();preview.setCount(8);
+        if(!KingdomMineDelivery.canCarry(worker,java.util.List.of(preview)))return Result.NO_STOCK;
         ItemStack taken=source.removeItem(slot,8);
         if(taken.getCount()!=8 || type(taken).isEmpty()){
             if(!taken.isEmpty())NpcFieldWork.put(worker,taken);
