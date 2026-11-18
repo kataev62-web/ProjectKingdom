@@ -20,7 +20,7 @@ public final class KingdomTfcButcheryWork {
     private KingdomTfcButcheryWork(){}
     private static final Map<UUID,KingdomNpcData.Worker> ACTIVE=new HashMap<>();
     private static Class<?> animalProperties;
-    private static Method getAgeType,isFertilized,getCalendar;
+    private static Method getAgeType,isFertilized,getCalendar,getTotalDays;
     private static boolean loaded,compatible;
     private static boolean init(){
         if(loaded)return compatible;
@@ -31,6 +31,8 @@ public final class KingdomTfcButcheryWork {
             getAgeType=animalProperties.getMethod("getAgeType");
             isFertilized=animalProperties.getMethod("isFertilized");
             getCalendar=animalProperties.getMethod("getCalendar");
+            // Reflect on the public TFC interface, not its possibly non-public implementation.
+            getTotalDays=Class.forName("net.dries007.tfc.util.calendar.ICalendar").getMethod("getTotalDays");
             compatible=true;
         }catch(ReflectiveOperationException|LinkageError ex){
             System.err.println("[Kingdom] TFC butchery disabled: "+ex);
@@ -47,7 +49,7 @@ public final class KingdomTfcButcheryWork {
     private static long tfcDay(Animal animal) {
         try {
             Object calendar=getCalendar.invoke(animal);
-            return ((Number)calendar.getClass().getMethod("getTotalDays").invoke(calendar)).longValue();
+            return ((Number)getTotalDays.invoke(calendar)).longValue();
         }catch(ReflectiveOperationException|RuntimeException ex){return -1;}
     }
 
@@ -57,16 +59,26 @@ public final class KingdomTfcButcheryWork {
             ||!pen.enabled()||!init())return false;
         var state=KingdomRanchPolicyData.get(level.getServer());
         var policy=state.policy(pen.id());
-        if(!policy.cullOld()||herd.size()<=policy.minHerd())return false;
-        for(Animal animal:herd){
-            if(!eligible(animal))continue;
+        UUID owner=KingdomNpcFarmOwner.workOwner(level,worker);
+        if(owner==null||!pen.dimension().equals(level.dimension().location().toString()))return false;
+        var claims=KingdomTerritories.get(level.getServer());
+        // Count only animals on accessible, loaded land: an unclaimed/foreign
+        // animal must neither inflate the herd threshold nor be culled.
+        List<Animal> ownedHerd=herd.stream()
+            .filter(animal->animal.isAlive()&&pen.contains(animal)
+                &&level.hasChunkAt(animal.blockPosition())
+                &&claims.canUse(level,animal.blockPosition(),owner)).toList();
+        if(!policy.cullOld()||ownedHerd.size()<=policy.minHerd())return false;
+        for(Animal animal:ownedHerd){
+            // Revalidate immediately before an irreversible action.
+            if(!claims.canUse(level,animal.blockPosition(),owner)||!eligible(animal))continue;
             long day=tfcDay(animal);
-            if(day<0 || !KingdomRanchPolicyData.mayCull(policy,day,herd.size(),true,false))
+            if(day<0 || !KingdomRanchPolicyData.mayCull(policy,day,ownedHerd.size(),true,false))
                 continue;
             if(npc.distanceToSqr(animal)>9){
                 npc.getNavigation().moveTo(animal,.75);return false;
             }
-            // The herd and land are already validated by KingdomLivestockWork.tick.
+            // Land ownership is checked here even if another caller supplies the herd.
             ACTIVE.put(animal.getUUID(),worker);
             try{
                 if(!animal.hurt(level.damageSources().mobAttack(npc),Float.MAX_VALUE))

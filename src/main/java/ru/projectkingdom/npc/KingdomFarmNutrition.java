@@ -82,6 +82,10 @@ public final class KingdomFarmNutrition {
                 if(fert==null||source.isEmpty()||!raw.canTakeItem(raw,i,source))continue;
                 float gain=((Number)getNutrientOfFertilizer.invoke(fert,primary)).floatValue();
                 if(gain<=0)continue;
+                // The NPC save format caps the carried list at 36 stacks. Never
+                // remove fertilizer from a real container unless it fits.
+                ItemStack one=source.copy();one.setCount(1);
+                if(!NpcFieldWork.canFit(worker,java.util.List.of(one)))continue;
                 ItemStack taken=raw.removeItem(i,1);
                 if(taken.isEmpty())return false;
                 raw.setChanged();NpcFieldWork.put(worker,taken);

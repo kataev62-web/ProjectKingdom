@@ -118,19 +118,26 @@ public final class KingdomTaxData extends SavedData {
         if(bankClaims>Long.MAX_VALUE-townClaims||backing<bankClaims+townClaims)
             return PaymentResult.LEGACY_RESERVE_MISMATCH;
         if(townClaims>Long.MAX_VALUE-requested)return PaymentResult.TREASURY_LIMIT;
-        if(!KingdomPhysicalCash.deposit(player,vault,requested))return PaymentResult.BANK_FULL;
+        if(!townId.equals(KingdomBankData.get(server).bankTown(player)))
+            return PaymentResult.BANK_NOT_CONNECTED;
+        boolean paid=BankOperations.execute(player,townId,player.getUUID(),
+                BankOperationLedger.Kind.TAX_PAYMENT,requested,()->{
+        if(!KingdomPhysicalCash.deposit(player,vault,requested))return false;
         if(!civics.depositVerifiedTax(townId,requested)){
             // No debt mutation occurred. Refund the exact physical value.
             // Fail closed for operator review only if the refund itself fails.
-            return KingdomPhysicalCash.withdraw(player,vault,requested)
-                ?PaymentResult.TREASURY_LIMIT:PaymentResult.PAYMENT_REVIEW_REQUIRED;
+            if(!KingdomPhysicalCash.withdraw(player,vault,requested))
+                throw new IllegalStateException("Tax refund failed; bank recovery required");
+            return false;
         }
         Debt previous=debts.get(key(townId,player.getUUID()));
-        if(previous==null||previous.amount()<requested)return PaymentResult.PAYMENT_REVIEW_REQUIRED;
+        if(previous==null||previous.amount()<requested)return false;
         debts.put(key(townId,player.getUUID()),new Debt(townId,player.getUUID(),
                 previous.amount()-requested,previous.lastDay()));
         setDirty();
-        return PaymentResult.SUCCESS;
+        return true;
+        });
+        return paid?PaymentResult.SUCCESS:PaymentResult.PAYMENT_REVIEW_REQUIRED;
     }
     public static String paymentMessage(PaymentResult result){
         return switch(result){
