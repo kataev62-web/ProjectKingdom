@@ -23,7 +23,7 @@ public final class KingdomLivestockWork {
     private KingdomLivestockWork(){}
     private static boolean loaded,compatible;
     private static Class<?> tfcAnimal;
-    private static Method hungry,isFood,getCalendar,lastFed,getFamiliarity,
+    private static Method hungry,isFood,getCalendar,getTotalDays,lastFed,getFamiliarity,
         setFamiliarity,getFamiliarityCap,setFamiliarityDecay;
     private static boolean init(){
         if(loaded)return compatible;
@@ -34,6 +34,8 @@ public final class KingdomLivestockWork {
             hungry=tfcAnimal.getMethod("isHungry");
             isFood=tfcAnimal.getMethod("isFood",ItemStack.class);
             getCalendar=tfcAnimal.getMethod("getCalendar");
+            // Call the public TFC calendar interface; concrete implementations may be non-public.
+            getTotalDays=Class.forName("net.dries007.tfc.util.calendar.ICalendar").getMethod("getTotalDays");
             lastFed=tfcAnimal.getMethod("setLastFed",long.class);
             getFamiliarity=tfcAnimal.getMethod("getFamiliarity");
             setFamiliarity=tfcAnimal.getMethod("setFamiliarity",float.class);
@@ -61,7 +63,7 @@ public final class KingdomLivestockWork {
         if(!hungry(animal)||!food(animal,item))return false;
         try{
             Object calendar=getCalendar.invoke(animal);
-            long day=((Number)calendar.getClass().getMethod("getTotalDays").invoke(calendar)).longValue();
+            long day=((Number)getTotalDays.invoke(calendar)).longValue();
             float familiar=((Number)getFamiliarity.invoke(animal)).floatValue();
             float cap=((Number)getFamiliarityCap.invoke(animal)).floatValue();
             // Native TFC properties, following its feed-state semantics.
@@ -91,12 +93,18 @@ public final class KingdomLivestockWork {
         }
         return null;
     }
+    /** Find a reachable anchor in an already loaded chunk, without forcing chunk loads. */
+    private static BlockPos loadedAnchor(ServerLevel level,KingdomRanchPenData.Pen pen){
+        int[] point=KingdomRanchLoadedArea.loadedPoint(
+            pen.minX(),pen.maxX(),pen.minZ(),pen.maxZ(),level::hasChunk);
+        return point==null?null:new BlockPos(point[0],pen.y()+1,point[1]);
+    }
     static BlockPos workSite(ServerLevel level,KingdomNpcData.Worker w){
         UUID farm=farm(level,w);if(farm==null)return null;
         for(var pen:KingdomRanchPenData.get(level.getServer()).of(farm)){
-            BlockPos center=pen.center();
-            if(pen.enabled()&&pen.dimension().equals(w.dimension)
-                &&level.hasChunkAt(center))return center;
+            if(!pen.enabled()||!pen.dimension().equals(w.dimension))continue;
+            BlockPos anchor=loadedAnchor(level,pen);
+            if(anchor!=null)return anchor;
         }
         return null;
     }
@@ -125,8 +133,8 @@ public final class KingdomLivestockWork {
     public static PenStatus inspect(ServerLevel level,KingdomRanchPenData.Pen pen){
         if(!areaLoaded(level,pen))return new PenStatus(0,0,0,0,0,0,false,false);
         boolean tfcReady=init();
-        AABB bounds=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
-            pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
+        AABB bounds=new AABB(pen.minX(),pen.y()-KingdomRanchLoadedArea.BELOW,pen.minZ(),
+            pen.maxX()+1,pen.y()+KingdomRanchLoadedArea.ABOVE+1,pen.maxZ()+1);
         int count=0,tfcCount=0,needsFood=0,ready=0,milkReady=0;
         for(Animal animal:level.getEntitiesOfClass(Animal.class,bounds,
                 entity->entity.isAlive()&&pen.contains(entity))){
@@ -268,10 +276,10 @@ public final class KingdomLivestockWork {
         // Bounded: maximum four pens, each 16 x 16 in loaded chunks.
         for(var pen:KingdomRanchPenData.get(level.getServer()).of(enterprise)){
             if(!pen.enabled()||!pen.dimension().equals(w.dimension))continue;
-            if(!areaLoaded(level,pen))continue;
-            if(!territory.canUse(level,pen.center(),owner))continue;
-            AABB area=new AABB(pen.minX(),pen.y()-3,pen.minZ(),
-                pen.maxX()+1,pen.y()+4,pen.maxZ()+1);
+            BlockPos anchor=loadedAnchor(level,pen);
+            if(anchor==null||!territory.canUse(level,anchor,owner))continue;
+            AABB area=new AABB(pen.minX(),pen.y()-KingdomRanchLoadedArea.BELOW,pen.minZ(),
+                pen.maxX()+1,pen.y()+KingdomRanchLoadedArea.ABOVE+1,pen.maxZ()+1);
             var herd=level.getEntitiesOfClass(Animal.class,area,
                 entity->entity.isAlive()&&pen.contains(entity)&&isTfc(entity));
             var policy=KingdomRanchPolicyData.get(level.getServer()).policy(pen.id());
