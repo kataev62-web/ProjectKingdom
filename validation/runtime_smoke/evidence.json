@@ -1,0 +1,22 @@
+{
+  "tested_commit": "00ace4ef9d00c2ddcba3b7b7525418d0cf6badea",
+  "tested_jar_sha256": "370cbbcb9ddb690e44c5efda98965e1a6a5ea6f746c17937938feb2359c90434",
+  "artifact": "https://github.com/kataev62-web/ProjectKingdom/actions/runs/44356001242/artifacts/14451806324",
+  "owner_eula_acceptance": "Explicitly confirmed in task chat, isolated server only",
+  "result": {
+    "ready": true,
+    "list_response": true,
+    "exit": 0
+  },
+  "world": "New disposable world; no supplied world copy; no player or NPC gameplay scenario",
+  "markers": [
+    "[17:20:21] [modloading-worker-0/INFO] [ne.dr.tf.TerraFirmaCraft/]: Initializing TerraFirmaCraft",
+    "[17:20:26] [modloading-worker-0/INFO] [ne.dr.tf.TerraFirmaCraft/]: TFC Common Setup",
+    "[17:20:35] [Yggdrasil Key Fetcher/ERROR] [mojang/YggdrasilServicesKeyInfo]: Failed to request yggdrasil public key",
+    "[17:20:36] [main/INFO] [ne.dr.tf.ut.Helpers/]: ^ This is fine - No client or server recipe manager present upon initial resource reload on physical server",
+    "[17:20:51] [Server thread/INFO] [minecraft/DedicatedServer]: Done (14.783s)! For help, type \"help\"",
+    "[17:20:51] [Server thread/INFO] [minecraft/MinecraftServer]: There are 0 of a max of 1 players online: ",
+    "[17:20:51] [Server thread/INFO] [minecraft/MinecraftServer]: Stopping server",
+    "[17:20:55] [Server thread/INFO] [minecraft/MinecraftServer]: ThreadedAnvilChunkStorage: All dimensions are saved"
+  ]
+}
