@@ -75,12 +75,28 @@ public final class KingdomMineWork {
      * and supported by a floor; the NPC must physically approach that cell.
      */
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker) {
-        if (!"miner".equals(worker.job) || worker.employer==null
-            || worker.contractPaused || !KingdomNpcWorkday.employed(level.getServer(),worker)
-            || !worker.hasSource || !worker.hasDestination
-            || !worker.dimension.equals(level.dimension().location().toString())
-            || !"work".equals(worker.order) && !"wander".equals(worker.order))
+        if(worker==null||!"miner".equals(worker.job))return false;
+        if(worker.employer==null){status(level,worker,"Сначала найми шахтёра");return false;}
+        if(worker.contractPaused){
+            status(level,worker,"Работа приостановлена: проверь задолженность по зарплате");
             return false;
+        }
+        if(!KingdomNpcWorkday.employed(level.getServer(),worker)){
+            status(level,worker,"Нет активного договора на работу в шахте");
+            return false;
+        }
+        if(!worker.hasSource||!worker.hasDestination){
+            status(level,worker,"Привяжи оба склада шахты: сырьё и готовую продукцию");
+            return false;
+        }
+        if(!worker.dimension.equals(level.dimension().location().toString())){
+            status(level,worker,"Шахта назначена в другом измерении");
+            return false;
+        }
+        if(!KingdomNpcDuty.autonomousOrder(worker.order)){
+            status(level,worker,"Дай приказ «Работать» в меню NPC");
+            return false;
+        }
 
         UUID id;
         try { id=UUID.fromString(worker.workplaceId); }
