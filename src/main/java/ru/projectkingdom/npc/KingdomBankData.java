@@ -55,7 +55,7 @@ public final class KingdomBankData extends SavedData {
     public long legacyBalance(UUID owner){return legacyAccounts.getOrDefault(owner,0L);}
     private final Map<UUID,Long> auditConfirmations=new LinkedHashMap<>();
     public enum ReconcileStatus { CONFIRM_REQUIRED, DONE, NOT_AUTHORIZED, NOT_IN_BANK,
-        NO_VAULT, VAULT_NOT_EMPTY, NOTHING_TO_ARCHIVE, TOO_MANY_ENTRIES }
+        NO_VAULT, VAULT_NOT_EMPTY, NOTHING_TO_ARCHIVE, TOO_MANY_ENTRIES, RECOVERY_REQUIRED }
     public static String reconciliationMessage(ReconcileStatus status){
         return switch(status){
             case CONFIRM_REQUIRED->"ВНИМАНИЕ: старые неподтверждённые остатки будут перенесены в архив требований, а новые счета начнут с нуля. Монеты не создаются и прежние обязательства не исчезают. Нажмите кнопку повторно в течение 30 секунд.";
@@ -66,6 +66,7 @@ public final class KingdomBankData extends SavedData {
             case VAULT_NOT_EMPTY->"В банковском сейфе уже есть монеты. Не смешивайте обеспеченные и старые остатки; требуется ручная сверка.";
             case NOTHING_TO_ARCHIVE->"Неподтверждённых старых остатков нет.";
             case TOO_MANY_ENTRIES->"Слишком много счетов для автоматической сверки; нужен администратор сервера.";
+            case RECOVERY_REQUIRED->"Банк находится в карантине после перезапуска. Сначала проверьте /kingdom-bank-recovery list.";
         };
     }
     /** Two-click, manager-only migration for worlds whose bank has NO physical
@@ -76,6 +77,7 @@ public final class KingdomBankData extends SavedData {
         if(manager==null)return ReconcileStatus.NOT_IN_BANK;
         UUID town=bankTown(manager);
         if(town==null)return ReconcileStatus.NOT_IN_BANK;
+        if(BankOperations.blocked(manager.getServer(),town))return ReconcileStatus.RECOVERY_REQUIRED;
         var civic=KingdomCivicsData.get(manager.getServer()).townById(town);
         var admin=KingdomAdministrationData.get(manager.getServer());
         if(civic==null||!ru.projectkingdom.administration.AdministrativePermissionService.mayManage(
@@ -119,7 +121,7 @@ public final class KingdomBankData extends SavedData {
     /** Exact human-readable deposit/withdrawal diagnostics for the city bank. */
     public enum LegacyTransferStatus {
         MOVED, NOT_BANK_MANAGER, NOT_AT_BANK, NO_OLD_VAULT, NO_NEW_VAULT,
-        EMPTY, SAME_CONTAINER, TOO_MANY_COINS, NO_ROOM
+        EMPTY, SAME_CONTAINER, TOO_MANY_COINS, NO_ROOM, RECOVERY_REQUIRED
     }
     public static String legacyTransferMessage(LegacyTransferStatus status){
         return switch(status){
@@ -132,6 +134,7 @@ public final class KingdomBankData extends SavedData {
             case SAME_CONTAINER->"Старая и новая касса указывают на один сундук. Перенос не нужен.";
             case TOO_MANY_COINS->"В старой казне больше 1 000 000 медных. Разделите перенос на несколько партий.";
             case NO_ROOM->"В банковском сейфе не хватает места для всех монет; освободите слоты.";
+            case RECOVERY_REQUIRED->"Банк на сверке; перенос физических монет сейчас запрещён.";
         };
     }
     /** Backwards-compatible physical consolidation. Does not touch city finances:
@@ -141,6 +144,7 @@ public final class KingdomBankData extends SavedData {
     public LegacyTransferStatus consolidateOldTownVault(ServerPlayer manager){
         UUID town=manager==null?null:bankTown(manager);
         if(town==null)return LegacyTransferStatus.NOT_AT_BANK;
+        if(BankOperations.blocked(manager.getServer(),town))return LegacyTransferStatus.RECOVERY_REQUIRED;
         var civics=KingdomCivicsData.get(manager.getServer());
         var city=civics.townById(town);
         var admin=KingdomAdministrationData.get(manager.getServer());
@@ -174,6 +178,7 @@ public final class KingdomBankData extends SavedData {
         if(amount<=0||amount>1_000_000)return "Допустимая сумма от 1 до 1 000 000 медных.";
         UUID town=bankTown(player);
         if(town==null)return "Нужен установленный городской банк, а не старый магнетитовый терминал.";
+        if(BankOperations.blocked(player.getServer(),town))return "Банк на сверке после сбоя. Не повторяйте платёж; обратитесь к OP4.";
         if(!payableAt(player.getUUID(),town))
             return "Старый баланс счёта ещё не привязан к физическому банку. Нужна сверка старого счёта.";
         var cash=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
@@ -192,6 +197,7 @@ public final class KingdomBankData extends SavedData {
         if(amount<=0||amount>1_000_000)return "Некорректная сумма.";
         UUID town=bankTown(player);
         if(town==null)return "Городской банк не найден.";
+        if(BankOperations.blocked(player.getServer(),town))return "Снятие приостановлено: банк в карантине, требуется сверка OP4.";
         if(!payableAt(player.getUUID(),town))
             return "Старый баланс банковского счёта требует сверки физического резерва.";
         long owned=balance(player.getUUID());
@@ -274,6 +280,7 @@ public final class KingdomBankData extends SavedData {
 
     public String freeVaultCoinsProblem(ServerPlayer manager,UUID town,long amount) {
         if(!mayUseMunicipalAccount(manager,town))return "Нужны права управляющего банка и доступ к своему городскому банку.";
+        if(BankOperations.blocked(manager.getServer(),town))return "Банк в карантине; нельзя распределять монеты до сверки.";
         var vault=KingdomPhysicalCash.townVault(manager,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null)return "Хранилище банка не загружено или не привязано.";
         var admin=KingdomAdministrationData.get(manager.getServer());
@@ -369,6 +376,7 @@ public final class KingdomBankData extends SavedData {
     }
     public String municipalProblem(ServerPlayer player,UUID town,long amount,TownBankFunds.Operation operation) {
         if(!mayUseMunicipalAccount(player,town))return "Счёт поселения доступен мэру, основателю и казначею в банке своего города.";
+        if(BankOperations.blocked(player.getServer(),town))return "Казна заблокирована до сверки физического сейфа и личных банковских вкладов.";
         if(amount<1||amount>1_000_000)return "Сумма: от 1 до 1 000 000 медных.";
         var vault=KingdomPhysicalCash.townVault(player,town,AdministrativeBindingRole.BANK_VAULT);
         if(vault==null)return "Банковская комната не подключена или не загружена.";
