@@ -1042,6 +1042,8 @@ public final class KingdomNpcMod {
                 if(!w.dimension.equals(level.dimension().location().toString()))continue;
                 var entity=level.getEntity(w.entityId);
                 if(entity instanceof Villager resident && resident.isAlive()) {
+                    // Inventory GUI owns the live 36 physical slots for its duration.
+                    if(KingdomNpcBagMenu.isOpen(w.entityId))continue;
                     // Food is a REAL owned item: a hungry self-employed owner
                     // can collect it even when its daily goal is EAT, not WORK.
                     executed |= KingdomNpcFoodRoutine.tick(level,resident,w);
@@ -1180,8 +1182,9 @@ public final class KingdomNpcMod {
                 if(KingdomResidentSafety.confine(server,level,npc,w,db))continue;
                 boolean talking = false;
                 for (ServerPlayer other : level.players()) {
-                    if (other.containerMenu instanceof KingdomNpcMenu menu
-                        && menu.isForNpc(w.id) && other.distanceToSqr(npc) <= 64) {
+                    if (((other.containerMenu instanceof KingdomNpcMenu menu && menu.isForNpc(w.id))
+                        || (other.containerMenu instanceof KingdomNpcBagMenu bag && bag.isForNpc(w.id)))
+                        && other.distanceToSqr(npc) <= 64) {
                         talking = true;
                         break;
                     }
