@@ -49,6 +49,19 @@ public final class KingdomMineTools {
         for(int i=0;i<worker.fieldInventory.size();i++){
             ItemStack candidate=worker.fieldInventory.get(i);
             if(!matches(candidate,needed))continue;
+            // Removing one tool from the bag may or may not free a slot.
+            // Check that the outgoing NBT-bearing tool can actually be stowed
+            // before taking the incoming one; 36 stacks survive a restart.
+            if(!worker.fieldTool.isEmpty()){
+                var remaining=new java.util.ArrayList<ItemStack>();
+                for(int j=0;j<worker.fieldInventory.size();j++){
+                    ItemStack part=worker.fieldInventory.get(j).copy();
+                    if(j==i)part.shrink(1);
+                    if(!part.isEmpty())remaining.add(part);
+                }
+                if(!KingdomMineDelivery.canCarryStacks(remaining,
+                        java.util.List.of(worker.fieldTool)))continue;
+            }
             ItemStack selected=candidate.split(1);
             if(candidate.isEmpty())worker.fieldInventory.remove(i);
             if(!worker.fieldTool.isEmpty())NpcFieldWork.put(worker,worker.fieldTool);
@@ -71,6 +84,10 @@ public final class KingdomMineTools {
             }
         }
         if(slot<0)return false;
+        // A spare pickaxe cannot displace a shovel into an overfull saved bag.
+        if(!worker.fieldTool.isEmpty()
+                &&!KingdomMineDelivery.canCarry(worker,
+                    java.util.List.of(worker.fieldTool)))return false;
         if(npc.distanceToSqr(depot.getX()+.5,depot.getY(),depot.getZ()+.5)>6.25){
             npc.getNavigation().moveTo(depot.getX()+.5,depot.getY(),depot.getZ()+.5,.75);
             return false;

@@ -159,7 +159,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             + KingdomNpcNutrition.summary(w));
         long wagesOwed=KingdomEnterprisePayrollData.get(viewer.getServer()).totalDue(viewer.getServer(),w.entityId);
         long purse=w.wagePurse.stream().mapToLong(stack->KingdomCurrency.value(stack)*stack.getCount()).sum();
-        icon(13, KingdomCurrency.COPPER.get(), "Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse);
+        icon(13, KingdomCurrency.COPPER.get(), "ВЫПЛАТИТЬ ЗАРПЛАТУ (ЛКМ, из личных медных монет, до 64 за нажатие) | Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse);
         icon(14, Items.PAPER, "Приказ: " + order(w.order));
         icon(15, Items.CHEST, "План: " + NpcAutonomyPlanner.description(
             safeIntent(w.autonomousIntent)) + (plan==null?"":" | ПКМ: остатки "+plan.low()+"–"+plan.high()));
@@ -181,7 +181,7 @@ public final class KingdomNpcMenu extends ChestMenu {
                 +" | Ствол: "+areaLabel
                 +" | Настройки в блоке предприятия | "+w.mineStatus);
         }
-        icon(17, Items.BARREL, "Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
+        icon(17, Items.CHEST, "ОТКРЫТЬ ИНВЕНТАРЬ NPC (36 слотов): положить лопату, кирку и другие реальные предметы | Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
         if(!"miner".equals(w.job)) icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
             + " (возврат /knpc refund_legacy <сумма> у банковской стойки)");
         if (w.employer == null && w.ageYears >= 18) icon(19, Items.LIME_DYE, "НАНЯТЬ И НАСТРОИТЬ ПРОФЕССИЮ: один клик");
@@ -305,6 +305,25 @@ public final class KingdomNpcMenu extends ChestMenu {
         boolean owner = controls(w);
         boolean changed = false;
         switch (slotId) {
+            case 17 -> {
+                if(!owner || w.employer==null) {
+                    info("Открыть инвентарь может работодатель NPC.");
+                    break;
+                }
+                if(!KingdomNpcBagMenu.open(viewer,w))
+                    info("Инвентарь NPC занят, недоступен или NPC слишком далеко.");
+                else return;
+            }
+            case 13 -> {
+                if(!owner || w.employer==null || !viewer.getUUID().equals(w.employer)) {
+                    info("Выплатить зарплату может только настоящий работодатель.");
+                    break;
+                }
+                var payment=KingdomEnterprisePayrollData.get(viewer.getServer())
+                    .payNpcLooseCopper(viewer,w);
+                info(payment.message());
+                changed=payment.paid()>0;
+            }
             case 16 -> info("Шахта: начало, уровни, направление и выделение ствола настраиваются через блок предприятия «Шахта».");
             case 11 -> {
                 if (!viewer.hasPermissions(2)) {
@@ -468,8 +487,15 @@ public final class KingdomNpcMenu extends ChestMenu {
                     default -> "wander";
                 };
                 if(next.equals("work")){
-                    var result=KingdomNpcQuickSetup.configure(viewer,w);
-                    info(result.message());
+                    if ("miner".equals(w.job)) {
+                        // Exactly ONE block per press. The block decides the tool,
+                        // not a mandatory dirt-before-rock test sequence.
+                        w.order="work";
+                        info(KingdomMineFirstCut.tryNow(viewer,w));
+                    } else {
+                        var result=KingdomNpcQuickSetup.configure(viewer,w);
+                        info(result.message());
+                    }
                     changed=true;
                     break;
                 }

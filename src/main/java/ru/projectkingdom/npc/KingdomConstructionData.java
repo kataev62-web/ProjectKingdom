@@ -21,6 +21,24 @@ public final class KingdomConstructionData extends SavedData {
     public record Project(UUID id, UUID owner, String dimension, String design, int x, int y, int z, Status status) {}
     private final LinkedHashMap<UUID,Project> projects=new LinkedHashMap<>();
     private final HashMap<UUID,Integer> progress=new HashMap<>();
+    /** Unfinished world/inventory steps are quarantined across ordinary saves.
+     * SavedData is not an fsync write-ahead log: hard-crash atomicity is NOT claimed. */
+    public record PendingStep(net.minecraft.core.BlockPos target,String material) {}
+    private final HashMap<UUID,PendingStep> pendingSteps=new HashMap<>();
+    public boolean hasPendingStep(UUID id){return pendingSteps.containsKey(id);}
+    public PendingStep pendingStep(UUID id){return pendingSteps.get(id);}
+    boolean beginPendingStep(UUID id,net.minecraft.core.BlockPos target,String material){
+        if(!projects.containsKey(id)||pendingSteps.containsKey(id)||target==null
+                ||material==null||material.isBlank())return false;
+        pendingSteps.put(id,new PendingStep(target.immutable(),material));setDirty();return true;
+    }
+    void clearPendingStep(UUID id){
+        if(pendingSteps.remove(id)!=null)setDirty();
+    }
+    void finishPendingStep(UUID id,int total){
+        if(pendingSteps.remove(id)==null)throw new IllegalStateException("Construction step not prepared");
+        advance(id,1,total);
+    }
     /** Explicit drafting table anchors for remotely positioned architect plans. */
     private final HashMap<UUID, net.minecraft.core.BlockPos> anchors = new HashMap<>();
     /** Up to eight explicitly invited player builders per project. */
@@ -139,6 +157,10 @@ public final class KingdomConstructionData extends SavedData {
                 Project p=new Project(r.getUUID("Id"),r.getUUID("Owner"),r.getString("Dimension"),r.getString("Design"),r.getInt("X"),r.getInt("Y"),r.getInt("Z"),Status.valueOf(r.getString("Status")));
                 data.projects.put(p.id(),p);
                 data.progress.put(p.id(),Math.max(0,r.getInt("Progress")));
+                if(r.contains("PendingTarget",Tag.TAG_LONG))
+                    data.pendingSteps.put(p.id(),new PendingStep(
+                        net.minecraft.core.BlockPos.of(r.getLong("PendingTarget")),
+                        r.getString("PendingMaterial")));
                 if (r.contains("MarkerX",Tag.TAG_INT) && r.contains("MarkerY",Tag.TAG_INT)
                         && r.contains("MarkerZ",Tag.TAG_INT))
                     data.anchors.put(p.id(),new net.minecraft.core.BlockPos(
@@ -161,6 +183,9 @@ public final class KingdomConstructionData extends SavedData {
         for(Project p:projects.values()) {
             CompoundTag r=new CompoundTag();r.putUUID("Id",p.id());r.putUUID("Owner",p.owner());r.putString("Dimension",p.dimension());r.putString("Design",p.design());r.putInt("X",p.x());r.putInt("Y",p.y());r.putInt("Z",p.z());r.putString("Status",p.status().name());r.putInt("Progress",progress(p.id()));
             var marker=marker(p);r.putInt("MarkerX",marker.getX());r.putInt("MarkerY",marker.getY());r.putInt("MarkerZ",marker.getZ());
+            var pending=pendingSteps.get(p.id());
+            if(pending!=null){r.putLong("PendingTarget",pending.target().asLong());
+                r.putString("PendingMaterial",pending.material());}
             ListTag invited = new ListTag();
             for (UUID assistant : assistants(p.id()))
                 invited.add(net.minecraft.nbt.NbtUtils.createUUID(assistant));

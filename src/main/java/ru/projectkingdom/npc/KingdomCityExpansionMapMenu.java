@@ -26,6 +26,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     private final Set<Long> planned = new HashSet<>();
     private int centerX, centerZ;
     private java.util.UUID cityId;
+    private final KingdomCityMapSession session;
     private long lastRefresh;
     private Set<Long> confirmedPlan;
     private Set<Long> confirmedFunding;
@@ -38,6 +39,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         centerZ = player.chunkPosition().z;
         var town = KingdomCivicsData.get(player.getServer()).townOf(player.getUUID());
         cityId = town == null ? null : town.id();
+        session = new KingdomCityMapSession(cityId, player.serverLevel().dimension().location().toString());
         if (cityId != null && founder()) {
             for (var cell : KingdomExpansionPlans.get(player.getServer()).snapshot(cityId)) {
                 if (cell.dimension().equals(dimension())) planned.add(key(cell.x(), cell.z()));
@@ -64,12 +66,18 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     }
     private static int x(long k) { return (int)(k >> 32); }
     private static int z(long k) { return (int)k; }
-    private String dimension() { return viewer.serverLevel().dimension().location().toString(); }
+    private String dimension() { return session.dimension(); }
+    private String currentDimension() {
+        return viewer.serverLevel().dimension().location().toString();
+    }
+    private boolean sessionValid() {
+        var town = KingdomCivicsData.get(viewer.getServer()).townOf(viewer.getUUID());
+        return session.matches(town == null ? null : town.id(), currentDimension());
+    }
     private boolean founder() {
-        var data = KingdomCivicsData.get(viewer.getServer());
-        var town = data.townOf(viewer.getUUID());
-        return town != null && viewer.getUUID().equals(
-            KingdomAdministrationData.get(viewer.getServer()).founder(town.id()));
+        var town = KingdomCivicsData.get(viewer.getServer()).townOf(viewer.getUUID());
+        return town != null && session.mayPlan(town.id(), currentDimension(),
+            viewer.getUUID(), KingdomAdministrationData.get(viewer.getServer()).founder(town.id()));
     }
     private boolean contiguous(KingdomCivicsData data, int x, int z) {
         var town = data.townOf(viewer.getUUID());
@@ -180,6 +188,8 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
     @Override public void clicked(int slot, int button, ClickType click, Player player) {
         if (player != viewer || viewer.level().isClientSide || click != ClickType.PICKUP
                 || button != 0 || slot < 0 || slot >= 54) return;
+        // Stale GUIs cannot mutate the former city's plan, bank or territory.
+        if (!stillValid(player)) { viewer.closeContainer(); return; }
         if (slot != 43) confirmedPlan = null;
         if (slot != 42) confirmedFunding = null;
         int row = slot / 9, col = slot % 9;
@@ -359,7 +369,7 @@ public final class KingdomCityExpansionMapMenu extends ChestMenu {
         return "Реальные монеты банковского хранилища не подтверждают остатки счетов. Нужна сверка банка.";
     }
     @Override public boolean stillValid(Player player) {
-        return player == viewer && player.isAlive();
+        return player == viewer && player.isAlive() && sessionValid();
     }
     @Override public void removed(Player player) {
         super.removed(player);

@@ -5,6 +5,7 @@ import net.minecraft.core.BlockPos;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import ru.projectkingdom.enterprise.EnterpriseKind;
+import ru.projectkingdom.enterprise.EnterpriseCoreBlockEntity;
 
 /**
  * The miner's workplace is a real mine ENTERPRISE plus its surveyed shaft.
@@ -37,6 +38,15 @@ public final class KingdomMineSite {
         if(!worker.dimension.equals(level.dimension().location().toString())
             ||!core.dimension().equals(worker.dimension))
             return new Inspection(false,null,"Шахта находится в другом измерении");
+        BlockPos corePos=BlockPos.of(core.packedPos());
+        if(!level.hasChunkAt(corePos))
+            return new Inspection(false,null,"Чанк ядра шахты не загружен");
+        if(!(level.getBlockEntity(corePos) instanceof EnterpriseCoreBlockEntity live)
+            ||!live.bound()||!mineId.equals(live.enterpriseId())
+            ||!worker.employer.equals(live.owner())||live.kind()!=EnterpriseKind.MINE)
+            return new Inspection(false,null,"Блок ядра шахты отсутствует или привязан к другому предприятию");
+        if(!KingdomTerritories.get(server).canUse(level,corePos,worker.employer))
+            return new Inspection(false,null,"Нет прав на участок ядра шахты");
         if(!worker.hasSource||!worker.hasDestination)
             return new Inspection(false,null,"Привяжи склады сырья и продукции шахты");
         if(!KingdomNpcWorkday.employed(server,worker))
@@ -54,6 +64,9 @@ public final class KingdomMineSite {
         }else entrance=BlockPos.of(core.packedPos()).north();
         if(!level.hasChunkAt(entrance)||!level.hasChunkAt(entrance.below()))
             return new Inspection(false,entrance,"Загрузи участок входа в шахту");
+        if(!KingdomTerritories.get(server).canUse(level,entrance,worker.employer)
+            ||!KingdomTerritories.get(server).canUse(level,entrance.below(),worker.employer))
+            return new Inspection(false,entrance,"Нет прав на вход и пол шахты: "+entrance.toShortString());
         if(!level.getBlockState(entrance).isAir()
             ||!level.getBlockState(entrance.above()).isAir()
             ||level.getBlockState(entrance.below()).isAir())
