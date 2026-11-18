@@ -49,7 +49,7 @@ public final class KingdomMineMaintenance {
                 || level.getBlockState(at.above()).isAir()==false
                 || !Blocks.TORCH.defaultBlockState().canSurvive(level,at)
                 || worker.employer==null
-                || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,at)))
+                || !KingdomTerritories.get(level.getServer()).canUse(level,at,worker.employer))
             return Result.BLOCKED;
 
         // Carry one real torch from the warehouse to the gallery, even when
@@ -77,6 +77,8 @@ public final class KingdomMineMaintenance {
                 npc.getNavigation().moveTo(depot.getX()+0.5,depot.getY(),depot.getZ()+0.5,0.75);
                 return Result.WALKING_TO_SUPPLIES;
             }
+            ItemStack one=warehouse.getItem(slot).copy();one.setCount(1);
+            if(!KingdomMineDelivery.canCarry(worker,java.util.List.of(one)))return Result.BLOCKED;
             ItemStack taken=warehouse.removeItem(slot,1);
             if(!taken.is(Items.TORCH) || taken.getCount()!=1){
                 if(!taken.isEmpty())NpcFieldWork.put(worker,taken);
