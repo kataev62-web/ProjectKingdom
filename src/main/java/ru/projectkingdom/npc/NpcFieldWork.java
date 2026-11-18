@@ -40,8 +40,41 @@ public final class NpcFieldWork {
     private static int carried(KingdomNpcData.Worker w) {
         int total=0; for(ItemStack stack:w.fieldInventory)total+=stack.getCount(); return total;
     }
+    /** The worker NBT persists only 36 cargo stacks. Check BOTH actual merge
+     * capacity (including distinct NBT tags) and total item count up front.
+     * A count-only check can silently drop a 37th stack at server restart.
+     */
     static boolean canFit(KingdomNpcData.Worker w,List<ItemStack> drops) {
-        int n=carried(w);for(ItemStack stack:drops)n+=stack.getCount();return n<=MAX_CARRIED;
+        if(w==null||drops==null)return false;
+        final int maxSlots=36;
+        List<ItemStack> planned=new ArrayList<>();
+        int total=0;
+        for(ItemStack held:w.fieldInventory)if(!held.isEmpty()){
+            total+=held.getCount();
+            if(planned.size()>=maxSlots||total>MAX_CARRIED)return false;
+            planned.add(held.copy());
+        }
+        for(ItemStack drop:drops){
+            if(drop==null||drop.isEmpty())continue;
+            total+=drop.getCount();
+            if(total>MAX_CARRIED)return false;
+            ItemStack remaining=drop.copy();
+            for(ItemStack held:planned){
+                if(!ItemStack.isSameItemSameTags(held,remaining))continue;
+                int free=Math.max(0,held.getMaxStackSize()-held.getCount());
+                int n=Math.min(free,remaining.getCount());
+                if(n>0){held.grow(n);remaining.shrink(n);}
+                if(remaining.isEmpty())break;
+            }
+            while(!remaining.isEmpty()){
+                if(planned.size()>=maxSlots)return false;
+                int n=Math.min(remaining.getCount(),remaining.getMaxStackSize());
+                if(n<=0)return false;
+                ItemStack next=remaining.copy();next.setCount(n);
+                planned.add(next);remaining.shrink(n);
+            }
+        }
+        return true;
     }
     static void put(KingdomNpcData.Worker w, ItemStack item) {
         if(item.isEmpty())return;
@@ -130,47 +163,83 @@ public final class NpcFieldWork {
         }
         return false;
     }
-    /** Route harvested stock into a marked finished warehouse. Unemployed keep it in a persistent personal inventory. */
+    /** Deposit an exact item count only after the destination reports the
+     * same ItemStack and NBT. Some containers return COPIES from getItem(),
+     * so growing the retrieved object without setItem() loses the delivery.
+     * Fail closed and restore the original slot if a write was not accepted.
+     */
+    static int transferToWarehouse(Container destination,ItemStack carried){
+        if(destination==null||carried==null||carried.isEmpty())return 0;
+        int transferred=0;
+        for(int slot=0;slot<destination.getContainerSize()&&!carried.isEmpty();slot++){
+            if(!destination.canPlaceItem(slot,carried))continue;
+            ItemStack old=destination.getItem(slot).copy();
+            if(!old.isEmpty()&&!ItemStack.isSameItemSameTags(old,carried))continue;
+            int limit=Math.min(destination.getMaxStackSize(),carried.getMaxStackSize());
+            if(!old.isEmpty())limit=Math.min(limit,old.getMaxStackSize());
+            int amount=Math.min(carried.getCount(),limit-old.getCount());
+            if(amount<=0)continue;
+            ItemStack proposed=old.isEmpty()?carried.copy():old.copy();
+            proposed.setCount(old.getCount()+amount);
+            destination.setItem(slot,proposed);
+            ItemStack actual=destination.getItem(slot);
+            if(actual.getCount()!=proposed.getCount()
+                    ||!ItemStack.isSameItemSameTags(actual,proposed)){
+                // Do not debit NPC cargo for a rejected, copied or clamped write.
+                destination.setItem(slot,old);
+                destination.setChanged();
+                break;
+            }
+            carried.shrink(amount);
+            transferred+=amount;
+            destination.setChanged();
+        }
+        return transferred;
+    }
+
+    /** Route harvested stock into a marked finished warehouse. Unemployed keep
+     * their items in a persistent personal inventory.
+     */
     static boolean deposit(ServerLevel level,Villager npc, KingdomNpcData.Worker w){
-        if(w.fieldInventory.isEmpty() || KingdomNpcFarmOwner.workOwner(level,w)==null
-                || !w.hasDestination)return false;
+        UUID owner=KingdomNpcFarmOwner.workOwner(level,w);
+        if(w.fieldInventory.isEmpty() || owner==null || !w.hasDestination)return false;
         BlockPos pos=new BlockPos(w.destX,w.destY,w.destZ);
-        if(!level.hasChunkAt(pos)||!KingdomTerritories.get(level.getServer()).usable(level,pos,
-                KingdomNpcFarmOwner.workOwner(level,w),"finished"))return false;
-        if(npc.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>6.25){npc.getNavigation().moveTo(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5,0.8);return false;}
+        if(!level.hasChunkAt(pos)||!KingdomTerritories.get(level.getServer())
+                .usable(level,pos,owner,"finished"))return false;
+        if(npc.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>6.25){
+            npc.getNavigation().moveTo(pos.getX()+0.5,pos.getY(),pos.getZ()+0.5,0.8);
+            return false;
+        }
         BlockEntity be=level.getBlockEntity(pos);if(!(be instanceof Container c))return false;
         boolean moved=false;
         java.util.Set<String> reservedSeeds=new java.util.HashSet<>();
-        if("farmer".equals(w.job))for(var contract:KingdomEnterprisePayrollData.get(level.getServer()).all())
-            if(contract.active() && contract.worker().equals(w.entityId))
-                for(var field:KingdomFarmFieldData.get(level.getServer()).of(contract.enterprise()))
-                    if(field.enabled() && !field.seedId().isBlank())reservedSeeds.add(field.seedId());
+        if("farmer".equals(w.job)){
+            // Includes NPC-owned farms: their seeds are not in a payroll contract.
+            UUID farm=KingdomFarmWorker.farm(level,w);
+            if(farm!=null)for(var field:KingdomFarmFieldData.get(level.getServer()).of(farm))
+                if(field.enabled()&&!field.seedId().isBlank())reservedSeeds.add(field.seedId());
+            for(var contract:KingdomEnterprisePayrollData.get(level.getServer()).all())
+                if(contract.active() && contract.worker().equals(w.entityId))
+                    for(var field:KingdomFarmFieldData.get(level.getServer()).of(contract.enterprise()))
+                        if(field.enabled()&&!field.seedId().isBlank())reservedSeeds.add(field.seedId());
+        }
         for(int inv=0;inv<w.fieldInventory.size();){
             ItemStack s=w.fieldInventory.get(inv);
-            if("miner".equals(w.job) && KingdomMineCargo.isSupply(s)) {
-                inv++;continue; // Torches and TFC beams stay in the miner's supply bag.
+            if(s.isEmpty()){w.fieldInventory.remove(inv);continue;}
+            if("miner".equals(w.job) && KingdomMineCargo.isSupply(s)){
+                inv++;continue; // Torches and TFC beams remain in the miner's bag.
             }
-            if(reservedSeeds.contains(BuiltInRegistries.ITEM.getKey(s.getItem()).toString())
-                    || ("lumberjack".equals(w.job)
-                        && KingdomTfcForestry.validSapling(BuiltInRegistries.ITEM.getKey(
-                            s.getItem()).toString()))
-                    || ("farmer".equals(w.job) && KingdomFarmNutrition.recognized(s))){
-                inv++;continue; // Keep genuine seeds in the NPC's persistent planting bag.
+            String id=BuiltInRegistries.ITEM.getKey(s.getItem()).toString();
+            if(reservedSeeds.contains(id)
+                    || ("lumberjack".equals(w.job)&&KingdomTfcForestry.validSapling(id))
+                    || ("farmer".equals(w.job)&&KingdomFarmNutrition.recognized(s))){
+                inv++;continue; // Genuine planting and nutrition resources stay with worker.
             }
-            for(int slot=0;slot<c.getContainerSize()&&!s.isEmpty();slot++){
-                if(!c.canPlaceItem(slot,s))continue;
-                ItemStack cur=c.getItem(slot);
-                if(cur.isEmpty()){
-                    int n=Math.min(s.getCount(),Math.min(s.getMaxStackSize(),c.getMaxStackSize()));
-                    ItemStack movedStack=s.copy();movedStack.setCount(n);c.setItem(slot,movedStack);s.shrink(n);moved=true;
-                }else if(ItemStack.isSameItemSameTags(cur,s)){
-                    int n=Math.min(s.getCount(),Math.min(cur.getMaxStackSize(),c.getMaxStackSize())-cur.getCount());
-                    if(n>0){cur.grow(n);s.shrink(n);moved=true;}
-                }
-            }
+            if(transferToWarehouse(c,s)>0)moved=true;
             if(s.isEmpty())w.fieldInventory.remove(inv);else inv++;
         }
-        if(moved){c.setChanged();KingdomNpcData.get(level.getServer()).setDirty();}return moved;
+        if(moved)KingdomNpcData.get(level.getServer()).setDirty();
+        return moved;
     }
     /** Execute ONE bounded action; called per NPC once every 2 seconds, never on unloaded chunks. */
     public static boolean tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w) {
