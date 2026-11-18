@@ -174,15 +174,42 @@ public final class KingdomTfcForestry {
     private static void walk(Villager npc,BlockPos at){
         npc.getNavigation().moveTo(at.getX()+.5,at.getY(),at.getZ()+.5,.8);
     }
+    static boolean equipCarriedAxe(KingdomNpcData.Worker w){
+        return equipCarriedAxe(w,KingdomTfcForestry::usableAxe);
+    }
+    static boolean equipCarriedAxe(KingdomNpcData.Worker w,
+                                   java.util.function.Predicate<ItemStack> usable){
+        if(usable.test(w.fieldTool))return true;
+        for(int i=0;i<w.fieldInventory.size();i++){
+            ItemStack carried=w.fieldInventory.get(i);
+            if(!usable.test(carried))continue;
+            ItemStack selected=carried.split(1);
+            if(carried.isEmpty())w.fieldInventory.remove(i);
+            if(!w.fieldTool.isEmpty())NpcFieldWork.put(w,w.fieldTool);
+            w.fieldTool=selected;
+            return true;
+        }
+        return false;
+    }
     private static boolean takeAxe(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                    Container raw,BlockPos source){
         if(axe(w.fieldTool))return true;
-        if(!w.fieldTool.isEmpty())return false;
+        if(equipCarriedAxe(w)){
+            KingdomNpcData.get(level.getServer()).setDirty();return true;
+        }
+        if(!w.fieldTool.isEmpty()
+            &&!NpcFieldWork.canFit(w,List.of(w.fieldTool)))return false;
         if(!near(npc,source)){walk(npc,source);return false;}
         for(int i=0;i<raw.getContainerSize();i++){
             ItemStack stock=raw.getItem(i);
             if(axe(stock)&&raw.canTakeItem(raw,i,stock)){
-                w.fieldTool=raw.removeItem(i,1);raw.setChanged();
+                ItemStack selected=raw.removeItem(i,1);
+                if(!axe(selected)){
+                    if(!selected.isEmpty())NpcFieldWork.put(w,selected);
+                    raw.setChanged();return false;
+                }
+                if(!w.fieldTool.isEmpty())NpcFieldWork.put(w,w.fieldTool);
+                w.fieldTool=selected;raw.setChanged();
                 KingdomNpcData.get(level.getServer()).setDirty();return true;
             }
         }

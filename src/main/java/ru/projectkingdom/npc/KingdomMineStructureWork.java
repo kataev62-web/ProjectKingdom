@@ -57,7 +57,7 @@ public final class KingdomMineStructureWork {
     }
     private static boolean authorized(ServerLevel level,BlockPos at,KingdomNpcData.Worker w){
         return w.employer!=null&&level.hasChunkAt(at)
-            &&w.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,at));
+            &&KingdomTerritories.get(level.getServer()).canUse(level,at,w.employer);
     }
     private static Result ladder(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                  KingdomMineSettings.Shaft area,BlockPos at){

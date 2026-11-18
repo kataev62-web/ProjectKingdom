@@ -22,7 +22,7 @@ public final class KingdomRanchPenData extends SavedData {
             BlockPos p=animal.blockPosition();
             return animal.level().dimension().location().toString().equals(dimension)
                 && p.getX()>=minX&&p.getX()<=maxX&&p.getZ()>=minZ&&p.getZ()<=maxZ
-                && Math.abs(p.getY()-y)<=3;
+                && KingdomRanchLoadedArea.containsY(y,p.getY());
         }
         public BlockPos center(){return new BlockPos((minX+maxX)/2,y+1,(minZ+maxZ)/2);}
     }

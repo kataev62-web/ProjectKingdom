@@ -1,0 +1,49 @@
+{
+  "candidate": "638ce74193ca4173a677569b8adf3e0d50a9611f",
+  "pr74": "db0df290671cd5742d09f6d2cbdc99071af0b26e",
+  "pr74_ancestor": false,
+  "pr74_guard_tests_identical": true,
+  "counts": {
+    "tests": 7,
+    "failures": 1,
+    "errors": 0,
+    "skipped": 0
+  },
+  "failures": [
+    {
+      "test": "nativeTwoRodBatchMustBeSupportedOrRejectedBeforeWork()",
+      "message": "org.opentest4j.AssertionFailedError: Accepted quantity=1 strands native two-rod output after forging: Order remains WORKING, cannot be replaced ==> expected: <true> but was: <false>"
+    }
+  ],
+  "production_api": {
+    "result": {
+      "ready": true,
+      "list_response": true,
+      "exit": 0
+    },
+    "markers": [
+      "PROBE91 loader=cpw.mods.modlauncher.TransformingClassLoader@11900483",
+      "PROBE91 native=tfc:anvil/black_bronze_rod adapter=tfc:anvil/black_bronze_rod",
+      "PROBE91 PASS",
+      "[18:48:10] [Server thread/INFO] [minecraft/DedicatedServer]: Done (27.510s)! For help, type \"help\""
+    ]
+  },
+  "native_recipe": {
+    "type": "tfc:anvil",
+    "input": {
+      "tag": "forge:ingots/black_bronze"
+    },
+    "result": {
+      "item": "tfc:metal/rod/black_bronze",
+      "count": 2
+    },
+    "tier": 2,
+    "rules": [
+      "bend_last",
+      "draw_second_last",
+      "draw_third_last"
+    ]
+  },
+  "tfc_jar_sha256": "93ea2fb5a1188f4dc64092fc9159ccaddd95bb5e8ae4f3c4a9e409ea5ff90de8",
+  "decision": "BLOCKED R3; R1/R2 resolved; no new RC published"
+}
