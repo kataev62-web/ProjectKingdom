@@ -42,8 +42,10 @@ final class KingdomPhysicalCashAliasWiringTest {
         assertTrue(resolver.contains("if(view instanceof PhysicalSlotProvider provider)"));
         assertTrue(resolver.contains("type==SimpleContainer.class"));
         assertTrue(resolver.contains("return null;"));
-        assertFalse(resolver.contains("return new KingdomPhysicalSlotGuard.Slot(view,slot);"),
-                "Unknown wrappers may represent the same physical storage despite distinct Java identities");
+        assertTrue(resolver.contains("type==SimpleContainer.class || type==ChestBlockEntity.class"));
+        assertTrue(resolver.contains("return new KingdomPhysicalSlotGuard.Slot(view,slot);"));
+        assertTrue(resolver.contains("return null;"),
+                "Unknown wrapper classes must not silently receive guessed backing identities");
     }
 
     @Test void cannotMergeTaggedCoinsOrChangeDenominations() throws Exception {
