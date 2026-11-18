@@ -56,6 +56,9 @@ public final class KingdomAdministrationData extends SavedData {
         for(KingdomCivicsData.Town town:KingdomCivicsData.get(server).towns()){
             changed|=data.migrateFounder(town.id(),town.mayor())==1;
             changed|=data.ensureHistoricalTreasury(town.id(),town.treasury());
+            // Migrate old saves where prior mayor appointments left stale MAYOR roles.
+            // The authoritative mayor is in CivicsData; founder rights remain separate.
+            data.adminChangeMayor(town.id(),null,town.mayor());
         }
         if(changed)data.setDirty();
         return data;
@@ -85,14 +88,19 @@ public final class KingdomAdministrationData extends SavedData {
         // Reconcile old versions that appended MAYOR badges on every succession.
         // Preserve unrelated official positions, but only the active mayor has
         // the MAYOR badge. The founder's independent authority is unchanged.
-        roster.entrySet().removeIf(entry -> {
-            if(entry.getKey().equals(next))return false;
-            entry.getValue().remove(MunicipalRole.MAYOR);
-            return entry.getValue().isEmpty();
-        });
-        roster.computeIfAbsent(next,k->EnumSet.noneOf(MunicipalRole.class))
-            .add(MunicipalRole.MAYOR);
-        setDirty();
+        boolean changed=false;
+        var iterator=roster.entrySet().iterator();
+        while(iterator.hasNext()){
+            var entry=iterator.next();
+            if(entry.getKey().equals(next))continue;
+            if(entry.getValue().remove(MunicipalRole.MAYOR)){
+                changed=true;
+                if(entry.getValue().isEmpty())iterator.remove();
+            }
+        }
+        if(roster.computeIfAbsent(next,k->EnumSet.noneOf(MunicipalRole.class))
+                .add(MunicipalRole.MAYOR))changed=true;
+        if(changed)setDirty();
     }
 
     /** A city with money, legacy liabilities or pending treasury recoveries is NEVER deleted. */
