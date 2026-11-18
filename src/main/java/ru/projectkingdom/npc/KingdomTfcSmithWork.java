@@ -185,6 +185,63 @@ public final class KingdomTfcSmithWork {
         return null;
     }
 
+    /** Real native recipes visible for this worker's current registered anvil and raw stock. */
+    public record RecipeOption(String recipeId,String inputId) {}
+    public static List<RecipeOption> availableRecipes(ServerLevel level,KingdomNpcData.Worker w){
+        if(!ModList.get().isLoaded("tfc")||!KingdomSmithySite.inspect(level,w).ready()
+                ||!w.hasSource||!w.hasDestination)return List.of();
+        BlockPos input=new BlockPos(w.sourceX,w.sourceY,w.sourceZ);
+        BlockPos forgePos=new BlockPos(w.workX,w.workY,w.workZ);
+        if(!level.hasChunkAt(input)||!KingdomTerritories.get(level.getServer())
+                .usable(level,input,w.employer,"raw"))return List.of();
+        if(!(level.getBlockEntity(input) instanceof Container raw))return List.of();
+        UUID firm;
+        try{firm=UUID.fromString(w.workplaceId);}catch(IllegalArgumentException ex){return List.of();}
+        var room=EnterpriseBuildingRegistration.get(level.getServer()).room(firm);
+        BlockPos anvilPos=findAnvil(level,room,forgePos);
+        if(anvilPos==null||!KingdomTerritories.get(level.getServer()).canUse(level,anvilPos,w.employer))
+            return List.of();
+        var anvil=level.getBlockEntity(anvilPos);
+        if(inventory(anvil)==null)return List.of();
+        try{
+            Class<?> type=Class.forName("net.dries007.tfc.common.recipes.AnvilRecipe");
+            int tier=((Number)anvil.getClass().getMethod("getTier").invoke(anvil)).intValue();
+            Method all=type.getMethod("getAll",net.minecraft.world.level.Level.class,ItemStack.class,int.class);
+            var unique=new TreeMap<String,RecipeOption>();
+            for(int i=0;i<raw.getContainerSize()&&unique.size()<128;i++){
+                ItemStack stack=raw.getItem(i);
+                if(stack.isEmpty()||!raw.canTakeItem(raw,i,stack)
+                        ||forgeCapability(stack)==null
+                        ||!nativeValid(level.getBlockEntity(forgePos),5,stack))continue;
+                Object rows=all.invoke(null,level,stack,tier);
+                if(!(rows instanceof List<?> candidates))continue;
+                String inputId=BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+                for(Object candidate:candidates){
+                    String recipeId=candidate.getClass().getMethod("getId").invoke(candidate).toString();
+                    if(!recipeId.startsWith("tfc:"))continue; // real TFC recipes only
+                    unique.putIfAbsent(recipeId+"|"+inputId,new RecipeOption(recipeId,inputId));
+                }
+            }
+            return List.copyOf(unique.values());
+        }catch(ReflectiveOperationException|LinkageError|RuntimeException ex){
+            return List.of(); // TFC unavailable or changed API: never synthesize a recipe
+        }
+    }
+
+    /** A free native anvil input slot is required before accepting a new order. */
+    public static boolean idleAnvil(ServerLevel level,KingdomNpcData.Worker w){
+        if(!KingdomSmithySite.inspect(level,w).ready())return false;
+        UUID company;
+        try{company=UUID.fromString(w.workplaceId);}catch(IllegalArgumentException ex){return false;}
+        var room=EnterpriseBuildingRegistration.get(level.getServer()).room(company);
+        BlockPos anvil=findAnvil(level,room,new BlockPos(w.workX,w.workY,w.workZ));
+        if(anvil==null||!KingdomTerritories.get(level.getServer()).canUse(level,anvil,w.employer))
+            return false;
+        var slots=inventory(level.getBlockEntity(anvil));
+        return slots!=null&&slots.getSlots()>=4&&slots.getStackInSlot(0).isEmpty()
+                &&!w.smithOutputReady;
+    }
+
     /** Left click Recipe in the NPC menu cycles valid native TFC anvil outputs. */
     public static String cycleRecipe(net.minecraft.server.level.ServerPlayer owner,KingdomNpcData.Worker w){
         if(owner==null||w==null||!"smith".equals(w.job)||!owner.getUUID().equals(w.employer))
