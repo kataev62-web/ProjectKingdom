@@ -102,13 +102,13 @@ public final class KingdomSiteBuilder {
             if (!KingdomBlockStateCodec.buildable(requested))
                 return "Невозможно построить из этого предмета: " + cell.material();
             var present = player.serverLevel().getBlockState(target);
-            // Harmless terrain is cleared later by the hammer/NPC, one planned
-            // cell at a time, after the real building material is available.
-            // Containers and protected blocks must still be removed manually.
-            if (!present.isAir() && !present.equals(requested)
+            // A schematic never tears down existing player terrain automatically.
+            // Reorientation of an already placed block is the only free change.
+            boolean canReorient=present.is(requested.getBlock())&&!present.hasBlockEntity();
+            if (!present.isAir() && !present.equals(requested) && !canReorient
                     && !KingdomConstructionWork.canClearObstacle(player.serverLevel(),target,present))
-                return "Мешает защищённый блок " + target.toShortString()
-                    + ". Убери его вручную до начала стройки.";
+                return "Препятствие на площадке " + target.toShortString()
+                    + ". Убери существующий блок вручную до начала стройки.";
         }
 
         String designKey = id;
