@@ -16,12 +16,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Behavioral tests that exercise the full Forge event flow:
- * PlayerInteractEvent.RightClickBlock -> (simulated KingdomNpcMod logic)
+ * PlayerInteractEvent.RightClickBlock -> KingdomNpcMod.selectWarehouseCorners (REAL HANDLER)
  * -> KingdomCentralWarehouseRooms.select -> visual packets -> SavedData
  * 
- * Note: This test simulates the KingdomNpcMod.selectWarehouseCorners logic
- * without compiling KingdomNpcMod, to avoid requiring full Forge stubs.
- * The real KingdomNpcMod integration is verified in CI with full Forge runtime.
+ * This test calls the REAL KingdomNpcMod.selectWarehouseCorners handler
+ * and verifies:
+ * - Visual selection packet calls (KingdomVolumeSelectionPacket.send)
+ * - Two-corner registration
+ * - Marking cancellation (KingdomCancelVolumeSelectionPacket)
  */
 final class WarehouseEventFlowTest {
     @TempDir static Path classes;
@@ -36,7 +38,10 @@ final class WarehouseEventFlowTest {
             sources.filter(p -> p.toString().endsWith(".java"))
                 .sorted().forEach(p -> arguments.add(p.toString()));
         }
+        // Compile main source files needed for the test
         arguments.add("src/main/java/ru/projectkingdom/administration/KingdomCentralWarehouseRooms.java");
+        // Use test-specific KingdomNpcModTest that has only the selectWarehouseCorners handler
+        arguments.add("validation/warehouse_room_harness/src/ru/projectkingdom/npc/KingdomNpcModTest.java");
         var output = new ByteArrayOutputStream();
         assertEquals(0, compiler.run(null, output, output, arguments.toArray(String[]::new)), output.toString());
     }
