@@ -49,7 +49,7 @@ public final class KingdomMineSupportExcavation {
             }
             var drops=Block.getDrops(block,level,pos,level.getBlockEntity(pos),
                 npc,worker.fieldTool);
-            if(!NpcFieldWork.canFit(worker,drops))return Result.UNSAFE;
+            if(!KingdomMineDelivery.canCarry(worker,drops))return Result.UNSAFE;
             if(!level.setBlock(pos,Blocks.AIR.defaultBlockState(),3))
                 return Result.UNSAFE;
             for(ItemStack stack:drops)NpcFieldWork.put(worker,stack);
