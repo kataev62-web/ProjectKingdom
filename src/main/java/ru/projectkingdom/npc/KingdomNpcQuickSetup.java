@@ -326,6 +326,13 @@ public final class KingdomNpcQuickSetup {
                 return new Result(false,"Договор шахтёра и склады настроены. "
                     +"Освободи вход 1×2 по координатам "+entrance.toShortString()+". "
                     +"Начальный маршрут: "+start.label()+". Измени его в блоке предприятия до начала проходки.");
+            // The manual setup and the workday scheduler MUST agree. Never
+            // report «Готово» if the live mine core, entrance rights, floor
+            // or actual employment still block the first physical work tick.
+            var mineInspection=KingdomMineSite.inspect(server,level,worker);
+            if(!mineInspection.ready())
+                return new Result(false,"Шахтёр назначен, но пока не может приступить: "
+                    +mineInspection.reason());
         }
         if(workshop(worker.job) && "minecraft:crafting_table".equals(
             BuiltInRegistries.BLOCK.getKey(level.getBlockState(machine).getBlock()).toString())
