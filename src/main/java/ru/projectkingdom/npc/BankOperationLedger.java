@@ -58,7 +58,7 @@ public final class BankOperationLedger {
     private final Map<UUID,Entry> entries=new LinkedHashMap<>();
     private final Map<UUID,UUID> activeByTown=new LinkedHashMap<>();
     private boolean healthy=true;
-    private boolean recoveryMode;
+    private final java.util.Set<UUID> recoveryRequired=new java.util.HashSet<>();
 
     private BankOperationLedger(Path file) {this.file=file;}
     public static BankOperationLedger open(Path file) throws IOException {
@@ -68,7 +68,9 @@ public final class BankOperationLedger {
             for(String line:Files.readAllLines(file,StandardCharsets.UTF_8))
                 result.replay(line);
         }
-        result.recoveryMode=true;
+        for(Entry e:result.entries.values())
+            if(e.state()==State.PREPARED||e.state()==State.RECEIPT)
+                result.recoveryRequired.add(e.id());
         return result;
     }
     public static String zeroHash(){return ZERO_HASH;}
@@ -78,13 +80,13 @@ public final class BankOperationLedger {
         if(!healthy||town==null||activeByTown.containsKey(town))return true;
         for(Entry e:entries.values())if(e.town().equals(town)
                 &&e.state()!=State.ABORTED&&e.state()!=State.RECONCILED
-                &&(recoveryMode||e.state()==State.PREPARED))return true;
+                &&(recoveryRequired.contains(e.id())||e.state()==State.PREPARED))return true;
         return false;
     }
     public synchronized List<Entry> unresolved() {
         List<Entry> result=new ArrayList<>();
         for(Entry e:entries.values())if(e.state()!=State.ABORTED&&e.state()!=State.RECONCILED
-                &&(recoveryMode||e.state()==State.PREPARED))result.add(e);
+                &&(recoveryRequired.contains(e.id())||e.state()==State.PREPARED))result.add(e);
         return List.copyOf(result);
     }
     public synchronized Entry find(UUID id){return entries.get(id);}
@@ -114,6 +116,7 @@ public final class BankOperationLedger {
         entries.put(tx.id(),new Entry(tx.id(),tx.town(),tx.actor(),tx.recipient(),
                 tx.kind(),tx.amount(),tx.before(),null,State.ABORTED));
         activeByTown.remove(tx.town());
+        recoveryRequired.remove(tx.id());
         return true;
     }
     /**
@@ -122,7 +125,7 @@ public final class BankOperationLedger {
      */
     public synchronized boolean reconcile(UUID id,Snapshot observed) {
         Entry tx=entries.get(id);
-        if(!healthy||tx==null||observed==null||!recoveryMode
+        if(!healthy||tx==null||observed==null||!recoveryRequired.contains(id)
                 ||tx.state()==State.RECONCILED||tx.state()==State.ABORTED)return false;
         boolean confirmed=tx.state()==State.RECEIPT&&tx.after()!=null&&tx.after().equals(observed);
         boolean neverApplied=tx.state()==State.PREPARED&&tx.before().equals(observed);
@@ -130,6 +133,7 @@ public final class BankOperationLedger {
         if(!append("A|"+id))return false;
         entries.put(id,new Entry(tx.id(),tx.town(),tx.actor(),tx.recipient(),
                 tx.kind(),tx.amount(),tx.before(),tx.after(),State.RECONCILED));
+        recoveryRequired.remove(id);
         activeByTown.remove(tx.town());
         return true;
     }
@@ -165,6 +169,7 @@ public final class BankOperationLedger {
                     city=Math.subtractExact(city,n);treasury=Math.subtractExact(treasury,n);
                 }
                 case DONATE -> {
+                    if(!a.walletHash().equals(b.walletHash())||!a.vaultHash().equals(b.vaultHash()))return false;
                     owner=Math.subtractExact(owner,n);recipient=Math.subtractExact(recipient,n);
                     bank=Math.subtractExact(bank,n);city=Math.addExact(city,n);
                     treasury=Math.addExact(treasury,n);
