@@ -31,7 +31,7 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
     private int stockPage=0;
     private Button stockPrevious,stockNext;
     private EditBox rename;private Button renameButton,closeButton,registerBuildingButton;
-    private Button fieldsButton,forestButton;
+    private Button fieldsButton,forestButton,smithyButton;
     private final List<Button> mineButtons=new ArrayList<>();
     private boolean closureArmed;
     public EnterpriseCoreScreen(EnterpriseCoreMenu menu,Inventory inventory,Component title){super(menu,inventory,KingdomFonts.readable(title));imageWidth=EnterpriseMenuLayout.WIDTH;imageHeight=EnterpriseMenuLayout.HEIGHT;}
@@ -63,6 +63,8 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         cashButtons.add(addRenderableWidget(action("Перенести монеты старой кассы",68,166,235,EnterpriseCoreMenu.MIGRATE_CASH)));
         fieldsButton=addRenderableWidget(action("Поля и семена",72,132,205,EnterpriseCoreMenu.OPEN_FARM_FIELDS));
         forestButton=addRenderableWidget(action("Лесные участки и посадки",72,132,205,EnterpriseCoreMenu.OPEN_FOREST));
+        smithyButton=addRenderableWidget(action("Заказы кузницы TFC",72,132,205,
+            EnterpriseCoreMenu.OPEN_SMITHY_PRODUCTION));
         mineButtons.add(addRenderableWidget(action("Разметить центральный ствол",66,110,233,
             EnterpriseCoreMenu.OPEN_MINE_SURVEY)));
         mineButtons.add(addRenderableWidget(action("Начало: вперёд / сразу вниз",66,134,233,
@@ -120,6 +122,9 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
         for(Button b:cashButtons)b.visible=selected==EnterpriseMenuLayout.Tab.CASH&&menu.manager();
         if(fieldsButton!=null)fieldsButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.FARM;
         if(forestButton!=null)forestButton.visible=selected==EnterpriseMenuLayout.Tab.PRODUCTION && menu.kind()==EnterpriseKind.LUMBER;
+        if(smithyButton!=null)smithyButton.visible=
+            (selected==EnterpriseMenuLayout.Tab.PRODUCTION||selected==EnterpriseMenuLayout.Tab.ORDERS)
+            &&menu.kind()==EnterpriseKind.SMITHY;
         for(Button button:mineButtons)button.visible=
             selected==EnterpriseMenuLayout.Tab.PRODUCTION
             &&menu.kind()==EnterpriseKind.MINE&&menu.manager();
@@ -153,6 +158,9 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 } else if(menu.kind()==EnterpriseKind.LUMBER) {
                     line(g,"Выделите лес, породу TFC и нормы древесины.",54,90);
                     line(g,"NPC рубит деревья и сажает реальные саженцы.",54,108);
+                } else if(menu.kind()==EnterpriseKind.SMITHY) {
+                    line(g,"Настоящие рецепты TFC, металл и наковальня.",54,85);
+                    line(g,"Заказ: изделие, количество, доставка на склад.",54,104);
                 } else if(menu.kind()==EnterpriseKind.MINE) {
                     String[] values=menu.mineSummary().split("[|]");
                     if(values.length>=4){
@@ -176,7 +184,12 @@ public final class EnterpriseCoreScreen extends AbstractContainerScreen<Enterpri
                 line(g,"Учётный остаток: "+menu.cash()+" медных",54,103);
                 line(g,"Никакого отдельного кассового сундука.",54,119);
             }
-            case ORDERS->{line(g,"Только реальные сохранённые заявки и поставки.",54,90);line(g,"Удалённое создание товаров отключено.",54,108);}
+            case ORDERS->{
+                line(g,menu.kind()==EnterpriseKind.SMITHY
+                    ?"Открой заказы кузницы: сохранённый прогресс TFC."
+                    :"Только реальные сохранённые заявки и поставки.",54,90);
+                line(g,"Удалённое создание товаров отключено.",54,108);
+            }
             case SETTINGS->{
                 line(g,menu.manager()?"Новое название (до 48 символов):":"Управление доступно только владельцу.",54,80);
                 line(g,"Закрытие возможно после вывода денег и товаров",54,134);

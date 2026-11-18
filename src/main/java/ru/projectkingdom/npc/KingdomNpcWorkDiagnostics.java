@@ -65,15 +65,24 @@ public final class KingdomNpcWorkDiagnostics {
         Container destination=KingdomContainerAccess.resolve(level,output);
         if(source==null||destination==null)
             return warn("Кузнец: склад недоступен или не совместим");
-        boolean fuel=false,metal=false;
+        var order=KingdomSmithyOrdersData.get(server).order(firm);
+        if(order==null||order.finished())return warn("Кузнец: создай заказ через блок кузницы → Производство");
+        if(!order.worker().equals(w.entityId))return good("Кузнец: заказ закреплён за другим кузнецом");
+        if(order.phase()==KingdomSmithyOrdersData.Phase.PAUSED)
+            return warn("Кузнец: производственный заказ приостановлен");
+        if(order.phase()==KingdomSmithyOrdersData.Phase.READY)
+            return good("Кузнец: настоящее изделие готово; ожидает доставки на склад");
+        boolean fuel=false,matching=false;
         for(int i=0;i<source.getContainerSize();i++){
             ItemStack item=source.getItem(i);
             if(KingdomTfcSmithWork.forgeFuel(item))fuel=true;
-            else if(!item.isEmpty())metal=true;
+            if(!item.isEmpty()&&net.minecraft.core.registries.BuiltInRegistries.ITEM
+                    .getKey(item.getItem()).toString().equals(order.input()))matching=true;
         }
-        if(!fuel)return warn("Кузнец: нет топлива для горна");
-        if(!metal)return warn("Кузнец: нет металлического сырья");
-        return good("Кузнец: горн и материалы готовы");
+        if(!fuel&&!matching)
+            return warn("Кузнец: нет сырья по заказу; также проверьте топливо TFC");
+        return good("Кузнец: "+order.delivered()+"/"+order.requested()
+            +" | "+order.message());
     }
     private static Status forestry(ServerLevel level,KingdomNpcData.Worker w){
         UUID firm=company(w);

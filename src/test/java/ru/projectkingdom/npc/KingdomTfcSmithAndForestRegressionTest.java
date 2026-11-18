@@ -39,8 +39,8 @@ final class KingdomTfcSmithAndForestRegressionTest {
         var core=source("npc/KingdomTfcSmithWork.java");
         assertTrue(core.contains("IItemHandlerModifiable"));
         assertTrue(core.contains("chest.canTakeItem(chest,i,stack)"));
-        assertTrue(core.contains("dest.setStackInSlot(slot,unit)"));
-        assertTrue(core.contains("stock.shrink(1)"));
+        assertTrue(core.contains("dest.setStackInSlot(slot,unit.copy())"));
+        assertTrue(core.contains("chest.removeItem(source,1)"));
         assertTrue(core.contains("getMethod(\"light\""));
         assertTrue(core.contains("getMethod(\"work\""));
         assertTrue(core.contains("getMethod(\"getRules\""));

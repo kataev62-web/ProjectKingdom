@@ -32,7 +32,7 @@ import ru.projectkingdom.npc.KingdomForestMenu;
 
 /** Slot-free management menu anchored to one loaded enterprise core. */
 public final class EnterpriseCoreMenu extends AbstractContainerMenu {
-    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,REGISTER_BUILDING=113,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123,OPEN_MINE_SURVEY=124,MINE_START=125,MINE_LEVELS=126,MINE_HEADING=127;
+    public static final int DEPOSIT_100=100,WITHDRAW_100=101,BIND_CASHBOX=110,BIND_RAW=111,BIND_FINISHED=112,REGISTER_BUILDING=113,OPEN_ARCHITECT=120,OPEN_PROJECTS=121,OPEN_FARM_FIELDS=122,OPEN_FOREST=123,OPEN_MINE_SURVEY=124,MINE_START=125,MINE_LEVELS=126,MINE_HEADING=127,OPEN_SMITHY_PRODUCTION=128;
     public static final int APPLY_JOB=150,BUY_FIRST=160,BUY_LAST=163,SELL_HELD=170,ACCEPT_FIRST=180,CLOSE_BUSINESS=190,MIGRATE_CASH=191;
     private record Closing(UUID enterprise,long expiration) {}
     private static final Map<UUID,Closing> PENDING_CLOSURES=new ConcurrentHashMap<>();
@@ -291,6 +291,11 @@ public final class EnterpriseCoreMenu extends AbstractContainerMenu {
                 .acceptFirst(server.getServer(),server.getUUID(),enterpriseId,10);
             server.sendSystemMessage(Component.literal(ok?"Заявитель принят на работу: 10 медных в игровые сутки.":"Новых заявок нет или приём невозможен."));
             return ok;
+        }
+        if(kind==EnterpriseKind.SMITHY && data.mayManage(server.getUUID(),enterpriseId)
+                && action==OPEN_SMITHY_PRODUCTION){
+            ru.projectkingdom.npc.KingdomSmithyProductionMenu.open(server,enterpriseId,corePos);
+            return true;
         }
         if(kind==EnterpriseKind.FARM && data.mayManage(server.getUUID(),enterpriseId)
                 && action==OPEN_FARM_FIELDS) {
