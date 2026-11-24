@@ -138,4 +138,18 @@ class KingdomMineCentralShaftPlanTest {
         assertFalse(data.chooseHeading(id,KingdomMineSettings.Heading.NORTH));
         assertFalse(data.setShaft(id,area(8,8)));
     }
+
+    @Test void installedDescentLadderAndDeckAreNotMinedAgain() {
+        var shaft = area(7, 7);
+        int layer = 1;
+        BlockPos descent = KingdomMineCentralShaftPlan.descent(shaft, layer);
+        assertTrue(KingdomMineLayerWork.completedStructure(shaft, layer, descent,
+            net.minecraft.world.level.block.Blocks.LADDER.defaultBlockState()));
+        assertTrue(KingdomMineLayerWork.completedStructure(shaft, layer, descent.north(),
+            net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState()));
+        assertFalse(KingdomMineLayerWork.completedStructure(shaft, layer, descent.north(),
+            net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState()));
+        assertFalse(KingdomMineLayerWork.completedStructure(shaft, layer, descent.east(),
+            net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState()));
+    }
 }
