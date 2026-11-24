@@ -268,21 +268,22 @@ public final class KingdomMineWork {
                     else status(level,worker,"Идёт к месту добычи");
                     return false;
                 }
-                BlockState state=level.getBlockState(target);
-                var drops=Block.getDrops(state,level,target,level.getBlockEntity(target),
-                    npc,worker.fieldTool);
-                if (!NpcFieldWork.canFit(worker,drops)) {status(level,worker,"Сумка переполнена");return false;}
-                if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)) return false;
+                // The break goes through the executor: the Forge break event
+                // comes first, so that TFC and every other mod may refuse the
+                // block. A direct replacement with air would skip the
+                // collapse rules and the protection of the world.
+                ItemStack realTool=KingdomActionEngine.toolOf(npc,worker,needed);
+                if(realTool.isEmpty()){
+                    status(level,worker,"Нет исправного инструмента в сумке жителя");
+                    return false;
+                }
+                var outcome=KingdomActionEngine.breakBlock(level,npc,worker,target,realTool);
+                if(!outcome.done()){
+                    status(level,worker,outcome.message());
+                    return false;
+                }
                 settings.markStarted(id);
-                for (ItemStack stack:drops) NpcFieldWork.put(worker,stack);
-                worker.fieldTool.hurt(1,level.random,null);
-                if (worker.fieldTool.isEmpty() || worker.fieldTool.getDamageValue()
-                    >=worker.fieldTool.getMaxDamage()) worker.fieldTool=ItemStack.EMPTY;
                 status(level,worker,"Добывает породу на глубине Y="+target.getY());
-                worker.fieldHarvested+=drops.stream().mapToInt(ItemStack::getCount).sum();
-                worker.skillXp++;
-                worker.energy=Math.max(0,worker.energy-1);
-                KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
             }
             // At each two-block descent checkpoint build a real ladder, then

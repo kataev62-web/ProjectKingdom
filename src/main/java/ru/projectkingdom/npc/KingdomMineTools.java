@@ -45,6 +45,18 @@ public final class KingdomMineTools {
     public static boolean equip(ServerLevel level,Villager npc,
             KingdomNpcData.Worker worker,Tool needed) {
         if(needed==Tool.BLOCKED)return false;
+        // The personal inventory of an MCA resident is the source of truth:
+        // the tool must really lie in the bag of the villager.
+        Container personal=KingdomMcaAdapter.isResident(npc)
+            ?KingdomResidentInventory.personal(npc):null;
+        if(personal!=null){
+            for(int i=0;i<personal.getContainerSize();i++){
+                ItemStack candidate=personal.getItem(i);
+                if(!matches(candidate,needed))continue;
+                worker.fieldTool=candidate.copy();
+                return true;
+            }
+        }
         if(matches(worker.fieldTool,needed))return true;
         for(int i=0;i<worker.fieldInventory.size();i++){
             ItemStack candidate=worker.fieldInventory.get(i);
@@ -80,6 +92,15 @@ public final class KingdomMineTools {
             if(!selected.isEmpty())NpcFieldWork.put(worker,selected);
             storage.setChanged();
             return false;
+        }
+        if(personal!=null){
+            // The real bag of the resident takes the tool.
+            ItemStack copy=selected.copy();
+            if(!KingdomResidentInventory.insert(personal,copy))return false;
+            worker.fieldTool=selected;
+            storage.setChanged();
+            KingdomNpcData.get(level.getServer()).setDirty();
+            return true;
         }
         if(!worker.fieldTool.isEmpty())NpcFieldWork.put(worker,worker.fieldTool);
         worker.fieldTool=selected;

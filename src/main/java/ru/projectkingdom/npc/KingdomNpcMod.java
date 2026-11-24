@@ -617,7 +617,7 @@ public final class KingdomNpcMod {
                 KingdomNpcData db = KingdomNpcData.get(src.getServer());
                 if (db.workers.size() >= MAX_NPCS) { reply(src, "Alpha NPC limit reached: " + MAX_NPCS); return 0; }
                 ServerLevel level = src.getLevel();
-                Villager npc = EntityType.VILLAGER.create(level);
+                Villager npc = createResident(level, false);
                 if (npc == null) return 0;
                 var pos = src.getPosition();
                 npc.moveTo(pos.x, pos.y, pos.z, 0, 0);
@@ -643,7 +643,7 @@ public final class KingdomNpcMod {
                 var db = KingdomNpcData.get(src.getServer());
                 if (db.workers.size() >= MAX_NPCS) { reply(src, "NPC limit reached: " + MAX_NPCS); return 0; }
                 var level = src.getLevel();
-                Villager npc = EntityType.VILLAGER.create(level);
+                Villager npc = createResident(level, true);
                 if (npc == null) return 0;
                 var pos = src.getPosition();
                 npc.moveTo(pos.x, pos.y, pos.z, 0, 0);
@@ -975,6 +975,48 @@ public final class KingdomNpcMod {
     }
 
     @SubscribeEvent
+    /**
+     * Gives the navigation of every resident to exactly one owner.
+     *
+     * <p>While the Kingdom shift of a resident runs, the resident belongs to
+     * the Kingdom. Outside the shift the ordinary life of MCA takes the
+     * resident back: the schedule, the memories and the default activity come
+     * back untouched.
+     *
+     * <p>The arbitration runs on every tick, not only on the tick of the
+     * profession: the brain of MCA ticks every tick and would take the
+     * resident away between two work ticks.
+     */
+    private static void arbitrateResidentNavigation(net.minecraft.server.MinecraftServer server) {
+        if (!KingdomMcaAdapter.available()) return;
+        var residents = KingdomNpcData.get(server);
+        for (var worker : residents.all()) {
+            for (ServerLevel level : server.getAllLevels()) {
+                if (!worker.dimension.equals(level.dimension().location().toString())) continue;
+                var entity = level.getEntity(worker.entityId);
+                if (!(entity instanceof Villager resident) || !resident.isAlive()) continue;
+                boolean shift = KingdomNpcDuty.mayExecute(worker.job, worker.order,
+                        worker.autonomousIntent, KingdomNpcWorkday.employed(server, worker));
+                if (shift) KingdomMcaShiftArbiter.hold(resident);
+                else KingdomMcaShiftArbiter.release(resident);
+                break;
+            }
+        }
+    }
+
+    /**
+     * Creates the resident of the Kingdom.
+     *
+     * <p>When Minecraft Comes Alive is installed the resident is a real MCA
+     * villager: it keeps its own personality, family, brain and inventory. The
+     * vanilla villager stays the fallback, so the Kingdom works without MCA.
+     */
+    private static Villager createResident(ServerLevel level, boolean female) {
+        Villager mca = KingdomMcaAdapter.create(level, female);
+        if (mca != null) return mca;
+        return EntityType.VILLAGER.create(level);
+    }
+
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
@@ -983,6 +1025,7 @@ public final class KingdomNpcMod {
         // Physical AI decisions are refreshed each tick, independently of the economy.
         // Vanilla villager goals otherwise re-start navigation immediately after STOP.
         controlLoadedResidents(server);
+        arbitrateResidentNavigation(server);
         if (server.getTickCount() % 10 == 0) KingdomNpcBuilder.tick(server);
         if (server.getTickCount() % 80 == 0) KingdomNpcNeedsBroadcast.tick(server);
         if (server.getTickCount() % 200 == 0)
