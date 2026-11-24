@@ -144,6 +144,13 @@ public final class KingdomMineStructureWork {
         return Result.READY;
     }
 
+    /** Places one real plank of the deck of the descent. */
+    public static Result plankAt(ServerLevel level,Villager npc,
+            KingdomNpcData.Worker worker,KingdomMineSettings.Shaft area,
+            BlockPos at) {
+        return plank(level,npc,worker,at);
+    }
+
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
             KingdomMineSettings.Shaft area,int depth,BlockPos landing){
         if(KingdomMineStructurePlan.requiresLadder(depth)) {

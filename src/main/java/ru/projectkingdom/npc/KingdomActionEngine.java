@@ -57,14 +57,24 @@ public final class KingdomActionEngine {
 
     private static final Map<UUID, Nav> NAVIGATIONS = new HashMap<>();
 
-    /** The tool of the resident: the real personal inventory comes first. */
+    /**
+     * The tool of the resident.
+     *
+     * <p>The tool comes from the working view of the belongings, because the
+     * view holds the very stack that the container holds: the wear of the tool
+     * must change the physical item and not a copy of it. The container is
+     * only the fallback for a resident that has no working view yet.
+     */
     public static ItemStack toolOf(Villager resident, KingdomNpcData.Worker worker,
                                    KingdomMineTools.Tool needed) {
+        if (worker != null) {
+            if (KingdomMineTools.matches(worker.fieldTool, needed)) return worker.fieldTool;
+            for (ItemStack stack : worker.fieldInventory)
+                if (KingdomMineTools.matches(stack, needed)) return stack;
+        }
         Container personal = KingdomResidentInventory.personal(resident);
         ItemStack real = KingdomResidentInventory.findTool(personal, needed);
-        if (!real.isEmpty()) return real;
-        if (worker != null && KingdomMineTools.matches(worker.fieldTool, needed)) return worker.fieldTool;
-        return ItemStack.EMPTY;
+        return real;
     }
 
     /**
@@ -131,19 +141,22 @@ public final class KingdomActionEngine {
         if (worker != null && !KingdomMineWork.safeToBreak(level, target, worker))
             return new Outcome(Status.BLOCKED, "блок защищён или опасен");
         FakePlayer actor = actor(level, resident, tool);
-        ItemStack held = actor.getItemInHand(InteractionHand.MAIN_HAND);
+        Context context = Context.of(actor);
         try {
             // The vanilla path of a player: the break event of Forge is fired
             // first, so that TFC, the collapse rules and every other mod may
-            // refuse the block before it disappears.
+            // refuse the block before it disappears. The event is fired once.
             net.minecraftforge.event.level.BlockEvent.BreakEvent event =
                     new net.minecraftforge.event.level.BlockEvent.BreakEvent(level, target, state, actor);
             net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
             if (event.isCanceled())
                 return new Outcome(Status.BLOCKED, "разрушение отменено защитой");
+            // The drops are computed with the real tool of the resident.
             List<ItemStack> drops = Block.getDrops(state, level, target, level.getBlockEntity(target), actor, tool);
             if (!level.destroyBlock(target, false))
                 return new Outcome(Status.FAILED, "блок не разрушен");
+            // The block is gone, so the drops are given exactly once. The
+            // block is not broken again, so nothing is given twice.
             for (ItemStack drop : drops) {
                 if (drop.isEmpty()) continue;
                 if (!give(worker, drop)) {
@@ -151,8 +164,13 @@ public final class KingdomActionEngine {
                     Block.popResource(level, target, drop.copy());
                 }
             }
+            // The wear belongs to the physical tool: the very stack that the
+            // container holds is the one that is used up.
             tool.hurt(1, level.random, null);
-            if (tool.isEmpty() || tool.getDamageValue() >= tool.getMaxDamage()) tool.setCount(0);
+            if (tool.isEmpty() || tool.getDamageValue() >= tool.getMaxDamage()) {
+                tool.setCount(0);
+                if (worker != null && worker.fieldTool == tool) worker.fieldTool = ItemStack.EMPTY;
+            }
             if (worker != null) {
                 worker.fieldHarvested += drops.stream().mapToInt(ItemStack::getCount).sum();
                 worker.skillXp++;
@@ -161,8 +179,37 @@ public final class KingdomActionEngine {
             }
             return new Outcome(Status.DONE, "добыл " + drops.stream().mapToInt(ItemStack::getCount).sum());
         } finally {
-            // The context of the operation holds no lasting state.
-            actor.setItemInHand(InteractionHand.MAIN_HAND, held);
+            // The context of the operation leaves no trace in the shared
+            // instance: neither the tool nor anything else.
+            context.restore(actor);
+        }
+    }
+
+    /** The state of the shared context of an operation, so that nothing is left behind. */
+    private static final class Context {
+        private final ItemStack hand;
+        private final List<ItemStack> inventory;
+
+        private Context(ItemStack hand, List<ItemStack> inventory) {
+            this.hand = hand;
+            this.inventory = inventory;
+        }
+
+        static Context of(FakePlayer actor) {
+            List<ItemStack> items = new java.util.ArrayList<>();
+            for (int slot = 0; slot < actor.getInventory().getContainerSize(); slot++)
+                items.add(actor.getInventory().getItem(slot).copy());
+            return new Context(actor.getItemInHand(InteractionHand.MAIN_HAND).copy(), items);
+        }
+
+        void restore(FakePlayer actor) {
+            actor.setItemInHand(InteractionHand.MAIN_HAND, hand.copy());
+            for (int slot = 0; slot < actor.getInventory().getContainerSize(); slot++)
+                actor.getInventory().setItem(slot,
+                        slot < inventory.size() ? inventory.get(slot).copy() : ItemStack.EMPTY);
+            actor.getInventory().clearContent();
+            for (int slot = 0; slot < inventory.size(); slot++)
+                actor.getInventory().setItem(slot, inventory.get(slot).copy());
         }
     }
 
@@ -197,12 +244,13 @@ public final class KingdomActionEngine {
             if (personal == null) break;
             ItemStack stack = item.getItem().copy();
             if (stack.isEmpty()) continue;
-            if (KingdomResidentInventory.insert(personal, stack)) {
-                item.discard();
-                taken += stack.getCount();
-            } else if (!stack.isEmpty()) {
-                item.setItem(stack);
-            }
+            int moved = KingdomResidentInventory.insertCount(personal, stack);
+            if (moved <= 0) continue;
+            // Only what really entered the bag is counted and only what was
+            // taken away disappears from the world.
+            taken += moved;
+            if (stack.isEmpty()) item.discard();
+            else item.setItem(stack);
         }
         return taken;
     }
@@ -225,7 +273,9 @@ public final class KingdomActionEngine {
     private static FakePlayer actor(ServerLevel level, Villager resident, ItemStack tool) {
         FakePlayer actor = FakePlayerFactory.getMinecraft(level);
         actor.setPos(resident.getX(), resident.getY(), resident.getZ());
-        ItemStack previous = actor.getItemInHand(InteractionHand.MAIN_HAND);
+        // The tool of the resident is the tool of the operation, so that TFC
+        // and every other mod may read it. It is a copy: the wear belongs to
+        // the physical tool of the resident and is applied there.
         actor.setItemInHand(InteractionHand.MAIN_HAND, tool.copy());
         return actor;
     }

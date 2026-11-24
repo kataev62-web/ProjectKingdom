@@ -7,6 +7,7 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.level.block.state.BlockState;
@@ -41,33 +42,19 @@ public final class KingdomMineTools {
         };
     }
 
-    /** Changes real equipment in the NPC bag or from its authorised RAW depot. */
+    /**
+     * Changes the real equipment of the resident.
+     *
+     * <p>The tool is never copied: the one of the working view is moved into
+     * the hand of the view and the old one goes into the cargo. A tool that
+     * comes from the depot is only taken away when the real bag of the
+     * resident really accepts it; otherwise it goes back into the depot.
+     */
     public static boolean equip(ServerLevel level,Villager npc,
             KingdomNpcData.Worker worker,Tool needed) {
         if(needed==Tool.BLOCKED)return false;
-        // The personal inventory of an MCA resident is the source of truth:
-        // the tool must really lie in the bag of the villager.
-        Container personal=KingdomMcaAdapter.isResident(npc)
-            ?KingdomResidentInventory.personal(npc):null;
-        if(personal!=null){
-            for(int i=0;i<personal.getContainerSize();i++){
-                ItemStack candidate=personal.getItem(i);
-                if(!matches(candidate,needed))continue;
-                worker.fieldTool=candidate.copy();
-                return true;
-            }
-        }
-        if(matches(worker.fieldTool,needed))return true;
-        for(int i=0;i<worker.fieldInventory.size();i++){
-            ItemStack candidate=worker.fieldInventory.get(i);
-            if(!matches(candidate,needed))continue;
-            ItemStack selected=candidate.split(1);
-            if(candidate.isEmpty())worker.fieldInventory.remove(i);
-            if(!worker.fieldTool.isEmpty())NpcFieldWork.put(worker,worker.fieldTool);
-            worker.fieldTool=selected;
-            KingdomNpcData.get(level.getServer()).setDirty();
-            return true;
-        }
+        // The tool that the resident already carries is moved, never copied.
+        if(selectInView(worker,needed))return true;
         if(worker.employer==null||!worker.hasSource)return false;
         BlockPos depot=new BlockPos(worker.sourceX,worker.sourceY,worker.sourceZ);
         if(!level.hasChunkAt(depot)
@@ -87,6 +74,11 @@ public final class KingdomMineTools {
             npc.getNavigation().moveTo(depot.getX()+.5,depot.getY(),depot.getZ()+.5,.75);
             return false;
         }
+        // The bag must have room before the depot is touched at all.
+        Container personal=KingdomMcaAdapter.isResident(npc)
+            ?KingdomResidentInventory.personal(npc):null;
+        if(personal!=null&&!KingdomResidentInventory.hasRoom(personal,new ItemStack(Items.IRON_PICKAXE)))
+            return false;
         ItemStack selected=storage.removeItem(slot,1);
         if(!matches(selected,needed)){
             if(!selected.isEmpty())NpcFieldWork.put(worker,selected);
@@ -94,18 +86,50 @@ public final class KingdomMineTools {
             return false;
         }
         if(personal!=null){
-            // The real bag of the resident takes the tool.
+            // The real bag of the resident takes the tool. When the bag
+            // refuses it, the tool goes back into the depot: the transfer is
+            // either complete or not at all.
             ItemStack copy=selected.copy();
-            if(!KingdomResidentInventory.insert(personal,copy))return false;
-            worker.fieldTool=selected;
+            ItemStack left=KingdomResidentInventory.insertAndRemainder(personal,copy);
+            if(!left.isEmpty()){
+                // The bag refused the tool: it goes back into the depot, and
+                // into the world when even the depot is full.
+                ItemStack rest=KingdomResidentInventory.insertAndRemainder(storage,left);
+                if(!rest.isEmpty())net.minecraft.world.level.block.Block.popResource(level,depot,rest);
+                storage.setChanged();
+                return false;
+            }
+            // The working view follows the real bag.
+            KingdomResidentInventory.syncToWorker(worker,personal);
             storage.setChanged();
             KingdomNpcData.get(level.getServer()).setDirty();
-            return true;
+            return selectInView(worker,needed);
         }
         if(!worker.fieldTool.isEmpty())NpcFieldWork.put(worker,worker.fieldTool);
         worker.fieldTool=selected;
         storage.setChanged();
         KingdomNpcData.get(level.getServer()).setDirty();
         return true;
+    }
+
+    /**
+     * Moves the tool of the needed kind into the hand of the working view.
+     *
+     * <p>The old tool goes into the cargo, so that the resident keeps both
+     * tools and no item is ever duplicated.
+     */
+    public static boolean selectInView(KingdomNpcData.Worker worker,Tool needed) {
+        if(worker==null)return false;
+        if(matches(worker.fieldTool,needed))return true;
+        for(int i=0;i<worker.fieldInventory.size();i++){
+            ItemStack candidate=worker.fieldInventory.get(i);
+            if(candidate==null||candidate.isEmpty())continue;
+            if(!matches(candidate,needed))continue;
+            ItemStack selected=worker.fieldInventory.remove(i);
+            if(!worker.fieldTool.isEmpty())worker.fieldInventory.add(worker.fieldTool);
+            worker.fieldTool=selected;
+            return true;
+        }
+        return false;
     }
 }

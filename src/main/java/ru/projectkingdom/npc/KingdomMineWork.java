@@ -129,12 +129,14 @@ public final class KingdomMineWork {
             status(level,worker,"Выдели ствол 7×7–12×12 через блок предприятия «Шахта»");
             return false;
         }
-        var anchors=central?java.util.List.<BlockPos>of()
-            :KingdomMineLevelPlan.anchors(core,start);
         int requestedLevels=settings.levels(id);
         var heading=settings.heading(id);
-        var excavation=central?KingdomMineCentralShaftPlan.cells(
-            core,area,requestedLevels,heading):KingdomMineLevelPlan.cells(core,start);
+        // The central shaft is dug layer by layer: the whole horizontal layer
+        // of the surveyed footprint is cleared before the next one starts.
+        if (central)
+            return KingdomMineLayerWork.tick(level,npc,worker,area,requestedLevels,heading);
+        var anchors=KingdomMineLevelPlan.anchors(core,start);
+        var excavation=KingdomMineLevelPlan.cells(core,start);
         for (var cell : excavation) {
             BlockPos floorCell=cell.target();
             BlockPos previous=cell.approach();

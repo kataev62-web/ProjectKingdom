@@ -183,7 +183,21 @@ public final class KingdomResidentSafety {
         for(var w:db.all())if(uuid.equals(w.entityId)){worker=w;break;}
         if(worker==null)return false;
         if(npc==null&&hasCarriedItems(worker))return false;
+        // The inheritance: the real belongings of the dead resident go to the
+        // heir that was recorded for it. Without an heir they stay in the
+        // world as real items, and never in a virtual balance.
+        boolean inherited=false;
         if(npc!=null){
+            var development=KingdomResidentDevelopment.get(server);
+            var claim=development.claimOf("heir",uuid.toString());
+            if(claim!=null){
+                var heirEntity=entityOf(server,worker,claim.owner());
+                if(heirEntity!=null){
+                    inherited=inheritTo(server,level,heirEntity,npc,worker,development,uuid,claim.owner());
+                }
+            }
+        }
+        if(npc!=null&&!inherited){
             if(!worker.cargo.isEmpty())npc.spawnAtLocation(worker.cargo.copy());
             if(!worker.fieldTool.isEmpty())npc.spawnAtLocation(worker.fieldTool.copy());
             for(var stack:worker.fieldInventory)if(!stack.isEmpty())npc.spawnAtLocation(stack.copy());
@@ -194,6 +208,48 @@ public final class KingdomResidentSafety {
         KingdomCivicsData.get(server).removeDeceasedNpc(uuid);
         ru.projectkingdom.administration.KingdomAdministrationData.get(server).removeDeceasedNpcRoles(uuid);
         return true;
+    }
+
+    /** The entity of a resident, in its own dimension. */
+    private static Villager entityOf(net.minecraft.server.MinecraftServer server,
+            KingdomNpcData.Worker worker,UUID id){
+        if(server==null||worker==null)return null;
+        for(var level:server.getAllLevels()){
+            if(!worker.dimension.equals(level.dimension().location().toString()))continue;
+            var entity=level.getEntity(id);
+            if(entity instanceof Villager villager&&villager.isAlive())return villager;
+        }
+        return null;
+    }
+
+    /**
+     * Moves the real belongings of the dead resident into the real bag of the
+     * heir.
+     *
+     * <p>The transfer happens exactly once: the record of the inheritance
+     * knows that the assets are already given away.
+     */
+    private static boolean inheritTo(net.minecraft.server.MinecraftServer server,
+            ServerLevel level,Villager heir,Villager dead,KingdomNpcData.Worker worker,
+            KingdomResidentDevelopment development,UUID deadId,UUID heirId){
+        var personal=KingdomResidentInventory.personal(heir);
+        if(personal==null)return false;
+        var assets=new java.util.ArrayList<net.minecraft.world.item.ItemStack>();
+        if(!worker.fieldTool.isEmpty())assets.add(worker.fieldTool.copy());
+        for(var stack:worker.fieldInventory)if(!stack.isEmpty())assets.add(stack.copy());
+        for(var stack:worker.wagePurse)if(!stack.isEmpty())assets.add(stack.copy());
+        int moved=0;
+        for(var stack:assets){
+            var rest=stack.copy();
+            moved+=KingdomResidentInventory.insertCount(personal,rest);
+            // What does not fit stays in the world as a real item.
+            if(!rest.isEmpty())dead.spawnAtLocation(rest);
+        }
+        development.inherit(deadId,heirId,"belongings",level.getGameTime());
+        worker.fieldTool=net.minecraft.world.item.ItemStack.EMPTY;
+        worker.fieldInventory.clear();
+        worker.wagePurse.clear();
+        return moved>0;
     }
 
     /**

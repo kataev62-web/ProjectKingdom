@@ -82,7 +82,8 @@ public final class KingdomMcaAdapter {
      * belongings of the resident.
      */
     public static Container personal(Villager resident) {
-        return resident == null ? null : resident.getInventory();
+        if (resident == null || !isResident(resident)) return null;
+        return resident.getInventory();
     }
 
     /** Whether the personal inventory of the resident belongs to MCA. */

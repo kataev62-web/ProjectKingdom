@@ -154,10 +154,23 @@ public final class KingdomNpcData extends SavedData {
         public long courierLastProgressTick;
         public int courierLastX, courierLastY, courierLastZ;
         public int courierStallAttempts;
-        public java.util.List<ItemStack> fieldInventory=new java.util.ArrayList<>();
+        /**
+         * The working view of the belongings of the resident.
+         *
+         * <p>The view is transient on purpose: the physical container of the
+         * villager is the only place where the belongings live and where they
+         * are saved. The view is filled from the container before the work and
+         * written back into the container afterwards, so that a restart can
+         * neither duplicate nor lose an item.
+         */
+        public transient java.util.List<ItemStack> fieldInventory=new java.util.ArrayList<>();
         /** NPC personal physical coin purse (distinct from goods/courier cargo). */
         public java.util.List<ItemStack> wagePurse=new java.util.ArrayList<>();
-        public ItemStack fieldTool=ItemStack.EMPTY;
+        public transient ItemStack fieldTool=ItemStack.EMPTY;
+        /** The belongings of an old world that still wait for the real container. */
+        public transient java.util.List<ItemStack> pendingMigration=new java.util.ArrayList<>();
+        /** Whether the resident owns a real container of its own. */
+        public transient boolean physicalBag=false;
         public long fieldHarvested=0;
         public long deliveredItems=0;
         public long bakedBread=0;
@@ -232,10 +245,15 @@ public final class KingdomNpcData extends SavedData {
             w.courierLastProgressTick=Math.max(0,t.getLong("CourierLastProgressTick"));
             w.courierLastX=t.getInt("CourierLastX");w.courierLastY=t.getInt("CourierLastY");w.courierLastZ=t.getInt("CourierLastZ");
             w.courierStallAttempts=Math.max(0,t.getInt("CourierStallAttempts"));
-            if(t.contains("FieldTool",Tag.TAG_COMPOUND)) w.fieldTool=ItemStack.of(t.getCompound("FieldTool"));
+            // The belongings of an old world are moved into the real container
+            // of the resident as soon as it is bound. They are never saved a
+            // second time.
+            if(t.contains("FieldTool",Tag.TAG_COMPOUND))w.fieldTool=ItemStack.of(t.getCompound("FieldTool"));
             w.fieldHarvested=Math.max(0L,t.getLong("FieldHarvested"));
             ListTag fieldItems=t.getList("FieldInventory",Tag.TAG_COMPOUND);
-            for(int i=0;i<fieldItems.size()&&i<36;i++){ItemStack stack=ItemStack.of(fieldItems.getCompound(i));if(!stack.isEmpty())w.fieldInventory.add(stack);}
+            for(int i=0;i<fieldItems.size()&&i<36;i++){
+                ItemStack stack=ItemStack.of(fieldItems.getCompound(i));
+                if(!stack.isEmpty())w.fieldInventory.add(stack);}
             ListTag wages=t.getList("WagePurse",Tag.TAG_COMPOUND);
             for(int i=0;i<wages.size()&&i<36;i++){ItemStack coin=ItemStack.of(wages.getCompound(i));
                 if(!coin.isEmpty() && KingdomCurrency.value(coin)>0)w.wagePurse.add(coin);}
@@ -309,9 +327,16 @@ public final class KingdomNpcData extends SavedData {
             t.putLong("CourierLastProgressTick",courierLastProgressTick);
             t.putInt("CourierLastX",courierLastX);t.putInt("CourierLastY",courierLastY);t.putInt("CourierLastZ",courierLastZ);
             t.putInt("CourierStallAttempts",courierStallAttempts);
-            if(!fieldTool.isEmpty())t.put("FieldTool",fieldTool.save(new CompoundTag()));
+            // The working view of the belongings is saved only for a resident
+            // without a real container of its own: the container of MCA holds
+            // the real items and saves them with the entity.
             t.putLong("FieldHarvested",fieldHarvested);
-            ListTag fieldItems=new ListTag();for(ItemStack stack:fieldInventory)if(!stack.isEmpty())fieldItems.add(stack.save(new CompoundTag()));
+            ListTag fieldItems=new ListTag();
+            if(!physicalBag){
+                if(!fieldTool.isEmpty())t.put("FieldTool",fieldTool.save(new CompoundTag()));
+                for(ItemStack stack:fieldInventory)
+                    if(!stack.isEmpty())fieldItems.add(stack.save(new CompoundTag()));
+            }
             t.put("FieldInventory",fieldItems);
             ListTag wages=new ListTag();for(ItemStack coin:wagePurse)
                 if(!coin.isEmpty() && KingdomCurrency.value(coin)>0)wages.add(coin.save(new CompoundTag()));

@@ -191,12 +191,39 @@ public final class KingdomNpcMenu extends ChestMenu {
             icon(21, Items.BARRIER, "СТОЯТЬ на месте");
             icon(22, Items.IRON_PICKAXE, "РАБОТАТЬ: автоматически настроить и начать; при ошибке покажет причину");
             icon(23, Items.OAK_DOOR, "ВЕРНУТЬСЯ ДОМОЙ");
-            icon(24, Items.SUNFLOWER, "СВОБОДНАЯ ЖИЗНЬ");
+            icon(24, Items.SUNFLOWER, scheduleText(viewer.getServer(), w));
             icon(25, Items.GOLD_NUGGET, "+1 к дневной зарплате");
         }
         icon(18, Items.BREAD, "ЛКМ: дать свежую еду TFC из руки | ПКМ работодателя: "
             + (w.rationsEnabled?"отключить":"включить")+" питание со склада");
         icon(26, KingdomCurrency.COPPER.get(), "ВНЕСТИ 1 медную из кошелька на зарплатный счёт");
+    }
+
+    /**
+     * The schedule of the day, the skills and the career of the resident.
+     *
+     * <p>The operator sees at once who owns the resident at this moment and
+     * what it has achieved so far.
+     */
+    private String scheduleText(net.minecraft.server.MinecraftServer server,
+            KingdomNpcData.Worker w) {
+        var mode=KingdomResidentSchedule.modeOf(server,w.entityId,w);
+        var development=KingdomResidentDevelopment.get(server);
+        StringBuilder skills=new StringBuilder();
+        development.skillsOf(w.entityId).forEach((name,skill)->
+            skills.append(name).append(" ").append(skill.level()).append("ур. "));
+        StringBuilder career=new StringBuilder();
+        for(var step:development.careerOf(w.entityId))
+            career.append(step.job()).append(" ");
+        StringBuilder goals=new StringBuilder();
+        for(var goal:development.goalsOf(w.entityId))
+            goals.append(goal.kind()).append(":").append(goal.target()).append(" ");
+        return "СВОБОДНАЯ ЖИЗНЬ (ЛКМ) | Расписание: "+KingdomResidentSchedule.describe(mode)
+            +" | 06:00-08:00 MCA, 08:00-12:00 работа, 12:00-13:00 отдых,"
+            +" 13:00-18:00 работа, 18:00-06:00 MCA"
+            +" | Навыки: "+(skills.length()==0?"нет":skills)
+            +" | Карьера: "+(career.length()==0?"нет":career)
+            +" | Цели: "+(goals.length()==0?"нет":goals);
     }
 
     /** All 26 trades on one page; the last slot returns to management. */

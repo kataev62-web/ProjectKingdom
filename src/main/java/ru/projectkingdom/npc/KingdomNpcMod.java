@@ -605,6 +605,57 @@ public final class KingdomNpcMod {
                 KingdomResidentSafety.audit(player,true);
                 return 1;
             })));
+        // The schedule of the day, the skills and the career of every resident.
+        root.then(Commands.literal("schedule").executes(ctx -> {
+            var server=ctx.getSource().getServer();
+            var data=KingdomNpcData.get(server);
+            var development=KingdomResidentDevelopment.get(server);
+            for(var w:data.all()){
+                var mode=KingdomResidentSchedule.modeOf(server,w.entityId,w);
+                StringBuilder skills=new StringBuilder();
+                development.skillsOf(w.entityId).forEach((name,skill)->
+                    skills.append(name).append(' ').append(skill.level()).append("ур. "));
+                StringBuilder career=new StringBuilder();
+                for(var step:development.careerOf(w.entityId))career.append(step.job()).append(' ');
+                StringBuilder tools=new StringBuilder();
+                if(!w.fieldTool.isEmpty())tools.append(w.fieldTool.getHoverName().getString());
+                for(var stack:w.fieldInventory)if(!stack.isEmpty())
+                    tools.append(", ").append(stack.getHoverName().getString())
+                        .append(" x").append(stack.getCount());
+                // The real container of the resident, as the world sees it.
+                StringBuilder real=new StringBuilder();
+                for(ServerLevel level:server.getAllLevels()){
+                    var entity=level.getEntity(w.entityId);
+                    if(!(entity instanceof Villager resident))continue;
+                    // The command binds the resident as well, so that the
+                    // operator sees the same view as the work.
+                    KingdomResidentInventory.bind(w,resident);
+                    var personal=KingdomResidentInventory.personal(resident);
+                    if(personal==null){real.append("нет контейнера");break;}
+                    for(int i=0;i<personal.getContainerSize();i++){
+                        var stack=personal.getItem(i);
+                        if(stack.isEmpty())continue;
+                        if(real.length()>0)real.append(", ");
+                        real.append(stack.getHoverName().getString()).append(" x").append(stack.getCount());
+                    }
+                    if(real.length()==0)real.append("пусто");
+                    break;
+                }
+                final String skillText=skills.toString();
+                final String careerText=career.toString();
+                final String toolText=tools.toString();
+                final String realText=real.toString();
+                ctx.getSource().sendSuccess(()->Component.literal("#"+w.id+" "+w.name
+                    +" | "+KingdomResidentSchedule.describe(mode)
+                    +" | профессия: "+(w.job==null||w.job.isBlank()?"—":w.job)
+                    +" | навыки: "+(skillText.isEmpty()?"нет":skillText)
+                    +" | карьера: "+(careerText.isEmpty()?"нет":careerText)
+                    +" | сумка: "+(toolText.isEmpty()?"пусто":toolText)
+                    +" | контейнер: "+(real.length()==0?"нет жителя":real.toString())
+                    +" | состояние: "+w.mineStatus),false);
+            }
+            return 1;
+        }));
         root.then(Commands.literal("spawn").requires(s -> s.hasPermission(2))
             .then(Commands.argument("job", StringArgumentType.word()).suggests((c,b) -> {
                 for (String job : new String[]{"free", "farmer", "smith", "miner", "lumberjack", "merchant", "guard", "builder"}) b.suggest(job);
@@ -995,7 +1046,13 @@ public final class KingdomNpcMod {
                 if (!worker.dimension.equals(level.dimension().location().toString())) continue;
                 var entity = level.getEntity(worker.entityId);
                 if (!(entity instanceof Villager resident) || !resident.isAlive()) continue;
-                boolean shift = KingdomNpcDuty.mayExecute(worker.job, worker.order,
+                // The schedule of the day decides who owns the resident: the
+                // Kingdom owns it during the shift and during the rest, the
+                // ordinary life of MCA owns it in the evening and in the
+                // morning. Danger always wins.
+                var mode = KingdomResidentSchedule.modeOf(server, worker.entityId, worker);
+                boolean shift = KingdomResidentSchedule.kingdomOwns(mode)
+                    && KingdomNpcDuty.mayExecute(worker.job, worker.order,
                         worker.autonomousIntent, KingdomNpcWorkday.employed(server, worker));
                 if (shift) KingdomMcaShiftArbiter.hold(resident);
                 else KingdomMcaShiftArbiter.release(resident);
@@ -1017,6 +1074,7 @@ public final class KingdomNpcMod {
         return EntityType.VILLAGER.create(level);
     }
 
+    @SubscribeEvent
     public void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase != TickEvent.Phase.END) return;
         var server = net.minecraftforge.server.ServerLifecycleHooks.getCurrentServer();
@@ -1078,7 +1136,7 @@ public final class KingdomNpcMod {
             if(moved)current.setDirty();
         }
         // Bounded physical work; each resident checks the nearby loaded area once per 40 ticks.
-        if(server.getTickCount() % 40 == 0) {
+        if(server.getTickCount() % 40 == 0) try {
             KingdomNpcData jobs=KingdomNpcData.get(server);
             boolean executed=false;
             for(var w:jobs.all()) for(ServerLevel level:server.getAllLevels()) {
@@ -1088,6 +1146,11 @@ public final class KingdomNpcMod {
                     // The inventory window owns the real slots of the resident
                     // while it is open: the physical work waits.
                     if(KingdomNpcBagMenu.isOpen(w.entityId))continue;
+                    // The physical container of the resident is the only place
+                    // where the belongings live. The working view of the
+                    // Kingdom is filled from it before the work and written
+                    // back into it afterwards.
+                    boolean bound=KingdomResidentInventory.bind(w,resident);
                     // Food is a REAL owned item: a hungry self-employed owner
                     // can collect it even when its daily goal is EAT, not WORK.
                     executed |= KingdomNpcFoodRoutine.tick(level,resident,w);
@@ -1109,9 +1172,15 @@ public final class KingdomNpcMod {
                             | KingdomTfcGrillWork.tick(level,resident,w)
                             | KingdomLivestockWork.tick(level,resident,w);
                     }
+                    // The belongings of the resident go back into the real
+                    // container; what does not fit stays in the world.
+                    if(bound)KingdomResidentInventory.flush(level,resident,w);
                 }
             }
             if(executed)jobs.setDirty();
+        } catch (RuntimeException error) {
+            org.slf4j.LoggerFactory.getLogger(KingdomNpcMod.class)
+                .error("Kingdom: the physical work of the residents failed", error);
         }
         if (server.getTickCount() % 200 != 0) return;
         KingdomNpcData db = KingdomNpcData.get(server);
@@ -1120,6 +1189,19 @@ public final class KingdomNpcMod {
         // Economy v2: preserve existing wages as debts, never pay from legacy virtual accounts.
         // Contract sync consumes no cash and reuses the NPC registry as the identity source.
         KingdomEnterprisePayrollData.get(server).syncNpc(server,db);
+        // The life of the residents on their own: they look for a contract, they
+        // ask for another profession and they buy with their own money.
+        for (var w : db.all()) {
+            for (ServerLevel level : server.getAllLevels()) {
+                if (!w.dimension.equals(level.dimension().location().toString())) continue;
+                var entity = level.getEntity(w.entityId);
+                if (!(entity instanceof Villager resident) || !resident.isAlive()) continue;
+                var decision = KingdomResidentLife.decide(server, w, day);
+                if (decision.action() != KingdomResidentLife.Action.NONE)
+                    KingdomResidentLife.apply(server, resident, w, decision);
+                break;
+            }
+        }
         // Also assess known residents: tax accrual must not depend only on opening a menu.
         var towns=KingdomCivicsData.get(server);
         var taxes=KingdomTaxData.get(server);
