@@ -17,6 +17,11 @@ public final class KingdomMineSupportExcavation {
 
     public enum Result { CLEAR, EXCAVATED, WALKING, UNSAFE }
 
+    /** The last thing the preparation did, for the operator. */
+    private static String lastDetail = "";
+    /** The last thing the preparation did, for the operator. */
+    public static String lastDetail() { return lastDetail; }
+
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                               KingdomMineSupportPlan.Frame frame) {
         if(frame==null || !KingdomMineSupportPlan.valid(frame))return Result.UNSAFE;
@@ -35,6 +40,11 @@ public final class KingdomMineSupportExcavation {
                 ||id.startsWith("tfc:wood/vertical_support/")
                 ||KingdomMineSupportSafety.isTfcHorizontalSupport(block))
                 continue;
+            // The ladder and the deck of the descent are the finished
+            // structures of the mine: the preparation of a support never
+            // takes them apart.
+            if(block.is(Blocks.LADDER)||KingdomMineStructureWork.isDeckBlock(block))
+                continue;
             if(!KingdomMineTools.equip(level,npc,worker,
                     KingdomMineTools.required(block)))return Result.UNSAFE;
             if(!KingdomMineWork.safeToBreak(level,pos,worker)
@@ -43,12 +53,17 @@ public final class KingdomMineSupportExcavation {
             // The miner works from the cell it may really stand on: the rock
             // of the walkway is not a place to stand when it digs downwards.
             BlockPos approach=frame.access();
-            if(npc.distanceToSqr(approach.getX()+0.5,approach.getY(),
-                    approach.getZ()+0.5)>6.25) {
+            // The reach is measured against the block that has to go: the
+            // miner may stand next to it. Only the way to the place is
+            // planned, the reach of the arm decides the work.
+            if(npc.distanceToSqr(pos.getX()+0.5,pos.getY()+0.5,pos.getZ()+0.5)>6.25) {
                 npc.getNavigation().moveTo(approach.getX()+0.5,approach.getY(),
                     approach.getZ()+0.5,0.75);
+                lastDetail="не дотягивается до "+pos.toShortString()
+                    +" (доступ "+approach.toShortString()+")";
                 return Result.WALKING;
             }
+            lastDetail="расчищает "+pos.toShortString();
             var drops=Block.getDrops(block,level,pos,level.getBlockEntity(pos),
                 npc,worker.fieldTool);
             if(!NpcFieldWork.canFit(worker,drops))return Result.UNSAFE;

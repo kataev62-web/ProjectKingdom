@@ -166,6 +166,22 @@ public final class KingdomMineSupportBuilder {
                               KingdomMineSupportPlan.Frame frame) {
         if(!accessible(level,frame,worker))return Result.INACCESSIBLE;
         BlockPos left=frame.leftPost(),right=frame.rightPost(),middle=frame.crossbeam();
+        // The finished structures of the mine (the ladder and the deck of the
+        // descent) may stand where a post is wanted. The frame then turns to
+        // the free axis: TFC links two columns in any direction.
+        if(!level.getBlockState(left).isAir()&&!vertical(level.getBlockState(left))
+            &&level.getBlockState(right).isAir()){
+            BlockPos turned=frame.walkway().east();
+            if(turned.equals(left)||turned.equals(right))turned=frame.walkway().west();
+            if(!turned.equals(left)&&!turned.equals(right)
+                &&level.getBlockState(turned).isAir()){
+                BlockPos other=turned.equals(frame.walkway().east())
+                    ?frame.walkway().west():frame.walkway().east();
+                if(other.equals(left)||other.equals(right)||level.getBlockState(other).isAir()){
+                    left=turned;right=other;
+                }
+            }
+        }
         if(frameComplete(level,frame))return Result.COMPLETE;
         if(horizontal(level.getBlockState(middle)))
             return Result.FAILED_NATIVE_PLACEMENT; // orphaned or damaged structure

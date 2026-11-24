@@ -183,15 +183,18 @@ public final class KingdomMineLayerWork {
         }
         var preparation = KingdomMineSupportExcavation.tick(level, npc, worker, frame);
         if (preparation == KingdomMineSupportExcavation.Result.EXCAVATED) {
-            status(level, worker, "Готовит безопасное крепление перед проходкой");
+            status(level, worker, "Готовит безопасное крепление перед проходкой: "
+                + KingdomMineSupportExcavation.lastDetail());
             return false;
         }
         if (preparation == KingdomMineSupportExcavation.Result.WALKING) {
-            status(level, worker, "Идёт укреплять опасный участок");
+            status(level, worker, "Идёт укреплять опасный участок: "
+                + KingdomMineSupportExcavation.lastDetail());
             return false;
         }
         if (preparation != KingdomMineSupportExcavation.Result.CLEAR) {
-            status(level, worker, "Карманы опор недоступны; продолжает безопасную проходку");
+            status(level, worker, "Карманы опор недоступны; продолжает безопасную проходку: "
+                + KingdomMineSupportExcavation.lastDetail());
             return true;
         }
         var support = KingdomMineSupportBuilder.tick(level, npc, worker, frame);
