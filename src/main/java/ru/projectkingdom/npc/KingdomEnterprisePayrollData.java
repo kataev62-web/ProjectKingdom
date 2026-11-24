@@ -36,6 +36,11 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         // Never reset a suspended company's unpaid debt by clicking Hire again.
         if(old!=null&&!old.active()&&owed>0 || owed>=arrearsLimit(rate))return false;
         entries.put(key(enterprise,worker),new Employment(enterprise,worker,rate,day,owed,true));
+        // The career of the resident keeps every step, also after a change of
+        // the profession.
+        var job=KingdomNpcData.get(server).workers.values().stream()
+            .filter(w->worker.equals(w.entityId)).map(w->w.job).findFirst().orElse("free");
+        KingdomResidentDevelopment.get(server).recordCareer(worker,day,job,enterprise);
         setDirty();return true;
     }
     public boolean dismiss(MinecraftServer server,UUID owner,UUID enterprise,UUID worker){
@@ -184,6 +189,129 @@ public final class KingdomEnterprisePayrollData extends SavedData {
         }
         return proposed;
     }
+    /** Result of an explicit manual payment; never a simulated or virtual wage. */
+    public record ManualNpcPayment(long paid,String message) {}
+
+    /**
+     * The employer hands up to 64 real loose copper coins to the employee.
+     *
+     * <p>The coins are the real items of the inventory of the employer and the
+     * real items of the bag of the resident: the payment lowers the debt that
+     * was already accrued. Without a debt there is no transfer, no wallet
+     * conversion and no remint of any kind.
+     *
+     * <p>The whole transfer is checked before the first write and rolled back
+     * when a debit does not land.
+     */
+    public ManualNpcPayment payNpcLooseCopper(ServerPlayer payer,KingdomNpcData.Worker worker){
+        if(payer==null||worker==null||worker.entityId==null||worker.employer==null
+                ||!payer.getUUID().equals(worker.employer))
+            return new ManualNpcPayment(0,"Нет права выплачивать зарплату этому NPC.");
+        var businesses=KingdomEnterpriseData.get(payer.getServer());
+        Employment selected=null;
+        for(Employment e:new ArrayList<>(entries.values())){
+            if(!e.worker().equals(worker.entityId))continue;
+            var firm=businesses.find(e.enterprise());
+            if(firm==null||!payer.getUUID().equals(firm.owner()))continue;
+            long due=accrue(payer.getServer(),e.enterprise(),e.worker());
+            var current=contract(e.enterprise(),e.worker());
+            if(current!=null&&due>0){selected=current;break;}
+        }
+        if(selected==null)
+            return new ManualNpcPayment(0,"Начисленного долга пока нет. Зарплату начисляют за прошедшие игровые дни.");
+        var inv=payer.getInventory();
+        long remaining=Math.min(64L,selected.owed());
+        java.util.List<net.minecraft.world.item.ItemStack> proposed=new ArrayList<>();
+        for(var held:worker.wagePurse){
+            if(held==null||held.isEmpty())continue;
+            if(KingdomCurrency.value(held)<=0||proposed.size()>=36)
+                return new ManualNpcPayment(0,"Кошелёк NPC повреждён или переполнен. Выплата отменена.");
+            proposed.add(held.copy());
+        }
+        java.util.List<int[]> debits=new ArrayList<>();
+        java.util.List<net.minecraft.world.item.ItemStack> before=new ArrayList<>();
+        java.util.List<Integer> counts=new ArrayList<>();
+        for(int slot=0;slot<inv.getContainerSize()&&remaining>0;slot++){
+            var stack=inv.getItem(slot);
+            if(stack.isEmpty()||!stack.is(KingdomCurrency.COPPER.get()))continue;
+            int n=(int)Math.min(remaining,stack.getCount());
+            var coins=stack.copy();coins.setCount(n);
+            if(!appendPhysicalCopper(proposed,coins))
+                return new ManualNpcPayment(0,"Не хватает свободных мест в кошельке NPC. Выплата не проведена.");
+            debits.add(new int[]{slot});before.add(stack.copy());counts.add(n);
+            remaining-=n;
+        }
+        long paid=Math.min(64L,selected.owed())-remaining;
+        if(paid==0)
+            return new ManualNpcPayment(0,"Нужны настоящие медные монеты Kingdom в инвентаре игрока (не внутри кошелька).");
+        // Preflight all selected sources before the first destructive write.
+        for(int i=0;i<debits.size();i++){
+            var actual=inv.getItem(debits.get(i)[0]);
+            if(!net.minecraft.world.item.ItemStack.matches(actual,before.get(i)))
+                return new ManualNpcPayment(0,"Инвентарь изменился. Выплата отменена.");
+        }
+        int committed=0;
+        for(int i=0;i<debits.size();i++){
+            int slot=debits.get(i)[0];
+            var next=before.get(i).copy();next.shrink(counts.get(i));
+            inv.setItem(slot,next);
+            if(!net.minecraft.world.item.ItemStack.matches(inv.getItem(slot),next)){
+                for(int j=0;j<=committed;j++)
+                    inv.setItem(debits.get(j)[0],before.get(j).copy());
+                inv.setChanged();
+                return new ManualNpcPayment(0,"Монеты не удалось списать. Выплата отменена.");
+            }
+            committed++;
+        }
+        worker.wagePurse.clear();worker.wagePurse.addAll(proposed);
+        // The real bag of an MCA resident receives the same physical coins.
+        for(net.minecraft.server.level.ServerLevel level:payer.server.getAllLevels()){
+            if(!worker.dimension.equals(level.dimension().location().toString()))continue;
+            var entity=level.getEntity(worker.entityId);
+            if(!(entity instanceof net.minecraft.world.entity.npc.Villager resident))continue;
+            if(!KingdomMcaAdapter.isResident(resident))break;
+            var personal=KingdomResidentInventory.personal(resident);
+            if(personal==null)break;
+            for(var stack:proposed){
+                var copy=stack.copy();
+                if(!KingdomResidentInventory.insert(personal,copy))break;
+            }
+            personal.setChanged();
+            break;
+        }
+        var updated=new Employment(selected.enterprise(),selected.worker(),selected.dailyCopper(),
+                selected.lastDay(),selected.owed()-paid,selected.active());
+        entries.put(key(selected.enterprise(),selected.worker()),updated);
+        if(updated.owed()==0){worker.contractPaused=false;worker.unpaidDays=0;}
+        inv.setChanged();
+        KingdomNpcData.get(payer.getServer()).setDirty();
+        setDirty();
+        return new ManualNpcPayment(paid,"Выплачено "+paid+" медных настоящими монетами. Остаток долга: "
+                +updated.owed()+".");
+    }
+
+    /** Appends the same physical coins with the same NBT, with a limit of 36 stacks. */
+    private static boolean appendPhysicalCopper(
+            java.util.List<net.minecraft.world.item.ItemStack> planned,
+            net.minecraft.world.item.ItemStack incoming){
+        var remaining=incoming.copy();
+        for(var slot:planned){
+            if(remaining.isEmpty())break;
+            if(!net.minecraft.world.item.ItemStack.isSameItemSameTags(slot,remaining))continue;
+            int space=Math.max(0,slot.getMaxStackSize()-slot.getCount());
+            int add=Math.min(space,remaining.getCount());
+            if(add>0){slot.grow(add);remaining.shrink(add);}
+        }
+        while(!remaining.isEmpty()){
+            if(planned.size()>=36)return false;
+            int taken=Math.min(remaining.getCount(),remaining.getMaxStackSize());
+            var part=remaining.copy();part.setCount(taken);
+            planned.add(part);
+            remaining.shrink(taken);
+        }
+        return true;
+    }
+
     /** A player physically visits the employer's registered cash desk and claims an earned wage. */
     public boolean claim(MinecraftServer server,ServerPlayer worker,UUID enterprise){
         long owed=accrue(server,enterprise,worker.getUUID());if(owed<=0)return false;

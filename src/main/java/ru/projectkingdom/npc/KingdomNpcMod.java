@@ -1085,6 +1085,9 @@ public final class KingdomNpcMod {
                 if(!w.dimension.equals(level.dimension().location().toString()))continue;
                 var entity=level.getEntity(w.entityId);
                 if(entity instanceof Villager resident && resident.isAlive()) {
+                    // The inventory window owns the real slots of the resident
+                    // while it is open: the physical work waits.
+                    if(KingdomNpcBagMenu.isOpen(w.entityId))continue;
                     // Food is a REAL owned item: a hungry self-employed owner
                     // can collect it even when its daily goal is EAT, not WORK.
                     executed |= KingdomNpcFoodRoutine.tick(level,resident,w);

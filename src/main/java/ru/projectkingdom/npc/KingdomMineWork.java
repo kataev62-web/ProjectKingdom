@@ -283,6 +283,9 @@ public final class KingdomMineWork {
                     return false;
                 }
                 settings.markStarted(id);
+                // The confirmed work raises the skill of the resident.
+                KingdomResidentDevelopment.get(level.getServer())
+                    .award(worker.entityId,"mining",1);
                 status(level,worker,"Добывает породу на глубине Y="+target.getY());
                 return true;
             }
