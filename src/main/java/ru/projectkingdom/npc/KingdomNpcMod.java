@@ -987,7 +987,7 @@ public final class KingdomNpcMod {
      * profession: the brain of MCA ticks every tick and would take the
      * resident away between two work ticks.
      */
-    private static void arbitrateResidentNavigation(net.minecraft.server.MinecraftServer server) {
+    public static void arbitrateResidentNavigation(net.minecraft.server.MinecraftServer server) {
         if (!KingdomMcaAdapter.available()) return;
         var residents = KingdomNpcData.get(server);
         for (var worker : residents.all()) {
