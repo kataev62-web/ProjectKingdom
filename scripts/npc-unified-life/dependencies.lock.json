@@ -1,0 +1,172 @@
+{
+  "artifacts": [
+    {
+      "id": "mca",
+      "version": "7.6.23+1.20.1",
+      "release": "fx0b1OnC",
+      "url": "https://cdn.modrinth.com/data/1W98a849/versions/fx0b1OnC/minecraft-comes-alive-7.6.23%2B1.20.1-universal.jar",
+      "filename": "minecraft-comes-alive-7.6.23+1.20.1-universal.jar",
+      "sha256": "96131567142cc06bde3ed49f74e85614c0f9af5b60ccceafe0ac0db907068a85"
+    },
+    {
+      "id": "mca-next",
+      "version": "7.7.0-beta.2+1.20.1",
+      "release": "LNwJsOHE",
+      "url": "https://cdn.modrinth.com/data/1W98a849/versions/LNwJsOHE/minecraft-comes-alive-7.7.0-beta.2%2B1.20.1-universal.jar",
+      "filename": "minecraft-comes-alive-7.7.0-beta.2+1.20.1-universal.jar",
+      "sha256": "a202fbf1354786e7beeaabddfc9e79396b0a088acbec3b996837ebb0d9883c0a"
+    },
+    {
+      "id": "playerengine",
+      "version": "1.20.1-1.4.0-Forge",
+      "release": "wFlD9yTq",
+      "url": "https://cdn.modrinth.com/data/nUOXthgN/versions/wFlD9yTq/playerengine-forge-1.20.1-1.4.0.jar",
+      "filename": "playerengine-forge-1.20.1-1.4.0.jar",
+      "sha256": "82ed90f8704aa9283923216220747d0eb28a4a4659610408d3e7bc8f793b99c4"
+    },
+    {
+      "id": "player2npc",
+      "version": "1.20.1-1.4.0-Forge",
+      "release": "IjeXWi8p",
+      "url": "https://cdn.modrinth.com/data/CB68UWRl/versions/IjeXWi8p/player2npc-forge-1.20.1-1.4.0.jar",
+      "filename": "player2npc-forge-1.20.1-1.4.0.jar",
+      "sha256": "fae539d756808127113524183eb6c96d590ac0eb387760a4fe2510801c7315f3"
+    },
+    {
+      "id": "betterworld",
+      "version": "1.2.3-forge1.20.1",
+      "release": "GTVKkD2T",
+      "url": "https://cdn.modrinth.com/data/k233t5Y1/versions/GTVKkD2T/betterworld-1.2.3-forge1.20.1.jar",
+      "filename": "betterworld-1.2.3-forge1.20.1.jar",
+      "sha256": "853dc18f5b63c4975bcf5552367fdca43428c914020deb34df0f7b244e18e6f0"
+    },
+    {
+      "id": "betterworld-new",
+      "version": "1.2.8-forge1.20.1",
+      "release": "A2JecgBb",
+      "url": "https://cdn.modrinth.com/data/k233t5Y1/versions/A2JecgBb/betterworld-1.2.8-forge1.20.1.jar",
+      "filename": "betterworld-1.2.8-forge1.20.1.jar",
+      "sha256": "480331f2080fcb8f21c5ec01e8b4b504d5edef49bda4eb25bbc4d7d0c0adf8b2"
+    },
+    {
+      "id": "tfc",
+      "version": "3.2.26",
+      "release": "XJqVIULL",
+      "url": "https://cdn.modrinth.com/data/JaCEZUhg/versions/XJqVIULL/TerraFirmaCraft-Forge-1.20.1-3.2.26.jar",
+      "filename": "TerraFirmaCraft-Forge-1.20.1-3.2.26.jar",
+      "sha256": "93ea2fb5a1188f4dc64092fc9159ccaddd95bb5e8ae4f3c4a9e409ea5ff90de8"
+    },
+    {
+      "id": "create",
+      "version": "1.20.1-0.5.1.j",
+      "release": "6R069CcK",
+      "url": "https://cdn.modrinth.com/data/LNytGWDc/versions/6R069CcK/create-1.20.1-0.5.1.j.jar",
+      "filename": "create-1.20.1-0.5.1.j.jar",
+      "sha256": "a18763be04f6a7921d2e3bc5e9150b0bb5bc89b5ef45a607e93939972021f932"
+    },
+    {
+      "id": "architectury",
+      "version": "9.2.14+forge",
+      "release": "1MKTLiiG",
+      "url": "https://cdn.modrinth.com/data/lhGA9TYQ/versions/1MKTLiiG/architectury-9.2.14-forge.jar",
+      "filename": "architectury-9.2.14-forge.jar",
+      "sha256": "218b471d0b8a1f6cda14cfc1beb9eeb0df54304500acc6c5613d9b88ec65d9af"
+    },
+    {
+      "id": "patchouli",
+      "version": "1.20.1-85-forge",
+      "release": "94dtOLgZ",
+      "url": "https://cdn.modrinth.com/data/nU0bVIaL/versions/94dtOLgZ/Patchouli-1.20.1-85-FORGE.jar",
+      "filename": "Patchouli-1.20.1-85-FORGE.jar",
+      "sha256": "05f7b5d52f6b8f0fd7f8b4822fa07a192d1394d83a264309c9d221d6d4fd21c5"
+    },
+    {
+      "id": "forge",
+      "version": "1.20.1-47.3.0",
+      "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.3.0/forge-1.20.1-47.3.0-installer.jar",
+      "filename": "forge-1.20.1-47.3.0-installer.jar",
+      "sha256": "6018abce95cc058768e365865fd7cf3bd31b5c553231daf885dc385fcd6d875a"
+    },
+    {
+      "id": "mca-source",
+      "version": "5e56d0d5b155b9175260673c99a6d074d62809a5",
+      "url": "https://codeload.github.com/Luke100000/minecraft-comes-alive/zip/5e56d0d5b155b9175260673c99a6d074d62809a5",
+      "filename": "minecraft-comes-alive-5e56d0d5b155.zip",
+      "sha256": "661c95c586fbae8058c8ebb9891861189733cdc05ce60c0c7da2d799b100f41b"
+    },
+    {
+      "id": "mca-next-source",
+      "version": "45a83cff9bda0f48422fd4a01e8e52fd85c9bfd4",
+      "url": "https://codeload.github.com/Luke100000/minecraft-comes-alive/zip/45a83cff9bda0f48422fd4a01e8e52fd85c9bfd4",
+      "filename": "minecraft-comes-alive-45a83cff9bda.zip",
+      "sha256": "0299c86326485f8f1436eb73ff93729b840e211af9cad1b76d3d55c26a75c466"
+    },
+    {
+      "id": "engine-source",
+      "version": "4a885a4f19c1ccce37a0004771965fd4b098a484",
+      "url": "https://codeload.github.com/Goodbird-git/PlayerEngine/zip/4a885a4f19c1ccce37a0004771965fd4b098a484",
+      "filename": "PlayerEngine-4a885a4f19c1.zip",
+      "sha256": "a828618e2f96821f49d661d7694660defa3c8b4b8b39cbbd10ae2e0997615131"
+    },
+    {
+      "id": "player2-source",
+      "version": "32f6645ff42f3b556f779155eff454ac38abe35c",
+      "url": "https://codeload.github.com/Goodbird-git/Player2NPC/zip/32f6645ff42f3b556f779155eff454ac38abe35c",
+      "filename": "Player2NPC-32f6645ff42f.zip",
+      "sha256": "b76de30b0b0205f0a668e6f75cec2a8b2aeb8c03e542d401b0d2aca3aed55cd6"
+    },
+    {
+      "id": "tfc-source",
+      "version": "51388b52ecf1f876d74184d9e60e9ea03f7ba3a6",
+      "url": "https://codeload.github.com/TerraFirmaCraft/TerraFirmaCraft/zip/51388b52ecf1f876d74184d9e60e9ea03f7ba3a6",
+      "filename": "TerraFirmaCraft-51388b52ecf1.zip",
+      "sha256": "5ea0e0e061b887ec8a17260bca487da45ec045bff559175e631a16059255c7c5"
+    },
+    {
+      "id": "create-source",
+      "version": "d39f89983a6c36dcacda6635c2094c826703ed49",
+      "url": "https://codeload.github.com/Creators-of-Create/Create/zip/d39f89983a6c36dcacda6635c2094c826703ed49",
+      "filename": "Create-d39f89983a6c.zip",
+      "sha256": "5821f1bcb7d7206b0f9b383b5c2a3f0089b56a076050ab0147bc709b064ec67c"
+    }
+  ],
+  "profiles": {
+    "core": [
+      "tfc",
+      "create",
+      "patchouli",
+      "architectury",
+      "mca"
+    ],
+    "playerengine": [
+      "tfc",
+      "create",
+      "patchouli",
+      "architectury",
+      "mca",
+      "playerengine"
+    ],
+    "player2": [
+      "tfc",
+      "create",
+      "patchouli",
+      "architectury",
+      "mca",
+      "playerengine",
+      "player2npc"
+    ],
+    "betterworld": [
+      "betterworld"
+    ],
+    "mca-next": [
+      "tfc",
+      "create",
+      "patchouli",
+      "architectury",
+      "mca-next"
+    ],
+    "betterworld-new": [
+      "betterworld-new"
+    ]
+  }
+}
