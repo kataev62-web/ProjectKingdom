@@ -60,9 +60,10 @@ public final class KingdomMineLayerWork {
                 }
                 BlockState state = level.getBlockState(target);
                 if (state.isAir()) continue;
-                // The descent carries the ladder of the layer: it is already
-                // excavated and must not be mined again.
-                if (state.is(net.minecraft.world.level.block.Blocks.LADDER)) continue;
+                // Finished descent structures belong to this layer's mining
+                // footprint but must NOT be mistaken for unmined rock on the
+                // next tick. Only skip their exact planned cells.
+                if (completedStructure(area, layer, target, state)) continue;
                 // The support of TFC comes before the block that would fall.
                 var safety = KingdomMineSupportSafety.inspect(level, target);
                 if (safety == KingdomMineSupportSafety.Result.UNLOADED) {
@@ -223,6 +224,17 @@ public final class KingdomMineLayerWork {
                 return true;
             }
         }
+    }
+
+    /** Whether a planned shaft cell already contains constructed access. */
+    static boolean completedStructure(KingdomMineSettings.Shaft area, int layer,
+                                      BlockPos target, BlockState state) {
+        if (area == null || target == null || state == null) return false;
+        BlockPos descent = KingdomMineCentralShaftPlan.descent(area, layer);
+        return (target.equals(descent)
+                && state.is(net.minecraft.world.level.block.Blocks.LADDER))
+            || (target.equals(descent.north())
+                && KingdomMineStructureWork.isDeckBlock(state));
     }
 
     /** The diagnosis of the work, written only when it changes. */
