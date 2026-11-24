@@ -606,6 +606,23 @@ public final class KingdomNpcMod {
                 return 1;
             })));
         // The schedule of the day, the skills and the career of every resident.
+        // The release check of the mine: a real mine, a real resident, a real
+        // depot and a real warehouse on the server itself.
+        root.then(Commands.literal("rc-mine").requires(s -> s.hasPermission(2))
+            .then(Commands.literal("start").executes(ctx -> {
+                var src=ctx.getSource();
+                String text=KingdomRcMineTest.start(src.getServer(),src.getEntity()==null
+                    ? src.getServer().getSingleplayerProfile()==null
+                        ? java.util.UUID.randomUUID()
+                        : java.util.UUID.randomUUID()
+                    : src.getEntity().getUUID());
+                reply(src,text);
+                return 1;
+            }))
+            .then(Commands.literal("report").executes(ctx -> {
+                reply(ctx.getSource(),KingdomRcMineTest.report(ctx.getSource().getServer()));
+                return 1;
+            })));
         root.then(Commands.literal("schedule").executes(ctx -> {
             var server=ctx.getSource().getServer();
             var data=KingdomNpcData.get(server);
@@ -1084,6 +1101,8 @@ public final class KingdomNpcMod {
         // Vanilla villager goals otherwise re-start navigation immediately after STOP.
         controlLoadedResidents(server);
         arbitrateResidentNavigation(server);
+        // The release check of the mine watches the world while it runs.
+        KingdomRcMineTest.tick(server);
         if (server.getTickCount() % 10 == 0) KingdomNpcBuilder.tick(server);
         if (server.getTickCount() % 80 == 0) KingdomNpcNeedsBroadcast.tick(server);
         if (server.getTickCount() % 200 == 0)

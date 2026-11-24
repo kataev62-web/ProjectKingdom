@@ -18,6 +18,12 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class KingdomMineStructureWork {
     private KingdomMineStructureWork(){}
     public enum Result { READY, BUILT, WALKING, NEED_MATERIAL, NEED_TOOL, UNSAFE }
+
+    /** The reason of the last refusal of a structure, for the operator. */
+    private static String lastReason = "";
+
+    /** The reason of the last refusal of a structure. */
+    public static String lastReason() { return lastReason; }
     private static boolean plank(ItemStack s){
         if(s.isEmpty()||!(s.getItem() instanceof BlockItem))return false;
         String id=BuiltInRegistries.ITEM.getKey(s.getItem()).toString();
@@ -61,9 +67,10 @@ public final class KingdomMineStructureWork {
     }
     private static Result ladder(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                  KingdomMineSettings.Shaft area,BlockPos at){
-        if(!authorized(level,at,w)||!level.hasChunkAt(at.above()))return Result.UNSAFE;
+        if(!authorized(level,at,w)){lastReason="нет прав на место установки";return Result.UNSAFE;}
+        if(!level.hasChunkAt(at.above())){lastReason="чанк не загружен";return Result.UNSAFE;}
         if(level.getBlockState(at).is(Blocks.LADDER))return Result.READY;
-        if(!level.getBlockState(at).isAir())return Result.UNSAFE;
+        if(!level.getBlockState(at).isAir()){lastReason="клетка спуска ещё не выкопана";return Result.UNSAFE;}
         BlockState placing=null;
         for(Direction wall:Direction.Plane.HORIZONTAL){
             // Only the OUTER wall is permanent. Inner walls become galleries.
@@ -74,7 +81,7 @@ public final class KingdomMineStructureWork {
                 placing=proposed;break;
             }
         }
-        if(placing==null)return Result.UNSAFE;
+        if(placing==null){lastReason="нет опоры для лестницы";return Result.UNSAFE;}
         ItemStack stock=carried(w,true);
         if(stock.isEmpty())return acquire(level,npc,w,true);
         if(npc.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>6.25){

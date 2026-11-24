@@ -16,6 +16,14 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class KingdomMineTools {
     private KingdomMineTools() {}
 
+    /** The reason of the last refusal of the equipment, for the operator. */
+    private static String lastReason = "";
+
+    /** The reason of the last refusal of the equipment. */
+    public static String lastReason() { return lastReason; }
+
+    private static boolean refuse(String reason) { lastReason = reason; return false; }
+
     public enum Tool { SHOVEL, PICKAXE, BLOCKED }
 
     public static Tool required(BlockState state) {
@@ -52,16 +60,16 @@ public final class KingdomMineTools {
      */
     public static boolean equip(ServerLevel level,Villager npc,
             KingdomNpcData.Worker worker,Tool needed) {
-        if(needed==Tool.BLOCKED)return false;
+        if(needed==Tool.BLOCKED)return refuse("неподходящий инструмент");
         // The tool that the resident already carries is moved, never copied.
-        if(selectInView(worker,needed))return true;
-        if(worker.employer==null||!worker.hasSource)return false;
+        if(selectInView(worker,needed)){lastReason="инструмент уже в сумке";return true;}
+        if(worker.employer==null||!worker.hasSource)return refuse("нет нанимателя или склада сырья");
         BlockPos depot=new BlockPos(worker.sourceX,worker.sourceY,worker.sourceZ);
-        if(!level.hasChunkAt(depot)
-            ||!KingdomTerritories.get(level.getServer())
-                .usable(level,depot,worker.employer,"raw"))return false;
+        if(!level.hasChunkAt(depot))return refuse("склад сырья в незагруженном чанке");
+        if(!KingdomTerritories.get(level.getServer())
+                .usable(level,depot,worker.employer,"raw"))return refuse("склад сырья не закреплён за владельцем");
         Container storage=KingdomContainerAccess.resolve(level,depot);
-        if(storage==null)return false;
+        if(storage==null)return refuse("на складе сырья нет контейнера");
         int slot=-1;
         for(int i=0;i<storage.getContainerSize();i++){
             ItemStack stack=storage.getItem(i);
@@ -69,8 +77,9 @@ public final class KingdomMineTools {
                 slot=i;break;
             }
         }
-        if(slot<0)return false;
+        if(slot<0)return refuse("на складе сырья нет нужного инструмента");
         if(npc.distanceToSqr(depot.getX()+.5,depot.getY(),depot.getZ()+.5)>6.25){
+            lastReason="идёт за инструментом на склад сырья";
             npc.getNavigation().moveTo(depot.getX()+.5,depot.getY(),depot.getZ()+.5,.75);
             return false;
         }

@@ -45,7 +45,10 @@ public final class KingdomMineLayerWork {
                                KingdomMineSettings.Heading heading) {
         if (level == null || npc == null || worker == null || area == null) return false;
         int maxDepth = levels * KingdomMineSettings.LEVEL_INTERVAL;
-        for (int layer = 1; layer <= maxDepth; layer++) {
+        // The surface of the footprint is the first layer: the cap is cleared
+        // before the excavation goes deeper, so that TFC never has to refuse
+        // a block that would hang in the air.
+        for (int layer = 0; layer <= maxDepth; layer++) {
             List<KingdomMineGalleryPlan.Cell> cells =
                     KingdomMineCentralShaftPlan.layer(area, layer);
             for (KingdomMineGalleryPlan.Cell cell : cells) {
@@ -85,8 +88,14 @@ public final class KingdomMineLayerWork {
                     return false;
                 }
                 // The miner must stand next to the block and on solid ground.
-                if (!KingdomMineMaintenance.passable(level.getBlockState(approach))
-                        || level.getBlockState(approach.below()).isAir()) {
+                if (!KingdomMineMaintenance.passable(level.getBlockState(approach))) {
+                    status(level, worker, "Нет безопасного места для добычи: " + approach.toShortString());
+                    return false;
+                }
+                // The miner must stand on something solid. The hole under the
+                // place of the miner is allowed when it is the block it digs.
+                if (level.getBlockState(approach.below()).isAir()
+                        && !approach.below().equals(target)) {
                     status(level, worker, "Нет безопасного места для добычи: " + approach.toShortString());
                     return false;
                 }

@@ -140,7 +140,7 @@ public final class KingdomActionEngine {
         // block entity and the falling block are checked before anything moves.
         if (worker != null && !KingdomMineWork.safeToBreak(level, target, worker))
             return new Outcome(Status.BLOCKED, "блок защищён или опасен");
-        FakePlayer actor = actor(level, resident, tool);
+        FakePlayer actor = actor(level, resident, worker, tool);
         Context context = Context.of(actor);
         try {
             // The vanilla path of a player: the break event of Forge is fired
@@ -270,8 +270,27 @@ public final class KingdomActionEngine {
      * is used as the context of the operation: it holds the real tool of the
      * resident for the duration of the call and holds no persistent inventory.
      */
-    private static FakePlayer actor(ServerLevel level, Villager resident, ItemStack tool) {
-        FakePlayer actor = FakePlayerFactory.getMinecraft(level);
+    private static final Map<UUID, FakePlayer> ACTORS = new HashMap<>();
+
+    /**
+     * The context of the operation for a resident.
+     *
+     * <p>The context carries the identity of the employer of the resident:
+     * the protection of the land and the rights of the settlement are
+     * checked against the employer, and the resident works on the land of
+     * the employer. A context without an identity would be a stranger and
+     * every break would be refused.
+     */
+    private static FakePlayer actor(ServerLevel level, Villager resident,
+                                    KingdomNpcData.Worker worker, ItemStack tool) {
+        UUID owner = worker == null ? null : worker.employer;
+        if (owner == null) owner = resident.getUUID();
+        FakePlayer actor = ACTORS.get(owner);
+        if (actor == null || actor.level() != level) {
+            actor = FakePlayerFactory.get(level,
+                    new com.mojang.authlib.GameProfile(owner, "KingdomWorker"));
+            ACTORS.put(owner, actor);
+        }
         actor.setPos(resident.getX(), resident.getY(), resident.getZ());
         // The tool of the resident is the tool of the operation, so that TFC
         // and every other mod may read it. It is a copy: the wear belongs to
@@ -286,5 +305,5 @@ public final class KingdomActionEngine {
     }
 
     /** Forgets every navigation, for example when the server stops. */
-    public static void forgetAll() { NAVIGATIONS.clear(); }
+    public static void forgetAll() { NAVIGATIONS.clear(); ACTORS.clear(); }
 }
