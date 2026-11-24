@@ -40,7 +40,9 @@ public final class KingdomMineSupportExcavation {
             if(!KingdomMineWork.safeToBreak(level,pos,worker)
                 ||KingdomMineSupportSafety.inspect(level,pos)
                     !=KingdomMineSupportSafety.Result.SAFE)return Result.UNSAFE;
-            BlockPos approach=frame.walkway();
+            // The miner works from the cell it may really stand on: the rock
+            // of the walkway is not a place to stand when it digs downwards.
+            BlockPos approach=frame.access();
             if(npc.distanceToSqr(approach.getX()+0.5,approach.getY(),
                     approach.getZ()+0.5)>6.25) {
                 npc.getNavigation().moveTo(approach.getX()+0.5,approach.getY(),

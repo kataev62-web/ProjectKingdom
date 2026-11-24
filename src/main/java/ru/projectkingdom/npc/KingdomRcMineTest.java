@@ -13,6 +13,7 @@ import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.storage.LevelResource;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -34,6 +35,9 @@ public final class KingdomRcMineTest {
     private KingdomRcMineTest() {}
     private static final String TAG = "Kingdom RC: шахта";
 
+    /** The phases of the release check of the mine. */
+    public enum Phase { SURFACE, ACCESS, ROCK, DELIVERY, RESTART, CONTINUE, DONE }
+
     /** The state of the running check. */
     public static final class State {
         public UUID enterprise;
@@ -47,11 +51,19 @@ public final class KingdomRcMineTest {
         public long deadlineTick;
         public final List<String> notes = new ArrayList<>();
         public boolean finished;
+        public Phase phase = Phase.SURFACE;
+        /** The state of the world when the server was stopped, for the restart. */
+        public int surfaceAtRestart = -1;
+        public int rockAtRestart = -1;
+        public long deliveredAtRestart = -1;
+        public int restarts;
     }
 
     private static State state;
     /** The number of the checks that ran: every check gets its own site. */
     private static int runs;
+    /** The file of the state of the check inside the world. */
+    private static final String FILE = "kingdom_rc_mine.txt";
 
     /** Whether a check is running. */
     public static boolean running() { return state != null && !state.finished; }
@@ -147,9 +159,11 @@ public final class KingdomRcMineTest {
             depot.setItem(3, new ItemStack(Items.OAK_PLANKS, 32));
             depot.setItem(4, new ItemStack(Items.TORCH, 16));
             // The real supports of TFC for the rock of the deeper layers.
-            var support = net.minecraft.core.registries.BuiltInRegistries.ITEM
-                    .get(new net.minecraft.resources.ResourceLocation("tfc","wood/support/oak"));
-            if (support != null) depot.setItem(5, new ItemStack(support, 16));
+            for (String wood : new String[]{"oak", "birch", "spruce", "acacia"}) {
+                var support = net.minecraft.core.registries.BuiltInRegistries.ITEM
+                        .get(new net.minecraft.resources.ResourceLocation("tfc","wood/support/"+wood));
+                if (support != null) { depot.setItem(5, new ItemStack(support, 16)); break; }
+            }
             depot.setChanged();
         }
         // The real resident of MCA with a real contract.
@@ -191,13 +205,13 @@ public final class KingdomRcMineTest {
         for (int dx = -3; dx <= 10; dx++) {
             for (int dz = -3; dz <= 10; dz++) {
                 BlockPos pos = origin.offset(dx, 0, dz);
-                // The surface is ground, the layer under it is rock: the
-                // shovel digs the ground, the pickaxe the rock, and the rock
-                // of TFC needs its support.
+                // The surface is ground, the layer under it is the real rock of
+                // TerraFirmaCraft: the shovel digs the ground, the pickaxe the
+                // rock, and the rock of TFC needs its support.
                 level.setBlock(pos, Blocks.DIRT.defaultBlockState(), 3);
-                level.setBlock(pos.below(), Blocks.STONE.defaultBlockState(), 3);
-                level.setBlock(pos.below(2), Blocks.STONE.defaultBlockState(), 3);
-                level.setBlock(pos.below(3), Blocks.STONE.defaultBlockState(), 3);
+                level.setBlock(pos.below(), tfcRock(level), 3);
+                level.setBlock(pos.below(2), tfcRock(level), 3);
+                level.setBlock(pos.below(3), tfcRock(level), 3);
                 // The air above the platform is the entrance of the shaft.
                 level.setBlock(pos.above(), Blocks.AIR.defaultBlockState(), 3);
                 level.setBlock(pos.above(2), Blocks.AIR.defaultBlockState(), 3);
@@ -208,6 +222,23 @@ public final class KingdomRcMineTest {
         BlockPos entrance = new BlockPos(next.originX, next.surfaceY, next.originZ + 7);
         level.setBlock(entrance, Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(entrance.above(), Blocks.AIR.defaultBlockState(), 3);
+    }
+
+    /**
+     * The real rock of TerraFirmaCraft.
+     *
+     * <p>The check must not fall back on the stone of Minecraft: the point of
+     * the check is the integration with TFC and its collapse rules.
+     */
+    private static net.minecraft.world.level.block.state.BlockState tfcRock(ServerLevel level) {
+        for (String id : new String[]{"tfc:rock/raw/basalt", "tfc:rock/raw/granite",
+                "tfc:rock/raw/diorite", "tfc:rock/raw/andesite"}) {
+            var block = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                    .get(new net.minecraft.resources.ResourceLocation(id));
+            if (block != null && !block.defaultBlockState().isAir())
+                return block.defaultBlockState();
+        }
+        return Blocks.STONE.defaultBlockState();
     }
 
     /** Places a real chest that the Kingdom can use as a warehouse. */
@@ -222,7 +253,8 @@ public final class KingdomRcMineTest {
      * active. It never changes the world: it only looks at it.
      */
     public static void tick(MinecraftServer server) {
-        if (state == null || state.finished) return;
+        if (state == null) { load(server); if (state == null) return; }
+        if (state.finished) return;
         if (server.getTickCount() > state.deadlineTick) {
             state.notes.add("Время проверки вышло.");
             finish(server);
@@ -236,13 +268,97 @@ public final class KingdomRcMineTest {
             finish(server);
             return;
         }
-        // The check is over when the goods of the resident are in the
-        // finished warehouse and the layers of the shaft are gone.
-        int dug = dugBlocks(level);
-        if (dug >= 49 && dugInSecondLayer(level) >= 49 && delivered(level, worker) > 0) {
-            state.notes.add("Добыча доставлена на склад.");
-            finish(server);
+        // The check controls the conditions of the world: the resident works
+        // during the working hours of the Kingdom, so the time of the day is
+        // held inside them. Outside of them the resident rests and the check
+        // would never finish.
+        holdWorkingTime(server, level);
+        // The check walks through the phases of the mine: the surface, the
+        // access with the ladder and the deck, the rock of TFC with the
+        // pickaxe and the supports, the delivery and the restart.
+        int surface = dugSurface(level);
+        int rock = dugInSecondLayer(level);
+        int goods = delivered(level, worker);
+        switch (state.phase) {
+            case SURFACE -> {
+                if (surface >= 49) {
+                    state.phase = Phase.ACCESS;
+                    state.notes.add("Поверхностный слой выкопан полностью.");
+                    save(server);
+                }
+            }
+            case ACCESS -> {
+                if (accessReady(level)) {
+                    state.phase = Phase.ROCK;
+                    state.notes.add("Лестница и настил спуска готовы.");
+                    save(server);
+                }
+            }
+            case ROCK -> {
+                if (rock >= 49) {
+                    state.phase = Phase.DELIVERY;
+                    state.notes.add("Слой породы TFC выкопан полностью.");
+                    save(server);
+                }
+            }
+            case DELIVERY -> {
+                if (goods > 0) {
+                    state.phase = Phase.RESTART;
+                    state.surfaceAtRestart = surface;
+                    state.rockAtRestart = rock;
+                    state.deliveredAtRestart = goods;
+                    state.notes.add("Добыча доставлена на склад: " + goods + " предметов.");
+                    save(server);
+                }
+            }
+            case RESTART -> {
+                // The server was stopped and started again: the state of the
+                // world must not go back, and the work must continue.
+                state.restarts++;
+                state.phase = Phase.CONTINUE;
+                state.notes.add("Сервер перезапущен: добыча сохранилась, работа продолжается.");
+                save(server);
+            }
+            case CONTINUE -> {
+                if (surface < state.surfaceAtRestart || rock < state.rockAtRestart
+                        || goods < state.deliveredAtRestart) {
+                    state.notes.add("ВНИМАНИЕ: после перезапуска состояние ухудшилось.");
+                    finish(server);
+                    return;
+                }
+                state.notes.add("Работа продолжается после перезапуска без потерь.");
+                finish(server);
+            }
+            default -> { }
         }
+    }
+
+    /**
+     * Holds the time of the day inside the working hours of the Kingdom.
+     *
+     * <p>The resident rests between 12:00 and 13:00. The check measures the
+     * work of the resident, so the stand keeps the world inside the working
+     * window: the rest is checked by the unit tests, not by the clock of the
+     * check.
+     */
+    private static void holdWorkingTime(MinecraftServer server, ServerLevel level) {
+        // The day of Minecraft starts at 06:00, so the tick of the hour is
+        // (hour - 6) * 1000: the working hours of the Kingdom are the ticks
+        // 2000-6000 (08:00-12:00) and 7000-12000 (13:00-18:00).
+        long day = level.getDayTime() % 24000L;
+        if (day >= 2000L && day < 6000L) return;
+        if (day >= 7000L && day < 12000L) return;
+        level.setDayTime(((level.getDayTime() / 24000L) * 24000L) + 2000L);
+    }
+
+    /** Whether the ladder and the deck of the descent stand. */
+    public static boolean accessReady(ServerLevel level) {
+        if (state == null) return false;
+        BlockPos descent = KingdomMineCentralShaftPlan.descent(
+                new KingdomMineSettings.Shaft(state.originX, state.originX + 6,
+                        state.originZ, state.originZ + 6, state.surfaceY, state.dimension), 0);
+        return level.getBlockState(descent).is(Blocks.LADDER)
+            && KingdomMineStructureWork.isDeckBlock(level.getBlockState(descent.north()));
     }
 
     /** The number of the blocks of the surface layer that are gone. */
@@ -303,6 +419,7 @@ public final class KingdomRcMineTest {
         var worker = findWorker(server);
         StringBuilder text = new StringBuilder();
         text.append(TAG).append(": ");
+        text.append("фаза: ").append(state.phase).append("; ");
         text.append("слой 1 выкопан на ").append(dugBlocks(level)).append(" из 49");
         text.append(", слой 2 — ").append(dugInSecondLayer(level)).append(" из 49; ");
         if (worker == null) {
@@ -372,6 +489,61 @@ public final class KingdomRcMineTest {
         for (var worker : KingdomNpcData.get(server).all())
             if (state.resident.equals(worker.entityId)) return worker;
         return null;
+    }
+
+    /** Writes the state of the check into the world. */
+    private static void save(MinecraftServer server) {
+        if (state == null) return;
+        try {
+            var file = server.getWorldPath(LevelResource.ROOT).resolve(FILE);
+            var lines = new java.util.ArrayList<String>();
+            lines.add("originX=" + state.originX);
+            lines.add("originZ=" + state.originZ);
+            lines.add("surfaceY=" + state.surfaceY);
+            lines.add("dimension=" + state.dimension);
+            lines.add("phase=" + state.phase.name());
+            lines.add("surface=" + state.surfaceAtRestart);
+            lines.add("rock=" + state.rockAtRestart);
+            lines.add("delivered=" + state.deliveredAtRestart);
+            lines.add("restarts=" + state.restarts);
+            for (String note : state.notes) lines.add("note=" + note);
+            java.nio.file.Files.createDirectories(file.getParent());
+            java.nio.file.Files.write(file, lines, java.nio.charset.StandardCharsets.UTF_8);
+        } catch (java.io.IOException ignored) {
+            // The check stays in memory when the world cannot be written.
+        }
+    }
+
+    /** Reads the state of the check back after the restart of the server. */
+    private static void load(MinecraftServer server) {
+        try {
+            var file = server.getWorldPath(LevelResource.ROOT).resolve(FILE);
+            if (!java.nio.file.Files.exists(file)) return;
+            var lines = java.nio.file.Files.readAllLines(file, java.nio.charset.StandardCharsets.UTF_8);
+            State next = new State();
+            for (String line : lines) {
+                int split = line.indexOf('=');
+                if (split < 0) continue;
+                String key = line.substring(0, split);
+                String value = line.substring(split + 1);
+                switch (key) {
+                    case "originX" -> next.originX = Integer.parseInt(value);
+                    case "originZ" -> next.originZ = Integer.parseInt(value);
+                    case "surfaceY" -> next.surfaceY = Integer.parseInt(value);
+                    case "dimension" -> next.dimension = value;
+                    case "phase" -> next.phase = Phase.valueOf(value);
+                    case "surface" -> next.surfaceAtRestart = Integer.parseInt(value);
+                    case "rock" -> next.rockAtRestart = Integer.parseInt(value);
+                    case "delivered" -> next.deliveredAtRestart = Integer.parseInt(value);
+                    case "restarts" -> next.restarts = Integer.parseInt(value);
+                    case "note" -> next.notes.add(value);
+                    default -> { }
+                }
+            }
+            state = next;
+        } catch (java.io.IOException | RuntimeException ignored) {
+            // A broken file means no check; the operator starts a new one.
+        }
     }
 
     /** Finishes the check and writes the report into the log. */

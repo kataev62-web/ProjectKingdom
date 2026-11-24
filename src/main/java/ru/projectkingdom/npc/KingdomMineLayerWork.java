@@ -153,9 +153,13 @@ public final class KingdomMineLayerWork {
                         return true;
                     }
                     if (plank != KingdomMineStructureWork.Result.READY) {
-                        status(level, worker, plank == KingdomMineStructureWork.Result.NEED_MATERIAL
-                            ? "Нужны доски для настила"
-                            : "Невозможно уложить настил спуска");
+                        status(level, worker, switch (plank) {
+                            case NEED_MATERIAL -> "Нужны доски для настила на складе сырья";
+                            case WALKING -> "Идёт за досками для настила";
+                            case NEED_TOOL -> "Нужен инструмент, чтобы расчистить клетку настила";
+                            default -> "Невозможно уложить настил спуска: "
+                                + KingdomMineStructureWork.lastReason();
+                        });
                         return false;
                     }
                 }

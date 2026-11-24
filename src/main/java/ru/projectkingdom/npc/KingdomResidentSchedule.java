@@ -83,6 +83,18 @@ public final class KingdomResidentSchedule {
         return mode == Mode.KINGDOM_WORK || mode == Mode.PLAYER2_TASK;
     }
 
+    /**
+     * Whether the resident may work right now.
+     *
+     * <p>Every production executor asks this question first: during the rest
+     * of the Kingdom the resident only lives its ordinary life.
+     */
+    public static boolean working(net.minecraft.server.MinecraftServer server,
+                                  KingdomNpcData.Worker worker) {
+        if (server == null || worker == null) return false;
+        return working(modeOf(server, worker.entityId, worker));
+    }
+
     /** Whether the resident may do its ordinary life of MCA in this mode. */
     public static boolean mcaLife(Mode mode) {
         return mode == Mode.MCA_LIFE || mode == Mode.EMERGENCY;

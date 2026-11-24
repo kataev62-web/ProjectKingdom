@@ -49,9 +49,11 @@ public final class KingdomMineSupportBuilder {
             for(int y=0;y<3;y++)
                 if(!vertical(level.getBlockState(post.above(y))))return false;
         // Presence of the visual beam is insufficient; the authoritative TFC
-        // support registry must recognize protection over the tunnel roof.
+        // support registry must recognize the protection. The frame protects
+        // the rock of the walkway when the miner digs straight down and the
+        // roof above the walkway when the corridor goes forward.
         return KingdomMineSupportSafety.hasHorizontalSupport(
-            level,frame.walkway().above());
+            level,frame.protectedCell());
     }
 
     private static String type(ItemStack stack) {

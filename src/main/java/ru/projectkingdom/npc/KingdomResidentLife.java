@@ -33,6 +33,8 @@ public final class KingdomResidentLife {
         NONE,
         /** The resident asks the owner of an enterprise for a contract. */
         APPLY_FOR_VACANCY,
+        /** The old purchase path; it stays closed until the settlement is safe. */
+        BUY_LEGACY,
         /** The resident asks for another profession. */
         APPLY_FOR_PROFESSION,
         /** The resident buys something with its own money. */
@@ -125,11 +127,11 @@ public final class KingdomResidentLife {
         // 3. The tool: a resident without a working tool buys one.
         var missing = missingTool(worker);
         if (missing != null) {
-            long price = marketPrice(server, missing);
-            if (price > 0 && savings >= price)
-                return new Decision(Action.BUY, null, currentJob, missing, 1, price,
-                        "покупает " + missing + " на свои деньги");
-            return Decision.none("не хватает денег на " + missing);
+            // The autonomous purchase of goods is blocked: the money of the
+            // resident is real, but the settlement of the purchase with the
+            // seller has no safe way yet, and money that vanishes from one
+            // side must not stay in an active mechanic.
+            return Decision.none("автономная покупка заблокирована: нет безопасного расчёта с продавцом");
         }
         // 4. The enterprise: the savings of a long working life become a plan.
         if (career != null && career.stage() == KingdomNpcCareerPolicy.Stage.READY_FOR_OFFERS
@@ -189,6 +191,12 @@ public final class KingdomResidentLife {
                 return true;
             }
             case BUY -> {
+                // The autonomous purchase stays blocked until the settlement
+                // with the seller is safe. The goods are never taken without
+                // the money, and the money is never taken without the goods.
+                return false;
+            }
+            case BUY_LEGACY -> {
                 for (var level : server.getAllLevels()) {
                     if (!worker.dimension.equals(level.dimension().location().toString())) continue;
                     var entity = level.getEntity(worker.entityId);
@@ -267,18 +275,34 @@ public final class KingdomResidentLife {
     }
 
     /** Pays the price with the real coins of the wage purse. */
+    /**
+     * Pays the price with the real coins of the wage purse.
+     *
+     * <p>The payment is atomic: the coins are counted first and are only
+     * taken when they cover the whole price. A payment that cannot be
+     * completed leaves every coin where it was.
+     */
     private static boolean pay(KingdomNpcData.Worker worker, long price) {
+        if (worker == null || price <= 0) return false;
         long left = price;
-        for (var stack : worker.wagePurse) {
-            if (stack.isEmpty() || left <= 0) continue;
+        java.util.List<int[]> plan = new java.util.ArrayList<>();
+        for (int index = 0; index < worker.wagePurse.size() && left > 0; index++) {
+            var stack = worker.wagePurse.get(index);
+            if (stack == null || stack.isEmpty()) continue;
             long value = KingdomCurrency.value(stack);
             if (value <= 0) continue;
             int count = stack.getCount();
-            int needed = (int) Math.min(count, Math.max(1, (left + value - 1) / value));
-            stack.shrink(needed);
+            int needed = (int) Math.min(count, (left + value - 1) / value);
+            if (needed <= 0) continue;
+            plan.add(new int[]{index, needed});
             left -= needed * value;
+        }
+        if (left > 0) return false;
+        for (int[] step : plan) {
+            var stack = worker.wagePurse.get(step[0]);
+            stack.shrink(step[1]);
             if (stack.isEmpty()) stack.setCount(0);
         }
-        return left <= 0;
+        return true;
     }
 }

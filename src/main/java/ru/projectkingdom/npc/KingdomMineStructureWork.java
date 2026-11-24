@@ -103,15 +103,18 @@ public final class KingdomMineStructureWork {
     }
     private static Result plank(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                 BlockPos at) {
-        if(!authorized(level,at,w)||!level.hasChunkAt(at.below())
-            ||!authorized(level,at.above(),w))return Result.UNSAFE;
+        if(!authorized(level,at,w)){lastReason="нет прав на клетку настила "+at.toShortString();return Result.UNSAFE;}
+        if(!level.hasChunkAt(at.below())){lastReason="чанк под настилом не загружен";return Result.UNSAFE;}
+        if(!authorized(level,at.above(),w)){lastReason="нет прав над клеткой настила "+at.above().toShortString();return Result.UNSAFE;}
         BlockState state=level.getBlockState(at);
         if(isDeckBlock(state)) return Result.READY;
         ItemStack supply=carried(w,false);
         if(supply.isEmpty())return acquire(level,npc,w,false);
         BlockState result=((BlockItem)supply.getItem()).getBlock().defaultBlockState();
-        if(!result.canSurvive(level,at)||!level.getFluidState(at).isEmpty())
+        if(!result.canSurvive(level,at)||!level.getFluidState(at).isEmpty()){
+            lastReason="под клеткой настила нет опоры: "+at.below().toShortString();
             return Result.UNSAFE;
+        }
         if(npc.distanceToSqr(at.getX()+.5,at.getY()+1,at.getZ()+.5)>6.25){
             npc.getNavigation().moveTo(at.getX()+.5,at.getY()+1,at.getZ()+.5,.75);
             return Result.WALKING;
@@ -131,7 +134,7 @@ public final class KingdomMineStructureWork {
             if(w.fieldTool.isEmpty()||w.fieldTool.getDamageValue()>=w.fieldTool.getMaxDamage())
                 w.fieldTool=ItemStack.EMPTY;
         }
-        if(!level.setBlock(at,result,3))return Result.UNSAFE;
+        if(!level.setBlock(at,result,3)){lastReason="блок настила не установлен";return Result.UNSAFE;}
         supply.shrink(1);
         if(supply.isEmpty())w.fieldInventory.remove(supply);
         KingdomNpcData.get(level.getServer()).setDirty();

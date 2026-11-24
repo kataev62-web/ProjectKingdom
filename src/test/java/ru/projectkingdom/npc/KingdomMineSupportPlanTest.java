@@ -35,7 +35,19 @@ class KingdomMineSupportPlanTest {
         assertTrue(KingdomMineSupportPlan.valid(east));
         assertEquals(previous.north(),east.leftPost());
         assertEquals(previous.south(),east.rightPost());
-        assertNull(KingdomMineSupportPlan.emergency(previous,previous.above()));
+        // The miner also digs straight down: the frame then stands around the
+        // rock itself, because the ceiling of the walkway is the place of the
+        // miner.
+        var down=KingdomMineSupportPlan.emergency(previous,previous.above());
+        assertNotNull(down);
+        assertTrue(KingdomMineSupportPlan.valid(down));
+        // The frame of the corridor stands beside the miner and carries the
+        // beam over the rock that the miner digs.
+        assertEquals(previous,down.walkway());
+        assertEquals(previous.north(),down.leftPost());
+        assertEquals(previous.south(),down.rightPost());
+        assertEquals(previous.above(2),down.crossbeam());
+        assertEquals(previous.above(),down.protectedCell());
         assertNull(KingdomMineSupportPlan.emergency(null,previous));
     }
 
