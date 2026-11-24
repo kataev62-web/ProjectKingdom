@@ -17,6 +17,12 @@ import static org.junit.jupiter.api.Assertions.*;
  * at the descent, so that the miner always stands on the cell it dug before.
  */
 class KingdomMineCentralShaftPlanTest {
+    @org.junit.jupiter.api.BeforeAll
+    static void bootstrap() {
+        net.minecraft.SharedConstants.tryDetectVersion();
+        net.minecraft.server.Bootstrap.bootStrap();
+    }
+
     private static KingdomMineSettings.Shaft area(int width,int length) {
         return new KingdomMineSettings.Shaft(0,width-1,0,length-1,80,"minecraft:overworld");
     }
