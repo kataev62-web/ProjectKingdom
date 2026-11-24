@@ -60,6 +60,9 @@ public final class KingdomMineLayerWork {
                 }
                 BlockState state = level.getBlockState(target);
                 if (state.isAir()) continue;
+                // The descent carries the ladder of the layer: it is already
+                // excavated and must not be mined again.
+                if (state.is(net.minecraft.world.level.block.Blocks.LADDER)) continue;
                 // The support of TFC comes before the block that would fall.
                 var safety = KingdomMineSupportSafety.inspect(level, target);
                 if (safety == KingdomMineSupportSafety.Result.UNLOADED) {

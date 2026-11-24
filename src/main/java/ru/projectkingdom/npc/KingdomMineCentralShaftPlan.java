@@ -94,17 +94,24 @@ public final class KingdomMineCentralShaftPlan {
         // The rest of the layer is a serpentine that starts next to the
         // descent, so that the miner always stands on the cell it dug before.
         BlockPos previous=descent;
-        boolean eastToWest=true;
+        boolean eastward=true;
         for(int z=area.maxZ();z>=area.minZ();z--){
-            for(int i=0;i<=area.maxX()-area.minX();i++){
-                int x=eastToWest?area.minX()+1+i:area.maxX()-i;
-                if(x<area.minX()||x>area.maxX())continue;
-                BlockPos target=new BlockPos(x,y,z);
-                if(target.equals(descent))continue;
-                cells.add(new KingdomMineGalleryPlan.Cell(target,previous));
-                previous=target;
+            if(eastward){
+                for(int x=area.minX();x<=area.maxX();x++){
+                    BlockPos target=new BlockPos(x,y,z);
+                    if(target.equals(descent))continue;
+                    cells.add(new KingdomMineGalleryPlan.Cell(target,previous));
+                    previous=target;
+                }
+            }else{
+                for(int x=area.maxX();x>=area.minX();x--){
+                    BlockPos target=new BlockPos(x,y,z);
+                    if(target.equals(descent))continue;
+                    cells.add(new KingdomMineGalleryPlan.Cell(target,previous));
+                    previous=target;
+                }
             }
-            eastToWest=!eastToWest;
+            eastward=!eastward;
         }
         return List.copyOf(cells);
     }
@@ -122,7 +129,8 @@ public final class KingdomMineCentralShaftPlan {
             ||heading==null)return List.of();
         int depth=levels*KingdomMineSettings.LEVEL_INTERVAL;
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
-        for(int layer=1;layer<=depth;layer++)
+        // The surface is the first layer, the shaft under the entrance with it.
+        for(int layer=0;layer<=depth;layer++)
             result.addAll(layer(area,layer));
         return List.copyOf(result);
     }
