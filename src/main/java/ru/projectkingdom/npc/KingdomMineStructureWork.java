@@ -30,6 +30,13 @@ public final class KingdomMineStructureWork {
         return id.startsWith("minecraft:")&&id.endsWith("_planks")
             ||id.startsWith("tfc:wood/planks/");
     }
+    /** A laid deck cell is infrastructure, not untouched mineable ore. */
+    public static boolean isDeckBlock(BlockState state) {
+        if (state == null || state.isAir()) return false;
+        String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        return (id.startsWith("minecraft:") && id.endsWith("_planks"))
+            || id.startsWith("tfc:wood/planks/");
+    }
     private static boolean available(ItemStack s,boolean ladder){
         return ladder?s.is(Items.LADDER):plank(s);
     }
@@ -99,9 +106,7 @@ public final class KingdomMineStructureWork {
         if(!authorized(level,at,w)||!level.hasChunkAt(at.below())
             ||!authorized(level,at.above(),w))return Result.UNSAFE;
         BlockState state=level.getBlockState(at);
-        String installed=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        if(installed.endsWith("_planks")||installed.startsWith("tfc:wood/planks/"))
-            return Result.READY;
+        if(isDeckBlock(state)) return Result.READY;
         ItemStack supply=carried(w,false);
         if(supply.isEmpty())return acquire(level,npc,w,false);
         BlockState result=((BlockItem)supply.getItem()).getBlock().defaultBlockState();
