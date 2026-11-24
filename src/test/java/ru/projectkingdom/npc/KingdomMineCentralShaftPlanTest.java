@@ -17,6 +17,12 @@ import static org.junit.jupiter.api.Assertions.*;
  * at the descent, so that the miner always stands on the cell it dug before.
  */
 class KingdomMineCentralShaftPlanTest {
+    @org.junit.jupiter.api.BeforeAll
+    static void bootstrap() {
+        net.minecraft.SharedConstants.tryDetectVersion();
+        net.minecraft.server.Bootstrap.bootStrap();
+    }
+
     private static KingdomMineSettings.Shaft area(int width,int length) {
         return new KingdomMineSettings.Shaft(0,width-1,0,length-1,80,"minecraft:overworld");
     }
@@ -137,5 +143,19 @@ class KingdomMineCentralShaftPlanTest {
         assertFalse(data.chooseLevels(id,2));
         assertFalse(data.chooseHeading(id,KingdomMineSettings.Heading.NORTH));
         assertFalse(data.setShaft(id,area(8,8)));
+    }
+
+    @Test void installedDescentLadderAndDeckAreNotMinedAgain() {
+        var shaft = area(7, 7);
+        int layer = 1;
+        BlockPos descent = KingdomMineCentralShaftPlan.descent(shaft, layer);
+        assertTrue(KingdomMineLayerWork.completedStructure(shaft, layer, descent,
+            net.minecraft.world.level.block.Blocks.LADDER.defaultBlockState()));
+        assertTrue(KingdomMineLayerWork.completedStructure(shaft, layer, descent.north(),
+            net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState()));
+        assertFalse(KingdomMineLayerWork.completedStructure(shaft, layer, descent.north(),
+            net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState()));
+        assertFalse(KingdomMineLayerWork.completedStructure(shaft, layer, descent.east(),
+            net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState()));
     }
 }

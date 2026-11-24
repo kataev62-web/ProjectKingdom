@@ -1042,7 +1042,6 @@ public final class KingdomNpcMod {
             KingdomResidentSafety.retire(level,villager);
     }
 
-    @SubscribeEvent
     /**
      * Gives the navigation of every resident to exactly one owner.
      *
@@ -1175,7 +1174,9 @@ public final class KingdomNpcMod {
                     executed |= KingdomNpcFoodRoutine.tick(level,resident,w);
                     // The physical adapters are shared by the workday scheduler.
                     // Existing independent gatherers remain independent.
-                    if (KingdomNpcNutrition.permittedWorkTick(w,server.getTickCount())
+                    if (KingdomResidentSchedule.working(
+                                KingdomResidentSchedule.modeOf(server,w.entityId,w))
+                            && KingdomNpcNutrition.permittedWorkTick(w,server.getTickCount())
                             && ((w.employer == null && KingdomNpcFarmOwner.ownedFarm(server,w)==null)
                                 || KingdomNpcDuty.mayExecute(w.job,w.order,
                                     w.autonomousIntent,KingdomNpcWorkday.employed(server,w)))) {

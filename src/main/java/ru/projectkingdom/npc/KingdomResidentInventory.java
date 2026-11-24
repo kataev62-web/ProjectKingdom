@@ -290,22 +290,32 @@ public final class KingdomResidentInventory {
         if (worker == null || resident == null) return false;
         Container personal = personal(resident);
         if (personal == null) {
-            // A resident without a real container keeps the working view as
-            // its own storage; it is saved with the worker.
             worker.physicalBag = false;
             return false;
         }
+        return bindToContainer(worker, personal);
+    }
+
+    /**
+     * Migrate only residual legacy items into the physical bag once.
+     * Never re-add the original, already inserted stacks to the working view.
+     * Exposed to package tests so conservation is exercised through bind,
+     * not just through loadFromWorker in isolation.
+     */
+    static boolean bindToContainer(KingdomNpcData.Worker worker, Container personal) {
+        if (worker == null || personal == null) return false;
         if (!worker.physicalBag) {
-            // The first time: the belongings of an old world move into the
-            // real container. What does not fit stays in the working view.
-            List<ItemStack> left = new ArrayList<>(worker.fieldInventory);
             loadFromWorker(worker, personal);
-            left.addAll(worker.fieldInventory);
+            // loadFromWorker leaves only the unaccepted remainder in the view.
+            List<ItemStack> overflow = new ArrayList<>();
+            if (!worker.fieldTool.isEmpty()) overflow.add(worker.fieldTool.copy());
+            for (ItemStack stack : worker.fieldInventory)
+                if (stack != null && !stack.isEmpty()) overflow.add(stack.copy());
             worker.physicalBag = true;
             syncToWorker(worker, personal);
-            // What did not fit into the container stays in the view, so that
-            // the flush can put it back or leave it in the world.
-            worker.fieldInventory.addAll(left);
+            // flush() will drop the overflow into the world if it still cannot
+            // fit, rather than resurrecting any already-migrated items.
+            worker.fieldInventory.addAll(overflow);
             return true;
         }
         syncToWorker(worker, personal);
