@@ -140,9 +140,13 @@ public final class KingdomActionEngine {
         // block entity and the falling block are checked before anything moves.
         if (worker != null && !KingdomMineWork.safeToBreak(level, target, worker))
             return new Outcome(Status.BLOCKED, "блок защищён или опасен");
-        FakePlayer actor = actor(level, resident, worker, tool);
+        FakePlayer actor = actor(level, resident, worker);
+        // Snapshot the shared FakePlayer BEFORE changing either its position
+        // or its held tool, otherwise restore() preserves our temporary state.
         Context context = Context.of(actor);
         try {
+            actor.setPos(resident.getX(), resident.getY(), resident.getZ());
+            actor.setItemInHand(InteractionHand.MAIN_HAND, tool.copy());
             // The vanilla path of a player: the break event of Forge is fired
             // first, so that TFC, the collapse rules and every other mod may
             // refuse the block before it disappears. The event is fired once.
@@ -189,27 +193,31 @@ public final class KingdomActionEngine {
     private static final class Context {
         private final ItemStack hand;
         private final List<ItemStack> inventory;
+        private final double x, y, z;
 
-        private Context(ItemStack hand, List<ItemStack> inventory) {
+        private Context(ItemStack hand, List<ItemStack> inventory,
+                        double x, double y, double z) {
             this.hand = hand;
             this.inventory = inventory;
+            this.x = x;
+            this.y = y;
+            this.z = z;
         }
 
         static Context of(FakePlayer actor) {
             List<ItemStack> items = new java.util.ArrayList<>();
             for (int slot = 0; slot < actor.getInventory().getContainerSize(); slot++)
                 items.add(actor.getInventory().getItem(slot).copy());
-            return new Context(actor.getItemInHand(InteractionHand.MAIN_HAND).copy(), items);
+            return new Context(actor.getItemInHand(InteractionHand.MAIN_HAND).copy(),
+                items, actor.getX(), actor.getY(), actor.getZ());
         }
 
         void restore(FakePlayer actor) {
-            actor.setItemInHand(InteractionHand.MAIN_HAND, hand.copy());
-            for (int slot = 0; slot < actor.getInventory().getContainerSize(); slot++)
-                actor.getInventory().setItem(slot,
-                        slot < inventory.size() ? inventory.get(slot).copy() : ItemStack.EMPTY);
             actor.getInventory().clearContent();
             for (int slot = 0; slot < inventory.size(); slot++)
                 actor.getInventory().setItem(slot, inventory.get(slot).copy());
+            actor.setItemInHand(InteractionHand.MAIN_HAND, hand.copy());
+            actor.setPos(x, y, z);
         }
     }
 
@@ -282,7 +290,7 @@ public final class KingdomActionEngine {
      * every break would be refused.
      */
     private static FakePlayer actor(ServerLevel level, Villager resident,
-                                    KingdomNpcData.Worker worker, ItemStack tool) {
+                                    KingdomNpcData.Worker worker) {
         UUID owner = worker == null ? null : worker.employer;
         if (owner == null) owner = resident.getUUID();
         FakePlayer actor = ACTORS.get(owner);
@@ -291,11 +299,8 @@ public final class KingdomActionEngine {
                     new com.mojang.authlib.GameProfile(owner, "KingdomWorker"));
             ACTORS.put(owner, actor);
         }
-        actor.setPos(resident.getX(), resident.getY(), resident.getZ());
-        // The tool of the resident is the tool of the operation, so that TFC
-        // and every other mod may read it. It is a copy: the wear belongs to
-        // the physical tool of the resident and is applied there.
-        actor.setItemInHand(InteractionHand.MAIN_HAND, tool.copy());
+        // Position and held tool are assigned only inside breakBlock's
+        // guarded try/finally, after the original context is captured.
         return actor;
     }
 
