@@ -175,4 +175,36 @@ final class KingdomResidentInventoryTest {
         assertEquals(17, stored.getDamageValue(), "the wear of the tool survives the transfer");
         assertSame(stored, bag.getItem(0), "the tool is the very stack of the bag");
     }
+
+    @Test void theWholeBindDoesNotDuplicateAlreadyMigratedItems() {
+        SimpleContainer bag = new SimpleContainer(9);
+        KingdomNpcData.Worker resident = worker();
+        resident.fieldTool = new ItemStack(Items.IRON_PICKAXE);
+        resident.fieldInventory = new java.util.ArrayList<>(
+            List.of(new ItemStack(Items.WHEAT, 20)));
+
+        assertTrue(KingdomResidentInventory.bindToContainer(resident, bag));
+        assertTrue(KingdomResidentInventory.flushToContainer(bag, resident).isEmpty());
+        assertEquals(20, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(1, KingdomResidentInventory.count(bag, Items.IRON_PICKAXE));
+
+        // Binding again is not a second migration.
+        assertTrue(KingdomResidentInventory.bindToContainer(resident, bag));
+        assertTrue(KingdomResidentInventory.flushToContainer(bag, resident).isEmpty());
+        assertEquals(20, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(1, KingdomResidentInventory.count(bag, Items.IRON_PICKAXE));
+    }
+
+    @Test void bindPreservesOnlyTheUnacceptedOverflow() {
+        SimpleContainer bag = new SimpleContainer(1);
+        KingdomNpcData.Worker resident = worker();
+        resident.fieldInventory = new java.util.ArrayList<>(
+            List.of(new ItemStack(Items.WHEAT, 100)));
+
+        assertTrue(KingdomResidentInventory.bindToContainer(resident, bag));
+        List<ItemStack> spill = KingdomResidentInventory.flushToContainer(bag, resident);
+        assertEquals(64, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(36, spill.stream().mapToInt(ItemStack::getCount).sum(),
+            "only the unaccepted 36 items may be emitted into the world");
+    }
 }
