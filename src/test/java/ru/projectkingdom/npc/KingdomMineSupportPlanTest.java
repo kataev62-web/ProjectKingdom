@@ -27,9 +27,11 @@ class KingdomMineSupportPlanTest {
         var north=KingdomMineSupportPlan.emergency(previous,previous.north().below());
         assertNotNull(north);
         assertTrue(KingdomMineSupportPlan.valid(north));
-        assertEquals(previous,north.walkway());
-        assertEquals(previous.west(),north.leftPost());
-        assertEquals(previous.east(),north.rightPost());
+        assertEquals(previous.south(),north.walkway());
+        assertEquals(previous.south().west(),north.leftPost());
+        assertEquals(previous.south().east(),north.rightPost());
+        assertEquals(1,north.beamHeight());
+        assertEquals(previous.getY()+1,north.crossbeam().getY());
         var east=KingdomMineSupportPlan.emergency(previous,previous.east());
         assertNotNull(east);
         assertTrue(KingdomMineSupportPlan.valid(east));
@@ -37,6 +39,26 @@ class KingdomMineSupportPlanTest {
         assertEquals(previous.south(),east.rightPost());
         assertNull(KingdomMineSupportPlan.emergency(previous,previous.above()));
         assertNull(KingdomMineSupportPlan.emergency(null,previous));
+    }
+
+    @Test void downwardEmergencyFramesStayWithinPinnedNativeTwoBlockSupportDepth() {
+        BlockPos target=new BlockPos(10,70,10);
+        for(var direction:net.minecraft.core.Direction.Plane.HORIZONTAL) {
+            for(int distance=1;distance<=2;distance++) {
+                BlockPos approach=target.relative(direction,distance).above();
+                var frame=KingdomMineSupportPlan.emergency(approach,target);
+                assertNotNull(frame);
+                assertTrue(KingdomMineSupportPlan.valid(frame));
+                assertEquals(2,frame.crossbeam().getY()-target.getY(),
+                    "native horizontal_support_beam support_down=2");
+                assertTrue(Math.abs(frame.crossbeam().getX()-target.getX())<=4);
+                assertTrue(Math.abs(frame.crossbeam().getZ()-target.getZ())<=4);
+                assertNotEquals(approach,frame.walkway(),"low beam cannot overlap miner staging square");
+                assertEquals(approach.getY(),frame.leftPost().getY(),
+                    "posts use existing safe ground without cutting unstable target layer");
+            }
+        }
+        assertNull(KingdomMineSupportPlan.emergency(target.above(2).north(),target));
     }
 
     @Test void onlyTfcSupportItemsAreEligible() {

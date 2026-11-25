@@ -3,9 +3,6 @@ package ru.projectkingdom.npc;
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -47,19 +44,10 @@ public final class KingdomMineSupportExcavation {
                     approach.getZ()+0.5,0.75);
                 return Result.WALKING;
             }
-            var drops=Block.getDrops(block,level,pos,level.getBlockEntity(pos),
-                npc,worker.fieldTool);
-            if(!NpcFieldWork.canFit(worker,drops))return Result.UNSAFE;
-            if(!level.setBlock(pos,Blocks.AIR.defaultBlockState(),3))
-                return Result.UNSAFE;
-            for(ItemStack stack:drops)NpcFieldWork.put(worker,stack);
-            worker.fieldTool.hurt(1,level.random,null);
-            if(worker.fieldTool.isEmpty()||worker.fieldTool.getDamageValue()
-                    >=worker.fieldTool.getMaxDamage())worker.fieldTool=ItemStack.EMPTY;
-            worker.fieldHarvested+=drops.stream().mapToInt(ItemStack::getCount).sum();
-            worker.skillXp++;
-            worker.energy=Math.max(0,worker.energy-1);
-            KingdomNpcData.get(level.getServer()).setDirty();
+            var mined=KingdomActionEngine.breakBlock(level,npc,worker,pos,
+                KingdomActionEngine.toolOf(npc,worker,KingdomMineTools.required(block)));
+            if(!mined.done())return mined.status()==KingdomActionEngine.Status.MOVING
+                ?Result.WALKING:Result.UNSAFE;
             return Result.EXCAVATED;
         }
         return Result.CLEAR;

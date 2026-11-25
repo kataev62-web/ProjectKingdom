@@ -50,7 +50,11 @@ final class KingdomResidentSafetyTest {
         assertTrue(safety.contains("npc.teleportTo("));
         assertTrue(safety.contains("KingdomCivicsData.get(server).removeDeceasedNpc(uuid)"));
         assertTrue(safety.contains("retireDeceasedNpc(server,uuid)"));
-        assertTrue(safety.contains("npc.spawnAtLocation(stack.copy())"));
+        assertTrue(safety.contains("ResidentOwnedDrops.release(worker.pendingMigration"));
+        assertTrue(safety.contains("return level.addFreshEntity(drop)"));
+        assertTrue(safety.contains("if(!released){"));
+        assertTrue(safety.indexOf("if(!released){")<safety.indexOf("db.removeByEntity(uuid)"),
+                "rejected owned drops must retain their saved ownership record before registry removal");
         assertTrue(safety.contains("assignLocalCitizen("));
         assertTrue(safety.contains("hasCarriedItems(worker)"));
         assertTrue(source("administration/KingdomAdministrationData.java").contains("removeDeceasedNpcRoles(UUID npcId)"));

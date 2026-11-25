@@ -65,13 +65,14 @@ public final class KingdomMineStructureWork {
         if(level.getBlockState(at).is(Blocks.LADDER))return Result.READY;
         if(!level.getBlockState(at).isAir())return Result.UNSAFE;
         BlockState placing=null;
+        Direction chosenWall=null;
         for(Direction wall:Direction.Plane.HORIZONTAL){
             // Only the OUTER wall is permanent. Inner walls become galleries.
             if(area!=null && area.contains(at.relative(wall)))continue;
             BlockState proposed=Blocks.LADDER.defaultBlockState()
                 .setValue(LadderBlock.FACING,wall.getOpposite());
             if(level.hasChunkAt(at.relative(wall))&&proposed.canSurvive(level,at)){
-                placing=proposed;break;
+                placing=proposed;chosenWall=wall;break;
             }
         }
         if(placing==null)return Result.UNSAFE;
@@ -81,8 +82,8 @@ public final class KingdomMineStructureWork {
             npc.getNavigation().moveTo(at.getX()+.5,at.getY(),at.getZ()+.5,.75);
             return Result.WALKING;
         }
-        if(!level.setBlock(at,placing,3))return Result.UNSAFE;
-        stock.shrink(1);
+        var placed=KingdomActionEngine.placeBlock(level,npc,w,at,stock,chosenWall);
+        if(!placed.done())return Result.UNSAFE;
         if(stock.isEmpty())w.fieldInventory.remove(stock);
         KingdomNpcData.get(level.getServer()).setDirty();
         return Result.BUILT;
@@ -110,17 +111,16 @@ public final class KingdomMineStructureWork {
             if(!KingdomMineWork.safeToBreak(level,at,w)
                 ||KingdomMineSupportSafety.inspect(level,at)
                     !=KingdomMineSupportSafety.Result.SAFE)return Result.UNSAFE;
-            var drops=Block.getDrops(state,level,at,level.getBlockEntity(at),
-                npc,w.fieldTool);
-            if(!NpcFieldWork.canFit(w,drops))return Result.UNSAFE;
-            if(!level.setBlock(at,Blocks.AIR.defaultBlockState(),3))return Result.UNSAFE;
-            for(ItemStack drop:drops)NpcFieldWork.put(w,drop);
-            w.fieldTool.hurt(1,level.random,null);
-            if(w.fieldTool.isEmpty()||w.fieldTool.getDamageValue()>=w.fieldTool.getMaxDamage())
-                w.fieldTool=ItemStack.EMPTY;
+            var mined=KingdomActionEngine.breakBlock(level,npc,w,at,
+                KingdomActionEngine.toolOf(npc,w,KingdomMineTools.required(state)));
+            if(!mined.done())return mined.status()==KingdomActionEngine.Status.MOVING
+                ?Result.WALKING:Result.UNSAFE;
+            // Separate native break and placement ticks; never replace a block
+            // after a cancelled event or manufacture its drops.
+            return Result.BUILT;
         }
-        if(!level.setBlock(at,result,3))return Result.UNSAFE;
-        supply.shrink(1);
+        var placed=KingdomActionEngine.placeBlock(level,npc,w,at,supply,Direction.DOWN);
+        if(!placed.done())return Result.UNSAFE;
         if(supply.isEmpty())w.fieldInventory.remove(supply);
         KingdomNpcData.get(level.getServer()).setDirty();
         return Result.BUILT;

@@ -88,4 +88,28 @@ final class KingdomResidentScheduleTest {
         assertFalse(KingdomResidentSchedule.working(KingdomResidentSchedule.Mode.KINGDOM_REST));
         assertFalse(KingdomResidentSchedule.working(KingdomResidentSchedule.Mode.MCA_LIFE));
     }
+    @Test void plannerCannotBypassRestOrNightOrEmployment() {
+        assertEquals(KingdomResidentSchedule.Mode.KINGDOM_REST,
+            KingdomResidentSchedule.modeOf(at(12), true, true, false));
+        assertEquals(KingdomResidentSchedule.Mode.MCA_LIFE,
+            KingdomResidentSchedule.modeOf(at(20), true, true, false));
+        assertEquals(KingdomResidentSchedule.Mode.MCA_LIFE,
+            KingdomResidentSchedule.modeOf(at(9), false, true, false));
+    }
+
+    @Test void workWindowsRepeatAcrossRestartAndNegativeDayTime() {
+        for (int hour=0; hour<24; hour++) {
+            boolean working = hour>=8 && hour<12 || hour>=13 && hour<18;
+            for (long offset : new long[]{-24000, 0, 24000, 2400000}) {
+                var mode = KingdomResidentSchedule.modeOf(at(hour)+offset, true, false, false);
+                assertEquals(working, KingdomResidentSchedule.working(mode), "hour="+hour);
+            }
+        }
+    }
+    @Test void independentCropWorkRetainsShiftWithoutInventingContract() {
+        assertTrue(KingdomResidentSchedule.participatesInShift(true,true,true,false));
+        assertFalse(KingdomResidentSchedule.participatesInShift(true,true,false,false));
+        assertFalse(KingdomResidentSchedule.participatesInShift(false,true,true,false));
+        assertFalse(KingdomResidentSchedule.participatesInShift(true,false,true,false));
+    }
 }

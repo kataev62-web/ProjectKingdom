@@ -84,7 +84,8 @@ public final class KingdomMcaShiftArbiter {
                 brain.getMemory(MemoryModuleType.JOB_SITE),
                 brain.getMemory(MemoryModuleType.MEETING_POINT));
         brain.setSchedule(Schedule.EMPTY);
-        brain.setDefaultActivity(Activity.CORE);
+        // Never rewrite MCA's default activity. Its brain owns that policy.
+        brain.setActiveActivityIfPossible(Activity.CORE);
         clearMovements(brain);
         LEASES.put(id, lease);
         return lease;
@@ -109,6 +110,8 @@ public final class KingdomMcaShiftArbiter {
             lease = begin(id, brain);
             if (lease == null) return;
         }
+        if (!brain.isActive(Activity.PANIC) && !brain.isActive(Activity.HIDE)
+                && !brain.isActive(Activity.RAID)) brain.setActiveActivityIfPossible(Activity.CORE);
         clearMovements(brain);
     }
 
@@ -132,10 +135,13 @@ public final class KingdomMcaShiftArbiter {
         if (lease == null) return;
         lease.released = true;
         brain.setSchedule(lease.schedule);
-        brain.setDefaultActivity(Activity.IDLE);
-        lease.jobSite.ifPresent(pos -> brain.setMemory(MemoryModuleType.JOB_SITE, pos));
-        lease.meetingPoint.ifPresent(pos -> brain.setMemory(MemoryModuleType.MEETING_POINT, pos));
-        brain.updateActivityFromSchedule(dayTime, time);
+        boolean emergency = brain.isActive(Activity.PANIC) || brain.isActive(Activity.HIDE)
+                || brain.isActive(Activity.RAID);
+        // No stale POIs are written back over changes made by MCA mid-shift.
+        if (!emergency) {
+            brain.useDefaultActivity();
+            brain.updateActivityFromSchedule(dayTime, time);
+        }
     }
 
     /** Whether the resident is currently on a Kingdom shift. */
@@ -153,9 +159,7 @@ public final class KingdomMcaShiftArbiter {
     /** The memories that hold a movement target of MCA. */
     private static void clearMovements(net.minecraft.world.entity.ai.Brain<? super Villager> brain) {
         brain.eraseMemory(MemoryModuleType.WALK_TARGET);
-        brain.eraseMemory(MemoryModuleType.JOB_SITE);
-        brain.eraseMemory(MemoryModuleType.MEETING_POINT);
-        brain.eraseMemory(MemoryModuleType.NEAREST_VISIBLE_WANTED_ITEM);
-        brain.eraseMemory(MemoryModuleType.NEAREST_VISIBLE_LIVING_ENTITIES);
+        // Job/home/meeting POIs and threat sensors belong to MCA. Erasing
+        // them can orphan claims and disable panic between Kingdom ticks.
     }
 }

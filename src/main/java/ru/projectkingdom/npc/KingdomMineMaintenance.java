@@ -97,9 +97,8 @@ public final class KingdomMineMaintenance {
         if(!level.getBlockState(at).isAir()
                 || !Blocks.TORCH.defaultBlockState().canSurvive(level,at))
             return Result.BLOCKED;
-        if(!level.setBlock(at,Blocks.TORCH.defaultBlockState(),3))
-            return Result.BLOCKED;
-        carried.shrink(1);
+        if(!KingdomActionEngine.placeBlock(level,npc,worker,at,carried,
+                net.minecraft.core.Direction.DOWN).done())return Result.BLOCKED;
         if(carried.isEmpty())worker.fieldInventory.remove(carried);
         KingdomNpcData.get(level.getServer()).setDirty();
         return Result.PLACED;

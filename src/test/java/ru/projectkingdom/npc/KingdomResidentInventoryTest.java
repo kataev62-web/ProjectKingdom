@@ -175,4 +175,182 @@ final class KingdomResidentInventoryTest {
         assertEquals(17, stored.getDamageValue(), "the wear of the tool survives the transfer");
         assertSame(stored, bag.getItem(0), "the tool is the very stack of the bag");
     }
+    @Test void rejectingContainerDoesNotConsumeItems() {
+        SimpleContainer bag = new SimpleContainer(1) {
+            @Override public void setItem(int slot, ItemStack stack) { }
+        };
+        ItemStack input = new ItemStack(Items.WHEAT, 12);
+        assertEquals(0, KingdomResidentInventory.insertCount(bag, input));
+        assertEquals(12, input.getCount());
+    }
+
+    @Test void clampingCopyContainerReportsOnlyAcceptedItems() {
+        SimpleContainer bag = new SimpleContainer(1) {
+            @Override public ItemStack getItem(int slot) { return super.getItem(slot).copy(); }
+            @Override public void setItem(int slot, ItemStack stack) {
+                ItemStack accepted = stack.copy();
+                accepted.setCount(Math.min(4, accepted.getCount()));
+                super.setItem(slot, accepted);
+            }
+        };
+        ItemStack input = new ItemStack(Items.WHEAT, 12);
+        assertEquals(4, KingdomResidentInventory.insertCount(bag, input));
+        assertEquals(8, input.getCount());
+        assertEquals(4, bag.getItem(0).getCount());
+    }
+
+    @Test void interruptedMigrationCanRetryWithoutDuplicatingAlreadyAcceptedItems() {
+        SimpleContainer bag = new SimpleContainer(2) {
+            boolean interrupted;
+            @Override public void setItem(int slot, ItemStack stack) {
+                super.setItem(slot, stack);
+                if (!interrupted && !stack.isEmpty()) {
+                    interrupted = true;
+                    throw new IllegalStateException("interrupted after accepting");
+                }
+            }
+        };
+        KingdomNpcData.Worker worker = worker();
+        worker.fieldInventory.add(new ItemStack(Items.WHEAT, 12));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> KingdomResidentInventory.loadFromWorker(worker, bag));
+        KingdomResidentInventory.loadFromWorker(worker, bag);
+        assertEquals(12, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertTrue(worker.fieldInventory.isEmpty());
+    }
+
+    @Test void physicalOwnershipMarkerSurvivesWorkerSaveWithoutSavingMirror() {
+        KingdomNpcData.Worker worker = worker();
+        worker.physicalBag = true;
+        worker.fieldInventory.add(new ItemStack(Items.WHEAT, 12));
+        KingdomNpcData.Worker restored = KingdomNpcData.Worker.load(worker.save());
+        assertTrue(restored.physicalBag);
+        assertTrue(restored.fieldInventory.isEmpty());
+    }
+
+    @Test void bindingMigratesOnceAndFlushPreservesExactTaggedToolAndCargoAcrossRestart() {
+        KingdomNpcData.Worker worker = worker();
+        ItemStack pickaxe = new ItemStack(Items.IRON_PICKAXE);
+        pickaxe.setDamageValue(37);
+        pickaxe.getOrCreateTag().putString("KingdomTest", "unique-tool");
+        worker.fieldTool = pickaxe.copy();
+        worker.fieldInventory.add(new ItemStack(Items.WHEAT, 20));
+        SimpleContainer bag = new SimpleContainer(3);
+        assertTrue(KingdomResidentInventory.bindToContainer(worker, bag));
+        KingdomResidentInventory.flushToContainer(bag, worker);
+        worker = KingdomNpcData.Worker.load(worker.save());
+        assertTrue(KingdomResidentInventory.bindToContainer(worker, bag));
+        KingdomResidentInventory.flushToContainer(bag, worker);
+        assertEquals(20, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(1, KingdomResidentInventory.count(bag, Items.IRON_PICKAXE));
+        assertTrue(ItemStack.isSameItemSameTags(pickaxe,
+            KingdomResidentInventory.find(bag, stack -> stack.is(Items.IRON_PICKAXE))));
+    }
+
+    @Test void migrationOverflowSurvivesSaveAndRebindWithoutBeingMirroredTwice() {
+        KingdomNpcData.Worker worker = worker();
+        worker.fieldInventory.add(new ItemStack(Items.WHEAT, 100));
+        SimpleContainer bag = new SimpleContainer(1);
+        KingdomResidentInventory.bindToContainer(worker, bag);
+        assertEquals(64, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(36, worker.pendingMigration.get(0).getCount());
+        worker = KingdomNpcData.Worker.load(worker.save());
+        KingdomResidentInventory.bindToContainer(worker, bag);
+        KingdomResidentInventory.flushToContainer(bag, worker);
+        assertEquals(64, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(36, worker.pendingMigration.get(0).getCount());
+    }
+
+    @Test void failedFlushRestoresBagAndRetriesIntendedViewAfterWorkerReload() {
+        SimpleContainer bag = new SimpleContainer(2) {
+            boolean interrupted;
+            @Override public void setItem(int slot, ItemStack stack) {
+                super.setItem(slot, stack);
+                if (!interrupted && stack.is(Items.IRON_INGOT)) {
+                    interrupted = true;
+                    throw new IllegalStateException("interrupted flush");
+                }
+            }
+        };
+        bag.setItem(0, new ItemStack(Items.WHEAT, 12));
+        KingdomNpcData.Worker worker = worker();
+        KingdomResidentInventory.bindToContainer(worker, bag);
+        worker.fieldInventory.add(new ItemStack(Items.IRON_INGOT, 3));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> KingdomResidentInventory.flushToContainer(bag, worker));
+        assertEquals(12, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(0, KingdomResidentInventory.count(bag, Items.IRON_INGOT));
+        KingdomNpcData.Worker restored = KingdomNpcData.Worker.load(worker.save());
+        KingdomResidentInventory.bindToContainer(restored, bag);
+        assertEquals(12, KingdomResidentInventory.count(bag, Items.WHEAT));
+        assertEquals(3, KingdomResidentInventory.count(bag, Items.IRON_INGOT));
+        assertFalse(restored.pendingInventoryFlush);
+    }
+
+    @Test void interruptedExtractionRestoresEveryPreviouslyTouchedSlot() {
+        SimpleContainer bag = new SimpleContainer(2) {
+            boolean interrupted;
+            @Override public void setItem(int slot, ItemStack stack) {
+                super.setItem(slot, stack);
+                if (!interrupted && slot == 1 && stack.isEmpty()) {
+                    interrupted = true;
+                    throw new IllegalStateException("second extraction interrupted");
+                }
+            }
+        };
+        bag.setItem(0, new ItemStack(Items.WHEAT, 4));
+        bag.setItem(1, new ItemStack(Items.WHEAT, 6));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> KingdomResidentInventory.extract(bag, stack -> stack.is(Items.WHEAT), 10));
+        assertEquals(4, bag.getItem(0).getCount());
+        assertEquals(6, bag.getItem(1).getCount());
+        assertEquals(10, KingdomResidentInventory.extract(bag, stack -> stack.is(Items.WHEAT), 10)
+            .stream().mapToInt(ItemStack::getCount).sum());
+    }
+
+    @Test void pendingOverflowRemainsOwnedWhenWorldRejectsSpawning() {
+        KingdomNpcData.Worker worker = worker();
+        ItemStack tool = new ItemStack(Items.IRON_PICKAXE);
+        tool.setDamageValue(31);
+        worker.pendingMigration.add(tool);
+        assertEquals(0, KingdomResidentInventory.releasePending(worker, stack -> false));
+        assertEquals(31, worker.pendingMigration.get(0).getDamageValue());
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> KingdomResidentInventory.releasePending(worker, stack -> {
+                throw new IllegalStateException("spawn cancelled with error");
+            }));
+        assertEquals(1, worker.pendingMigration.size());
+        java.util.List<ItemStack> world = new java.util.ArrayList<>();
+        assertEquals(1, KingdomResidentInventory.releasePending(worker, stack -> world.add(stack)));
+        assertEquals(31, world.get(0).getDamageValue());
+        assertTrue(worker.pendingMigration.isEmpty());
+        assertEquals(0, KingdomResidentInventory.releasePending(worker, stack -> world.add(stack)));
+        assertEquals(1, world.size());
+    }
+
+    @Test void failedFlushWithRejectedRollbackRequiresRecoveryAcrossRestart() {
+        SimpleContainer bag = new SimpleContainer(1) {
+            boolean failed;
+            @Override public void setItem(int slot, ItemStack stack) {
+                if (failed && stack.is(Items.WHEAT)) return;
+                super.setItem(slot, stack);
+                if (stack.is(Items.IRON_INGOT)) {
+                    failed = true;
+                    throw new IllegalStateException("write failed and restore rejected");
+                }
+            }
+        };
+        bag.setItem(0, new ItemStack(Items.WHEAT, 12));
+        KingdomNpcData.Worker worker = worker();
+        KingdomResidentInventory.bindToContainer(worker, bag);
+        worker.fieldInventory.clear();
+        worker.fieldInventory.add(new ItemStack(Items.IRON_INGOT, 3));
+        org.junit.jupiter.api.Assertions.assertThrows(IllegalStateException.class,
+            () -> KingdomResidentInventory.flushToContainer(bag, worker));
+        assertTrue(worker.inventoryRecoveryRequired);
+        KingdomNpcData.Worker restored = KingdomNpcData.Worker.load(worker.save());
+        assertTrue(restored.inventoryRecoveryRequired);
+        assertFalse(KingdomResidentInventory.bindToContainer(restored, bag));
+    }
+
 }

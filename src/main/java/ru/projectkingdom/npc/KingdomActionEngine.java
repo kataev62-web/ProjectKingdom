@@ -12,7 +12,9 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.phys.Vec3;
+import com.mojang.authlib.GameProfile;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraftforge.common.util.FakePlayer;
 import net.minecraftforge.common.util.FakePlayerFactory;
@@ -44,12 +46,13 @@ public final class KingdomActionEngine {
     }
 
     /** The distance in which the resident counts as arrived. */
-    public static final double REACH = 1.6;
+    public static final double REACH = 0.75;
     /** The squared distance of the reach of a resident. */
     public static final double REACH_SQR = REACH * REACH;
 
     /** The progress of the navigation of one resident. */
     private static final class Nav {
+        BlockPos target;
         double bestDistance = Double.MAX_VALUE;
         int stuckTicks;
         int ticks;
@@ -88,6 +91,11 @@ public final class KingdomActionEngine {
         if (resident == null || target == null) return new Outcome(Status.FAILED, "нет жителя или цели");
         if (!level.hasChunkAt(target)) return new Outcome(Status.BLOCKED, "цель в незагруженном чанке");
         Nav nav = NAVIGATIONS.computeIfAbsent(resident.getUUID(), id -> new Nav());
+        if (!target.equals(nav.target)) {
+            nav = new Nav();
+            nav.target = target.immutable();
+            NAVIGATIONS.put(resident.getUUID(), nav);
+        }
         double distance = resident.distanceToSqr(target.getX() + 0.5, target.getY(), target.getZ() + 0.5);
         if (distance <= REACH_SQR) {
             NAVIGATIONS.remove(resident.getUUID());
@@ -108,22 +116,33 @@ public final class KingdomActionEngine {
             NAVIGATIONS.remove(resident.getUUID());
             return new Outcome(Status.FAILED, "слишком долго идёт");
         }
-        resident.getNavigation().moveTo(target.getX() + 0.5, target.getY(), target.getZ() + 0.5, speed);
+        // The coordinate moveTo overload uses path accuracy=1. That can
+        // report an adjacent starting square as the completed path even when
+        // the safe work stance must be reached to within 0.75 blocks.
+        var path = resident.getNavigation().createPath(target, 0);
+        if (!reaches(path, target))
+            return new Outcome(Status.BLOCKED, "нет пути к безопасному месту добычи");
+        if (!resident.getNavigation().moveTo(path, speed))
+            return new Outcome(Status.FAILED, "не удалось начать движение");
         return new Outcome(Status.MOVING, "идёт к " + target.toShortString());
+    }
+
+    static boolean reaches(net.minecraft.world.level.pathfinder.Path path, BlockPos target) {
+        return path != null && path.canReach() && path.getEndNode() != null
+                && path.getEndNode().asBlockPos().equals(target);
     }
 
     /** Whether the resident stands close enough to work at a position. */
     public static boolean inReach(Villager resident, BlockPos target) {
         if (resident == null || target == null) return false;
-        return resident.distanceToSqr(target.getX() + 0.5, target.getY(), target.getZ() + 0.5) <= 36.0;
+        return resident.getEyePosition().distanceToSqr(Vec3.atCenterOf(target)) <= 20.25;
     }
 
     /**
      * Breaks one real block with the real tool of the resident.
      *
-     * <p>The path is the path of a player: the Forge break event first, the
-     * drops of the real tool, then the destruction of the block and the wear
-     * of the tool exactly once. The resident keeps the drops.
+     * <p>Native hardness and Forge break-speed hooks govern progress. The
+     * server player game mode performs destruction, tool wear and native loot.
      */
     public static Outcome breakBlock(ServerLevel level, Villager resident, KingdomNpcData.Worker worker,
                                       BlockPos target, ItemStack tool) {
@@ -133,101 +152,190 @@ public final class KingdomActionEngine {
         if (state.isAir()) return new Outcome(Status.DONE, "блока уже нет");
         if (tool == null || tool.isEmpty())
             return new Outcome(Status.BLOCKED, "нет инструмента");
-        if (!tool.isCorrectToolForDrops(state))
+        if (state.requiresCorrectToolForDrops() && !tool.isCorrectToolForDrops(state))
             return new Outcome(Status.BLOCKED, "инструмент не подходит к блоку");
         if (!inReach(resident, target)) return new Outcome(Status.MOVING, "не дотягивается до блока");
         // The protection of the world: the right of the owner, the liquid, the
         // block entity and the falling block are checked before anything moves.
         if (worker != null && !KingdomMineWork.safeToBreak(level, target, worker))
             return new Outcome(Status.BLOCKED, "блок защищён или опасен");
-        FakePlayer actor = actor(level, resident, tool);
-        Context context = Context.of(actor);
+        if (worker == null || worker.employer == null)
+            return new Outcome(Status.BLOCKED, "нет контекста владельца");
+        // FakePlayerFactory's Minecraft identity must never inherit another
+        // worker's authority. Protection mods see the employer's real UUID.
+        FakePlayer actor = FakePlayerFactory.get(level,
+                new GameProfile(worker.employer, "KingdomWorker"));
+        Context context = Context.of(actor); // capture BEFORE any mutation
+        boolean installedTool = false;
         try {
-            // The vanilla path of a player: the break event of Forge is fired
-            // first, so that TFC, the collapse rules and every other mod may
-            // refuse the block before it disappears. The event is fired once.
-            net.minecraftforge.event.level.BlockEvent.BreakEvent event =
-                    new net.minecraftforge.event.level.BlockEvent.BreakEvent(level, target, state, actor);
-            net.minecraftforge.common.MinecraftForge.EVENT_BUS.post(event);
-            if (event.isCanceled())
-                return new Outcome(Status.BLOCKED, "разрушение отменено защитой");
-            // The drops are computed with the real tool of the resident.
-            List<ItemStack> drops = Block.getDrops(state, level, target, level.getBlockEntity(target), actor, tool);
-            if (!level.destroyBlock(target, false))
-                return new Outcome(Status.FAILED, "блок не разрушен");
-            // The block is gone, so the drops are given exactly once. The
-            // block is not broken again, so nothing is given twice.
-            for (ItemStack drop : drops) {
-                if (drop.isEmpty()) continue;
-                if (!give(worker, drop)) {
-                    // The bag is full: the rest of the drops stays in the world.
-                    Block.popResource(level, target, drop.copy());
+            actor.getInventory().clearContent();
+            actor.getInventory().selected = 0;
+            actor.setPos(resident.getX(), resident.getY(), resident.getZ());
+            actor.setOnGround(resident.onGround());
+            actor.setGameMode(GameType.SURVIVAL);
+            actor.setItemInHand(InteractionHand.MAIN_HAND, tool);
+            installedTool = true;
+            var sight = level.clip(new net.minecraft.world.level.ClipContext(
+                    resident.getEyePosition(), Vec3.atCenterOf(target),
+                    net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                    net.minecraft.world.level.ClipContext.Fluid.NONE, resident));
+            if (!sight.getBlockPos().equals(target))
+                return new Outcome(Status.BLOCKED, "блок закрыт препятствием");
+            float speed = state.getDestroyProgress(actor, level, target);
+            if (!Float.isFinite(speed) || speed <= 0)
+                return new Outcome(Status.BLOCKED, "блок нельзя добыть этим инструментом");
+            Dig dig = DIGS.get(resident.getUUID());
+            long now = level.getGameTime();
+            if (dig == null || !dig.target.equals(target) || !dig.state.equals(state)
+                    || !ItemStack.isSameItemSameTags(dig.tool, tool) || now - dig.lastTick > 80) {
+                var click = net.minecraftforge.common.ForgeHooks.onLeftClickBlock(actor, target,
+                        net.minecraft.core.Direction.UP);
+                if (click.isCanceled() || click.getUseItem() == net.minecraftforge.eventbus.api.Event.Result.DENY) {
+                    DIGS.remove(resident.getUUID());
+                    return new Outcome(Status.BLOCKED, "добыча отменена защитой");
                 }
+                if (click.getUseBlock() != net.minecraftforge.eventbus.api.Event.Result.DENY)
+                    state.attack(level, target, actor);
+                dig = new Dig(target.immutable(), state, tool, now);
+                DIGS.put(resident.getUUID(), dig);
             }
-            // The wear belongs to the physical tool: the very stack that the
-            // container holds is the one that is used up.
-            tool.hurt(1, level.random, null);
-            if (tool.isEmpty() || tool.getDamageValue() >= tool.getMaxDamage()) {
-                tool.setCount(0);
-                if (worker != null && worker.fieldTool == tool) worker.fieldTool = ItemStack.EMPTY;
+            long elapsed = Math.max(0, Math.min(40, now - dig.lastTick));
+            dig.progress += speed * elapsed;
+            dig.lastTick = now;
+            if (dig.progress < 1)
+                return new Outcome(Status.MOVING, "Добывает блок");
+            DIGS.remove(resident.getUUID());
+            // This native player path owns BreakEvent, canHarvestBlock,
+            // onDestroyedByPlayer, mineBlock/durability and playerDestroy/TFC loot.
+            // Never calculate drops or apply a second point of tool wear here.
+            var bounds = new net.minecraft.world.phys.AABB(target).inflate(2);
+            var before = level.getEntitiesOfClass(ItemEntity.class, bounds).stream()
+                    .map(ItemEntity::getUUID).collect(java.util.stream.Collectors.toSet());
+            if (!actor.gameMode.destroyBlock(target))
+                return new Outcome(Status.BLOCKED, "разрушение отменено защитой");
+            int gathered = 0;
+            for (ItemEntity item : level.getEntitiesOfClass(ItemEntity.class, bounds,
+                    e -> e.isAlive() && !before.contains(e.getUUID()))) {
+                ItemStack drop = item.getItem();
+                if (!NpcFieldWork.canFit(worker, List.of(drop))) continue;
+                gathered += drop.getCount();
+                NpcFieldWork.put(worker, drop.copy());
+                item.discard();
             }
-            if (worker != null) {
-                worker.fieldHarvested += drops.stream().mapToInt(ItemStack::getCount).sum();
-                worker.skillXp++;
-                worker.energy = Math.max(0, worker.energy - 1);
-                KingdomNpcData.get(level.getServer()).setDirty();
-            }
-            return new Outcome(Status.DONE, "добыл " + drops.stream().mapToInt(ItemStack::getCount).sum());
+            worker.fieldHarvested += gathered;
+            worker.skillXp++;
+            worker.energy = Math.max(0, worker.energy - 1);
+            KingdomNpcData.get(level.getServer()).setDirty();
+            return new Outcome(Status.DONE, "добыл " + gathered);
         } finally {
-            // The context of the operation leaves no trace in the shared
-            // instance: neither the tool nor anything else.
+            // Native mineBlock can replace a broken stack rather than mutate it.
+            ItemStack remaining = actor.getItemInHand(InteractionHand.MAIN_HAND);
+            if (installedTool && remaining != tool && worker.fieldTool == tool)
+                worker.fieldTool = remaining.copy();
             context.restore(actor);
         }
     }
 
-    /** The state of the shared context of an operation, so that nothing is left behind. */
-    private static final class Context {
-        private final ItemStack hand;
-        private final List<ItemStack> inventory;
-
-        private Context(ItemStack hand, List<ItemStack> inventory) {
-            this.hand = hand;
-            this.inventory = inventory;
+    private static final class Dig {
+        final BlockPos target;
+        final BlockState state;
+        final ItemStack tool;
+        long lastTick;
+        float progress;
+        Dig(BlockPos target, BlockState state, ItemStack tool, long tick) {
+            this.target = target; this.state = state; this.tool = tool.copy(); this.lastTick = tick;
         }
+    }
+    private static final Map<UUID, Dig> DIGS = new HashMap<>();
 
+    /** Full snapshot of the reusable Forge actor, including hotbar and offhand. */
+    private record Context(List<ItemStack> inventory, int selected, Vec3 position,
+                           Vec3 movement, float yaw, float pitch, boolean onGround,
+                           GameType gameMode, net.minecraft.nbt.CompoundTag abilities,
+                           boolean sneaking) {
         static Context of(FakePlayer actor) {
             List<ItemStack> items = new java.util.ArrayList<>();
             for (int slot = 0; slot < actor.getInventory().getContainerSize(); slot++)
                 items.add(actor.getInventory().getItem(slot).copy());
-            return new Context(actor.getItemInHand(InteractionHand.MAIN_HAND).copy(), items);
+            var abilities = new net.minecraft.nbt.CompoundTag();
+            actor.getAbilities().addSaveData(abilities);
+            return new Context(items, actor.getInventory().selected, actor.position(),
+                    actor.getDeltaMovement(), actor.getYRot(), actor.getXRot(), actor.onGround(),
+                    actor.gameMode.getGameModeForPlayer(), abilities, actor.isShiftKeyDown());
         }
-
         void restore(FakePlayer actor) {
-            actor.setItemInHand(InteractionHand.MAIN_HAND, hand.copy());
-            for (int slot = 0; slot < actor.getInventory().getContainerSize(); slot++)
-                actor.getInventory().setItem(slot,
-                        slot < inventory.size() ? inventory.get(slot).copy() : ItemStack.EMPTY);
             actor.getInventory().clearContent();
             for (int slot = 0; slot < inventory.size(); slot++)
                 actor.getInventory().setItem(slot, inventory.get(slot).copy());
+            actor.getInventory().selected = selected;
+            actor.setPos(position);
+            actor.setDeltaMovement(movement);
+            actor.setYRot(yaw);
+            actor.setXRot(pitch);
+            actor.setOnGround(onGround);
+            actor.setGameMode(gameMode);
+            actor.getAbilities().loadSaveData(abilities);
+            actor.setShiftKeyDown(sneaking);
         }
     }
 
-    /**
-     * Places a real block from the real inventory of the resident.
-     */
-    public static Outcome placeBlock(ServerLevel level, Villager resident, BlockPos target, ItemStack material) {
-        if (level == null || resident == null || target == null) return new Outcome(Status.FAILED, "нет данных");
-        if (!level.hasChunkAt(target)) return new Outcome(Status.BLOCKED, "чанк не загружен");
-        if (!level.getBlockState(target).canBeReplaced()) return new Outcome(Status.BLOCKED, "место занято");
-        if (material == null || material.isEmpty()) return new Outcome(Status.BLOCKED, "нет материала");
-        if (!(material.getItem() instanceof net.minecraft.world.item.BlockItem blockItem))
-            return new Outcome(Status.BLOCKED, "предмет не является блоком");
-        BlockState placed = blockItem.getBlock().defaultBlockState();
-        if (placed.isAir()) return new Outcome(Status.BLOCKED, "предмет не является блоком");
-        if (!level.setBlock(target, placed, 3)) return new Outcome(Status.FAILED, "блок не установлен");
-        material.shrink(1);
-        return new Outcome(Status.DONE, "установил блок");
+    /** Native placement with the same owner/protection context as excavation. */
+    public static Outcome placeBlock(ServerLevel level, Villager resident,
+                                     KingdomNpcData.Worker worker, BlockPos target,
+                                     ItemStack material, net.minecraft.core.Direction supportDirection) {
+        if (level == null || resident == null || worker == null || worker.employer == null
+                || target == null || material == null || material.isEmpty())
+            return new Outcome(Status.BLOCKED, "нет материала или владельца");
+        BlockPos support = target.relative(supportDirection);
+        if (!level.hasChunkAt(target) || !level.hasChunkAt(support)
+                || !level.getFluidState(target).isEmpty()
+                || !level.getBlockState(target).canBeReplaced()
+                || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level, target)))
+            return new Outcome(Status.BLOCKED, "нет безопасного места установки");
+        if (!inReach(resident, target)) return new Outcome(Status.MOVING, "не дотягивается до установки");
+        FakePlayer actor = FakePlayerFactory.get(level,
+                new GameProfile(worker.employer, "KingdomWorker"));
+        Context context = Context.of(actor);
+        try {
+            actor.getInventory().clearContent();
+            actor.getInventory().selected = 0;
+            actor.setPos(resident.position());
+            actor.setShiftKeyDown(false); // TFC native placement builds complete support columns.
+            actor.setGameMode(GameType.SURVIVAL);
+            actor.setItemInHand(InteractionHand.MAIN_HAND, material);
+            BlockState before = level.getBlockState(target);
+            var face = supportDirection.getOpposite();
+            var hit = new net.minecraft.world.phys.BlockHitResult(
+                    Vec3.atCenterOf(support).add(face.getStepX()*.5, face.getStepY()*.5, face.getStepZ()*.5),
+                    face, support, false);
+            actor.gameMode.useItemOn(actor, level, material, InteractionHand.MAIN_HAND, hit);
+            return !level.getBlockState(target).equals(before)
+                    ? new Outcome(Status.DONE, "установил блок")
+                    : new Outcome(Status.BLOCKED, "установка отклонена");
+        } finally {
+            context.restore(actor);
+        }
+    }
+
+    /** Collects delayed native/merged drops into the bound work view. */
+    static int pickup(ServerLevel level, Villager resident, KingdomNpcData.Worker worker, double radius) {
+        if (worker.employer == null) return 0;
+        int gathered = 0;
+        for (ItemEntity entity : level.getEntitiesOfClass(ItemEntity.class,
+                resident.getBoundingBox().inflate(radius), e -> e.isAlive() && !e.hasPickUpDelay())) {
+            if (!worker.employer.equals(KingdomTerritories.get(level.getServer())
+                    .owner(level, entity.blockPosition()))) continue;
+            ItemStack stack = entity.getItem();
+            if (!NpcFieldWork.canFit(worker, List.of(stack))) continue;
+            NpcFieldWork.put(worker, stack.copy());
+            gathered += stack.getCount();
+            entity.discard();
+        }
+        if (gathered > 0) {
+            worker.fieldHarvested += gathered;
+            KingdomNpcData.get(level.getServer()).setDirty();
+        }
+        return gathered;
     }
 
     /**
@@ -255,36 +363,11 @@ public final class KingdomActionEngine {
         return taken;
     }
 
-    /** Gives the drops to the resident: the Kingdom mirror of the bag. */
-    private static boolean give(KingdomNpcData.Worker worker, ItemStack drop) {
-        if (worker == null) return false;
-        if (!NpcFieldWork.canFit(worker, List.of(drop))) return false;
-        NpcFieldWork.put(worker, drop);
-        return true;
-    }
-
-    /**
-     * The context of the operation.
-     *
-     * <p>The break event of Forge expects a player. A short living fake player
-     * is used as the context of the operation: it holds the real tool of the
-     * resident for the duration of the call and holds no persistent inventory.
-     */
-    private static FakePlayer actor(ServerLevel level, Villager resident, ItemStack tool) {
-        FakePlayer actor = FakePlayerFactory.getMinecraft(level);
-        actor.setPos(resident.getX(), resident.getY(), resident.getZ());
-        // The tool of the resident is the tool of the operation, so that TFC
-        // and every other mod may read it. It is a copy: the wear belongs to
-        // the physical tool of the resident and is applied there.
-        actor.setItemInHand(InteractionHand.MAIN_HAND, tool.copy());
-        return actor;
-    }
-
     /** Forgets the navigation progress of a resident. */
     public static void forget(UUID resident) {
-        if (resident != null) NAVIGATIONS.remove(resident);
+        if (resident != null) { NAVIGATIONS.remove(resident); DIGS.remove(resident); }
     }
 
     /** Forgets every navigation, for example when the server stops. */
-    public static void forgetAll() { NAVIGATIONS.clear(); }
+    public static void forgetAll() { NAVIGATIONS.clear(); DIGS.clear(); }
 }

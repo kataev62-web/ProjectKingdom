@@ -167,10 +167,13 @@ public final class KingdomNpcData extends SavedData {
         /** NPC personal physical coin purse (distinct from goods/courier cargo). */
         public java.util.List<ItemStack> wagePurse=new java.util.ArrayList<>();
         public transient ItemStack fieldTool=ItemStack.EMPTY;
-        /** The belongings of an old world that still wait for the real container. */
-        public transient java.util.List<ItemStack> pendingMigration=new java.util.ArrayList<>();
+        /** Owned migration/flush overflow; saved separately from the transient mirror. */
+        public java.util.List<ItemStack> pendingMigration=new java.util.ArrayList<>();
         /** Whether the resident owns a real container of its own. */
-        public transient boolean physicalBag=false;
+        public boolean physicalBag=false;
+        /** A failed flush retains its intended view for retry, including across saves. */
+        public boolean pendingInventoryFlush=false;
+        public boolean inventoryRecoveryRequired=false;
         public long fieldHarvested=0;
         public long deliveredItems=0;
         public long bakedBread=0;
@@ -248,10 +251,18 @@ public final class KingdomNpcData extends SavedData {
             // The belongings of an old world are moved into the real container
             // of the resident as soon as it is bound. They are never saved a
             // second time.
+            w.physicalBag=t.getBoolean("PhysicalBag");
+            w.pendingInventoryFlush=t.getBoolean("PendingInventoryFlush");
+            w.inventoryRecoveryRequired=t.getBoolean("InventoryRecoveryRequired");
+            ListTag pending=t.getList("PendingMigration",Tag.TAG_COMPOUND);
+            for(int i=0;i<pending.size();i++) {
+                ItemStack stack=ItemStack.of(pending.getCompound(i));
+                if(!stack.isEmpty())w.pendingMigration.add(stack);
+            }
             if(t.contains("FieldTool",Tag.TAG_COMPOUND))w.fieldTool=ItemStack.of(t.getCompound("FieldTool"));
             w.fieldHarvested=Math.max(0L,t.getLong("FieldHarvested"));
             ListTag fieldItems=t.getList("FieldInventory",Tag.TAG_COMPOUND);
-            for(int i=0;i<fieldItems.size()&&i<36;i++){
+            for(int i=0;i<fieldItems.size();i++){
                 ItemStack stack=ItemStack.of(fieldItems.getCompound(i));
                 if(!stack.isEmpty())w.fieldInventory.add(stack);}
             ListTag wages=t.getList("WagePurse",Tag.TAG_COMPOUND);
@@ -332,7 +343,14 @@ public final class KingdomNpcData extends SavedData {
             // the real items and saves them with the entity.
             t.putLong("FieldHarvested",fieldHarvested);
             ListTag fieldItems=new ListTag();
-            if(!physicalBag){
+            t.putBoolean("PhysicalBag",physicalBag);
+            t.putBoolean("PendingInventoryFlush",pendingInventoryFlush);
+            t.putBoolean("InventoryRecoveryRequired",inventoryRecoveryRequired);
+            ListTag pending=new ListTag();
+            for(ItemStack stack:pendingMigration)
+                if(!stack.isEmpty())pending.add(stack.save(new CompoundTag()));
+            t.put("PendingMigration",pending);
+            if(!physicalBag || pendingInventoryFlush){
                 if(!fieldTool.isEmpty())t.put("FieldTool",fieldTool.save(new CompoundTag()));
                 for(ItemStack stack:fieldInventory)
                     if(!stack.isEmpty())fieldItems.add(stack.save(new CompoundTag()));

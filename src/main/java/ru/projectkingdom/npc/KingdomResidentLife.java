@@ -9,8 +9,6 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.npc.Villager;
-import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
 
 /**
  * The life of the resident on its own.
@@ -27,6 +25,7 @@ import net.minecraft.world.level.block.Block;
  */
 public final class KingdomResidentLife {
     private KingdomResidentLife() {}
+    private static final java.util.Map<MinecraftServer, ResidentPurchaseJournal> PURCHASE_JOURNALS = new java.util.WeakHashMap<>();
 
     /** What the resident does on its own. */
     public enum Action {
@@ -105,6 +104,7 @@ public final class KingdomResidentLife {
                 KingdomEnterpriseData.get(server));
         boolean employed = KingdomNpcWorkday.employed(server, worker);
         long savings = KingdomNpcCareerPolicy.physicalSavings(worker);
+        development.removeExpiredGoals(worker.entityId, day);
         // 1. Work: the contract comes first.
         if (!employed) {
             var vacancies = vacancies(server, worker);
@@ -141,15 +141,31 @@ public final class KingdomResidentLife {
         return Decision.none("работает и копит");
     }
 
-    /** The tool that the resident misses for its profession. */
+    /** The appropriate tool is available in either the active slot or the carried work view. */
     public static String missingTool(KingdomNpcData.Worker worker) {
         if (worker == null) return null;
         String job = worker.job == null ? "" : worker.job;
-        return switch (job) {
-            case "miner" -> worker.fieldTool.isEmpty() ? "minecraft:iron_pickaxe" : null;
-            case "lumberjack" -> worker.fieldTool.isEmpty() ? "minecraft:iron_axe" : null;
-            case "farmer" -> worker.fieldTool.isEmpty() ? "minecraft:iron_hoe" : null;
+        String wanted = switch (job) {
+            case "miner" -> "minecraft:iron_pickaxe";
+            case "lumberjack" -> "minecraft:iron_axe";
+            case "farmer" -> "minecraft:iron_hoe";
             default -> null;
+        };
+        if (wanted == null || appropriateTool(worker.fieldTool, job)) return null;
+        for (var stack : worker.fieldInventory)
+            if (appropriateTool(stack, job)) return null;
+        return wanted;
+    }
+
+    private static boolean appropriateTool(net.minecraft.world.item.ItemStack stack, String job) {
+        if (stack == null || stack.isEmpty()) return false;
+        return switch (job) {
+            case "miner" -> KingdomMineTools.matches(stack, KingdomMineTools.Tool.PICKAXE);
+            case "lumberjack" -> stack.getItem() instanceof net.minecraft.world.item.AxeItem
+                    || stack.is(net.minecraft.tags.ItemTags.AXES);
+            case "farmer" -> stack.getItem() instanceof net.minecraft.world.item.HoeItem
+                    || stack.is(net.minecraft.tags.ItemTags.HOES);
+            default -> false;
         };
     }
 
@@ -180,13 +196,7 @@ public final class KingdomResidentLife {
         var development = KingdomResidentDevelopment.get(server);
         switch (decision.action()) {
             case APPLY_FOR_VACANCY, APPLY_FOR_PROFESSION -> {
-                // The request is a real record that the owner of the
-                // enterprise sees. No contract is made without the owner.
-                development.addGoal(worker.entityId,
-                    decision.action() == Action.APPLY_FOR_VACANCY ? "vacancy" : "profession",
-                    decision.job(), 0);
-                development.recordCareer(worker.entityId, 0, decision.job(), decision.enterprise());
-                return true;
+                return recordRequest(development, worker.entityId, decision);
             }
             case BUY -> {
                 for (var level : server.getAllLevels()) {
@@ -199,8 +209,7 @@ public final class KingdomResidentLife {
                 return false;
             }
             case PROPOSE_ENTERPRISE -> {
-                development.addGoal(worker.entityId, "enterprise", "proposal", 0);
-                return true;
+                return recordRequest(development, worker.entityId, decision);
             }
             default -> {
                 return false;
@@ -208,77 +217,93 @@ public final class KingdomResidentLife {
         }
     }
 
+    static boolean recordRequest(KingdomResidentDevelopment development, UUID resident, Decision decision) {
+        String kind = switch (decision.action()) {
+            case APPLY_FOR_VACANCY -> "vacancy";
+            case APPLY_FOR_PROFESSION -> "profession";
+            case PROPOSE_ENTERPRISE -> "enterprise";
+            default -> null;
+        };
+        if (kind == null || resident == null) return false;
+        String target = decision.action() == Action.PROPOSE_ENTERPRISE ? "proposal"
+                : decision.enterprise() + ":" + decision.job();
+        int before = development.goalsOf(resident).size();
+        development.addGoal(resident, kind, target, 0);
+        // A request is never an employment contract or a completed career step.
+        return development.goalsOf(resident).size() > before;
+    }
+
+    static boolean knownPersonalBag(Container bag) {
+        if (bag == null) return false;
+        if (bag.getClass() == net.minecraft.world.SimpleContainer.class) return true;
+        // Inspected MCA 7.6.23: this class adds only update(Entity); all slot access
+        // and storage are inherited directly from SimpleContainer.
+        return bag.getClass().getName().equals("forge.net.mca.entity.UpdatableInventory")
+                && bag.getClass().getSuperclass() == net.minecraft.world.SimpleContainer.class;
+    }
+
     /**
      * Buys an item at a stall of the market with the own money of the resident.
      *
      * <p>The coins are the real coins of the wage purse and the goods are the
-     * real goods of the chest of the stall. When one of the two sides fails,
-     * the other one is not taken: nothing is lost and nothing is created.
+     * real goods of the chest of the stall. Planning checks exact coins and room
+     * on both sides. Durable evidence quarantines purchases after restart; it
+     * does not make the separate Minecraft inventory saves atomic.
      */
     public static boolean buy(MinecraftServer server, ServerLevel level, Villager resident,
                               KingdomNpcData.Worker worker, String itemId, int amount,
                               long priceCopper) {
-        if (level == null || resident == null || worker == null || itemId == null || amount <= 0)
-            return false;
-        var market = KingdomWarehouseMarket.get(server);
-        var quotes = market.search(level, itemId, amount);
+        if (server == null || level == null || resident == null || worker == null
+                || !resident.isAlive() || !worker.physicalBag || !resident.getUUID().equals(worker.entityId)
+                || !worker.dimension.equals(level.dimension().location().toString())
+                || itemId == null || amount <= 0 || priceCopper <= 0) return false;
+        var journal = PURCHASE_JOURNALS.computeIfAbsent(server, current -> new ResidentPurchaseJournal(
+                current.getWorldPath(net.minecraft.world.level.storage.LevelResource.ROOT)
+                        .resolve("data/kingdom-resident-purchases")));
+        if (journal.blocked()) return false;
+        var quotes = KingdomWarehouseMarket.get(server).search(level, itemId, amount);
         if (quotes.isEmpty()) return false;
         var quote = quotes.get(0);
-        if (quote.stall() == null || quote.available() < amount) return false;
-        long price = quote.totalCopper();
-        if (price <= 0) return false;
-        // The money must really be there.
-        long savings = KingdomNpcCareerPolicy.physicalSavings(worker);
-        if (savings < price) return false;
-        BlockPos pos = quote.stall().pos();
-        if (!level.hasChunkAt(pos)) return false;
-        if (resident.distanceToSqr(pos.getX() + 0.5, pos.getY(), pos.getZ() + 0.5) > 36.0)
-            return false;
-        Container chest = KingdomContainerAccess.resolve(level, pos);
-        if (chest == null) return false;
-        // The goods are taken first and only then the money is paid.
-        var goods = KingdomResidentInventory.extract(chest,
-                stack -> net.minecraft.core.registries.BuiltInRegistries.ITEM
-                        .getKey(stack.getItem()).toString().equals(itemId), amount);
-        int taken = goods.stream().mapToInt(ItemStack::getCount).sum();
-        if (taken < amount) {
-            for (var stack : goods) KingdomResidentInventory.insertAndRemainder(chest, stack);
-            return false;
-        }
-        if (!pay(worker, price)) {
-            // The money was not there: the goods go back into the chest.
-            for (var stack : goods) KingdomResidentInventory.insertAndRemainder(chest, stack);
-            return false;
-        }
-        // The goods go into the real bag of the resident; the rest stays in
-        // the world as a real item.
-        for (var stack : goods) {
-            ItemStack rest = stack.copy();
-            Container personal = KingdomResidentInventory.personal(resident);
-            if (personal == null) {
-                Block.popResource(level, resident.blockPosition(), rest);
-                continue;
+        if (quote.stall() == null || quote.available() < amount
+                || quote.totalCopper() != priceCopper || priceCopper > 1_000_000) return false;
+        var stall = quote.stall();
+        BlockPos pos = stall.pos();
+        if (!level.hasChunkAt(pos) || stall.owner().equals(worker.entityId)
+                || !KingdomTerritories.get(server).canUse(level, pos, stall.owner())
+                || resident.distanceToSqr(pos.getX()+0.5, pos.getY()+0.5, pos.getZ()+0.5) > 36) return false;
+        Container seller = KingdomContainerAccess.resolve(level, pos);
+        Container bag = KingdomResidentInventory.personal(resident);
+        // Only known independent backing inventories are currently supported. In particular,
+        // unknown capability wrappers and joined chests need the physical-slot proof from #96.
+        var blockEntity = level.getBlockEntity(pos);
+        if (seller == null || seller != blockEntity || bag == null
+                || !knownPersonalBag(bag)
+                || !(seller.getClass() == net.minecraft.world.level.block.entity.ChestBlockEntity.class
+                    || seller.getClass() == net.minecraft.world.level.block.entity.BarrelBlockEntity.class)) return false;
+        var plan = ResidentPhysicalPurchase.prepare(worker.wagePurse, seller, bag,
+                stack -> net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem())
+                        .toString().equals(itemId), amount, priceCopper, KingdomCurrency::value);
+        if (plan == null) return false;
+        var evidence = plan.evidence();
+        evidence.putUUID("Operation", UUID.nameUUIDFromBytes((worker.entityId + ":"
+                + Math.floorDiv(level.getDayTime(), 24000) + ":" + itemId + ":" + amount)
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+        evidence.putUUID("Resident", worker.entityId); evidence.putUUID("Seller", stall.owner());
+        evidence.putString("Dimension", stall.dimension()); evidence.putLong("SellerPos", pos.asLong());
+        evidence.putString("Item", itemId); evidence.putInt("Amount", amount); evidence.putLong("Price", priceCopper);
+        if (!journal.prepare(evidence)) return false;
+        try {
+            boolean committed = plan.commit();
+            journal.finish(committed);
+            if (committed) {
+                KingdomResidentInventory.syncToWorker(worker, bag);
+                KingdomResidentDevelopment.get(server).recordPurchase(worker.entityId, itemId, amount, priceCopper);
+                KingdomNpcData.get(server).setDirty();
             }
-            KingdomResidentInventory.insertCount(personal, rest);
-            if (!rest.isEmpty()) Block.popResource(level, resident.blockPosition(), rest);
+            return committed;
+        } catch (RuntimeException uncertain) {
+            journal.quarantine();
+            return false;
         }
-        KingdomNpcData.get(server).setDirty();
-        return true;
-    }
-
-    /** Pays the price with the real coins of the wage purse. */
-    private static boolean pay(KingdomNpcData.Worker worker, long price) {
-        long left = price;
-        for (var stack : worker.wagePurse) {
-            if (stack.isEmpty() || left <= 0) continue;
-            long value = KingdomCurrency.value(stack);
-            if (value <= 0) continue;
-            int count = stack.getCount();
-            int needed = (int) Math.min(count, Math.max(1, (left + value - 1) / value));
-            stack.shrink(needed);
-            left -= needed * value;
-            if (stack.isEmpty()) stack.setCount(0);
-        }
-        return left <= 0;
     }
 }

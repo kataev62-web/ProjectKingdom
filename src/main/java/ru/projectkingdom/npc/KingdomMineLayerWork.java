@@ -3,10 +3,14 @@ package ru.projectkingdom.npc;
 import java.util.List;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.LadderBlock;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.state.BlockState;
 
 /**
@@ -28,7 +32,7 @@ import net.minecraft.world.level.block.state.BlockState;
  */
 public final class KingdomMineLayerWork {
     private KingdomMineLayerWork(){}
-    private static final double REACH_SQR = 6.25;
+    private static final double REACH_SQR = KingdomActionEngine.REACH_SQR;
 
     /** The name of a block for the diagnosis of the operator. */
     private static String name(BlockState state) {
@@ -46,17 +50,53 @@ public final class KingdomMineLayerWork {
         if (level == null || npc == null || worker == null || area == null) return false;
         int maxDepth = levels * KingdomMineSettings.LEVEL_INTERVAL;
         for (int layer = 1; layer <= maxDepth; layer++) {
-            List<KingdomMineGalleryPlan.Cell> cells =
-                    KingdomMineCentralShaftPlan.layer(area, layer);
+            List<KingdomMineGalleryPlan.Cell> cells = new java.util.ArrayList<>(
+                    KingdomMineCentralShaftPlan.layer(area, layer));
+            BlockPos ladderCell = KingdomMineCentralShaftPlan.descent(area, layer);
+            // Open and equip the escape route before the rest of this layer.
+            // Keep the remaining MiniMax serpentine coordinates/order intact.
+            cells.sort(java.util.Comparator.comparingInt(cell ->
+                    cell.target().equals(ladderCell) ? 0 : 1));
+            // Audit every coordinate, including pre-existing air/caves, before
+            // work or a transition. A loaded first row never proves a loaded layer.
+            for (var cell : cells) {
+                BlockPos at = cell.target();
+                if (!level.hasChunkAt(at) || !level.hasChunkAt(at.above())
+                        || !level.hasChunkAt(at.below())) {
+                    status(level, worker, "Нужен загруженный участок шахты");
+                    return false;
+                }
+                if (!level.getFluidState(at).isEmpty()) {
+                    status(level, worker, "Вода или лава в слое шахты: проходка остановлена");
+                    return false;
+                }
+            }
+            if (level.getBlockState(ladderCell).isAir()) {
+                var route = KingdomMineStructureWork.ladderAt(level, npc, worker, area, ladderCell);
+                if (route != KingdomMineStructureWork.Result.READY) {
+                    status(level, worker, route == KingdomMineStructureWork.Result.BUILT
+                            ? "Продлевает лестницу спуска"
+                            : route == KingdomMineStructureWork.Result.NEED_MATERIAL
+                                ? "Нужны лестницы на складе сырья"
+                                : route == KingdomMineStructureWork.Result.WALKING
+                                    ? "Несёт лестницы к спуску"
+                                    : "Нет безопасной стены для лестницы спуска");
+                    return route == KingdomMineStructureWork.Result.BUILT;
+                }
+            }
             for (KingdomMineGalleryPlan.Cell cell : cells) {
                 BlockPos target = cell.target();
-                BlockPos approach = cell.approach();
-                if (!level.hasChunkAt(target) || !level.hasChunkAt(approach)) {
+                if (!level.hasChunkAt(target)) {
                     status(level, worker, "Нужен загруженный участок шахты");
                     return false;
                 }
                 BlockState state = level.getBlockState(target);
-                if (state.isAir()) continue;
+                if (cleared(area, layer, target, state)) continue;
+                BlockPos approach = approach(level, npc, target, cell.approach());
+                if (approach == null) {
+                    status(level, worker, "Нет безопасного места для добычи: " + target.toShortString());
+                    return false;
+                }
                 // The support of TFC comes before the block that would fall.
                 var safety = KingdomMineSupportSafety.inspect(level, target);
                 if (safety == KingdomMineSupportSafety.Result.UNLOADED) {
@@ -65,7 +105,8 @@ public final class KingdomMineLayerWork {
                 }
                 if (safety == KingdomMineSupportSafety.Result.NEEDS_HORIZONTAL_BEAM) {
                     if (!support(level, npc, worker, approach, target)) return false;
-                    continue;
+                    if (KingdomMineSupportSafety.inspect(level, target)
+                            != KingdomMineSupportSafety.Result.SAFE) return false;
                 }
                 // The tool of the resident: the ground wants a shovel, the
                 // rock and the ore want a pickaxe.
@@ -85,16 +126,14 @@ public final class KingdomMineLayerWork {
                     return false;
                 }
                 // The miner must stand next to the block and on solid ground.
-                if (!KingdomMineMaintenance.passable(level.getBlockState(approach))
-                        || level.getBlockState(approach.below()).isAir()) {
+                if (!standing(level, approach)) {
                     status(level, worker, "Нет безопасного места для добычи: " + approach.toShortString());
                     return false;
                 }
                 if (npc.distanceToSqr(approach.getX() + 0.5, approach.getY(),
                         approach.getZ() + 0.5) > REACH_SQR) {
-                    npc.getNavigation().moveTo(approach.getX() + 0.5, approach.getY(),
-                            approach.getZ() + 0.5, 0.75);
-                    status(level, worker, "Идёт к месту добычи");
+                    var movement = KingdomActionEngine.navigate(level, npc, approach, 0.75);
+                    status(level, worker, movement.message());
                     return false;
                 }
                 ItemStack tool = KingdomActionEngine.toolOf(npc, worker, needed);
@@ -113,9 +152,19 @@ public final class KingdomMineLayerWork {
                 status(level, worker, "Добывает " + name(state) + " на глубине Y=" + target.getY());
                 return true;
             }
+            // Native callbacks may change an earlier cell (e.g. falling debris).
+            // Re-read all positions before committing the downward transition.
+            if (!complete(area, layer, level::getBlockState)) {
+                status(level, worker, "Проверяет оставшиеся блоки текущего слоя");
+                return false;
+            }
             // The layer is clear: the descent gets its ladder and its deck.
             BlockPos descent = KingdomMineCentralShaftPlan.descent(area, layer);
-            if (descent != null && level.hasChunkAt(descent)) {
+            if (descent == null || !level.hasChunkAt(descent)) {
+                status(level, worker, "Нужен загруженный участок спуска");
+                return false;
+            }
+            if (descent != null) {
                 var ladder = KingdomMineStructureWork.ladderAt(level, npc, worker, area, descent);
                 if (ladder == KingdomMineStructureWork.Result.BUILT) {
                     KingdomNpcData.get(level.getServer()).setDirty();
@@ -132,7 +181,7 @@ public final class KingdomMineLayerWork {
                 }
                 // The deck of planks gives the miner a solid floor at the descent.
                 BlockPos deck = descent.north();
-                if (level.hasChunkAt(deck)) {
+                if (KingdomMineStructurePlan.isLevel(layer) && level.hasChunkAt(deck)) {
                     var plank = KingdomMineStructureWork.plankAt(level, npc, worker, area, deck);
                     if (plank == KingdomMineStructureWork.Result.BUILT) {
                         KingdomNpcData.get(level.getServer()).setDirty();
@@ -150,6 +199,69 @@ public final class KingdomMineLayerWork {
         }
         status(level, worker, "Все слои шахты пройдены");
         return false;
+    }
+
+    static boolean complete(KingdomMineSettings.Shaft area, int layer,
+                            java.util.function.Function<BlockPos, BlockState> world) {
+        boolean result = true;
+        for (var cell : KingdomMineCentralShaftPlan.layer(area, layer)) {
+            BlockState state = world.apply(cell.target());
+            result &= state.getFluidState().isEmpty() && cleared(area, layer, cell.target(), state);
+        }
+        return result;
+    }
+
+    static boolean cleared(KingdomMineSettings.Shaft area, int layer,
+                           BlockPos at, BlockState state) {
+        if (state.isAir()) return true;
+        BlockPos descent = KingdomMineCentralShaftPlan.descent(area, layer);
+        if (at.equals(descent) && state.is(Blocks.LADDER)
+                && state.getValue(LadderBlock.FACING) == Direction.NORTH) return true;
+        String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        if (KingdomMineStructurePlan.isLevel(layer) && at.equals(descent.north())
+                && (id.endsWith("_planks") || id.startsWith("tfc:wood/planks/"))) return true;
+        // Native TFC frames built during excavation are infrastructure, not ore.
+        return id.startsWith("tfc:wood/vertical_support/")
+                || KingdomMineSupportSafety.isTfcHorizontalSupport(state);
+    }
+
+    private static boolean standing(ServerLevel level, BlockPos at) {
+        if (!level.hasChunkAt(at) || !level.hasChunkAt(at.above())
+                || !level.hasChunkAt(at.below())) return false;
+        return KingdomMineMaintenance.passable(level.getBlockState(at))
+                && KingdomMineMaintenance.passable(level.getBlockState(at.above()))
+                && level.getFluidState(at).isEmpty() && level.getFluidState(at.above()).isEmpty()
+                && level.getBlockState(at.below()).isFaceSturdy(level, at.below(), Direction.UP);
+    }
+
+    private static BlockPos approach(ServerLevel level, Villager npc, BlockPos target,
+                                     BlockPos planned) {
+        java.util.ArrayList<BlockPos> candidates = new java.util.ArrayList<>();
+        candidates.add(planned);
+        for (Direction direction : Direction.Plane.HORIZONTAL) {
+            candidates.add(target.relative(direction));
+            candidates.add(target.relative(direction).above());
+            candidates.add(target.relative(direction, 2));
+            candidates.add(target.relative(direction, 2).above());
+        }
+        // Never dig away the floor under the miner's feet. The first cut can
+        // use an adjacent surface square, and resumed/cave layers can route
+        // around their missing serpentine predecessor.
+        return candidates.stream().filter(at -> !at.below().equals(target))
+                .filter(at -> standing(level, at))
+                .filter(at -> {
+                    Vec3 eye = new Vec3(at.getX()+.5, at.getY()+npc.getEyeHeight(), at.getZ()+.5);
+                    return eye.distanceToSqr(Vec3.atCenterOf(target)) <= 20.25
+                            && level.clip(new net.minecraft.world.level.ClipContext(eye,
+                                Vec3.atCenterOf(target), net.minecraft.world.level.ClipContext.Block.COLLIDER,
+                                net.minecraft.world.level.ClipContext.Fluid.NONE, npc))
+                                    .getBlockPos().equals(target);
+                })
+                // Stable candidate order keeps an in-progress emergency
+                // frame identical while the miner visits the supply depot.
+                .filter(at -> npc.distanceToSqr(at.getX()+.5, at.getY(), at.getZ()+.5) <= REACH_SQR
+                        || npc.getNavigation().createPath(at, 0) != null)
+                .findFirst().orElse(null);
     }
 
     /**
@@ -174,8 +286,8 @@ public final class KingdomMineLayerWork {
             return false;
         }
         if (preparation != KingdomMineSupportExcavation.Result.CLEAR) {
-            status(level, worker, "Карманы опор недоступны; продолжает безопасную проходку");
-            return true;
+            status(level, worker, "Карманы опор недоступны: проходка запрещена");
+            return false;
         }
         var support = KingdomMineSupportBuilder.tick(level, npc, worker, frame);
         switch (support) {

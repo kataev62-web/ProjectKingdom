@@ -7,7 +7,7 @@ import net.minecraft.world.Container;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.DiggerItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.level.block.Block;
+import net.minecraft.world.entity.item.ItemEntity;
 
 /**
  * The physical inventory of a resident.
@@ -28,6 +28,42 @@ import net.minecraft.world.level.block.Block;
  */
 public final class KingdomResidentInventory {
     private KingdomResidentInventory() {}
+
+    private static final java.util.Set<Container> QUARANTINED =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(
+                    new java.util.IdentityHashMap<>()));
+
+    private static void ensureWritable(Container container) {
+        if (QUARANTINED.contains(container))
+            throw new IllegalStateException("Resident inventory requires recovery after rejected rollback");
+    }
+
+    private static List<ItemStack> snapshot(Container container) {
+        List<ItemStack> original = new ArrayList<>();
+        for (int slot = 0; slot < container.getContainerSize(); slot++)
+            original.add(container.getItem(slot).copy());
+        return original;
+    }
+
+    private static boolean restore(Container container, List<ItemStack> original,
+                                   RuntimeException failure) {
+        boolean restored = true;
+        for (int slot = 0; slot < original.size(); slot++) {
+            try { container.setItem(slot, original.get(slot).copy()); }
+            catch (RuntimeException rollback) { failure.addSuppressed(rollback); }
+            try {
+                if (!ItemStack.matches(original.get(slot), container.getItem(slot))) restored = false;
+            } catch (RuntimeException verification) {
+                failure.addSuppressed(verification);
+                restored = false;
+            }
+        }
+        if (!restored) {
+            QUARANTINED.add(container);
+            failure.addSuppressed(new IllegalStateException("Rollback rejected; inventory quarantined for recovery"));
+        }
+        return restored;
+    }
 
     /** The personal inventory of a resident, null when there is none. */
     public static Container personal(Villager resident) {
@@ -59,7 +95,7 @@ public final class KingdomResidentInventory {
     /**
      * Inserts a stack into the container.
      *
-     * <p>The stack is reduced by the amount that did not fit. The container is
+     * <p>The stack is reduced by the amount accepted by the container. The container is
      * never overfilled and nothing is created: the caller keeps the rest.
      *
      * @return true when the stack was fully stored.
@@ -80,6 +116,7 @@ public final class KingdomResidentInventory {
      */
     public static int insertCount(Container container, ItemStack stack) {
         if (container == null || stack == null || stack.isEmpty()) return 0;
+        ensureWritable(container);
         int before = countOf(stack);
         // Fill the stacks of the same item first, then the empty slots.
         for (int slot = 0; slot < container.getContainerSize() && !stack.isEmpty(); slot++) {
@@ -92,8 +129,7 @@ public final class KingdomResidentInventory {
             int add = Math.min(free, stack.getCount());
             ItemStack next = current.copy();
             next.setCount(current.getCount() + add);
-            container.setItem(slot, next);
-            stack.shrink(add);
+            writeInsertion(container, slot, current.getCount(), next, stack);
         }
         for (int slot = 0; slot < container.getContainerSize() && !stack.isEmpty(); slot++) {
             if (!container.getItem(slot).isEmpty()) continue;
@@ -102,11 +138,24 @@ public final class KingdomResidentInventory {
             int add = Math.min(limit, stack.getCount());
             ItemStack next = stack.copy();
             next.setCount(add);
-            container.setItem(slot, next);
-            stack.shrink(add);
+            writeInsertion(container, slot, 0, next, stack);
         }
         container.setChanged();
         return before - countOf(stack);
+    }
+
+    // A container may clamp/reject a write or return copies. Account only the
+    // read-back delta, including a setter which throws after accepting items.
+    private static void writeInsertion(Container container, int slot, int before,
+                                       ItemStack next, ItemStack source) {
+        try {
+            container.setItem(slot, next);
+        } finally {
+            ItemStack actual = container.getItem(slot);
+            int accepted = ItemStack.isSameItemSameTags(actual, source)
+                    ? Math.max(0, actual.getCount() - before) : 0;
+            source.shrink(Math.min(source.getCount(), accepted));
+        }
     }
 
     /**
@@ -136,20 +185,34 @@ public final class KingdomResidentInventory {
                                            int amount) {
         List<ItemStack> taken = new ArrayList<>();
         if (container == null || match == null || amount <= 0) return taken;
+        ensureWritable(container);
+        List<ItemStack> original = snapshot(container);
+        try {
         int left = amount;
         for (int slot = 0; slot < container.getContainerSize() && left > 0; slot++) {
-            ItemStack current = container.getItem(slot);
+            ItemStack current = container.getItem(slot).copy();
             if (current.isEmpty() || !match.test(current)) continue;
             int take = Math.min(left, current.getCount());
             ItemStack part = current.copy();
             part.setCount(take);
-            taken.add(part);
-            left -= take;
             ItemStack next = current.copy();
             next.shrink(take);
             container.setItem(slot, next);
+            ItemStack actual = container.getItem(slot);
+            int remaining = actual.isEmpty() ? 0
+                    : ItemStack.isSameItemSameTags(actual, current) ? actual.getCount() : current.getCount();
+            int removed = Math.min(take, Math.max(0, current.getCount() - remaining));
+            if (removed > 0) {
+                part.setCount(removed);
+                taken.add(part);
+                left -= removed;
+            }
         }
         if (!taken.isEmpty()) container.setChanged();
+        } catch (RuntimeException failure) {
+            restore(container, original, failure);
+            throw failure;
+        }
         return taken;
     }
 
@@ -241,13 +304,33 @@ public final class KingdomResidentInventory {
         Container personal = personal(resident);
         if (personal == null) return 0;
         List<ItemStack> left = flushToContainer(personal, worker);
-        int lost = 0;
-        for (ItemStack stack : left) {
-            lost += countOf(stack);
-            if (level != null && resident != null)
-                Block.popResource(level, resident.blockPosition(), stack);
+        worker.pendingMigration.addAll(left);
+        if (level == null || resident == null) return 0;
+        return releasePending(worker, stack -> {
+            ItemEntity item = new ItemEntity(level, resident.getX(), resident.getY(), resident.getZ(), stack);
+            item.setDefaultPickUpDelay();
+            try {
+                return level.addFreshEntity(item);
+            } catch (RuntimeException failure) {
+                // Some event listeners throw after insertion. The entity's UUID
+                // establishes whether the world already owns this exact stack.
+                if (level.getEntity(item.getUUID()) == item) return true;
+                throw failure;
+            }
+        });
+    }
+
+    static int releasePending(KingdomNpcData.Worker worker,
+                              java.util.function.Predicate<ItemStack> spawn) {
+        int dropped = 0;
+        var iterator = worker.pendingMigration.iterator();
+        while (iterator.hasNext()) {
+            ItemStack stack = iterator.next();
+            if (!spawn.test(stack.copy())) continue;
+            dropped += countOf(stack);
+            iterator.remove();
         }
-        return lost;
+        return dropped;
     }
 
     /**
@@ -262,18 +345,41 @@ public final class KingdomResidentInventory {
                                                     KingdomNpcData.Worker worker) {
         List<ItemStack> left = new ArrayList<>();
         if (worker == null || personal == null) return left;
+        if (worker.inventoryRecoveryRequired)
+            throw new IllegalStateException("Resident inventory requires manual recovery");
+        ensureWritable(personal);
         List<ItemStack> content = new ArrayList<>();
         if (!worker.fieldTool.isEmpty()) content.add(worker.fieldTool.copy());
         for (ItemStack stack : worker.fieldInventory)
             if (stack != null && !stack.isEmpty()) content.add(stack.copy());
-        for (int slot = 0; slot < personal.getContainerSize(); slot++)
-            personal.setItem(slot, ItemStack.EMPTY);
-        for (ItemStack stack : content) {
-            ItemStack rest = stack.copy();
-            insertCount(personal, rest);
-            if (!rest.isEmpty()) left.add(rest);
+        List<ItemStack> original = snapshot(personal);
+        worker.pendingInventoryFlush = true;
+        try {
+            for (int slot = 0; slot < personal.getContainerSize(); slot++) {
+                personal.setItem(slot, ItemStack.EMPTY);
+                if (!personal.getItem(slot).isEmpty())
+                    throw new IllegalStateException("Resident inventory rejected clearing slot " + slot);
+            }
+            for (ItemStack stack : content) {
+                insertCount(personal, stack);
+                if (!stack.isEmpty()) left.add(stack);
+            }
+            personal.setChanged();
+        } catch (RuntimeException failure) {
+            // Keep the work view for retry only after verified restoration.
+            if (!restore(personal, original, failure)) {
+                worker.inventoryRecoveryRequired = true;
+                worker.mineStatus = "Инвентарь заблокирован: требуется проверка сохранённых предметов после сбоя отката";
+            }
+            throw failure;
         }
-        personal.setChanged();
+        worker.pendingInventoryFlush = false;
+        try {
+            syncToWorker(worker, personal);
+        } catch (RuntimeException failure) {
+            worker.pendingMigration.addAll(left);
+            throw failure;
+        }
         return left;
     }
 
@@ -288,26 +394,27 @@ public final class KingdomResidentInventory {
      */
     public static boolean bind(KingdomNpcData.Worker worker, Villager resident) {
         if (worker == null || resident == null) return false;
-        Container personal = personal(resident);
-        if (personal == null) {
-            // A resident without a real container keeps the working view as
-            // its own storage; it is saved with the worker.
-            worker.physicalBag = false;
-            return false;
+        return bindToContainer(worker, personal(resident));
+    }
+
+    static boolean bindToContainer(KingdomNpcData.Worker worker, Container personal) {
+        if (worker == null || personal == null) return false;
+        if (worker.inventoryRecoveryRequired) return false;
+        ensureWritable(personal);
+        if (worker.pendingInventoryFlush) {
+            worker.pendingMigration.addAll(flushToContainer(personal, worker));
         }
         if (!worker.physicalBag) {
-            // The first time: the belongings of an old world move into the
-            // real container. What does not fit stays in the working view.
-            List<ItemStack> left = new ArrayList<>(worker.fieldInventory);
             loadFromWorker(worker, personal);
-            left.addAll(worker.fieldInventory);
+            if (!worker.fieldTool.isEmpty()) worker.pendingMigration.add(worker.fieldTool);
+            worker.pendingMigration.addAll(worker.fieldInventory);
+            worker.fieldTool = ItemStack.EMPTY;
+            worker.fieldInventory = new ArrayList<>();
             worker.physicalBag = true;
-            syncToWorker(worker, personal);
-            // What did not fit into the container stays in the view, so that
-            // the flush can put it back or leave it in the world.
-            worker.fieldInventory.addAll(left);
-            return true;
         }
+        // Overflow belongs to the worker until it has actually entered the bag.
+        for (ItemStack pending : worker.pendingMigration) insertCount(personal, pending);
+        worker.pendingMigration.removeIf(ItemStack::isEmpty);
         syncToWorker(worker, personal);
         return true;
     }
@@ -335,22 +442,16 @@ public final class KingdomResidentInventory {
         if (worker == null || personal == null) return 0;
         int stored = 0;
         if (!worker.fieldTool.isEmpty()) {
-            ItemStack copy = worker.fieldTool.copy();
-            if (insert(personal, copy)) {
-                worker.fieldTool = ItemStack.EMPTY;
-                stored++;
-            } else if (!copy.isEmpty()) {
-                worker.fieldTool = copy;
-            }
+            insertCount(personal, worker.fieldTool);
+            if (worker.fieldTool.isEmpty()) { worker.fieldTool = ItemStack.EMPTY; stored++; }
         }
-        List<ItemStack> left = new ArrayList<>();
+        // Mutate the owned source itself so interruption cannot replay accepted items.
         for (ItemStack stack : worker.fieldInventory) {
             if (stack == null || stack.isEmpty()) continue;
-            ItemStack copy = stack.copy();
-            if (insert(personal, copy)) stored++;
-            else if (!copy.isEmpty()) left.add(copy);
+            insertCount(personal, stack);
+            if (stack.isEmpty()) stored++;
         }
-        worker.fieldInventory = left;
+        worker.fieldInventory.removeIf(stack -> stack == null || stack.isEmpty());
         return stored;
     }
 }

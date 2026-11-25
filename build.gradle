@@ -93,3 +93,12 @@ jar {
     exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
     manifest { attributes(['Specification-Title':'Kingdom NPC', 'Implementation-Version':project.version]) }
 }
+
+// Separate, opt-in production-mapped probes; never bundled in the gameplay JAR.
+apply from: 'gradle/npc-runtime-validation.gradle'
+
+// Stable archive metadata makes exact-source artifacts easier to compare across CI/local builds.
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}

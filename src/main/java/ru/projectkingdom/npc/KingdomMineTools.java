@@ -7,7 +7,6 @@ import net.minecraft.tags.ItemTags;
 import net.minecraft.world.Container;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.PickaxeItem;
 import net.minecraft.world.item.ShovelItem;
 import net.minecraft.world.level.block.state.BlockState;
@@ -77,7 +76,7 @@ public final class KingdomMineTools {
         // The bag must have room before the depot is touched at all.
         Container personal=KingdomMcaAdapter.isResident(npc)
             ?KingdomResidentInventory.personal(npc):null;
-        if(personal!=null&&!KingdomResidentInventory.hasRoom(personal,new ItemStack(Items.IRON_PICKAXE)))
+        if(personal!=null&&!KingdomResidentInventory.hasRoom(personal,storage.getItem(slot)))
             return false;
         ItemStack selected=storage.removeItem(slot,1);
         if(!matches(selected,needed)){
@@ -85,26 +84,9 @@ public final class KingdomMineTools {
             storage.setChanged();
             return false;
         }
-        if(personal!=null){
-            // The real bag of the resident takes the tool. When the bag
-            // refuses it, the tool goes back into the depot: the transfer is
-            // either complete or not at all.
-            ItemStack copy=selected.copy();
-            ItemStack left=KingdomResidentInventory.insertAndRemainder(personal,copy);
-            if(!left.isEmpty()){
-                // The bag refused the tool: it goes back into the depot, and
-                // into the world when even the depot is full.
-                ItemStack rest=KingdomResidentInventory.insertAndRemainder(storage,left);
-                if(!rest.isEmpty())net.minecraft.world.level.block.Block.popResource(level,depot,rest);
-                storage.setChanged();
-                return false;
-            }
-            // The working view follows the real bag.
-            KingdomResidentInventory.syncToWorker(worker,personal);
-            storage.setChanged();
-            KingdomNpcData.get(level.getServer()).setDirty();
-            return selectInView(worker,needed);
-        }
+        // The bound work view owns changes until the lifecycle flush. Inserting
+        // into the physical bag and syncing here would discard prior work in
+        // this tick (including drops and the wear of the previous tool).
         if(!worker.fieldTool.isEmpty())NpcFieldWork.put(worker,worker.fieldTool);
         worker.fieldTool=selected;
         storage.setChanged();

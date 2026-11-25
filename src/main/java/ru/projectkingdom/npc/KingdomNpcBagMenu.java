@@ -47,7 +47,7 @@ public final class KingdomNpcBagMenu extends ChestMenu {
      *         viewer has no right.
      */
     public static boolean open(ServerPlayer viewer, KingdomNpcData.Worker worker) {
-        if (viewer == null || worker == null || worker.entityId == null
+        if (viewer == null || worker == null || worker.inventoryRecoveryRequired || worker.entityId == null
                 || worker.employer == null
                 || (!viewer.hasPermissions(2) && !viewer.getUUID().equals(worker.employer))
                 || !viewer.level().dimension().location().toString().equals(worker.dimension))
@@ -57,9 +57,18 @@ public final class KingdomNpcBagMenu extends ChestMenu {
         if (viewer.distanceToSqr(resident) > 64) return false;
         Container personal = KingdomMcaAdapter.isResident(resident)
                 ? KingdomResidentInventory.personal(resident) : null;
-        if (personal == null && worker.fieldInventory.size() > 36) return false;
+        if (personal == null && (worker.physicalBag
+                || worker.fieldInventory.size() + (worker.fieldTool.isEmpty() ? 0 : 1) > 36)) return false;
         if (OPEN.putIfAbsent(worker.entityId, viewer.getUUID()) != null) return false;
         try {
+            if (personal != null) {
+                if (!KingdomResidentInventory.bind(worker, resident)) {
+                    OPEN.remove(worker.entityId, viewer.getUUID());
+                    return false;
+                }
+                KingdomResidentInventory.flush(viewer.serverLevel(), resident, worker);
+                KingdomNpcData.get(viewer.getServer()).setDirty();
+            }
             BagSlots mirror = personal == null ? new BagSlots(viewer.getServer(), worker) : null;
             var opened = viewer.openMenu(new SimpleMenuProvider(
                     (id, inventory, player) -> new KingdomNpcBagMenu(id, inventory, viewer, worker, personal, mirror),
@@ -101,9 +110,12 @@ public final class KingdomNpcBagMenu extends ChestMenu {
     }
 
     @Override public void removed(Player player) {
-        if (bag != null) bag.flush();
-        OPEN.remove(entityId, viewer.getUUID());
-        super.removed(player);
+        try {
+            if (bag != null) bag.flush();
+        } finally {
+            OPEN.remove(entityId, viewer.getUUID());
+            super.removed(player);
+        }
     }
 
     /**
@@ -121,8 +133,10 @@ public final class KingdomNpcBagMenu extends ChestMenu {
             super(36);
             this.server = server;
             this.worker = worker;
-            for (int i = 0; i < worker.fieldInventory.size() && i < 36; i++)
-                super.setItem(i, worker.fieldInventory.get(i).copy());
+            int slot = 0;
+            if (!worker.fieldTool.isEmpty()) super.setItem(slot++, worker.fieldTool.copy());
+            for (ItemStack stack : worker.fieldInventory)
+                super.setItem(slot++, stack.copy());
             loading = false;
         }
 
@@ -133,10 +147,14 @@ public final class KingdomNpcBagMenu extends ChestMenu {
 
         void flush() {
             if (loading) return;
+            worker.fieldTool = ItemStack.EMPTY;
             worker.fieldInventory.clear();
             for (int i = 0; i < 36; i++) {
                 var slot = super.getItem(i);
-                if (!slot.isEmpty()) worker.fieldInventory.add(slot.copy());
+                if (slot.isEmpty()) continue;
+                if (worker.fieldTool.isEmpty() && KingdomResidentInventory.isTool(slot))
+                    worker.fieldTool = slot.copy();
+                else worker.fieldInventory.add(slot.copy());
             }
             KingdomNpcData.get(server).setDirty();
         }

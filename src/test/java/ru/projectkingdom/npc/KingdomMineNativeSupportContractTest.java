@@ -14,8 +14,8 @@ class KingdomMineNativeSupportContractTest {
             "src/main/java/ru/projectkingdom/npc/KingdomMineSupportExcavation.java"));
         String miner=Files.readString(Path.of(
             "src/main/java/ru/projectkingdom/npc/KingdomMineWork.java"));
-        assertTrue(builder.contains("support.useOn(new UseOnContext("));
-        assertTrue(builder.contains("FakePlayerFactory.getMinecraft(level)"));
+        assertTrue(builder.contains("KingdomActionEngine.placeBlock(level,npc,worker,expected,support,"));
+        assertFalse(builder.contains("FakePlayerFactory.getMinecraft(level)"));
         assertTrue(builder.contains("consumed>0"));
         assertTrue(builder.contains("return Result.SUPPLIED;"));
         assertTrue(builder.contains("return placed && consumed>0 ? Result.PLACED"));
@@ -29,7 +29,9 @@ class KingdomMineNativeSupportContractTest {
         assertFalse(safety.contains("floorSupports"));
         assertFalse(builder.contains("level.setBlock("));
         assertTrue(excavation.contains("KingdomMineSupportSafety.inspect(level,pos)"));
-        assertTrue(excavation.contains("Block.getDrops("));
+        assertTrue(excavation.contains("KingdomActionEngine.breakBlock(level,npc,worker,pos,"));
+        assertFalse(excavation.contains("Block.getDrops("));
+        assertFalse(excavation.contains("level.setBlock("));
         assertTrue(miner.contains("KingdomMineSupportBuilder.tick(level,npc,worker,frame)"));
         assertTrue(miner.contains("KingdomMineSupportExcavation.tick(level,npc,worker,frame)"));
     }

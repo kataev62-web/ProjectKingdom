@@ -71,8 +71,8 @@ final class KingdomMcaShiftArbiterTest {
         UUID resident = UUID.randomUUID();
 
         KingdomMcaShiftArbiter.begin(resident, brain);
-        assertFalse(brain.hasMemoryValue(MemoryModuleType.JOB_SITE), "the job site must not pull the resident away");
-        assertFalse(brain.hasMemoryValue(MemoryModuleType.MEETING_POINT), "the meeting point must not pull the resident away");
+        assertTrue(brain.hasMemoryValue(MemoryModuleType.JOB_SITE), "MCA must retain its job POI");
+        assertTrue(brain.hasMemoryValue(MemoryModuleType.MEETING_POINT), "MCA must retain its meeting POI");
         assertFalse(brain.hasMemoryValue(MemoryModuleType.WALK_TARGET), "the walk target must be cleared");
 
         KingdomMcaShiftArbiter.release(resident, brain, 1000, 1000);
@@ -112,5 +112,28 @@ final class KingdomMcaShiftArbiterTest {
         Brain<Villager> brain = brain();
         assertNull(KingdomMcaShiftArbiter.begin((Villager) null),
                 "without a resident there is no lease");
+    }
+    @Test void leaseDoesNotOverwriteMcaPoiChangesOrDefaultActivity() {
+        Brain<Villager> brain = brain();
+        brain.setDefaultActivity(Activity.REST);
+        var changed = GlobalPos.of(net.minecraft.world.level.Level.OVERWORLD, new BlockPos(1,2,3));
+        UUID id=UUID.randomUUID();
+        KingdomMcaShiftArbiter.begin(id,brain);
+        brain.setMemory(MemoryModuleType.JOB_SITE,changed);
+        KingdomMcaShiftArbiter.release(id,brain,0,0);
+        brain.useDefaultActivity();
+        assertTrue(brain.isActive(Activity.REST));
+        assertEquals(changed,brain.getMemory(MemoryModuleType.JOB_SITE).orElseThrow());
+    }
+    @Test void emergencyHandoffKeepsMcaPanicActivity() {
+        Brain<Villager> brain=brain();
+        brain.addActivity(Activity.PANIC,0,ImmutableList.of());
+        UUID id=UUID.randomUUID();
+        KingdomMcaShiftArbiter.begin(id,brain);
+        brain.setActiveActivityIfPossible(Activity.PANIC);
+        assertTrue(brain.isActive(Activity.PANIC));
+        KingdomMcaShiftArbiter.release(id,brain,1000,1000);
+        assertTrue(brain.isActive(Activity.PANIC), "release must preserve MCA escape activity");
+        assertFalse(KingdomMcaShiftArbiter.onShift(id));
     }
 }

@@ -23,9 +23,8 @@ import net.minecraft.world.level.saveddata.SavedData;
  * the personal goals, the purchases, the claims and the inheritance live here.
  *
  * <p>Two residents can never hold the same claim: a job, a lot or an object of
- * property is given to exactly one resident. The inheritance of one death is
- * transferred exactly once, also when the event of the death is processed again
- * after a restart.
+ * property is given to exactly one resident. Inheritance receipts suppress repeated
+ * completed transfers; they do not make separately saved physical inventories atomic.
  */
 public final class KingdomResidentDevelopment extends SavedData {
     public static final String DATA_NAME = "kingdom_resident_development_v1";
@@ -117,9 +116,8 @@ public final class KingdomResidentDevelopment extends SavedData {
         for (int i = 0; i < goalList.size(); i++) {
             CompoundTag entry = goalList.getCompound(i);
             if (!entry.hasUUID("Resident")) continue;
-            data.goals.computeIfAbsent(entry.getUUID("Resident"), id -> new ArrayList<>())
-                    .add(new Goal(entry.getUUID("Resident"), entry.getString("Kind"),
-                            entry.getString("Target"), entry.getLong("Deadline")));
+            data.addGoal(entry.getUUID("Resident"), entry.getString("Kind"),
+                    entry.getString("Target"), entry.getLong("Deadline"));
         }
         ListTag claimList = root.getList("Claims", Tag.TAG_COMPOUND);
         for (int i = 0; i < claimList.size(); i++) {
@@ -274,8 +272,11 @@ public final class KingdomResidentDevelopment extends SavedData {
 
     /** Adds a personal goal. */
     public Goal addGoal(UUID resident, String kind, String target, long deadlineDay) {
+        var list = goals.computeIfAbsent(resident, id -> new ArrayList<>());
+        for (Goal existing : list)
+            if (existing.kind().equals(kind) && existing.target().equals(target)) return existing;
         Goal goal = new Goal(resident, kind, target, deadlineDay);
-        goals.computeIfAbsent(resident, id -> new ArrayList<>()).add(goal);
+        list.add(goal);
         setDirty();
         return goal;
     }
@@ -286,7 +287,7 @@ public final class KingdomResidentDevelopment extends SavedData {
         if (list == null) return 0;
         int removed = 0;
         for (int index = list.size() - 1; index >= 0; index--) {
-            if (list.get(index).deadlineDay() > day) continue;
+            if (list.get(index).deadlineDay() <= 0 || list.get(index).deadlineDay() > day) continue;
             list.remove(index);
             removed++;
         }
@@ -339,12 +340,11 @@ public final class KingdomResidentDevelopment extends SavedData {
     // --- inheritance ----------------------------------------------------------
 
     /**
-     * Transfers one asset of a dead resident to an heir.
+     * Records an already completed physical transfer of one asset to an heir.
+     * Callers must perform and verify the transfer before writing this receipt.
+     * A saved receipt suppresses duplicates; it cannot recover partially saved inventories.
      *
-     * <p>The transfer happens exactly once: a repeated event of the death, for
-     * example after a restart, does not transfer the asset a second time.
-     *
-     * @return true when the transfer happened now.
+     * @return true when a new receipt was added.
      */
     public boolean inherit(UUID dead, UUID heir, String asset, long day) {
         Objects.requireNonNull(dead, "dead");

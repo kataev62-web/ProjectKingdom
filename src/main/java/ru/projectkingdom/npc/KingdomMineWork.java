@@ -47,7 +47,7 @@ public final class KingdomMineWork {
 
     static boolean safeToBreak(ServerLevel level, BlockPos pos,
                                        KingdomNpcData.Worker worker) {
-        if (!level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
+        if (worker == null || worker.employer == null || !level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
             || pos.getY() >= level.getMaxBuildHeight() - 3
             || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,pos)))
             return false;
@@ -58,7 +58,8 @@ public final class KingdomMineWork {
             || !state.getFluidState().isEmpty() || level.getBlockEntity(pos)!=null
             || state.getDestroySpeed(level,pos)<0) return false;
         if (!KingdomMineTools.matches(worker.fieldTool,needed)
-            || !worker.fieldTool.isCorrectToolForDrops(state)) return false;
+            || state.requiresCorrectToolForDrops()
+                && !worker.fieldTool.isCorrectToolForDrops(state)) return false;
         // Never deliberately open a liquid pocket or let loose gravel/sand fall.
         for (var direction : net.minecraft.core.Direction.values()) {
             BlockPos neighbor=pos.relative(direction);
@@ -93,6 +94,7 @@ public final class KingdomMineWork {
             || !binding.dimension().equals(worker.dimension)) {status(level,worker,"Нет действующей шахты");return false;}
         BlockPos core=BlockPos.of(binding.packedPos());
         if (!level.hasChunkAt(core)) return false;
+        KingdomActionEngine.pickup(level,npc,worker,2.5);
         int carried=KingdomMineCargo.minedCount(worker);
         // Construction stock is not finished ore. Deposit on cargo threshold,
         // and let the shared physical route bring the miner back to the depot.
@@ -133,8 +135,16 @@ public final class KingdomMineWork {
         var heading=settings.heading(id);
         // The central shaft is dug layer by layer: the whole horizontal layer
         // of the surveyed footprint is cleared before the next one starts.
-        if (central)
-            return KingdomMineLayerWork.tick(level,npc,worker,area,requestedLevels,heading);
+        if (central) {
+            boolean changed = KingdomMineLayerWork.tick(level,npc,worker,area,requestedLevels,heading);
+            if (changed) settings.markStarted(id);
+            if (!changed && "Все слои шахты пройдены".equals(worker.mineStatus)
+                    && KingdomMineCargo.minedCount(worker) > 0) {
+                status(level, worker, "Возвращает последнюю добычу на склад");
+                return NpcFieldWork.deposit(level,npc,worker);
+            }
+            return changed;
+        }
         var anchors=KingdomMineLevelPlan.anchors(core,start);
         var excavation=KingdomMineLevelPlan.cells(core,start);
         for (var cell : excavation) {

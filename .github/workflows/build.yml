@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set up Java 17
         uses: actions/setup-java@v4
@@ -26,12 +28,33 @@ jobs:
       - name: Build and test
         run: |
           chmod +x gradlew
-          ./gradlew test build --no-daemon
+          ./gradlew clean test build assembleNpcRuntimeValidation --no-daemon
           python3 03_verify_project.py
+
+      - name: Prepare exact-commit artifact
+        run: |
+          mkdir -p build/distribution
+          cp build/libs/kingdomnpc-0.1.0-stage0-voice3.3.jar build/distribution/
+          cp docs/npc-unified-life/INSTALL_AND_ACCEPTANCE_RU.md build/distribution/
+          cp scripts/npc-unified-life/dependencies.lock.json build/distribution/
+          git rev-parse HEAD > build/distribution/COMMIT.txt
+          cd build/distribution
+          sha256sum kingdomnpc-*.jar > SHA256SUMS
 
       - name: Upload mod JAR
         uses: actions/upload-artifact@v4
         with:
-          name: kingdomnpc-stage0
-          path: build/libs/kingdomnpc-*.jar
+          name: kingdomnpc-rc-${{ github.event.pull_request.head.sha || github.sha }}
+          path: build/distribution/*
           if-no-files-found: error
+
+      - name: Upload verification reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kingdomnpc-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            build/reports/tests/test/
+            build/test-results/test/
+            build/libs/*runtime-validation*.jar
+          if-no-files-found: warn

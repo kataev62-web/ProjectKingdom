@@ -5,14 +5,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.util.FakePlayerFactory;
 
 /**
  * First native TFC support placement adapter. It never writes fake support
@@ -136,18 +131,11 @@ public final class KingdomMineSupportBuilder {
             npc.getNavigation().moveTo(expected.getX()+0.5,expected.getY(),expected.getZ()+0.5,0.75);
             return Result.WALKING;
         }
-        var fake=FakePlayerFactory.getMinecraft(level);
-        if(fake.isCreative())return Result.FAILED_NATIVE_PLACEMENT;
-        fake.setPos(npc.getX(),npc.getY(),npc.getZ());
-        fake.setShiftKeyDown(false); // TFC places a complete three-block column when not sneaking.
         int before=support.getCount();
-        fake.setItemInHand(InteractionHand.MAIN_HAND,support);
-        try {
-            var hit=new BlockHitResult(Vec3.atCenterOf(clicked),face,clicked,false);
-            support.useOn(new UseOnContext(fake,InteractionHand.MAIN_HAND,hit));
-        } finally {
-            fake.setItemInHand(InteractionHand.MAIN_HAND,ItemStack.EMPTY);
-        }
+        var outcome=KingdomActionEngine.placeBlock(level,npc,worker,expected,support,
+            face.getOpposite());
+        if(!outcome.done())return outcome.status()==KingdomActionEngine.Status.MOVING
+            ?Result.WALKING:Result.FAILED_NATIVE_PLACEMENT;
         boolean placed=bridge?horizontal(level.getBlockState(expected))
             :vertical(level.getBlockState(expected))
                 &&vertical(level.getBlockState(expected.above()))
@@ -186,9 +174,30 @@ public final class KingdomMineSupportBuilder {
             return nativePlace(level,npc,worker,left.below(),Direction.UP,left,false);
         if(!vertical(level.getBlockState(right)))
             return nativePlace(level,npc,worker,right.below(),Direction.UP,right,false);
-        // Side-click on the left top support, allowing TFC's horizontal rule
-        // to link the right support via its real block-item implementation.
+        // A low emergency beam may overlap the miner's head. Native placement
+        // must succeed from a separate safe square, never through the resident.
+        if(frame.beamHeight()==1 && npc.getBoundingBox().intersects(
+                new net.minecraft.world.phys.AABB(middle))) {
+            BlockPos stand=null;
+            for(Direction direction:Direction.Plane.HORIZONTAL) {
+                BlockPos candidate=frame.walkway().relative(direction);
+                if(!level.hasChunkAt(candidate) || !level.hasChunkAt(candidate.below())
+                    || !level.hasChunkAt(candidate.above())
+                    || !KingdomMineMaintenance.passable(level.getBlockState(candidate))
+                    || !KingdomMineMaintenance.passable(level.getBlockState(candidate.above()))
+                    || !level.getFluidState(candidate).isEmpty()
+                    || !level.getFluidState(candidate.above()).isEmpty()
+                    || !level.getBlockState(candidate.below()).isFaceSturdy(level,candidate.below(),Direction.UP))
+                    continue;
+                if(stand==null || npc.distanceToSqr(candidate.getX()+.5,candidate.getY(),candidate.getZ()+.5)
+                        <npc.distanceToSqr(stand.getX()+.5,stand.getY(),stand.getZ()+.5))stand=candidate;
+            }
+            if(stand==null)return Result.INACCESSIBLE;
+            npc.getNavigation().moveTo(stand.getX()+.5,stand.getY(),stand.getZ()+.5,.75);
+            return Result.WALKING;
+        }
+        // Side-click a real post at the planned height. TFC owns the link.
         Direction span=left.getX()!=right.getX()?Direction.EAST:Direction.SOUTH;
-        return nativePlace(level,npc,worker,left.above(2),span,middle,true);
+        return nativePlace(level,npc,worker,left.above(frame.beamHeight()),span,middle,true);
     }
 }

@@ -6,8 +6,9 @@ import net.minecraft.core.BlockPos;
 
 /**
  * Geometric plan for proper three-wide TFC mine support frames.
- * The central walkway stays clear. Two vertical posts stand outside it,
- * and the beam spanning them must be created by TFC's native placement.
+ * Tunnel frames leave a full-height central walkway. Emergency surface
+ * frames can link the middle of the posts, with the miner staged outside
+ * the low beam. Every beam must be created by TFC's native placement.
  *
  * This planner does not place blocks or invent construction materials.
  */
@@ -16,7 +17,9 @@ public final class KingdomMineSupportPlan {
     public static final int SPACING = 5;
 
     public record Frame(BlockPos leftPost, BlockPos rightPost, BlockPos crossbeam,
-                        BlockPos walkway, int depth) {}
+                        BlockPos walkway, int depth) {
+        public int beamHeight() { return crossbeam.getY()-walkway.getY(); }
+    }
 
     /** At depth 5/10/15/20 of each level, posts are two blocks apart. */
     public static List<Frame> frames(BlockPos entrance) {
@@ -44,21 +47,26 @@ public final class KingdomMineSupportPlan {
         if(approach==null||target==null)return null;
         int dx=target.getX()-approach.getX();
         int dz=target.getZ()-approach.getZ();
-        if(Math.abs(dx)+Math.abs(dz)!=1)return null;
-        // Cross-beams span the corridor rather than obstructing its axis.
-        // Both north-south and east-west tunnelling use TFC native placement.
+        int horizontal=Math.abs(dx)+Math.abs(dz);
+        int down=approach.getY()-target.getY();
+        if(horizontal<1 || horizontal>2 || dx!=0 && dz!=0 || down<0 || down>1)
+            return null;
+        // TFC's pinned native support volume reaches only TWO blocks down.
+        // From the layer above, link the middle of three native posts rather
+        // than their tops. Move this low frame behind the safe approach so
+        // the miner can stand outside it without digging collapse-risk pockets.
+        BlockPos base=down==1?approach.offset(-Integer.signum(dx),0,-Integer.signum(dz)):approach;
+        BlockPos beam=base.above(2-down);
         return dx!=0
-            ?new Frame(approach.north(),approach.south(),
-                approach.above(2),approach,0)
-            :new Frame(approach.west(),approach.east(),
-                approach.above(2),approach,0);
+            ?new Frame(base.north(),base.south(),beam,base,0)
+            :new Frame(base.west(),base.east(),beam,base,0);
     }
 
     public static boolean valid(Frame frame) {
         return frame!=null
                 && frame.leftPost().getY()==frame.walkway().getY()
                 && frame.rightPost().getY()==frame.walkway().getY()
-                && frame.crossbeam().getY()==frame.walkway().getY()+2
+                && (frame.beamHeight()==1 || frame.beamHeight()==2)
                 && frame.crossbeam().getX()==frame.walkway().getX()
                 && frame.crossbeam().getZ()==frame.walkway().getZ()
                 && frame.leftPost().distManhattan(frame.rightPost())==2

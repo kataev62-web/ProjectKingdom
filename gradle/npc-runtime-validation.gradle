@@ -1,0 +1,21 @@
+// Explicit, isolated runtime validation; neither source set enters the gameplay JAR.
+sourceSets {
+    npcRuntimeValidation {
+        java.srcDir 'validation/npc-runtime/src'
+        compileClasspath += sourceSets.main.output + sourceSets.main.compileClasspath
+    }
+    npcRuntimeAgent { java.srcDir 'validation/npc-runtime/agent' }
+}
+tasks.register('runtimeValidationJar', Jar) {
+    archiveClassifier = 'runtime-validation'
+    from sourceSets.npcRuntimeValidation.output
+}
+tasks.register('runtimeValidationAgentJar', Jar) {
+    archiveClassifier = 'runtime-validation-agent'
+    from sourceSets.npcRuntimeAgent.output
+    manifest { attributes 'Premain-Class': 'ru.projectkingdom.validation.RuntimeAgent' }
+}
+reobf { runtimeValidationJar {} }
+tasks.register('assembleNpcRuntimeValidation') {
+    dependsOn 'reobfRuntimeValidationJar', 'runtimeValidationAgentJar'
+}
