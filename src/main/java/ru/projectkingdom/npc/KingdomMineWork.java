@@ -115,6 +115,26 @@ public final class KingdomMineWork {
         boolean central=start==KingdomMineSettings.Start.DOWN;
         BlockPos entrance=central && area!=null
             ?KingdomMineCentralShaftPlan.entrance(area):core.north();
+        // A column of TFC may stand where the way into the mine is. It is the
+        // structure of the mine itself in the wrong place: the miner takes it
+        // apart, the way in must stay free.
+        if(level.hasChunkAt(entrance)){
+            var entranceState=level.getBlockState(entrance);
+            String entranceId=net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(entranceState.getBlock()).toString();
+            if(entranceId.startsWith("tfc:wood/vertical_support/")){
+                var drops=net.minecraft.world.level.block.Block.getDrops(entranceState,level,
+                    entrance,level.getBlockEntity(entrance),npc,worker.fieldTool);
+                if(level.setBlock(entrance,net.minecraft.world.level.block.Blocks.AIR
+                        .defaultBlockState(),3)){
+                    for(var drop:drops)NpcFieldWork.put(worker,drop);
+                    if(!worker.fieldTool.isEmpty())worker.fieldTool.hurt(1,level.random,null);
+                    KingdomNpcData.get(level.getServer()).setDirty();
+                    status(level,worker,"Убирает стойку опоры со входа в шахту");
+                    return false;
+                }
+            }
+        }
         if(!level.hasChunkAt(entrance)
             ||!level.getBlockState(entrance).isAir()
             ||!level.getBlockState(entrance.above()).isAir()

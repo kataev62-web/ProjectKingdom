@@ -35,15 +35,16 @@ public final class KingdomMineCentralShaftPlan {
     }
 
     /**
-     * The independent, walkable entry is one cell SOUTH of the surveyed
-     * rectangle, centered on its southern edge.
+     * The independent, walkable entry is one cell WEST of the surveyed
+     * rectangle, next to the western corner.
+     *
+     * <p>The entry stands outside of the footprint: inside of it every cell
+     * belongs either to the descent with its ladder, to the deck or to the
+     * columns of the support of TFC.
      */
     public static BlockPos entrance(KingdomMineSettings.Shaft area) {
         if(area==null)return null;
-        // The entrance stands on the southern edge of the western corner: the
-        // corner is the only cell of the footprint that has rock on two
-        // sides, so that the ladder of the descent always finds its support.
-        return new BlockPos(area.minX(),area.surfaceY(),area.maxZ()+1);
+        return new BlockPos(area.minX()-1,area.surfaceY(),area.maxZ());
     }
 
     /**
@@ -83,7 +84,10 @@ public final class KingdomMineCentralShaftPlan {
             // walks in through the entrance and opens the shaft of the mine.
             // The surface is cleared first, so that no block of the cap is
             // left hanging over the excavation.
-            BlockPos shaft=new BlockPos(descent.getX(),y,area.maxZ()+1);
+            // The entry stands west of the western corner: inside of the
+            // footprint every cell belongs to the descent with its ladder, to
+            // the deck or to the columns of the support of TFC.
+            BlockPos shaft=new BlockPos(area.minX()-1,y,area.maxZ());
             cells.add(new KingdomMineGalleryPlan.Cell(shaft,shaft.above()));
             cells.add(new KingdomMineGalleryPlan.Cell(descent,shaft));
         }else{

@@ -83,10 +83,12 @@ class KingdomMineCentralShaftPlanTest {
         // descent needs that support.
         assertFalse(KingdomMineCentralShaftPlan.inside(shaft,descent.west()));
         assertFalse(KingdomMineCentralShaftPlan.inside(shaft,descent.south()));
-        // The entrance stands right outside of the corner.
+        // The entrance stands right outside of the corner, west of it: the
+        // cells inside the footprint belong to the descent, to the deck or to
+        // the columns of the support of TFC.
         var entrance=KingdomMineCentralShaftPlan.entrance(shaft);
-        assertEquals(shaft.minX(),entrance.getX());
-        assertEquals(shaft.maxZ()+1,entrance.getZ());
+        assertEquals(shaft.minX()-1,entrance.getX());
+        assertEquals(shaft.maxZ(),entrance.getZ());
         assertEquals(80,entrance.getY());
         // The shaft under the entrance is the first cell of the surface.
         var surface=KingdomMineCentralShaftPlan.layer(shaft,0);
@@ -112,7 +114,7 @@ class KingdomMineCentralShaftPlanTest {
         // The business block can be elsewhere and at a different elevation.
         assertTrue(KingdomMineCentralShaftPlan.valid(
             area(7,7),new BlockPos(100,65,-200)));
-        assertEquals(new BlockPos(0,80,7),
+        assertEquals(new BlockPos(-1,80,6),
             KingdomMineCentralShaftPlan.entrance(area(7,7)));
         assertTrue(KingdomMineCentralShaftPlan.cells(
             null,area(7,7),3,KingdomMineSettings.Heading.NORTH).isEmpty());
