@@ -24,6 +24,7 @@ public final class RuntimeAgent {
                         if (!probe.equals("ru.projectkingdom.validation.RuntimeProbe")
                                 && !probe.equals("ru.projectkingdom.validation.AutonomousMineProbe")
                                 && !probe.equals("ru.projectkingdom.validation.CompletionResumeProbe")
+                                && !probe.equals("ru.projectkingdom.validation.MinerRestResumeProbe")
                                 && !probe.equals("ru.projectkingdom.validation.McaIndividualLifeProbe"))
                             throw new IllegalArgumentException("Unknown validation probe: " + probe);
                         Class.forName(probe, true, helper)

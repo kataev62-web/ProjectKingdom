@@ -76,3 +76,19 @@ sleep, energy recovery and automatic return to work. It never calls startSleepin
 stopSleeping, or grants recovery energy. Success writes `npc-individual-life-PASS`.
 This is a lifecycle fixture with an independent crop-worker lease, not a completed
 miner excavation/warehouse scenario. TFC calendar control is confined to the fixture.
+
+
+After the autonomous soil scenario has stopped and saved, run:
+
+```sh
+bash validation/npc-runtime/miner-rest-resume.sh COMPLETED_SOIL_SERVER NEW_SERVER_DIRECTORY GAMEPLAY_JAR BUILD_LIBS
+```
+
+This copies the completed disposable world and loads its original miner, contract,
+physical inventory and warehouses. It waits for another actual second-layer cut,
+registers a real reachable bed outside the shaft, triggers energy25, and observes
+stopped production, evacuation, surface arrival, native sleep, recovery to40 and
+another cut after waking. It never teleports the miner, calls a production mining
+executor directly, forces sleep, or grants recovery. It is bounded to5000 ticks;
+PASS is `npc-miner-rest-resume-PASS`. A soil run does not prove deeper TFC support
+construction or all underground escape routes.

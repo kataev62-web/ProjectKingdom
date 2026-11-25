@@ -100,13 +100,14 @@ public final class KingdomResidentRestController {
             return changed;
         }
         if (danger || resident.isSleeping() || !permitsExit) state.exit = null;
-        if (!state.exitConsidered) {
+        if (danger || !permitsExit) state.exitConsidered = false;
+        if (!state.exitConsidered && !danger && permitsExit && !resident.isSleeping()) {
             state.exitConsidered = true;
             // The existing site's entrance and existing navigator are the only
             // evacuation route. No excavation, ladder, inventory or bed changes.
             if (!danger && permitsExit && !resident.isSleeping() && "miner".equals(worker.job)) {
                 var site = KingdomMineSite.inspect(server, level, worker);
-                if (site.entrance() != null && resident.getY() < site.entrance().getY() - 2) {
+                if (site.entrance() != null && resident.getY() < site.entrance().getY() - 0.5) {
                     if (site.ready()) {
                         state.exit = site.entrance().immutable();
                         state.exitStarted = now;
@@ -125,7 +126,6 @@ public final class KingdomResidentRestController {
                 state.waiting = 0;
                 state.status = bed;
             }
-            if (resting && bed == Status.NO_REGISTERED_BED) state.status = Status.RESTING;
         }
         return changed;
     }

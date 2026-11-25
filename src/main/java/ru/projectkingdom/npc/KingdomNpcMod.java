@@ -1089,8 +1089,16 @@ public final class KingdomNpcMod {
                             && KingdomNpcDuty.autonomousOrder(worker.order));
                 if (shift) {
                     KingdomMcaShiftArbiter.hold(resident);
-                    if (mode == KingdomResidentSchedule.Mode.EVACUATING)
+                    if (mode == KingdomResidentSchedule.Mode.EVACUATING) {
                         KingdomResidentRestController.evacuate(level, resident);
+                        // A finished/blocked exit becomes native REST in this same
+                        // tick; there must never be a lingering rest movement lease.
+                        if (!KingdomResidentRestController.evacuating(resident.getUUID())) {
+                            KingdomMcaShiftArbiter.release(resident);
+                            KingdomActionEngine.forget(resident.getUUID());
+                            KingdomResidentRestController.requestNativeRest(resident, worker);
+                        }
+                    }
                 } else {
                     if (KingdomMcaShiftArbiter.onShift(resident.getUUID())) resident.getNavigation().stop();
                     KingdomMcaShiftArbiter.release(resident);
