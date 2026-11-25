@@ -12,8 +12,8 @@ bash validation/npc-runtime/run.sh BASELINE_SERVER NEW_SERVER_DIRECTORY build/li
 
 The runner refuses an existing destination, copies the baseline dependency mods
 and configuration, uses a fresh local-only flat world, and launches the production
-Forge 47.3.0 server twice. The baseline must already contain the pinned MCA
-7.6.23, TFC 3.2.26, Create 0.5.1.j, Architectury and Patchouli dependencies, the
+Forge 47.4.10 server twice. The baseline must already contain the pinned MCA
+7.7.1-beta.5, Townstead 0.8.0, TFC 3.2.26, Create 0.5.1.j and Patchouli dependencies, the
 installed Forge libraries, and an accepted EULA. The Java agent bootstraps the
 reobfuscated helper through Forge's class loader. Every assertion runs on the
 server thread from real Forge tick callbacks. A world path plus a disposable

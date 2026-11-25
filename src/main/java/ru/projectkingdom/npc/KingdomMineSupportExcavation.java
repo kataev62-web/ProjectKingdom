@@ -21,7 +21,7 @@ public final class KingdomMineSupportExcavation {
 
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                               KingdomMineSupportPlan.Frame frame) {
-        frame=KingdomMineSupportBuilder.resolveFrame(level,frame);
+        frame=KingdomMineSupportBuilder.resolveFrame(level,frame,worker);
         if(frame==null || !KingdomMineSupportPlan.valid(frame))return Result.UNSAFE;
         BlockPos[] positions={
             frame.leftPost().above(2),frame.rightPost().above(2),

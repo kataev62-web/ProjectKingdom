@@ -57,6 +57,9 @@ class KingdomMineLayerWorkTest {
         world.put(descent.east(2),Blocks.OAK_PLANKS.defaultBlockState());
         assertFalse(KingdomMineLayerWork.complete(shaft,5,
                 at -> world.getOrDefault(at,Blocks.AIR.defaultBlockState())));
+        assertTrue(KingdomMineLayerWork.cleared(shaft,5,descent,
+                ladder.setValue(LadderBlock.FACING,Direction.EAST)),
+                "west exterior wall is a valid alternative at the corner descent");
         assertFalse(KingdomMineLayerWork.cleared(shaft,5,descent,
                 ladder.setValue(LadderBlock.FACING,Direction.SOUTH)));
     }

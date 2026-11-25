@@ -22,7 +22,8 @@ public final class RuntimeAgent {
                                 new java.net.URL[]{Path.of(argument).toUri().toURL()}, loaded.getClassLoader());
                         String probe = System.getProperty("npc.runtime.probeClass", "ru.projectkingdom.validation.RuntimeProbe");
                         if (!probe.equals("ru.projectkingdom.validation.RuntimeProbe")
-                                && !probe.equals("ru.projectkingdom.validation.AutonomousMineProbe"))
+                                && !probe.equals("ru.projectkingdom.validation.AutonomousMineProbe")
+                                && !probe.equals("ru.projectkingdom.validation.CompletionResumeProbe"))
                             throw new IllegalArgumentException("Unknown validation probe: " + probe);
                         Class.forName(probe, true, helper)
                                 .getMethod("boot", Object.class).invoke(null, server);

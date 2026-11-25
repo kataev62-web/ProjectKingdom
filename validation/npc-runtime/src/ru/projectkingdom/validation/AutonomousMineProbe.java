@@ -76,7 +76,8 @@ public final class AutonomousMineProbe {
         if (!done && event.phase == TickEvent.Phase.START && server.overworld() != null) {
             // Test clock control keeps one work shift available. Production
             // contract/schedule gates still execute normally on every tick.
-            server.overworld().setDayTime(3000);
+            // Restore the saved working view before allowing another productive tick.
+            TfcClock.set(server, checkpoint != null && !resumed ? 6000 : 3000);
         }
     }
 
@@ -224,7 +225,8 @@ public final class AutonomousMineProbe {
         saved.setProperty("cells", cellSnapshot());
         saved.setProperty("status", worker.mineStatus);
         saved.setProperty("horizontalSupports", Integer.toString(nativeSupports(true)));
-        KingdomNpcData.get(server).setDirty();
+        ((net.minecraft.world.level.saveddata.SavedData) KingdomNpcData.get(server)).setDirty();
+        server.saveAllChunks(false, true, true);
         try (var output = Files.newOutputStream(root.resolve("npc-autonomous-checkpoint.properties"))) {
             saved.store(output, "Observe only: resume this same world after graceful full JVM shutdown");
         }
@@ -257,18 +259,65 @@ public final class AutonomousMineProbe {
         require(raw != null && finished != null, "same physical warehouses loaded");
         resumeSecond = Integer.parseInt(checkpoint.getProperty("second"));
         resumeDelivered = Integer.parseInt(checkpoint.getProperty("delivered"));
+        if (Boolean.getBoolean("npc.runtime.continueVerifiedWorld")) {
+            // Explicit continuation of the same disposable world after a
+            // previously verified checkpoint/restart and observed extra cuts.
+            // Never recreate a fixture, reset inventory or claim the old
+            // snapshot still describes subsequently completed real work.
+            require(removed(1)==49 && removed(2)>=resumeSecond && delivered()>=resumeDelivered,
+                    "saved continuation cannot lose previously observed excavation/delivery");
+            require(KingdomResidentInventory.bind(worker,resident), "bind persisted continuation inventory");
+            pass("continue same verified disposable world from saved rock cells="+removed(2)+"; no fixture reset");
+        } else {
         require(removed(1) == 49 && removed(2) == resumeSecond && delivered() == resumeDelivered
                 && cellSnapshot().equals(checkpoint.getProperty("cells")),
                 "exact excavation cell positions/states and physical delivery persisted across restart");
-        require(inventorySnapshot(raw).equals(checkpoint.getProperty("rawInventory"))
-                && inventorySnapshot(finished).equals(checkpoint.getProperty("finishedInventory"))
-                && inventorySnapshot(KingdomMcaAdapter.personal(resident)).equals(checkpoint.getProperty("personalInventory"))
+        // The physical bag persists; fieldTool is deliberately a transient
+        // working view and is reconstructed by the production bind operation.
+        require(KingdomResidentInventory.bind(worker, resident), "restore physical working view after restart");
+        reportDifference("raw", checkpoint.getProperty("rawInventory"), inventorySnapshot(raw));
+        reportDifference("finished", checkpoint.getProperty("finishedInventory"), inventorySnapshot(finished));
+        reportDifference("personal", checkpoint.getProperty("personalInventory"), inventorySnapshot(KingdomMcaAdapter.personal(resident)));
+        reportDifference("tool", checkpoint.getProperty("tool"), worker.fieldTool.save(new net.minecraft.nbt.CompoundTag()).toString());
+        require(normalizedSnapshot(inventorySnapshot(raw)).equals(normalizedSnapshot(checkpoint.getProperty("rawInventory")))
+                && normalizedSnapshot(inventorySnapshot(finished)).equals(normalizedSnapshot(checkpoint.getProperty("finishedInventory")))
+                && normalizedSnapshot(inventorySnapshot(KingdomMcaAdapter.personal(resident))).equals(normalizedSnapshot(checkpoint.getProperty("personalInventory")))
                 && worker.fieldTool.save(new net.minecraft.nbt.CompoundTag()).toString().equals(checkpoint.getProperty("tool")),
                 "exact physical inventories and field-tool durability/NBT survived restart");
+        }
         distance = Double.parseDouble(checkpoint.getProperty("distance"));
         previous = resident.position();
         resumed = true;
         pass("full JVM restart restored same resident, miner job, cell states and physical warehouses; observing continuation");
+    }
+
+    private static void reportDifference(String name, String expected, String actual) {
+        if (expected.equals(actual)) return;
+        String[] a=expected.split(";"), b=actual.split(";");
+        for(int i=0;i<Math.max(a.length,b.length);i++) {
+            String before=i<a.length?a[i]:"<missing>", after=i<b.length?b[i]:"<missing>";
+            if(!before.equals(after)) System.out.println("[NPC-AUTONOMOUS] SNAPSHOT " + name + " before=" + before + " after=" + after);
+        }
+    }
+
+    private static String normalizedSnapshot(String snapshot) {
+        StringBuilder result=new StringBuilder();
+        for (String row:snapshot.split(";")) {
+            if (row.isEmpty()) continue;
+            int separator=row.indexOf(':');
+            try {
+                var tag=net.minecraft.nbt.TagParser.parseTag(row.substring(separator+1));
+                // Vanilla intentionally does not save empty slots. A consumed
+                // tool's zero-count shell may still carry Damage:0 in memory;
+                // that shell is not an item and must not cause a false loss.
+                if (tag.getByte("Count")<=0 || tag.getString("id").equals("minecraft:air"))
+                    tag=ItemStack.EMPTY.save(new net.minecraft.nbt.CompoundTag());
+                result.append(row,0,separator+1).append(tag).append(';');
+            } catch (com.mojang.brigadier.exceptions.CommandSyntaxException invalid) {
+                throw new IllegalArgumentException("Invalid saved inventory snapshot",invalid);
+            }
+        }
+        return result.toString();
     }
 
     private static String inventorySnapshot(Container container) {

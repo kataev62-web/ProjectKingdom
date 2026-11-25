@@ -140,6 +140,8 @@ public final class RuntimeProbe {
                     worker.fieldTool = pickaxe;
                     KingdomResidentInventory.flush(level, resident, worker);
                     pass("TFC loam soil: native Forge event, soil loot, shovel durability");
+                    nativeDeckPlacement();
+                    nativeEastLadder();
                     persist();
                 } else require(!outcome.failed(), "mining progressed: " + outcome);
             }
@@ -260,6 +262,61 @@ public final class RuntimeProbe {
                     "old three-block-high crossbeam rejected by native TFC API");
         }
         pass("native TFC Support: above-layer emergency beam covers target; old high beam rejected");
+    }
+
+    /** One native deck cell regression; this does not assert five-horizon autonomy. */
+    private static void nativeDeckPlacement() {
+        BlockPos deck = new BlockPos(9, 200, 9);
+        require(level.getBlockState(deck).isAir()
+                        && level.getBlockState(deck.below()).is(Blocks.BEDROCK),
+                "owned deck fixture has air above the existing solid platform");
+        require(KingdomResidentInventory.count(KingdomResidentInventory.personal(resident), Items.OAK_PLANKS) == 0,
+                "deck fixture starts without plank cargo");
+        worker.fieldInventory.add(new ItemStack(Items.OAK_PLANKS, 2));
+        KingdomResidentInventory.flush(level, resident, worker);
+        require(KingdomResidentInventory.count(KingdomResidentInventory.personal(resident), Items.OAK_PLANKS) == 2,
+                "exactly two actual planks stocked in the MCA personal bag");
+        var area = new KingdomMineSettings.Shaft(6, 12, 6, 12, 201, "minecraft:overworld");
+        require(area.contains(deck), "deck position belongs to the surveyed fixture area");
+        var result = KingdomMineStructureWork.plankAt(level, resident, worker, area, deck);
+        checkActor();
+        require(result == KingdomMineStructureWork.Result.BUILT
+                        && level.getBlockState(deck).is(Blocks.OAK_PLANKS),
+                "production native deck placement succeeds: " + result + "; "
+                        + KingdomMineStructureWork.lastReason());
+        KingdomResidentInventory.flush(level, resident, worker);
+        require(KingdomResidentInventory.count(KingdomResidentInventory.personal(resident), Items.OAK_PLANKS) == 1,
+                "native deck placement consumes exactly one physical plank");
+        pass("one owned deck cell: native plank placement, exact material consumption and FakePlayer restoration");
+    }
+
+    /** The west wall is external; an EAST facing ladder at this descent is cleared infrastructure. */
+    private static void nativeEastLadder() throws Exception {
+        BlockPos ladder = new BlockPos(10, 200, 9);
+        var area = new KingdomMineSettings.Shaft(10, 16, 3, 9, 201, "minecraft:overworld");
+        require(KingdomMineCentralShaftPlan.descent(area, 1).equals(ladder), "corner descent fixture");
+        require(level.getBlockState(ladder.west()).is(Blocks.OAK_PLANKS)
+                        && level.getBlockState(ladder.south()).isAir(),
+                "only west wall supports the native ladder fixture");
+        worker.fieldInventory.add(new ItemStack(Items.LADDER, 2));
+        KingdomResidentInventory.flush(level, resident, worker);
+        var result = KingdomMineStructureWork.ladderAt(level, resident, worker, area, ladder);
+        checkActor();
+        var placed = level.getBlockState(ladder);
+        require(result == KingdomMineStructureWork.Result.BUILT && placed.is(Blocks.LADDER)
+                        && placed.getValue(net.minecraft.world.level.block.LadderBlock.FACING)
+                            == net.minecraft.core.Direction.EAST,
+                "native external west-wall ladder faces EAST");
+        var cleared = KingdomMineLayerWork.class.getDeclaredMethod("cleared",
+                KingdomMineSettings.Shaft.class, int.class, BlockPos.class,
+                net.minecraft.world.level.block.state.BlockState.class);
+        cleared.setAccessible(true);
+        require(Boolean.TRUE.equals(cleared.invoke(null, area, 1, ladder, placed)),
+                "actual layer completion accepts the native EAST descent ladder");
+        KingdomResidentInventory.flush(level, resident, worker);
+        require(KingdomResidentInventory.count(KingdomResidentInventory.personal(resident), Items.LADDER) == 1,
+                "native EAST ladder consumed exactly one physical ladder");
+        pass("native EAST descent ladder on external west wall is accepted by actual layer completion");
     }
 
     private static void checkActor() {

@@ -55,6 +55,25 @@ public final class KingdomMineSupportSafety {
         }
     }
 
+    /** Check a proposed beam against TFC's loaded data, without placing a block. */
+    static boolean plannedBeamCanSupport(BlockPos beam,BlockPos target) {
+        try {
+            Class<?> support=Class.forName("net.dries007.tfc.util.Support");
+            var get=support.getMethod("get",BlockState.class);
+            var canSupport=support.getMethod("canSupport",BlockPos.class,BlockPos.class);
+            for(var block:BuiltInRegistries.BLOCK) {
+                BlockState state=block.defaultBlockState();
+                if(!isTfcHorizontalSupport(state))continue;
+                Object definition=get.invoke(null,state);
+                if(definition!=null && Boolean.TRUE.equals(canSupport.invoke(definition,beam,target)))
+                    return true;
+            }
+        } catch(ReflectiveOperationException | LinkageError unavailable) {
+            // No guessed support radius when TFC's registry is unavailable.
+        }
+        return false;
+    }
+
     public static Result inspect(ServerLevel level,BlockPos target) {
         if(!level.hasChunkAt(target)||!level.hasChunkAt(target.above())
                 ||!level.hasChunkAt(target.below()))return Result.UNLOADED;

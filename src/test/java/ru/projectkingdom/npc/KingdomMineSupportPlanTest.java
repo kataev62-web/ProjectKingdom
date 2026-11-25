@@ -86,4 +86,28 @@ class KingdomMineSupportPlanTest {
         assertFalse(KingdomMineSupportPlan.supports(""));
         assertFalse(KingdomMineSupportPlan.supports(null));
     }
+
+    @Test void frontierAlternativesIncludeClearedRowWithoutMovingProtectedRock() {
+        BlockPos approach=new BlockPos(40,198,42);
+        BlockPos rock=new BlockPos(41,198,42);
+        var initial=KingdomMineSupportPlan.emergency(approach,rock);
+        var poses=KingdomMineSupportPlan.nearbyFrames(initial);
+        assertEquals(initial,poses.get(0));
+        var clearedRow=poses.stream().filter(frame ->
+            frame.leftPost().equals(new BlockPos(38,198,42))
+            &&frame.rightPost().equals(new BlockPos(40,198,42))).findFirst().orElseThrow();
+        assertEquals(new BlockPos(39,200,42),clearedRow.crossbeam());
+        assertEquals(82,poses.size(),"bounded radius four, two orientations per center");
+        int previousDistance=-1;
+        for(var frame:poses) {
+            assertTrue(KingdomMineSupportPlan.valid(frame));
+            assertEquals(rock,frame.protectedCell());
+            assertEquals(approach,frame.access());
+            assertEquals(initial.beamHeight(),frame.beamHeight());
+            int distance=frame.walkway().distManhattan(approach);
+            assertTrue(distance>=previousDistance,"nearest candidates precede farther ones");
+            previousDistance=distance;
+        }
+        assertEquals(poses,KingdomMineSupportPlan.nearbyFrames(initial));
+    }
 }

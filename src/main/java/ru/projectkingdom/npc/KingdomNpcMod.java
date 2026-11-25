@@ -1314,9 +1314,7 @@ public final class KingdomNpcMod {
             long lifeDays = NpcSimulation.elapsed(day,w.lastLifeDay);
             if(lifeDays>0){
                 w.hunger=NpcLife.stepHunger(w.hunger,lifeDays);
-                boolean working="work".equals(w.order)
-                    &&(w.employer!=null||KingdomNpcFarmOwner.ownedFarm(server,w)!=null)
-                    &&!w.contractPaused;
+                boolean working=KingdomNpcWorkday.expendsEnergy(w.order,goal);
                 w.energy=NpcLife.stepEnergy(w.energy,lifeDays,working,w.hasHome);
                 w.morale=NpcLife.stepMorale(w.morale,w.hunger,w.energy,w.safety,!w.contractPaused,lifeDays);
                 KingdomNpcNutrition.age(w,lifeDays);

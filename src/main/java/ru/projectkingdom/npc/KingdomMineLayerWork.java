@@ -223,7 +223,8 @@ public final class KingdomMineLayerWork {
         if (state.isAir()) return true;
         BlockPos descent = KingdomMineCentralShaftPlan.descent(area, layer);
         if (at.equals(descent) && state.is(Blocks.LADDER)
-                && state.getValue(LadderBlock.FACING) == Direction.NORTH) return true;
+                && (state.getValue(LadderBlock.FACING) == Direction.NORTH
+                    || state.getValue(LadderBlock.FACING) == Direction.EAST)) return true;
         String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
         if ((at.equals(descent.east()) || at.equals(descent.north()))
                 && KingdomMineStructureWork.isDeckBlock(state)) return true;

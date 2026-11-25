@@ -152,9 +152,27 @@ public final class KingdomMineSupportBuilder {
 
     /** Use the same orientation for preparation, placement and completion checks. */
     static KingdomMineSupportPlan.Frame resolveFrame(ServerLevel level,
-            KingdomMineSupportPlan.Frame frame) {
-        if(frame==null||!KingdomMineSupportPlan.valid(frame)||!obstructedByStructure(level,frame))
-            return frame;
+            KingdomMineSupportPlan.Frame frame,KingdomNpcData.Worker worker) {
+        if(frame==null||!KingdomMineSupportPlan.valid(frame))return frame;
+        if(frame.depth()==0) {
+            // Preparing the default side alcoves can require breaking the very
+            // unsupported rock this beam is meant to protect. Use an already
+            // open pose behind the frontier instead; excavation stays fail-closed.
+            for(var candidate:KingdomMineSupportPlan.nearbyFrames(frame)) {
+                if(!accessible(level,candidate,worker)
+                    ||!clearForPost(level,candidate.leftPost())
+                    ||!clearForPost(level,candidate.rightPost())
+                    ||!KingdomMineSupportSafety.plannedBeamCanSupport(
+                        candidate.crossbeam(),candidate.protectedCell()))continue;
+                BlockState beam=level.getBlockState(candidate.crossbeam());
+                if(!beam.isAir()&&!frameComplete(level,candidate))continue;
+                BlockPos access=safeAccess(level,candidate,worker);
+                if(access!=null)return new KingdomMineSupportPlan.Frame(
+                    candidate.leftPost(),candidate.rightPost(),candidate.crossbeam(),
+                    candidate.walkway(),access,candidate.protectedCell(),candidate.depth());
+            }
+        }
+        if(!obstructedByStructure(level,frame))return frame;
         boolean eastWest=frame.leftPost().getX()!=frame.rightPost().getX();
         BlockPos center=frame.walkway();
         var rotated=new KingdomMineSupportPlan.Frame(
@@ -162,6 +180,34 @@ public final class KingdomMineSupportBuilder {
             eastWest?center.south():center.east(),frame.crossbeam(),center,
             frame.access(),frame.protectedCell(),frame.depth());
         return obstructedByStructure(level,rotated)?frame:rotated;
+    }
+
+    private static BlockPos safeAccess(ServerLevel level,KingdomMineSupportPlan.Frame frame,
+            KingdomNpcData.Worker worker) {
+        var land=KingdomTerritories.get(level.getServer());
+        java.util.List<BlockPos> candidates=new java.util.ArrayList<>();
+        candidates.add(frame.access());
+        candidates.add(frame.walkway());
+        for(Direction direction:Direction.Plane.HORIZONTAL)
+            candidates.add(frame.walkway().relative(direction));
+        for(BlockPos pos:candidates) {
+            if(pos.equals(frame.leftPost())||pos.equals(frame.rightPost())
+                ||pos.equals(frame.crossbeam())||pos.above().equals(frame.crossbeam())
+                ||pos.distSqr(frame.walkway())>4)continue;
+            boolean safe=true;
+            for(int dy=-1;dy<=1;dy++) {
+                BlockPos cell=pos.above(dy);
+                if(!level.hasChunkAt(cell)||!land.canUse(level,cell,worker.employer)) {
+                    safe=false;
+                    break;
+                }
+            }
+            if(safe && level.getBlockState(pos.below()).isFaceSturdy(level,pos.below(),Direction.UP)
+                &&KingdomMineMaintenance.passable(level.getBlockState(pos))
+                &&KingdomMineMaintenance.passable(level.getBlockState(pos.above()))
+                &&level.getFluidState(pos).isEmpty()&&level.getFluidState(pos.above()).isEmpty())return pos;
+        }
+        return null;
     }
 
     private static boolean obstructedByStructure(ServerLevel level,
@@ -177,7 +223,7 @@ public final class KingdomMineSupportBuilder {
 
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                               KingdomMineSupportPlan.Frame frame) {
-        frame=resolveFrame(level,frame);
+        frame=resolveFrame(level,frame,worker);
         if(!accessible(level,frame,worker))return Result.INACCESSIBLE;
         BlockPos left=frame.leftPost(),right=frame.rightPost(),middle=frame.crossbeam();
         if(frameComplete(level,frame))return Result.COMPLETE;
@@ -197,6 +243,16 @@ public final class KingdomMineSupportBuilder {
         boolean needPole=!vertical(level.getBlockState(left))
             ||!vertical(level.getBlockState(right));
         if(carried(worker,needPole?3:2).isEmpty())return supply(level,npc,worker);
+        // An alternate cleared pose may put a future post on the miner's
+        // previous staging cell. Leave both post columns before native use.
+        for(BlockPos post:new BlockPos[]{left,right}) {
+            if(npc.getBoundingBox().intersects(
+                    new net.minecraft.world.phys.AABB(post).expandTowards(0,2,0))) {
+                npc.getNavigation().moveTo(frame.access().getX()+.5,frame.access().getY(),
+                    frame.access().getZ()+.5,.75);
+                return Result.WALKING;
+            }
+        }
         // TFC places three vertical supports at once if enough real items are held.
         if(!vertical(level.getBlockState(left)))
             return nativePlace(level,npc,worker,left,Direction.UP,false,frame.access());

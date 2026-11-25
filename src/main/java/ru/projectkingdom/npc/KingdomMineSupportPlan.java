@@ -91,6 +91,24 @@ public final class KingdomMineSupportPlan {
                 && frame.rightPost().distManhattan(frame.walkway())==1;
     }
 
+    /** Nearby emergency poses, nearest first; never change the protected rock or level. */
+    static List<Frame> nearbyFrames(Frame frame) {
+        if(!valid(frame))return List.of();
+        List<Frame> result=new ArrayList<>();
+        boolean eastWest=frame.leftPost().getX()!=frame.rightPost().getX();
+        for(int distance=0;distance<=4;distance++)
+            for(int dx=-distance;dx<=distance;dx++)
+                for(int dz=-distance;dz<=distance;dz++) {
+                    if(Math.abs(dx)+Math.abs(dz)!=distance)continue;
+                    BlockPos center=frame.walkway().offset(dx,0,dz);
+                    for(boolean acrossX:new boolean[]{eastWest,!eastWest})
+                        result.add(new Frame(acrossX?center.west():center.north(),
+                            acrossX?center.east():center.south(),center.above(frame.beamHeight()),
+                            center,frame.access(),frame.protectedCell(),frame.depth()));
+                }
+        return List.copyOf(result);
+    }
+
     /** A support item and two real vertical posts must exist before linking. */
     public static boolean supports(String itemId) {
         return itemId!=null && itemId.startsWith("tfc:wood/support/")
