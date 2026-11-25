@@ -641,9 +641,18 @@ public final class KingdomNpcMod {
                         .append(" x").append(stack.getCount());
                 // The real container of the resident, as the world sees it.
                 StringBuilder real=new StringBuilder();
+                StringBuilder nativeSchedule=new StringBuilder();
                 for(ServerLevel level:server.getAllLevels()){
                     var entity=level.getEntity(w.entityId);
                     if(!(entity instanceof Villager resident))continue;
+                    if (KingdomMcaAdapter.isResident(resident)) {
+                        var snapshot = KingdomMcaSchedule.inspect(resident,resident.getBrain().getSchedule());
+                        nativeSchedule.append(" | MCA график: ").append(snapshot.scheduledActivity())
+                            .append(" / сейчас: ").append(snapshot.currentActivity())
+                            .append(" / управление: ").append(snapshot.moveState()).append('/').append(snapshot.chore())
+                            .append(" | отдых: ").append(KingdomResidentRestController.status(w.entityId))
+                            .append(" / энергия: ").append(w.energy);
+                    }
                     var personal=KingdomResidentInventory.personal(resident);
                     if(personal==null){real.append("нет контейнера");break;}
                     for(int i=0;i<personal.getContainerSize();i++){
@@ -666,7 +675,7 @@ public final class KingdomNpcMod {
                     +" | карьера: "+(careerText.isEmpty()?"нет":careerText)
                     +" | сумка: "+(toolText.isEmpty()?"пусто":toolText)
                     +" | контейнер: "+(real.length()==0?"нет жителя":real.toString())
-                    +" | состояние: "+w.mineStatus),false);
+                    +" | состояние: "+w.mineStatus+nativeSchedule),false);
             }
             return 1;
         }));
@@ -794,9 +803,11 @@ public final class KingdomNpcMod {
             var src=ctx.getSource(); var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
             if (w==null || !canEdit(src,w)) {reply(src,"No permission");return 0;}
             if (!w.dimension.equals(src.getLevel().dimension().location().toString())) {reply(src,"Wrong dimension");return 0;}
-            BlockPos pos=BlockPos.containing(src.getPosition());
-            w.homeX=pos.getX();w.homeY=pos.getY();w.homeZ=pos.getZ();w.hasHome=true;
-            KingdomNpcData.get(src.getServer()).setDirty();reply(src,"Home saved for #"+w.id);return 1;
+            if (!(src.getEntity() instanceof ServerPlayer player)) {reply(src,"A player must stand near the home bed");return 0;}
+            var result=KingdomResidentHome.assign(player,w);
+            reply(src,result.message());
+            if (!result.assigned()) return 0;
+            KingdomNpcData.get(src.getServer()).setDirty();return 1;
         })));
         root.then(Commands.literal("stock").then(Commands.argument("id",IntegerArgumentType.integer(1)).executes(ctx -> {
             var src=ctx.getSource();var w=find(src,IntegerArgumentType.getInteger(ctx,"id"));
@@ -1034,6 +1045,7 @@ public final class KingdomNpcMod {
         if(!(event.getEntity() instanceof Villager villager)
                 ||!(event.getLevel() instanceof ServerLevel level))return;
         KingdomMcaShiftArbiter.release(villager);
+        KingdomResidentRestController.forget(villager.getUUID());
         KingdomActionEngine.forget(villager.getUUID());
         var reason=villager.getRemovalReason();
         if(reason==net.minecraft.world.entity.Entity.RemovalReason.KILLED
@@ -1062,24 +1074,30 @@ public final class KingdomNpcMod {
                 var entity = level.getEntity(worker.entityId);
                 if (!(entity instanceof Villager resident) || !resident.isAlive()
                         || !KingdomMcaAdapter.isResident(resident)) continue;
-                // The schedule of the day decides who owns the resident: the
-                // Kingdom owns it during the shift and during the rest, the
-                // ordinary life of MCA owns it in the evening and in the
-                // morning. Danger always wins.
+                var nativeState = KingdomMcaSchedule.inspect(resident, resident.getBrain().getSchedule());
+                if (KingdomResidentRestController.refresh(server, level, resident, worker,
+                        nativeState.controlsAvailable() && !nativeState.manualOverride()
+                            && nativeState.scheduledActivity() == net.minecraft.world.entity.schedule.Activity.REST))
+                    residents.setDirty();
                 var mode = KingdomResidentSchedule.modeOf(server, worker.entityId, worker);
-                boolean shift = KingdomResidentSchedule.kingdomOwns(mode)
+                boolean shift = mode == KingdomResidentSchedule.Mode.EVACUATING
+                    || KingdomResidentSchedule.working(mode)
                     && (KingdomNpcDuty.mayExecute(worker.job, worker.order,
                         worker.autonomousIntent, KingdomNpcWorkday.employed(server, worker))
                         || "courier".equals(worker.order) || "haul".equals(worker.order)
                         || worker.employer == null && "farmer".equals(worker.job)
                             && KingdomNpcDuty.autonomousOrder(worker.order));
-                if (shift) KingdomMcaShiftArbiter.hold(resident);
-                else {
+                if (shift) {
+                    KingdomMcaShiftArbiter.hold(resident);
+                    if (mode == KingdomResidentSchedule.Mode.EVACUATING)
+                        KingdomResidentRestController.evacuate(level, resident);
+                } else {
                     if (KingdomMcaShiftArbiter.onShift(resident.getUUID())) resident.getNavigation().stop();
                     KingdomMcaShiftArbiter.release(resident);
                     KingdomActionEngine.forget(resident.getUUID());
+                    if (mode == KingdomResidentSchedule.Mode.KINGDOM_REST)
+                        KingdomResidentRestController.requestNativeRest(resident, worker);
                 }
-                if (!KingdomResidentSchedule.working(mode)) KingdomActionEngine.forget(resident.getUUID());
                 break;
             }
         }
@@ -1090,6 +1108,7 @@ public final class KingdomNpcMod {
         for (var level : event.getServer().getAllLevels())
             for (var entity : level.getAllEntities())
                 if (entity instanceof Villager resident) KingdomMcaShiftArbiter.release(resident);
+        KingdomResidentRestController.forgetAll();
         KingdomMcaShiftArbiter.forgetAll();
         KingdomActionEngine.forgetAll();
     }
@@ -1315,7 +1334,15 @@ public final class KingdomNpcMod {
             if(lifeDays>0){
                 w.hunger=NpcLife.stepHunger(w.hunger,lifeDays);
                 boolean working=KingdomNpcWorkday.expendsEnergy(w.order,goal);
-                w.energy=NpcLife.stepEnergy(w.energy,lifeDays,working,w.hasHome);
+                boolean mcaResident = false;
+                for (var lifeLevel : server.getAllLevels()) {
+                    var lifeEntity = lifeLevel.getEntity(w.entityId);
+                    if (lifeEntity instanceof Villager villager && KingdomMcaAdapter.isResident(villager))
+                        mcaResident = true;
+                }
+                // MCA gains energy only from observed native rest, never from owning a home.
+                if (working || !mcaResident)
+                    w.energy=NpcLife.stepEnergy(w.energy,lifeDays,working,w.hasHome);
                 w.morale=NpcLife.stepMorale(w.morale,w.hunger,w.energy,w.safety,!w.contractPaused,lifeDays);
                 KingdomNpcNutrition.age(w,lifeDays);
                 w.lastLifeDay=day;changed=true;
@@ -1369,7 +1396,6 @@ public final class KingdomNpcMod {
                     KingdomActionEngine.forget(npc.getUUID());
                     continue;
                 }
-                if(KingdomResidentSafety.confine(server,level,npc,w,db))continue;
                 boolean talking = false;
                 for (ServerPlayer other : level.players()) {
                     if (other.containerMenu instanceof KingdomNpcMenu menu
@@ -1380,13 +1406,18 @@ public final class KingdomNpcMod {
                 }
                 var mode=KingdomResidentSchedule.modeOf(server,w.entityId,w);
                 if (KingdomMcaAdapter.isResident(npc)
-                        && (mode == KingdomResidentSchedule.Mode.EMERGENCY
-                            || !KingdomResidentSchedule.working(mode) && !talking
-                                && (KingdomNpcDuty.autonomousOrder(w.order) || "stay".equals(w.order)
-                                    || "courier".equals(w.order) || "haul".equals(w.order)))) {
+                        && mode == KingdomResidentSchedule.Mode.EVACUATING) {
                     if (npc.isNoAi()) npc.setNoAi(false);
                     continue;
                 }
+                if (KingdomMcaAdapter.isResident(npc)
+                        && (mode == KingdomResidentSchedule.Mode.EMERGENCY
+                            || !KingdomResidentSchedule.working(mode) && !talking)) {
+                    if (npc.isNoAi()) npc.setNoAi(false);
+                    continue;
+                }
+                // Native MCA life/rest owns movement outside the Kingdom lease.
+                if(KingdomResidentSafety.confine(server,level,npc,w,db))continue;
                 boolean stay = "stay".equals(w.order);
                 if (stay || talking) {
                     if (!npc.isNoAi()) npc.setNoAi(true);

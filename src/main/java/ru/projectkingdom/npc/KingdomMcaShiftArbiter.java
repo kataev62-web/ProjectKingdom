@@ -11,37 +11,14 @@ import net.minecraft.world.entity.schedule.Activity;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.entity.schedule.Schedule;
 
-/**
- * The arbitration of the navigation between the Kingdom and MCA.
- *
- * <p>One server owner of the navigation per resident at any moment. While the
- * Kingdom shift runs, the resident must not walk away to its own business;
- * when the shift ends, the ordinary life of MCA must continue exactly as
- * before.
- *
- * <p>The arbitration uses the vanilla brain only:
- *
- * <ul>
- *   <li>the schedule of the resident is replaced with the empty schedule, so
- *       the work, meeting and rest activities of the day do not start;</li>
- *   <li>the default activity becomes the core activity, so the idle business
- *       of MCA (the favourite building, the walk target) does not start;</li>
- *   <li>the memories that hold a movement target (the walk target, the job
- *       site, the meeting point) are cleared, so no MCA task walks away;</li>
- *   <li>the core tasks stay: the resident still looks around, greets, hides
- *       in a bell and reacts to danger. The panic of MCA overrides the core
- *       activity on its own and is never blocked.</li>
- * </ul>
- *
- * <p>Nothing of MCA is changed: the shift is a lease that is taken and
- * returned, and the original schedule and memories are restored.
- */
+/** Exclusive, temporary movement lease. Native schedules, POIs and default activities stay live. */
 public final class KingdomMcaShiftArbiter {
     private KingdomMcaShiftArbiter() {}
 
     /** The state that the arbiter took from the brain of a resident. */
     public static final class Lease {
         private final Schedule schedule;
+        private net.minecraft.world.entity.ai.Brain<?> brain;
         private final Optional<GlobalPos> jobSite;
         private final Optional<GlobalPos> meetingPoint;
         private boolean released;
@@ -73,19 +50,21 @@ public final class KingdomMcaShiftArbiter {
     /**
      * Takes the navigation of a brain for the Kingdom shift.
      *
-     * <p>The brain is the contract with MCA: the shift changes the schedule,
-     * the default activity and the movement memories, and nothing else.
+     * <p>Only the active movement activity and WALK_TARGET are leased. The
+     * individual schedule and native default/POI policy remain untouched.
      */
     public static Lease begin(UUID id, net.minecraft.world.entity.ai.Brain<? super Villager> brain) {
         if (id == null || brain == null) return null;
         Lease existing = LEASES.get(id);
-        if (existing != null && !existing.released) return existing;
+        if (existing != null && !existing.released && existing.brain == brain) return existing;
+        if (existing != null) existing.released = true;
         Lease lease = new Lease(brain.getSchedule(),
                 brain.getMemory(MemoryModuleType.JOB_SITE),
                 brain.getMemory(MemoryModuleType.MEETING_POINT));
-        brain.setSchedule(Schedule.EMPTY);
+        lease.brain = brain;
         // Never rewrite MCA's default activity. Its brain owns that policy.
-        brain.setActiveActivityIfPossible(Activity.CORE);
+        if (!brain.isActive(Activity.PANIC) && !brain.isActive(Activity.HIDE)
+                && !brain.isActive(Activity.RAID)) brain.setActiveActivityIfPossible(Activity.CORE);
         clearMovements(brain);
         LEASES.put(id, lease);
         return lease;
@@ -106,7 +85,7 @@ public final class KingdomMcaShiftArbiter {
     public static void hold(UUID id, net.minecraft.world.entity.ai.Brain<? super Villager> brain) {
         if (id == null || brain == null) return;
         Lease lease = LEASES.get(id);
-        if (lease == null || lease.released) {
+        if (lease == null || lease.released || lease.brain != brain) {
             lease = begin(id, brain);
             if (lease == null) return;
         }
@@ -118,8 +97,8 @@ public final class KingdomMcaShiftArbiter {
     /**
      * Returns the navigation to MCA.
      *
-     * <p>The original schedule and memories come back, and the activity of the
-     * resident is recomputed from the time of the day.
+     * <p>The activity is recomputed from the current live MCA schedule; changes
+     * made by MCA during the lease are retained.
      */
     public static void release(Villager resident) {
         if (resident == null) return;
@@ -134,7 +113,10 @@ public final class KingdomMcaShiftArbiter {
         Lease lease = LEASES.remove(id);
         if (lease == null) return;
         lease.released = true;
-        brain.setSchedule(lease.schedule);
+        // MCA player commands may rebuild the brain. It already owns its new
+        // activity; releasing an obsolete lease must not reset that activity.
+        if (lease.brain != brain) return;
+        // MCA may replace its schedule while leased; never restore an obsolete snapshot.
         boolean emergency = brain.isActive(Activity.PANIC) || brain.isActive(Activity.HIDE)
                 || brain.isActive(Activity.RAID);
         // No stale POIs are written back over changes made by MCA mid-shift.
@@ -148,6 +130,13 @@ public final class KingdomMcaShiftArbiter {
     public static boolean onShift(UUID resident) {
         Lease lease = LEASES.get(resident);
         return lease != null && !lease.released;
+    }
+
+    /** Called only for leased brains; other villagers keep their normal schedule updates. */
+    public static boolean shouldDeferScheduleUpdate(net.minecraft.world.entity.ai.Brain<?> brain) {
+        for (Lease lease : LEASES.values())
+            if (!lease.released && lease.brain == brain) return true;
+        return false;
     }
 
     /** The number of residents that are currently on a Kingdom shift. */

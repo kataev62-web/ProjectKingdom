@@ -47,6 +47,7 @@ public final class McaLeaseProbe {
         brain.setMemory(MemoryModuleType.WALK_TARGET, new WalkTarget(new BlockPos(37, 200, 35), 1, 1));
         var lease = KingdomMcaShiftArbiter.begin(resident);
         require(lease != null && KingdomMcaShiftArbiter.onShift(resident.getUUID()), "actual MCA lease begins");
+        require(brain.getSchedule() == schedule, "actual MCA individual schedule remains live during lease");
         require(brain.getMemory(MemoryModuleType.WALK_TARGET).isEmpty(), "MCA walk target leased");
         if (townsteadTick != null) {
             long before = TownsteadNpcCompatibility.deferredTicks();
@@ -79,7 +80,7 @@ public final class McaLeaseProbe {
                     "actual Townstead dispatcher resumes after lease release");
             System.out.println("[NPC-AUTONOMOUS] PASS actual Townstead dispatcher defers only during lease; MCA family and 27-slot bag verified");
         }
-        System.out.println("[NPC-AUTONOMOUS] PASS actual MCA lease restores schedule, retains POIs and active PANIC");
+        System.out.println("[NPC-AUTONOMOUS] PASS actual MCA lease preserves live individual schedule, POIs and active PANIC");
     }
 
     private static void invokeTownstead(Method tick, Object resident) {

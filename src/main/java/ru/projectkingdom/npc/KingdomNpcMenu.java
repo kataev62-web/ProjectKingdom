@@ -440,11 +440,9 @@ public final class KingdomNpcMenu extends ChestMenu {
             }
             case 0 -> {
                 if (!owner) { info("Назначить дом может работодатель."); break; }
-                var pos = viewer.blockPosition();
-                w.homeX = pos.getX(); w.homeY = pos.getY(); w.homeZ = pos.getZ();
-                w.hasHome = true;
-                info("Дом назначен: " + pos.toShortString());
-                changed = true;
+                var result = KingdomResidentHome.assign(viewer, w);
+                info(result.message());
+                changed = result.assigned();
             }
             case 1 -> {
                 if(w.employer!=null&&!owner){

@@ -19,6 +19,7 @@ helper=("$libs"/*-runtime-validation.jar)
 probe=${NPC_RUNTIME_PROBE:-standard}
 case "$probe" in
   standard) probe_class=ru.projectkingdom.validation.RuntimeProbe; phases=2; timeout_seconds=480 ;;
+  individual) probe_class=ru.projectkingdom.validation.McaIndividualLifeProbe; phases=1; timeout_seconds=480 ;;
   autonomous) probe_class=ru.projectkingdom.validation.AutonomousMineProbe; phases=1; timeout_seconds=900 ;;
   *) echo "Unknown NPC_RUNTIME_PROBE: $probe" >&2; exit 2 ;;
 esac
@@ -64,13 +65,15 @@ for ((phase=1; phase<=phases; phase++)); do
     cat "npc-runtime-phase-$phase.log" >&2
     exit 1
   fi
-  [[ "$probe" == autonomous || -f npc-runtime-world/npc-runtime-checkpoint.properties ]]
+  [[ "$probe" != standard || -f npc-runtime-world/npc-runtime-checkpoint.properties ]]
   if [[ "$probe" == autonomous && "$rock" == true && "$phase" == 1 ]]; then
     [[ -f npc-runtime-world/npc-autonomous-checkpoint.properties ]]
     [[ ! -f npc-runtime-world/npc-autonomous-PASS ]]
   fi
 done
-if [[ "$probe" == autonomous ]]; then
+if [[ "$probe" == individual ]]; then
+  [[ -f npc-runtime-world/npc-individual-life-PASS ]]
+elif [[ "$probe" == autonomous ]]; then
   [[ -f npc-runtime-world/npc-autonomous-PASS ]]
 else
   [[ -f npc-runtime-world/npc-runtime-PASS ]]

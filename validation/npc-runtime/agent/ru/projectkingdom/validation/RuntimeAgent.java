@@ -23,7 +23,8 @@ public final class RuntimeAgent {
                         String probe = System.getProperty("npc.runtime.probeClass", "ru.projectkingdom.validation.RuntimeProbe");
                         if (!probe.equals("ru.projectkingdom.validation.RuntimeProbe")
                                 && !probe.equals("ru.projectkingdom.validation.AutonomousMineProbe")
-                                && !probe.equals("ru.projectkingdom.validation.CompletionResumeProbe"))
+                                && !probe.equals("ru.projectkingdom.validation.CompletionResumeProbe")
+                                && !probe.equals("ru.projectkingdom.validation.McaIndividualLifeProbe"))
                             throw new IllegalArgumentException("Unknown validation probe: " + probe);
                         Class.forName(probe, true, helper)
                                 .getMethod("boot", Object.class).invoke(null, server);

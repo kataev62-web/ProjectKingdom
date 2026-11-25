@@ -8,6 +8,7 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import ru.projectkingdom.npc.KingdomMcaShiftArbiter;
+import ru.projectkingdom.npc.KingdomResidentRestController;
 
 /** Stop native work through Behavior's real SRG bridges, retaining its stop cleanup. */
 @Pseudo
@@ -28,13 +29,17 @@ public abstract class TownsteadShiftWorkMixin {
             at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void kingdom$deferWorkStart(ServerLevel level, LivingEntity resident,
                                       CallbackInfoReturnable<Boolean> cir) {
-        if (KingdomMcaShiftArbiter.onShift(resident.getUUID())) cir.setReturnValue(false);
+        if ((KingdomMcaShiftArbiter.onShift(resident.getUUID())
+                || resident instanceof net.minecraft.world.entity.npc.Villager villager
+                    && KingdomResidentRestController.requiresRestControl(villager))) cir.setReturnValue(false);
     }
 
     @Inject(method = "m_6737_(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/entity/LivingEntity;J)Z",
             at = @At("HEAD"), cancellable = true, require = 1, remap = false)
     private void kingdom$deferRunningWork(ServerLevel level, LivingEntity resident, long time,
                                         CallbackInfoReturnable<Boolean> cir) {
-        if (KingdomMcaShiftArbiter.onShift(resident.getUUID())) cir.setReturnValue(false);
+        if ((KingdomMcaShiftArbiter.onShift(resident.getUUID())
+                || resident instanceof net.minecraft.world.entity.npc.Villager villager
+                    && KingdomResidentRestController.requiresRestControl(villager))) cir.setReturnValue(false);
     }
 }

@@ -52,7 +52,8 @@ final class KingdomMcaShiftArbiterTest {
 
         var lease = KingdomMcaShiftArbiter.begin(resident, brain);
         assertNotNull(lease, "the shift must take a lease");
-        assertEquals(Schedule.EMPTY, brain.getSchedule(), "the day of MCA must not start the work");
+        assertEquals(Schedule.VILLAGER_DEFAULT, brain.getSchedule(), "individual schedule stays live");
+        assertTrue(KingdomMcaShiftArbiter.shouldDeferScheduleUpdate(brain));
         assertTrue(KingdomMcaShiftArbiter.onShift(resident), "the resident is on a shift");
 
         KingdomMcaShiftArbiter.release(resident, brain, 1000, 1000);
@@ -120,7 +121,10 @@ final class KingdomMcaShiftArbiterTest {
         UUID id=UUID.randomUUID();
         KingdomMcaShiftArbiter.begin(id,brain);
         brain.setMemory(MemoryModuleType.JOB_SITE,changed);
+        brain.setSchedule(Schedule.VILLAGER_BABY);
         KingdomMcaShiftArbiter.release(id,brain,0,0);
+        assertEquals(Schedule.VILLAGER_BABY, brain.getSchedule());
+        assertFalse(KingdomMcaShiftArbiter.shouldDeferScheduleUpdate(brain));
         brain.useDefaultActivity();
         assertTrue(brain.isActive(Activity.REST));
         assertEquals(changed,brain.getMemory(MemoryModuleType.JOB_SITE).orElseThrow());
@@ -135,5 +139,30 @@ final class KingdomMcaShiftArbiterTest {
         KingdomMcaShiftArbiter.release(id,brain,1000,1000);
         assertTrue(brain.isActive(Activity.PANIC), "release must preserve MCA escape activity");
         assertFalse(KingdomMcaShiftArbiter.onShift(id));
+    }
+
+    @Test void refreshedMcaBrainDoesNotRetainStaleNavigationOwnership() {
+        UUID id = UUID.randomUUID();
+        var oldBrain = brain();
+        var newBrain = brain();
+        var oldLease = KingdomMcaShiftArbiter.begin(id, oldBrain);
+        KingdomMcaShiftArbiter.hold(id,newBrain);
+        assertTrue(oldLease.released());
+        assertFalse(KingdomMcaShiftArbiter.shouldDeferScheduleUpdate(oldBrain));
+        assertTrue(KingdomMcaShiftArbiter.shouldDeferScheduleUpdate(newBrain));
+        KingdomMcaShiftArbiter.release(id,newBrain,1000,1000);
+        assertFalse(KingdomMcaShiftArbiter.shouldDeferScheduleUpdate(newBrain));
+    }
+
+    @Test void releasingOldLeaseNeverResetsReplacementBrainPlayerActivity() {
+        UUID id = UUID.randomUUID();
+        var oldBrain = brain();
+        KingdomMcaShiftArbiter.begin(id,oldBrain);
+        var replacement = brain();
+        replacement.addActivity(Activity.MEET,0,ImmutableList.of());
+        replacement.setActiveActivityIfPossible(Activity.MEET);
+        KingdomMcaShiftArbiter.release(id,replacement,0,0);
+        assertTrue(replacement.isActive(Activity.MEET));
+        assertFalse(KingdomMcaShiftArbiter.shouldDeferScheduleUpdate(oldBrain));
     }
 }

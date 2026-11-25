@@ -41,8 +41,8 @@ same four arguments and a different new destination. It launches one JVM with a
 900-second process limit and 12,000-tick assertion limit. It creates an actual
 MCA miner, active physical mine core, enterprise, payroll contract, surveyed 7x7
 shaft and real raw/finished chests. The raw chest supplies actual tools, ladders,
-planks and native TFC beams. The scenario holds the test world's clock at 09:00
-to provide one continuous work shift; normal schedule/contract gates remain
+planks and native TFC beams. The scenario reads the actual resident's native schedule and holds the test
+clock inside that individual's WORK period; normal schedule/contract gates remain
 active. After setup it only observes, without calling work/navigation/delivery
 executors or pinning/teleporting the miner. It requires all 49 first-layer cells
 clear before any second-layer removal, at least 16 second-layer cells removed,
@@ -52,7 +52,7 @@ least 64 native TFC soil items delivered to the finished chest. Success writes
 autonomous construction in collapse-risk natural rock or completion of all
 requested underground horizons.
 
-Both scenarios also exercise a real MCA brain lease: original schedule restored,
+Both scenarios also exercise a real MCA brain lease: individual schedule kept live,
 job/home/meeting POIs preserved and native active PANIC retained by hold/release.
 
 
@@ -66,3 +66,13 @@ world. The checkpoint records resident UUID, worker/job assignment, counts,
 position, tool/status and support count; phase 2 loads the existing fixtures and
 requires further cuts and delivery before PASS. This adds no calls to production
 mining/navigation/delivery methods. The original soil mode still runs one JVM.
+
+
+`NPC_RUNTIME_PROBE=individual bash validation/npc-runtime/run.sh ...` launches a
+separate bounded native MCA lifecycle scenario. It reads actual day/night schedules,
+uses the real MCA STAY/FOLLOW/chore APIs, registers a physical bed using the production
+Kingdom HOME bridge and native MCA Residency/POI transaction, then observes actual
+sleep, energy recovery and automatic return to work. It never calls startSleeping,
+stopSleeping, or grants recovery energy. Success writes `npc-individual-life-PASS`.
+This is a lifecycle fixture with an independent crop-worker lease, not a completed
+miner excavation/warehouse scenario. TFC calendar control is confined to the fixture.

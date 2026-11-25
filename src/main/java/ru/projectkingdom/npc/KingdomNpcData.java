@@ -120,6 +120,8 @@ public final class KingdomNpcData extends SavedData {
         /** Explicit native-death loot must be delivered before further animal work. */
         public boolean butcherDelivery=false;
         public int energy = 80;
+        /** Critical fatigue survives reload until observed rest restores enough energy. */
+        public boolean fatigueRestRequired = false;
         public int morale = 70;
         public int safety = 70;
         public String settlement = "wilderness";
@@ -223,6 +225,7 @@ public final class KingdomNpcData extends SavedData {
             w.rationsEnabled=t.getBoolean("RationsEnabled");
             w.butcherDelivery=t.getBoolean("ButcherDelivery");
             w.energy = t.contains("Energy", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Energy")) : 80;
+            w.fatigueRestRequired = t.getBoolean("FatigueRestRequired");
             w.morale = t.contains("Morale", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Morale")) : 70;
             w.safety = t.contains("Safety", Tag.TAG_INT) ? NpcLife.clamp(t.getInt("Safety")) : 70;
             w.settlement = t.contains("Settlement", Tag.TAG_STRING) ? t.getString("Settlement") : "wilderness";
@@ -315,6 +318,7 @@ public final class KingdomNpcData extends SavedData {
             t.putBoolean("HasLastSafe",hasLastSafe);
             if(hasLastSafe){t.putInt("LastSafeX",lastSafeX);t.putInt("LastSafeY",lastSafeY);t.putInt("LastSafeZ",lastSafeZ);}
             t.putInt("Hunger",hunger);t.putInt("Energy",energy);t.putInt("Morale",morale);t.putInt("Safety",safety);
+            t.putBoolean("FatigueRestRequired",fatigueRestRequired);
             t.putInt("DietGrain",dietGrain);t.putInt("DietFruit",dietFruit);
             t.putInt("DietVegetables",dietVegetables);t.putInt("DietProtein",dietProtein);
             t.putInt("DietDairy",dietDairy);t.putLong("LastMealDay",lastMealDay);

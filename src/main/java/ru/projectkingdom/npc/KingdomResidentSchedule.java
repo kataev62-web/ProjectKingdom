@@ -2,24 +2,7 @@ package ru.projectkingdom.npc;
 
 import java.util.UUID;
 
-/**
- * The schedule of the day of a resident.
- *
- * <p>A resident of MCA lives its ordinary life and works for the Kingdom in
- * the same day. The schedule decides who owns the resident at every hour:
- *
- * <ul>
- *   <li>06:00-08:00 — the ordinary life of MCA;</li>
- *   <li>08:00-12:00 — the work of the Kingdom;</li>
- *   <li>12:00-13:00 — the rest;</li>
- *   <li>13:00-18:00 — the work of the Kingdom;</li>
- *   <li>18:00-06:00 — the ordinary life of MCA, the sleep included.</li>
- * </ul>
- *
- * <p>A resident without a contract lives its life of MCA the whole day. A
- * resident with a complex order of the planner works on it instead of the
- * ordinary work. Danger always wins: the resident may run away.
- */
+/** Individual MCA schedules govern MCA residents; the legacy clock is a vanilla fallback. */
 public final class KingdomResidentSchedule {
     private KingdomResidentSchedule() {}
 
@@ -31,6 +14,8 @@ public final class KingdomResidentSchedule {
         KINGDOM_WORK,
         /** The rest of the Kingdom: the tavern, the meal, the bed. */
         KINGDOM_REST,
+        /** Bounded safe exit before native rest; never permits production. */
+        EVACUATING,
         /** A complex order of the planner. */
         PLAYER2_TASK,
         /** Danger: the resident may run away and must not be held. */
@@ -74,7 +59,7 @@ public final class KingdomResidentSchedule {
 
     /** Whether the Kingdom owns the navigation of the resident in this mode. */
     public static boolean kingdomOwns(Mode mode) {
-        return mode == Mode.KINGDOM_WORK || mode == Mode.KINGDOM_REST || mode == Mode.PLAYER2_TASK;
+        return mode == Mode.KINGDOM_WORK || mode == Mode.EVACUATING || mode == Mode.PLAYER2_TASK;
     }
 
     /** Whether the resident must work in this mode. */
@@ -96,7 +81,7 @@ public final class KingdomResidentSchedule {
 
     /** Whether the resident may do its ordinary life of MCA in this mode. */
     public static boolean mcaLife(Mode mode) {
-        return mode == Mode.MCA_LIFE || mode == Mode.EMERGENCY;
+        return mode == Mode.MCA_LIFE || mode == Mode.KINGDOM_REST || mode == Mode.EMERGENCY;
     }
 
     /**
@@ -116,14 +101,31 @@ public final class KingdomResidentSchedule {
         // A complex order of the planner is a real task of the planner, not
         // the ordinary intention of looking for work.
         boolean task = worker != null && "PLAYER2_TASK".equals(worker.autonomousIntent);
-        boolean emergency = worker.energy <= 0 || worker.safety < 25;
+        boolean emergency = worker.safety < 25;
         for (var level : server.getAllLevels()) {
             if (!level.dimension().location().toString().equals(worker.dimension)) continue;
-            if (level.getEntity(resident) instanceof net.minecraft.world.entity.npc.Villager npc)
+            if (level.getEntity(resident) instanceof net.minecraft.world.entity.npc.Villager npc) {
                 emergency |= threatened(npc);
+                if (KingdomMcaAdapter.isResident(npc)) {
+                    var nativeState = KingdomMcaSchedule.inspect(npc, npc.getBrain().getSchedule());
+                    return mcaMode(nativeState, employed, task, emergency, npc.isSleeping(),
+                        KingdomResidentRestController.requiresRest(worker),
+                        KingdomResidentRestController.evacuating(resident));
+                }
+            }
             break;
         }
         return modeOf(server.overworld().getDayTime(), employed, task, emergency);
+    }
+
+    static Mode mcaMode(KingdomMcaSchedule.Snapshot state, boolean employed, boolean task,
+                        boolean emergency, boolean sleeping, boolean tired, boolean evacuating) {
+        if (emergency) return Mode.EMERGENCY;
+        if (!state.controlsAvailable() || state.manualOverride()) return Mode.MCA_LIFE;
+        if (evacuating && !sleeping) return Mode.EVACUATING;
+        if (sleeping || tired) return Mode.KINGDOM_REST;
+        if (!state.workAllowed()) return Mode.MCA_LIFE;
+        return employed ? (task ? Mode.PLAYER2_TASK : Mode.KINGDOM_WORK) : Mode.MCA_LIFE;
     }
 
     /** Keep the existing independent crop worker without inventing an employment contract. */
@@ -155,7 +157,8 @@ public final class KingdomResidentSchedule {
         return switch (mode) {
             case MCA_LIFE -> "жизнь MCA";
             case KINGDOM_WORK -> "работа Kingdom";
-            case KINGDOM_REST -> "отдых";
+            case KINGDOM_REST -> "отдых MCA";
+            case EVACUATING -> "выход из шахты к отдыху";
             case PLAYER2_TASK -> "поручение Player2";
             case EMERGENCY -> "опасность";
         };

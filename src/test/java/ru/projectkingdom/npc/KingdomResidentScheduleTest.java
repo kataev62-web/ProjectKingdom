@@ -74,7 +74,7 @@ final class KingdomResidentScheduleTest {
 
     @Test void theOwnershipOfTheNavigationFollowsTheMode() {
         assertTrue(KingdomResidentSchedule.kingdomOwns(KingdomResidentSchedule.Mode.KINGDOM_WORK));
-        assertTrue(KingdomResidentSchedule.kingdomOwns(KingdomResidentSchedule.Mode.KINGDOM_REST));
+        assertFalse(KingdomResidentSchedule.kingdomOwns(KingdomResidentSchedule.Mode.KINGDOM_REST));
         assertTrue(KingdomResidentSchedule.kingdomOwns(KingdomResidentSchedule.Mode.PLAYER2_TASK));
         assertFalse(KingdomResidentSchedule.kingdomOwns(KingdomResidentSchedule.Mode.MCA_LIFE),
             "the life of MCA owns the resident");

@@ -72,12 +72,21 @@ public final class AutonomousMineProbe {
         });
     }
 
+    private static long individualWorkTick(Villager resident) {
+        var schedule = resident.getBrain().getSchedule();
+        for (int tick = 0; tick < 24000; tick += 100)
+            if (schedule.getActivityAt(tick) == net.minecraft.world.entity.schedule.Activity.WORK)
+                return tick + 1;
+        throw new AssertionError("actual MCA miner has no individual WORK period");
+    }
+
     private static void beforeTick(TickEvent.ServerTickEvent event) {
         if (!done && event.phase == TickEvent.Phase.START && server.overworld() != null) {
             // Test clock control keeps one work shift available. Production
             // contract/schedule gates still execute normally on every tick.
             // Restore the saved working view before allowing another productive tick.
-            TfcClock.set(server, checkpoint != null && !resumed ? 6000 : 3000);
+            TfcClock.set(server, resident == null ? (checkpoint != null && !resumed ? 6000 : 3000)
+                    : individualWorkTick(resident));
         }
     }
 
@@ -189,6 +198,8 @@ public final class AutonomousMineProbe {
         resident.setPersistenceRequired();
         resident.setPos(39.5, 200, 44.5);
         require(level.addFreshEntity(resident), "actual MCA miner added");
+        resident.refreshBrain(level);
+        TfcClock.set(server, individualWorkTick(resident));
         worker = KingdomNpcData.get(server).add(resident.getUUID(), "Autonomous miner", "minecraft:overworld", 0);
         worker.employer = OWNER;
         worker.job = "miner";
