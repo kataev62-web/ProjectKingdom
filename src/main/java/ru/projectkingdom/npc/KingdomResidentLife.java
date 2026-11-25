@@ -238,7 +238,8 @@ public final class KingdomResidentLife {
         if (bag.getClass() == net.minecraft.world.SimpleContainer.class) return true;
         // Inspected MCA 7.6.23: this class adds only update(Entity); all slot access
         // and storage are inherited directly from SimpleContainer.
-        return bag.getClass().getName().equals("forge.net.mca.entity.UpdatableInventory")
+        return (bag.getClass().getName().equals("forge.net.mca.entity.UpdatableInventory")
+                || bag.getClass().getName().equals("forge.net.conczin.mca.entity.UpdatableInventory"))
                 && bag.getClass().getSuperclass() == net.minecraft.world.SimpleContainer.class;
     }
 

@@ -1,22 +1,25 @@
 # Проверка NPC: финальная интеграционная RC
 
-Ветка `codex/npc-final-integration`, база MiniMax `098d410`.
+Ветка `codex/npc-final-integration`, база MiniMax `3e4d2d7`, включая исправления Ники PR #106.
 Это кандидат для проверки на копии мира. Полная игровая приёмка пока не подтверждена.
 Точный коммит и SHA-256 JAR находятся в `COMMIT.txt` и `SHA256SUMS` рядом с JAR
 в артефакте GitHub Actions `kingdomnpc-rc-<SHA>`. Не используйте старый SHA из отчёта MiniMax.
 
 ## Установка
 
-Java 17, Minecraft 1.20.1, Forge 47.3.0. На клиент и тестовый сервер установить одинаковые версии:
+Java 17, Minecraft 1.20.1, Forge 47.4.10. На клиент и тестовый сервер установить одинаковые версии:
 
 | Мод | Версия |
 |---|---|
 | Project Kingdom | JAR из артефакта этого PR |
-| Minecraft Comes Alive Reborn | 7.6.23 |
-| Architectury API | 9.2.14 Forge |
+| Minecraft Comes Alive Reborn | 7.7.1-beta.5 |
+| Townstead | 0.8.0 |
 | TerraFirmaCraft | 3.2.26 Forge |
 | Patchouli | 1.20.1-85 Forge |
 | Create | 0.5.1.j |
+
+Townstead получает бытовую жизнь вне смены. Во время работы Kingdom его конкурирующие рабочие задачи
+и диспетчеризация приостанавливаются; настоящая аварийная усталость/обморок освобождает смену.
 
 Исходные URL и SHA зависимостей закреплены в `dependencies.lock.json`.
 PlayerEngine, Player2NPC и BetterWorld для этого набора не нужны; внешний планировщик по умолчанию выключен.

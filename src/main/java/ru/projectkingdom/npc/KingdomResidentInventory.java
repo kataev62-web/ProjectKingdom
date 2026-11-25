@@ -397,6 +397,11 @@ public final class KingdomResidentInventory {
         return bindToContainer(worker, personal(resident));
     }
 
+    /**
+     * Migrate only residual legacy items into the physical bag once.
+     * Already accepted stacks stay exclusively in the bag; overflow remains
+     * durably owned by pendingMigration until insertion or a verified world drop.
+     */
     static boolean bindToContainer(KingdomNpcData.Worker worker, Container personal) {
         if (worker == null || personal == null) return false;
         if (worker.inventoryRecoveryRequired) return false;

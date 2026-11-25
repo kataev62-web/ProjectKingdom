@@ -54,3 +54,15 @@ requested underground horizons.
 
 Both scenarios also exercise a real MCA brain lease: original schedule restored,
 job/home/meeting POIs preserved and native active PANIC retained by hold/release.
+
+
+The optional `NPC_RUNTIME_PROBE=autonomous NPC_RUNTIME_ROCK=true` mode keeps the
+first layer as TFC loam at y=199 and uses raw TFC granite at y=198. It requires
+49 soil cells before any granite cut, at least 16 granite cells, actual pickaxe
+wear, borrowed native TFC supports, live horizontal/vertical support blocks,
+native granite loot and at least 64 physical items in the finished warehouse.
+It stops after the first granite cut and launches a second JVM on the same
+world. The checkpoint records resident UUID, worker/job assignment, counts,
+position, tool/status and support count; phase 2 loads the existing fixtures and
+requires further cuts and delivery before PASS. This adds no calls to production
+mining/navigation/delivery methods. The original soil mode still runs one JVM.

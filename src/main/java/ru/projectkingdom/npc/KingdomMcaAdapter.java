@@ -120,15 +120,11 @@ public final class KingdomMcaAdapter {
             Method relationships = resident.getClass().getMethod("getRelationships");
             Object value = relationships.invoke(resident);
             if (value == null) return null;
-            Method entry = value.getClass().getMethod("getFamilyEntry");
-            Object node = entry.invoke(value);
-            if (node == null) return null;
-            Method partner = node.getClass().getMethod("getPartner");
-            Object other = partner.invoke(node);
-            if (other == null) return "один в семье";
-            Method id = other.getClass().getMethod("getUuid");
-            Object uuid = id.invoke(other);
-            return "семья: " + uuid;
+            // Public relationship API survives the MCA namespace relocation.
+            Object partner = value.getClass().getMethod("getPartnerUUID").invoke(value);
+            if (partner instanceof java.util.Optional<?> optional)
+                return optional.isPresent() ? "семья: " + optional.get() : "один в семье";
+            return null;
         } catch (ReflectiveOperationException | RuntimeException ex) {
             return null;
         }

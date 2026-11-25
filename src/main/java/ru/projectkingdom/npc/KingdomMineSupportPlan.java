@@ -16,8 +16,22 @@ public final class KingdomMineSupportPlan {
     private KingdomMineSupportPlan() {}
     public static final int SPACING = 5;
 
+    /**
+     * One support frame of the mine.
+     *
+     * @param walkway the center cell of the frame; low emergency beams require
+     *                the miner to stand outside it
+     * @param access the cell from which the miner may reach the frame
+     * @param protectedCell the cell that must be supported by TFC: the roof
+     *                      of the corridor when the miner goes forward, the
+     *                      rock under its feet when it digs straight down
+     */
     public record Frame(BlockPos leftPost, BlockPos rightPost, BlockPos crossbeam,
-                        BlockPos walkway, int depth) {
+                        BlockPos walkway, BlockPos access, BlockPos protectedCell, int depth) {
+        public Frame(BlockPos leftPost, BlockPos rightPost, BlockPos crossbeam,
+                     BlockPos walkway, int depth) {
+            this(leftPost, rightPost, crossbeam, walkway, walkway, walkway.above(), depth);
+        }
         public int beamHeight() { return crossbeam.getY()-walkway.getY(); }
     }
 
@@ -37,7 +51,7 @@ public final class KingdomMineSupportPlan {
             boolean eastWest=heading.getAxis()==net.minecraft.core.Direction.Axis.Z;
             result.add(new Frame(eastWest?center.west():center.north(),
                 eastWest?center.east():center.south(),
-                center.above(2),center,distance));
+                center.above(2),center,center,center.above(),distance));
         }
         return List.copyOf(result);
     }
@@ -49,17 +63,20 @@ public final class KingdomMineSupportPlan {
         int dz=target.getZ()-approach.getZ();
         int horizontal=Math.abs(dx)+Math.abs(dz);
         int down=approach.getY()-target.getY();
-        if(horizontal<1 || horizontal>2 || dx!=0 && dz!=0 || down<0 || down>1)
-            return null;
+        if(dx!=0 && dz!=0 || horizontal>2 || down< -1 || down>1
+                || horizontal==0 && Math.abs(down)!=1
+                || horizontal>0 && down<0)return null;
         // TFC's pinned native support volume reaches only TWO blocks down.
         // From the layer above, link the middle of three native posts rather
-        // than their tops. Move this low frame behind the safe approach so
-        // the miner can stand outside it without digging collapse-risk pockets.
-        BlockPos base=down==1?approach.offset(-Integer.signum(dx),0,-Integer.signum(dz)):approach;
-        BlockPos beam=base.above(2-down);
-        return dx!=0
-            ?new Frame(base.north(),base.south(),beam,base,0)
-            :new Frame(base.west(),base.east(),beam,base,0);
+        // than their tops. Stage the low frame behind the safe approach so
+        // the miner need not enter the low beam or cut unstable lower rock.
+        BlockPos base=down==1
+            ?(horizontal==0?approach.south():approach.offset(-Integer.signum(dx),0,-Integer.signum(dz)))
+            :approach;
+        BlockPos beam=base.above(down==1?1:2);
+        return dx!=0 || horizontal==0 && down<0
+            ?new Frame(base.north(),base.south(),beam,base,approach,target,0)
+            :new Frame(base.west(),base.east(),beam,base,approach,target,0);
     }
 
     public static boolean valid(Frame frame) {

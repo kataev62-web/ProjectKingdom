@@ -49,7 +49,7 @@ public final class KingdomMineLayerWork {
                                KingdomMineSettings.Heading heading) {
         if (level == null || npc == null || worker == null || area == null) return false;
         int maxDepth = levels * KingdomMineSettings.LEVEL_INTERVAL;
-        for (int layer = 1; layer <= maxDepth; layer++) {
+        for (int layer = 0; layer <= maxDepth; layer++) {
             List<KingdomMineGalleryPlan.Cell> cells = new java.util.ArrayList<>(
                     KingdomMineCentralShaftPlan.layer(area, layer));
             BlockPos ladderCell = KingdomMineCentralShaftPlan.descent(area, layer);
@@ -71,7 +71,7 @@ public final class KingdomMineLayerWork {
                     return false;
                 }
             }
-            if (level.getBlockState(ladderCell).isAir()) {
+            if (layer > 0 && level.getBlockState(ladderCell).isAir()) {
                 var route = KingdomMineStructureWork.ladderAt(level, npc, worker, area, ladderCell);
                 if (route != KingdomMineStructureWork.Result.READY) {
                     status(level, worker, route == KingdomMineStructureWork.Result.BUILT
@@ -158,6 +158,9 @@ public final class KingdomMineLayerWork {
                 status(level, worker, "Проверяет оставшиеся блоки текущего слоя");
                 return false;
             }
+            // The surface cap needs no ladder: its supporting side wall may
+            // not exist above ground. Descending layers extend the real ladder.
+            if (layer == 0) continue;
             // The layer is clear: the descent gets its ladder and its deck.
             BlockPos descent = KingdomMineCentralShaftPlan.descent(area, layer);
             if (descent == null || !level.hasChunkAt(descent)) {
@@ -180,7 +183,7 @@ public final class KingdomMineLayerWork {
                     return false;
                 }
                 // The deck of planks gives the miner a solid floor at the descent.
-                BlockPos deck = descent.north();
+                BlockPos deck = descent.east();
                 if (KingdomMineStructurePlan.isLevel(layer) && level.hasChunkAt(deck)) {
                     var plank = KingdomMineStructureWork.plankAt(level, npc, worker, area, deck);
                     if (plank == KingdomMineStructureWork.Result.BUILT) {
@@ -189,9 +192,13 @@ public final class KingdomMineLayerWork {
                         return true;
                     }
                     if (plank != KingdomMineStructureWork.Result.READY) {
-                        status(level, worker, plank == KingdomMineStructureWork.Result.NEED_MATERIAL
-                            ? "Нужны доски для настила"
-                            : "Невозможно уложить настил спуска");
+                        status(level, worker, switch (plank) {
+                            case NEED_MATERIAL -> "Нужны доски для настила на складе сырья";
+                            case WALKING -> "Идёт за досками для настила";
+                            case NEED_TOOL -> "Нужен инструмент, чтобы расчистить клетку настила";
+                            default -> "Невозможно уложить настил спуска: "
+                                + KingdomMineStructureWork.lastReason();
+                        });
                         return false;
                     }
                 }
@@ -218,8 +225,8 @@ public final class KingdomMineLayerWork {
         if (at.equals(descent) && state.is(Blocks.LADDER)
                 && state.getValue(LadderBlock.FACING) == Direction.NORTH) return true;
         String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        if (KingdomMineStructurePlan.isLevel(layer) && at.equals(descent.north())
-                && (id.endsWith("_planks") || id.startsWith("tfc:wood/planks/"))) return true;
+        if ((at.equals(descent.east()) || at.equals(descent.north()))
+                && KingdomMineStructureWork.isDeckBlock(state)) return true;
         // Native TFC frames built during excavation are infrastructure, not ore.
         return id.startsWith("tfc:wood/vertical_support/")
                 || KingdomMineSupportSafety.isTfcHorizontalSupport(state);
@@ -278,11 +285,13 @@ public final class KingdomMineLayerWork {
         }
         var preparation = KingdomMineSupportExcavation.tick(level, npc, worker, frame);
         if (preparation == KingdomMineSupportExcavation.Result.EXCAVATED) {
-            status(level, worker, "Готовит безопасное крепление перед проходкой");
+            status(level, worker, "Готовит безопасное крепление перед проходкой: "
+                + KingdomMineSupportExcavation.lastDetail());
             return false;
         }
         if (preparation == KingdomMineSupportExcavation.Result.WALKING) {
-            status(level, worker, "Идёт укреплять опасный участок");
+            status(level, worker, "Идёт укреплять опасный участок: "
+                + KingdomMineSupportExcavation.lastDetail());
             return false;
         }
         if (preparation != KingdomMineSupportExcavation.Result.CLEAR) {
@@ -323,6 +332,23 @@ public final class KingdomMineLayerWork {
                 return true;
             }
         }
+    }
+
+    /** Whether a planned shaft cell already contains constructed access. */
+    static boolean completedStructure(KingdomMineSettings.Shaft area, int layer,
+                                      BlockPos target, BlockState state) {
+        if (area == null || target == null || state == null) return false;
+        BlockPos descent = KingdomMineCentralShaftPlan.descent(area, layer);
+        // The supports of TFC are the finished structures of the mine: the
+        // plan never digs them out again.
+        String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(state.getBlock()).toString();
+        if (id.startsWith("tfc:wood/vertical_support/")
+                || id.startsWith("tfc:wood/horizontal_support/")) return true;
+        return (target.equals(descent)
+                && state.is(net.minecraft.world.level.block.Blocks.LADDER))
+            || (target.equals(descent.east())
+                && KingdomMineStructureWork.isDeckBlock(state));
     }
 
     /** The diagnosis of the work, written only when it changes. */

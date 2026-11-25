@@ -3,6 +3,7 @@ package ru.projectkingdom.validation;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
+import java.util.Properties;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
@@ -37,7 +38,11 @@ public final class AutonomousMineProbe {
     private static Villager resident;
     private static KingdomNpcData.Worker worker;
     private static Container raw, finished;
-    private static BlockState loam;
+    private static final boolean ROCK = Boolean.getBoolean("npc.runtime.rock");
+    private static BlockState loam, granite;
+    private static Properties checkpoint;
+    private static boolean resumed;
+    private static int resumeSecond, resumeDelivered;
     private static int ticks, firstLayer, secondLayer;
     private static double distance;
     private static net.minecraft.world.phys.Vec3 previous;
@@ -51,8 +56,14 @@ public final class AutonomousMineProbe {
                 require(root.equals(Path.of(System.getProperty("npc.runtime.allowedWorld")).toRealPath()), "isolated path");
                 require(Files.readString(root.resolve(".npc-runtime-validation-world")).trim()
                         .equals("disposable-npc-runtime-validation-v1"), "disposable world token");
-                require(!Files.exists(root.resolve("npc-autonomous-started")), "fresh autonomous world required");
-                Files.writeString(root.resolve("npc-autonomous-started"), "disposable scenario\n");
+                Path saved = root.resolve("npc-autonomous-checkpoint.properties");
+                if (ROCK && Files.exists(saved)) {
+                    checkpoint = new Properties();
+                    try (var input = Files.newInputStream(saved)) { checkpoint.load(input); }
+                } else {
+                    require(!Files.exists(root.resolve("npc-autonomous-started")), "fresh autonomous world required");
+                    Files.writeString(root.resolve("npc-autonomous-started"), "disposable scenario\n");
+                }
                 MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGHEST, false,
                         TickEvent.ServerTickEvent.class, AutonomousMineProbe::beforeTick);
                 MinecraftForge.EVENT_BUS.addListener(EventPriority.LOWEST, false,
@@ -72,7 +83,11 @@ public final class AutonomousMineProbe {
     private static void observe(TickEvent.ServerTickEvent event) {
         if (done || event.phase != TickEvent.Phase.END) return;
         try {
-            if (++ticks == 1) { createFixture(); return; }
+            ++ticks;
+            if (resident == null) {
+                if (checkpoint == null) createFixture(); else resumeFixture();
+                return;
+            }
             require(ticks <= 12000, "autonomous timeout; " + worker.mineStatus);
             require(resident.isAlive(), "actual MCA miner survives");
             distance += resident.position().distanceTo(previous);
@@ -89,8 +104,23 @@ public final class AutonomousMineProbe {
                     + " first=" + firstLayer + " second=" + secondLayer
                     + " position=" + resident.blockPosition() + " status=" + worker.mineStatus
                     + " schedule=" + KingdomResidentSchedule.modeOf(server, resident.getUUID(), worker));
-            int delivered = KingdomResidentInventory.count(finished, loam.getBlock().asItem());
+            int delivered = delivered();
+            if (ROCK && !resumed && firstLayer == 49 && secondLayer >= 1) {
+                checkpoint(delivered);
+                return;
+            }
             if (firstLayer == 49 && secondLayer >= 16 && delivered >= 64) {
+                if (ROCK) {
+                    require(resumed && secondLayer > resumeSecond && delivered > resumeDelivered,
+                            "production cuts and physical delivery continue after full JVM restart");
+                    require(wornPick(), "native TFC rock mined with a physically worn diamond pickaxe");
+                    require(KingdomResidentInventory.count(raw, item("tfc:wood/support/oak", 1).getItem()) < 32,
+                            "native TFC support items borrowed from raw warehouse");
+                    require(nativeSupports(true) > 0 && nativeSupports(false) > 0,
+                            "native TFC horizontal beams and vertical posts exist in the live shaft");
+                    require(nativeRockLoot() > 0, "actual TFC granite loot delivered to finished warehouse");
+                    pass("soil49 then native TFC granite>=16, actual pick wear, native support borrowing/frames and delivery continue after full JVM restart");
+                }
                 require(distance > 8, "actual locomotion traveled more than eight blocks");
                 require(KingdomResidentInventory.count(raw, Items.DIAMOND_SHOVEL) == 0,
                         "actual shovel was borrowed from raw warehouse");
@@ -98,7 +128,9 @@ public final class AutonomousMineProbe {
                         "actual ladders consumed from raw warehouse");
                 require(KingdomNpcWorkday.employed(server, worker), "real enterprise payroll contract retained");
                 require(worker.physicalBag && KingdomMcaAdapter.hasMcaInventory(resident), "real MCA physical bag retained");
-                pass("production schedule, live MCA locomotion, 7x7 layer order, native soil mining, supply borrowing, ladders and >=64 physical warehouse delivery");
+                pass("production schedule, live MCA locomotion, 7x7 layer order, native "
+                        + (ROCK ? "soil/granite" : "soil")
+                        + " mining, supply borrowing, ladders and >=64 physical warehouse delivery");
                 Files.writeString(root.resolve("npc-autonomous-PASS"), "PASS first=" + firstLayer
                         + " second=" + secondLayer + " delivered=" + delivered + " distance=" + distance + "\n");
                 done = true;
@@ -117,12 +149,13 @@ public final class AutonomousMineProbe {
             require(KingdomTerritories.get(server).claim(level, position, OWNER), "fixture owned territory");
         }
         loam = block("tfc:dirt/loam");
-        // A closed, fully solid starting ground: two real TFC soil layers above
-        // a bedrock floor. The untouched south wall accepts native ladders.
+        granite = ROCK ? block("tfc:rock/raw/granite") : loam;
+        // Two real TFC layers above bedrock: soil then optional raw granite.
+        // The untouched south wall accepts native ladders.
         for (int x = 32; x <= 48; x++) for (int z = 32; z <= 48; z++)
             for (int y = 197; y <= 204; y++) level.setBlock(new BlockPos(x, y, z),
                     y == 197 ? Blocks.BEDROCK.defaultBlockState()
-                            : y <= 199 ? loam : Blocks.AIR.defaultBlockState(), 3);
+                            : y == 198 ? granite : y == 199 ? loam : Blocks.AIR.defaultBlockState(), 3);
         level.setBlock(CORE, block("kingdomnpc:mine_core"), 3);
         level.setBlock(RAW, Blocks.CHEST.defaultBlockState(), 3);
         level.setBlock(FINISHED, Blocks.CHEST.defaultBlockState(), 3);
@@ -172,10 +205,129 @@ public final class AutonomousMineProbe {
         pass("real MCA miner, mine enterprise/core, payroll contract, 7x7 footprint and physical supply depots created");
     }
 
+    private static void checkpoint(int delivered) throws Exception {
+        Properties saved = new Properties();
+        saved.setProperty("resident", resident.getUUID().toString());
+        saved.setProperty("worker", Integer.toString(worker.id));
+        saved.setProperty("workplace", worker.workplaceId);
+        saved.setProperty("first", Integer.toString(firstLayer));
+        saved.setProperty("second", Integer.toString(secondLayer));
+        saved.setProperty("delivered", Integer.toString(delivered));
+        saved.setProperty("distance", Double.toString(distance));
+        saved.setProperty("x", Double.toString(resident.getX()));
+        saved.setProperty("y", Double.toString(resident.getY()));
+        saved.setProperty("z", Double.toString(resident.getZ()));
+        saved.setProperty("tool", worker.fieldTool.save(new net.minecraft.nbt.CompoundTag()).toString());
+        saved.setProperty("rawInventory", inventorySnapshot(raw));
+        saved.setProperty("finishedInventory", inventorySnapshot(finished));
+        saved.setProperty("personalInventory", inventorySnapshot(KingdomMcaAdapter.personal(resident)));
+        saved.setProperty("cells", cellSnapshot());
+        saved.setProperty("status", worker.mineStatus);
+        saved.setProperty("horizontalSupports", Integer.toString(nativeSupports(true)));
+        KingdomNpcData.get(server).setDirty();
+        try (var output = Files.newOutputStream(root.resolve("npc-autonomous-checkpoint.properties"))) {
+            saved.store(output, "Observe only: resume this same world after graceful full JVM shutdown");
+        }
+        pass("checkpoint first=" + firstLayer + " second=" + secondLayer + " delivered=" + delivered
+                + " resident=" + resident.getUUID() + "; stop and resume same world");
+        done = true;
+        server.halt(false);
+    }
+
+    private static void resumeFixture() {
+        level = server.overworld();
+        loam = block("tfc:dirt/loam");
+        granite = block("tfc:rock/raw/granite");
+        for (int cx = 1; cx <= 3; cx++) for (int cz = 1; cz <= 3; cz++) {
+            level.setChunkForced(cx, cz, true);
+            level.getChunkAt(new BlockPos(cx * 16, 200, cz * 16));
+        }
+        level.getChunkAt(BlockPos.containing(Double.parseDouble(checkpoint.getProperty("x")),
+                Double.parseDouble(checkpoint.getProperty("y")), Double.parseDouble(checkpoint.getProperty("z"))));
+        var loaded = level.getEntity(UUID.fromString(checkpoint.getProperty("resident")));
+        if (loaded == null && ticks < 150) return;
+        require(loaded instanceof Villager, "same persisted MCA entity UUID loaded after full JVM restart");
+        resident = (Villager) loaded;
+        worker = KingdomNpcData.get(server).workers.get(Integer.parseInt(checkpoint.getProperty("worker")));
+        require(worker != null && worker.entityId.equals(resident.getUUID())
+                && worker.workplaceId.equals(checkpoint.getProperty("workplace")) && "miner".equals(worker.job),
+                "same persisted miner job and enterprise assignment");
+        raw = (Container) level.getBlockEntity(RAW);
+        finished = (Container) level.getBlockEntity(FINISHED);
+        require(raw != null && finished != null, "same physical warehouses loaded");
+        resumeSecond = Integer.parseInt(checkpoint.getProperty("second"));
+        resumeDelivered = Integer.parseInt(checkpoint.getProperty("delivered"));
+        require(removed(1) == 49 && removed(2) == resumeSecond && delivered() == resumeDelivered
+                && cellSnapshot().equals(checkpoint.getProperty("cells")),
+                "exact excavation cell positions/states and physical delivery persisted across restart");
+        require(inventorySnapshot(raw).equals(checkpoint.getProperty("rawInventory"))
+                && inventorySnapshot(finished).equals(checkpoint.getProperty("finishedInventory"))
+                && inventorySnapshot(KingdomMcaAdapter.personal(resident)).equals(checkpoint.getProperty("personalInventory"))
+                && worker.fieldTool.save(new net.minecraft.nbt.CompoundTag()).toString().equals(checkpoint.getProperty("tool")),
+                "exact physical inventories and field-tool durability/NBT survived restart");
+        distance = Double.parseDouble(checkpoint.getProperty("distance"));
+        previous = resident.position();
+        resumed = true;
+        pass("full JVM restart restored same resident, miner job, cell states and physical warehouses; observing continuation");
+    }
+
+    private static String inventorySnapshot(Container container) {
+        StringBuilder result = new StringBuilder();
+        for (int slot = 0; slot < container.getContainerSize(); slot++)
+            result.append(slot).append(':').append(container.getItem(slot)
+                    .save(new net.minecraft.nbt.CompoundTag())).append(';');
+        return result.toString();
+    }
+
+    private static String cellSnapshot() {
+        StringBuilder result = new StringBuilder();
+        for (int depth = 1; depth <= 2; depth++)
+            for (var cell : KingdomMineCentralShaftPlan.layer(SHAFT, depth))
+                result.append(cell.target().toShortString()).append('=')
+                        .append(level.getBlockState(cell.target())).append(';');
+        return result.toString();
+    }
+
+    private static int delivered() {
+        if (!ROCK) return KingdomResidentInventory.count(finished, loam.getBlock().asItem());
+        int count = 0;
+        for (int slot = 0; slot < finished.getContainerSize(); slot++) count += finished.getItem(slot).getCount();
+        return count;
+    }
+
+    private static int nativeRockLoot() {
+        int count = 0;
+        for (int slot = 0; slot < finished.getContainerSize(); slot++) {
+            ItemStack stack = finished.getItem(slot);
+            String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+            if (id.startsWith("tfc:rock/") && id.endsWith("/granite")) count += stack.getCount();
+        }
+        return count;
+    }
+
+    private static boolean wornPick() {
+        if (worker.fieldTool.is(Items.DIAMOND_PICKAXE) && worker.fieldTool.getDamageValue() > 0) return true;
+        for (Container container : new Container[] {raw, KingdomMcaAdapter.personal(resident)})
+            for (int slot = 0; slot < container.getContainerSize(); slot++) {
+                ItemStack stack = container.getItem(slot);
+                if (stack.is(Items.DIAMOND_PICKAXE) && stack.getDamageValue() > 0) return true;
+            }
+        return false;
+    }
+
+    private static int nativeSupports(boolean horizontal) {
+        int count = 0;
+        String prefix = horizontal ? "tfc:wood/horizontal_support/" : "tfc:wood/vertical_support/";
+        for (int x = 32; x <= 48; x++) for (int z = 32; z <= 48; z++) for (int y = 197; y <= 204; y++)
+            if (BuiltInRegistries.BLOCK.getKey(level.getBlockState(new BlockPos(x, y, z)).getBlock())
+                    .toString().startsWith(prefix)) count++;
+        return count;
+    }
+
     private static int removed(int depth) {
         int removed = 0;
         for (var cell : KingdomMineCentralShaftPlan.layer(SHAFT, depth))
-            if (!level.getBlockState(cell.target()).is(loam.getBlock())) removed++;
+            if (!level.getBlockState(cell.target()).is((depth == 2 ? granite : loam).getBlock())) removed++;
         return removed;
     }
     private static void telemetry() throws Exception {

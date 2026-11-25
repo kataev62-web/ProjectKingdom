@@ -18,11 +18,24 @@ import net.minecraft.world.level.block.state.BlockState;
 public final class KingdomMineStructureWork {
     private KingdomMineStructureWork(){}
     public enum Result { READY, BUILT, WALKING, NEED_MATERIAL, NEED_TOOL, UNSAFE }
+
+    /** The reason of the last refusal of a structure, for the operator. */
+    private static String lastReason = "";
+
+    /** The reason of the last refusal of a structure. */
+    public static String lastReason() { return lastReason; }
     private static boolean plank(ItemStack s){
         if(s.isEmpty()||!(s.getItem() instanceof BlockItem))return false;
         String id=BuiltInRegistries.ITEM.getKey(s.getItem()).toString();
         return id.startsWith("minecraft:")&&id.endsWith("_planks")
             ||id.startsWith("tfc:wood/planks/");
+    }
+    /** A laid deck cell is infrastructure, not untouched mineable ore. */
+    public static boolean isDeckBlock(BlockState state) {
+        if (state == null || state.isAir()) return false;
+        String id = BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
+        return (id.startsWith("minecraft:") && id.endsWith("_planks"))
+            || id.startsWith("tfc:wood/planks/");
     }
     private static boolean available(ItemStack s,boolean ladder){
         return ladder?s.is(Items.LADDER):plank(s);
@@ -61,9 +74,10 @@ public final class KingdomMineStructureWork {
     }
     private static Result ladder(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                  KingdomMineSettings.Shaft area,BlockPos at){
-        if(!authorized(level,at,w)||!level.hasChunkAt(at.above()))return Result.UNSAFE;
+        if(!authorized(level,at,w)){lastReason="нет прав на место установки";return Result.UNSAFE;}
+        if(!level.hasChunkAt(at.above())){lastReason="чанк не загружен";return Result.UNSAFE;}
         if(level.getBlockState(at).is(Blocks.LADDER))return Result.READY;
-        if(!level.getBlockState(at).isAir())return Result.UNSAFE;
+        if(!level.getBlockState(at).isAir()){lastReason="клетка спуска ещё не выкопана";return Result.UNSAFE;}
         BlockState placing=null;
         Direction chosenWall=null;
         for(Direction wall:Direction.Plane.HORIZONTAL){
@@ -75,7 +89,7 @@ public final class KingdomMineStructureWork {
                 placing=proposed;chosenWall=wall;break;
             }
         }
-        if(placing==null)return Result.UNSAFE;
+        if(placing==null){lastReason="нет опоры для лестницы";return Result.UNSAFE;}
         ItemStack stock=carried(w,true);
         if(stock.isEmpty())return acquire(level,npc,w,true);
         if(npc.distanceToSqr(at.getX()+.5,at.getY(),at.getZ()+.5)>6.25){
@@ -90,17 +104,18 @@ public final class KingdomMineStructureWork {
     }
     private static Result plank(ServerLevel level,Villager npc,KingdomNpcData.Worker w,
                                 BlockPos at) {
-        if(!authorized(level,at,w)||!level.hasChunkAt(at.below())
-            ||!authorized(level,at.above(),w))return Result.UNSAFE;
+        if(!authorized(level,at,w)){lastReason="нет прав на клетку настила "+at.toShortString();return Result.UNSAFE;}
+        if(!level.hasChunkAt(at.below())){lastReason="чанк под настилом не загружен";return Result.UNSAFE;}
+        if(!authorized(level,at.above(),w)){lastReason="нет прав над клеткой настила "+at.above().toShortString();return Result.UNSAFE;}
         BlockState state=level.getBlockState(at);
-        String installed=BuiltInRegistries.BLOCK.getKey(state.getBlock()).toString();
-        if(installed.endsWith("_planks")||installed.startsWith("tfc:wood/planks/"))
-            return Result.READY;
+        if(isDeckBlock(state)) return Result.READY;
         ItemStack supply=carried(w,false);
         if(supply.isEmpty())return acquire(level,npc,w,false);
         BlockState result=((BlockItem)supply.getItem()).getBlock().defaultBlockState();
-        if(!result.canSurvive(level,at)||!level.getFluidState(at).isEmpty())
+        if(!result.canSurvive(level,at)||!level.getFluidState(at).isEmpty()){
+            lastReason="под клеткой настила нет опоры: "+at.below().toShortString();
             return Result.UNSAFE;
+        }
         if(npc.distanceToSqr(at.getX()+.5,at.getY()+1,at.getZ()+.5)>6.25){
             npc.getNavigation().moveTo(at.getX()+.5,at.getY()+1,at.getZ()+.5,.75);
             return Result.WALKING;

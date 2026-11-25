@@ -37,7 +37,22 @@ class KingdomMineSupportPlanTest {
         assertTrue(KingdomMineSupportPlan.valid(east));
         assertEquals(previous.north(),east.leftPost());
         assertEquals(previous.south(),east.rightPost());
-        assertNull(KingdomMineSupportPlan.emergency(previous,previous.above()));
+        // A target above the standing cell uses the full-height frame.
+        var down=KingdomMineSupportPlan.emergency(previous,previous.above());
+        assertNotNull(down);
+        assertTrue(KingdomMineSupportPlan.valid(down));
+        assertEquals(previous,down.walkway());
+        assertEquals(previous.north(),down.leftPost());
+        assertEquals(previous.south(),down.rightPost());
+        assertEquals(previous.above(2),down.crossbeam());
+        assertEquals(previous.above(),down.protectedCell());
+        var below=KingdomMineSupportPlan.emergency(previous,previous.below());
+        assertNotNull(below);
+        assertTrue(KingdomMineSupportPlan.valid(below));
+        assertEquals(previous,below.access());
+        assertEquals(previous.below(),below.protectedCell());
+        assertNotEquals(previous,below.walkway());
+        assertEquals(2,below.crossbeam().getY()-below.protectedCell().getY());
         assertNull(KingdomMineSupportPlan.emergency(null,previous));
     }
 
@@ -49,6 +64,8 @@ class KingdomMineSupportPlanTest {
                 var frame=KingdomMineSupportPlan.emergency(approach,target);
                 assertNotNull(frame);
                 assertTrue(KingdomMineSupportPlan.valid(frame));
+                assertEquals(approach,frame.access());
+                assertEquals(target,frame.protectedCell());
                 assertEquals(2,frame.crossbeam().getY()-target.getY(),
                     "native horizontal_support_beam support_down=2");
                 assertTrue(Math.abs(frame.crossbeam().getX()-target.getX())<=4);

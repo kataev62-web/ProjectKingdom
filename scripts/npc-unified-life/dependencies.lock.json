@@ -128,6 +128,50 @@
       "url": "https://codeload.github.com/Creators-of-Create/Create/zip/d39f89983a6c36dcacda6635c2094c826703ed49",
       "filename": "Create-d39f89983a6c.zip",
       "sha256": "5821f1bcb7d7206b0f9b383b5c2a3f0089b56a076050ab0147bc709b064ec67c"
+    },
+    {
+      "id": "mca-current",
+      "version": "7.7.1-beta.5+1.20.1",
+      "release": "KJixRMB5",
+      "url": "https://cdn.modrinth.com/data/1W98a849/versions/KJixRMB5/minecraft-comes-alive-7.7.1-beta.5%2B1.20.1-universal.jar",
+      "filename": "minecraft-comes-alive-7.7.1-beta.5+1.20.1-universal.jar",
+      "sha256": "0661e8d59918143f1d6c89d279dbdd7c2772b64ac51806394b2ba291c1449771",
+      "sha512": "6f7da06646b94fd14686eda833676867fd453d159f93d4d30e8ceb3e5fff236b335f749f95d1293efae1a801c9b4daf1939697fac26682648fe427c760a788c8",
+      "metadata_url": "https://api.modrinth.com/v2/version/KJixRMB5",
+      "dependencies": [
+        {
+          "version_id": null,
+          "project_id": "P7dR8mSH",
+          "file_name": null,
+          "dependency_type": "optional"
+        }
+      ]
+    },
+    {
+      "id": "townstead",
+      "version": "0.8.0+1.20.1",
+      "release": "b8VnGFDu",
+      "url": "https://cdn.modrinth.com/data/A4ZpjU2k/versions/b8VnGFDu/townstead-0.8.0-1.20.1.jar",
+      "filename": "townstead-0.8.0-1.20.1.jar",
+      "sha256": "bc7e292397bf769ae334a63bfcc84abbcfeb54ab65cbe50794a022acb33c1035",
+      "sha512": "82358b5e2ee7464ea31f8f7c02963390b1d7a6b8de50d977f8f98640a97bf4cbb6b685637e10d9b014d893eeeb4de07e5102d48df96c5440852ada3971f3a5e3",
+      "metadata_url": "https://api.modrinth.com/v2/version/b8VnGFDu",
+      "dependencies": [
+        {
+          "version_id": "KJixRMB5",
+          "project_id": "1W98a849",
+          "file_name": null,
+          "dependency_type": "required"
+        }
+      ]
+    },
+    {
+      "id": "forge-current",
+      "version": "1.20.1-47.4.10",
+      "url": "https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.10/forge-1.20.1-47.4.10-installer.jar",
+      "filename": "forge-1.20.1-47.4.10-installer.jar",
+      "sha256": "1912760b4cb6b803d8a826de603c9076b1da71ec2765e9a1f8c1ca78f65278e3",
+      "sha1": "66bfea9963bfa60d88bab6b2750e74a958392715"
     }
   ],
   "profiles": {
@@ -167,6 +211,20 @@
     ],
     "betterworld-new": [
       "betterworld-new"
+    ],
+    "current-client": [
+      "tfc",
+      "create",
+      "patchouli",
+      "mca-current",
+      "townstead"
     ]
+  },
+  "profile_runtimes": {
+    "current-client": {
+      "minecraft": "1.20.1",
+      "java": 17,
+      "forge_artifact": "forge-current"
+    }
   }
 }

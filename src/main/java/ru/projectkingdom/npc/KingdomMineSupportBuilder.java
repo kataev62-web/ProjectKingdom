@@ -44,9 +44,11 @@ public final class KingdomMineSupportBuilder {
             for(int y=0;y<3;y++)
                 if(!vertical(level.getBlockState(post.above(y))))return false;
         // Presence of the visual beam is insufficient; the authoritative TFC
-        // support registry must recognize protection over the tunnel roof.
+        // support registry must recognize the protection. The frame protects
+        // the rock of the walkway when the miner digs straight down and the
+        // roof above the walkway when the corridor goes forward.
         return KingdomMineSupportSafety.hasHorizontalSupport(
-            level,frame.walkway().above());
+            level,frame.protectedCell());
     }
 
     private static String type(ItemStack stack) {
@@ -123,12 +125,12 @@ public final class KingdomMineSupportBuilder {
     }
 
     private static Result nativePlace(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
-                                      BlockPos clicked,Direction face,
-                                      BlockPos expected,boolean bridge) {
+                                      BlockPos expected,Direction face,
+                                      boolean bridge,BlockPos access) {
         ItemStack support=carried(worker,bridge?2:3);
         if(support.isEmpty())return Result.NO_STOCK;
-        if(npc.distanceToSqr(expected.getX()+0.5,expected.getY()+0.5,expected.getZ()+0.5)>6.25) {
-            npc.getNavigation().moveTo(expected.getX()+0.5,expected.getY(),expected.getZ()+0.5,0.75);
+        if(!KingdomActionEngine.inReach(npc,expected)) {
+            npc.getNavigation().moveTo(access.getX()+0.5,access.getY(),access.getZ()+0.5,0.75);
             return Result.WALKING;
         }
         int before=support.getCount();
@@ -148,8 +150,34 @@ public final class KingdomMineSupportBuilder {
         return placed && consumed>0 ? Result.PLACED : Result.FAILED_NATIVE_PLACEMENT;
     }
 
+    /** Use the same orientation for preparation, placement and completion checks. */
+    static KingdomMineSupportPlan.Frame resolveFrame(ServerLevel level,
+            KingdomMineSupportPlan.Frame frame) {
+        if(frame==null||!KingdomMineSupportPlan.valid(frame)||!obstructedByStructure(level,frame))
+            return frame;
+        boolean eastWest=frame.leftPost().getX()!=frame.rightPost().getX();
+        BlockPos center=frame.walkway();
+        var rotated=new KingdomMineSupportPlan.Frame(
+            eastWest?center.north():center.west(),
+            eastWest?center.south():center.east(),frame.crossbeam(),center,
+            frame.access(),frame.protectedCell(),frame.depth());
+        return obstructedByStructure(level,rotated)?frame:rotated;
+    }
+
+    private static boolean obstructedByStructure(ServerLevel level,
+            KingdomMineSupportPlan.Frame frame) {
+        for(BlockPos post:new BlockPos[]{frame.leftPost(),frame.rightPost()})
+            for(int y=0;y<3;y++) {
+                BlockState state=level.getBlockState(post.above(y));
+                if(state.is(net.minecraft.world.level.block.Blocks.LADDER)
+                    ||KingdomMineStructureWork.isDeckBlock(state))return true;
+            }
+        return false;
+    }
+
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                               KingdomMineSupportPlan.Frame frame) {
+        frame=resolveFrame(level,frame);
         if(!accessible(level,frame,worker))return Result.INACCESSIBLE;
         BlockPos left=frame.leftPost(),right=frame.rightPost(),middle=frame.crossbeam();
         if(frameComplete(level,frame))return Result.COMPLETE;
@@ -171,9 +199,9 @@ public final class KingdomMineSupportBuilder {
         if(carried(worker,needPole?3:2).isEmpty())return supply(level,npc,worker);
         // TFC places three vertical supports at once if enough real items are held.
         if(!vertical(level.getBlockState(left)))
-            return nativePlace(level,npc,worker,left.below(),Direction.UP,left,false);
+            return nativePlace(level,npc,worker,left,Direction.UP,false,frame.access());
         if(!vertical(level.getBlockState(right)))
-            return nativePlace(level,npc,worker,right.below(),Direction.UP,right,false);
+            return nativePlace(level,npc,worker,right,Direction.UP,false,frame.access());
         // A low emergency beam may overlap the miner's head. Native placement
         // must succeed from a separate safe square, never through the resident.
         if(frame.beamHeight()==1 && npc.getBoundingBox().intersects(
@@ -198,6 +226,6 @@ public final class KingdomMineSupportBuilder {
         }
         // Side-click a real post at the planned height. TFC owns the link.
         Direction span=left.getX()!=right.getX()?Direction.EAST:Direction.SOUTH;
-        return nativePlace(level,npc,worker,left.above(frame.beamHeight()),span,middle,true);
+        return nativePlace(level,npc,worker,middle,span,true,frame.access());
     }
 }

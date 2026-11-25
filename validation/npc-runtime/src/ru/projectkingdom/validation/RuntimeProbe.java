@@ -147,7 +147,7 @@ public final class RuntimeProbe {
     }
 
     private static void initialize() throws Exception {
-        require(ModList.get().getModContainerById("forge").orElseThrow().getModInfo().getVersion().toString().equals("47.3.0"), "Forge version");
+        require(ModList.get().getModContainerById("forge").orElseThrow().getModInfo().getVersion().toString().equals(System.getProperty("npc.runtime.forge", "47.4.10")), "Forge version");
         for (String id : new String[]{"mca", "tfc", "create", "kingdomnpc"})
             require(ModList.get().isLoaded(id), "loaded production mod " + id);
         level = server.overworld();

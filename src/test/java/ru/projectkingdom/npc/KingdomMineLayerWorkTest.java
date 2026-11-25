@@ -49,7 +49,12 @@ class KingdomMineLayerWorkTest {
         world.put(descent.north(),Blocks.OAK_PLANKS.defaultBlockState());
         assertTrue(KingdomMineLayerWork.complete(shaft,5,
                 at -> world.getOrDefault(at,Blocks.AIR.defaultBlockState())));
+        // Both the old north landing and the corrected east landing survive
+        // migration. A different square must still block layer completion.
         world.put(descent.east(),Blocks.OAK_PLANKS.defaultBlockState());
+        assertTrue(KingdomMineLayerWork.complete(shaft,5,
+                at -> world.getOrDefault(at,Blocks.AIR.defaultBlockState())));
+        world.put(descent.east(2),Blocks.OAK_PLANKS.defaultBlockState());
         assertFalse(KingdomMineLayerWork.complete(shaft,5,
                 at -> world.getOrDefault(at,Blocks.AIR.defaultBlockState())));
         assertFalse(KingdomMineLayerWork.cleared(shaft,5,descent,

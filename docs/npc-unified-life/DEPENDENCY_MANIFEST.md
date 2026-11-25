@@ -1,6 +1,6 @@
 # Манифест зависимостей NPC
 
-Снимок 24.11.2026. Источник исходной конфигурации — build.gradle на 407f68f330da2c1572a6a3c94a526e9dcb8ccc66, versions.json из ProjectKingdom-Private-Server-Test.zip и ProjectKingdom-KLauncher-1.20.1.zip. Серверный профиль base задаёт Forge 47.3.0 и тот же TFC/Create/Patchouli, что клиентский. Профиль запуска KLauncher задаёт MCA 7.6.23, Architectury 9.2.14 и отдельно указывает Forge 47.4.10 для полного набора с Siegeworks и дополнениями. Для NPC сохранён Forge 47.3.0. Документ относится к зафиксированным профилям и исходникам, фактически установленные моды рабочего сервера не инспектировались.
+Исторические профили: снимок 24.11.2026. Источник исходной конфигурации — build.gradle на 407f68f330da2c1572a6a3c94a526e9dcb8ccc66, versions.json из ProjectKingdom-Private-Server-Test.zip и ProjectKingdom-KLauncher-1.20.1.zip. Серверный профиль base задаёт Forge 47.3.0 и тот же TFC/Create/Patchouli, что клиентский. Профиль запуска KLauncher задаёт MCA 7.6.23, Architectury 9.2.14 и отдельно указывает Forge 47.4.10 для полного набора с Siegeworks и дополнениями. Для NPC сохранён Forge 47.3.0. Документ относится к зафиксированным профилям и исходникам, фактически установленные моды рабочего сервера не инспектировались.
 
 JAR загружены из официальных ссылок ниже. Для Modrinth проверен исходный SHA-512 из API, затем вычислен SHA-256. Для Forge проверен SHA-1 0deb8e547a9e3f098a4c9f082903499703c52f5d из базового пакета. [Машиночитаемая фиксация](../../scripts/npc-unified-life/dependencies.lock.json) содержит полные URL. SHA исходных ZIP относится к полученным архивам GitHub, Git commit отдельно фиксирует их содержимое.
 
@@ -51,7 +51,7 @@ JAR загружены из официальных ссылок ниже. Для
 
 Требуются Python 3, curl, JDK 17 и сеть к источникам. Для этой проверки использован Temurin 17.0.21.1+2 Linux x64. [Архив Temurin](https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.21.1%2B2/OpenJDK17U-jdk_x64_linux_hotspot_17.0.21.1_2.tar.gz), SHA-256 0b0ac5eab6db6abaec68c9913bcddb31321e5da411c45073d520d9c125e6f7b4. На Windows можно использовать JDK 17 с JAVA_HOME и gradlew.bat. Gradle Wrapper 8.8 проверяет SHA-256 дистрибутива. ForgeGradle закреплён на 6.0.54, точное значение разрешённое исходной сборкой.
 
-По умолчанию загрузка идёт в соседний с репозиторием каталог kingdom-npc-assets. Профили core, playerengine, player2, betterworld, betterworld-new и mca-next предназначены для отдельных тестовых каталогов. Полный профиль 47.4.10, Siegeworks и дополнения KLauncher лежат вне целевого базового набора исследования.
+По умолчанию загрузка идёт в соседний с репозиторием каталог kingdom-npc-assets. Профили core, playerengine, player2, betterworld, betterworld-new и mca-next предназначены для отдельных тестовых каталогов. Текущий целевой профиль `current-client` приведён ниже; исторические профили сохранены для регрессии. Siegeworks и другие дополнения KLauncher в него не входят.
 
 ```bash
 python3 scripts/npc-unified-life/prepare.py
@@ -65,3 +65,24 @@ python3 scripts/npc-unified-life/prepare.py --profile core --server-dir ../npc-t
 В окружении с HTTP(S)-прокси передать JVM -Dhttp.proxyHost / -Dhttp.proxyPort / -Dhttps.proxyHost / -Dhttps.proxyPort и стандартный доверенный CA вашей среды через JAVA_TOOL_OPTIONS. Первая сборка требует загрузки ForgeGradle, Forge, Mojang mappings, зависимостей Maven и выполнения MCP setup. Для воспроизводимости не заменять зависимость вручную на JAR с другим хешем.
 
 [Результаты проверок профилей](COMPATIBILITY.md).
+
+## Текущий клиентский профиль — 25.11.2026
+
+`current-client`: Minecraft 1.20.1, Forge **47.4.10**, Java **17**, MCA Reborn **7.7.1-beta.5+1.20.1**, Townstead **0.8.0+1.20.1**, TFC **3.2.26**, Create **0.5.1.j**, Patchouli **1.20.1-85-FORGE**. Старые профили и их Forge 47.3.0 оставлены без изменения. `profile_runtimes` в lock-файле выбирает отдельный Forge installer для нового профиля; Forge installer не копируется в mods.
+
+| Артефакт | Официальный выпуск | SHA-256 |
+| --- | --- | --- |
+| MCA 7.7.1-beta.5 | [Modrinth KJixRMB5](https://modrinth.com/mod/minecraft-comes-alive-reborn/version/KJixRMB5) | `0661e8d59918143f1d6c89d279dbdd7c2772b64ac51806394b2ba291c1449771` |
+| Townstead 0.8.0 | [Modrinth b8VnGFDu](https://modrinth.com/mod/townstead/version/b8VnGFDu) | `bc7e292397bf769ae334a63bfcc84abbcfeb54ab65cbe50794a022acb33c1035` |
+| Forge 1.20.1-47.4.10 installer | [Forge Maven](https://maven.minecraftforge.net/net/minecraftforge/forge/1.20.1-47.4.10/forge-1.20.1-47.4.10-installer.jar) | `1912760b4cb6b803d8a826de603c9076b1da71ec2765e9a1f8c1ca78f65278e3` |
+
+Forge installer дополнительно проверен по официальному Maven SHA-1 `66bfea9963bfa60d88bab6b2750e74a958392715`. Оба новых mod JAR проверены по SHA-512 официального Modrinth API перед вычислением SHA-256; исходные URL, SHA-512 и release ID включены в lock. Townstead API и `META-INF/mods.toml` требуют именно MCA `7.7.1-beta.5+1.20.1` (допускается также разработческий `1.20.1-SNAPSHOT`), Forge ≥47.3, Minecraft [1.20.1,1.21). MCA требует Forge ≥47.0.0. Architectury текущей паре не нужна; обязательных дополнительных библиотек Townstead не объявляет. Patchouli 85 нужен TFC; Create уже содержит Flywheel/Registrate. Не добавлены необязательные Curios, playeranimator, EMF/ETF и сторонние AI-сервисы.
+
+```bash
+python3 scripts/npc-unified-life/prepare.py --profile current-client --verify-only
+python3 scripts/npc-unified-life/prepare.py --profile current-client --server-dir ../npc-current-client
+```
+
+В текущем cloud-окружении installer успешно установил библиотеки в `/workspace/.cloud-setup/forge47410`; Java 17 активируется через `source /workspace/.cloud-setup/activate.sh`. Для загрузки installer использованы JVM proxy `http/https.proxyHost=proxy`, `http/https.proxyPort=8080` и `javax.net.ssl.trustStore=/workspace/.cloud-setup/truststore.jks` (password `changeit`). Эти параметры относятся к среде, не к пользовательской сборке. Из уже принятого владельцем EULA скопирован существующий `eula.txt`; проверка выполнялась на loopback `127.0.0.1:25594` с отдельным новым миром.
+
+У MCA 7.7.1 изменено пространство Java-имён на `net.conczin.mca`, внутри Forge universal JAR фактически `forge.net.conczin.mca`; это не изменение реестровых имён `mca:male_villager` / `mca:female_villager`. Бинарный аудит текущего профиля и ограничения приведены в [совместимости](COMPATIBILITY.md#текущий-профиль-25112026).

@@ -22,6 +22,8 @@ case "$probe" in
   autonomous) probe_class=ru.projectkingdom.validation.AutonomousMineProbe; phases=1; timeout_seconds=900 ;;
   *) echo "Unknown NPC_RUNTIME_PROBE: $probe" >&2; exit 2 ;;
 esac
+rock=${NPC_RUNTIME_ROCK:-false}
+if [[ "$probe" == autonomous && "$rock" == true ]]; then phases=2; fi
 mkdir -p "$target/mods" "$target/npc-runtime-world"
 ln -s "$baseline/libraries" "$target/libraries"
 cp "$baseline/eula.txt" "$target/eula.txt"
@@ -52,16 +54,21 @@ cd "$target"
 for ((phase=1; phase<=phases; phase++)); do
   timeout --signal=TERM --kill-after=20s "${timeout_seconds}s" java -XX:ActiveProcessorCount=2 -Xms512m -Xmx2G \
     -Dnpc.runtime.enabled=true \
+    "-Dnpc.runtime.rock=$rock" \
     "-Dnpc.runtime.probeClass=$probe_class" \
     "-Dnpc.runtime.allowedWorld=$target/npc-runtime-world" \
     "-javaagent:${agent[0]}=${helper[0]}" \
-    @libraries/net/minecraftforge/forge/1.20.1-47.3.0/unix_args.txt nogui \
+    @libraries/net/minecraftforge/forge/${NPC_RUNTIME_FORGE:-1.20.1-47.4.10}/unix_args.txt nogui \
     > "npc-runtime-phase-$phase.log" 2>&1
   if rg -q '\[NPC-(RUNTIME|AUTONOMOUS)\] FAIL' "npc-runtime-phase-$phase.log"; then
     cat "npc-runtime-phase-$phase.log" >&2
     exit 1
   fi
   [[ "$probe" == autonomous || -f npc-runtime-world/npc-runtime-checkpoint.properties ]]
+  if [[ "$probe" == autonomous && "$rock" == true && "$phase" == 1 ]]; then
+    [[ -f npc-runtime-world/npc-autonomous-checkpoint.properties ]]
+    [[ ! -f npc-runtime-world/npc-autonomous-PASS ]]
+  fi
 done
 if [[ "$probe" == autonomous ]]; then
   [[ -f npc-runtime-world/npc-autonomous-PASS ]]

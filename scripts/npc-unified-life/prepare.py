@@ -78,8 +78,9 @@ def main():
         parser.error("--kingdom-jar requires --server-dir and an existing JAR")
 
     selected = lock["profiles"].get(options.profile, [])
+    forge_id = lock.get("profile_runtimes", {}).get(options.profile, {}).get("forge_artifact", "forge")
     requested = [row for row in lock["artifacts"]
-                 if options.profile == "all" or row["id"] in {*selected, "forge"}]
+                 if options.profile == "all" or row["id"] in {*selected, forge_id}]
     options.output.mkdir(parents=True, exist_ok=True)
     try:
         with ThreadPoolExecutor(max_workers=5) as workers:
@@ -94,7 +95,7 @@ def main():
             mod_names = {row["filename"] for row in requested}
             stage_server(options.server_dir, selected, assets, mod_names, options.kingdom_jar)
             print(f"Staged mods: {options.server_dir.resolve() / 'mods'}")
-            print(f"Forge installer: {assets['forge'].resolve()}")
+            print(f"Forge installer: {assets[forge_id].resolve()}")
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         parser.exit(1, f"{error}\n")
 

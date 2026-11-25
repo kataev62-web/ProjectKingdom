@@ -606,6 +606,23 @@ public final class KingdomNpcMod {
                 return 1;
             })));
         // The schedule of the day, the skills and the career of every resident.
+        // The release check of the mine: a real mine, a real resident, a real
+        // depot and a real warehouse on the server itself.
+        root.then(Commands.literal("rc-mine").requires(s -> s.hasPermission(2))
+            .then(Commands.literal("start").executes(ctx -> {
+                var src=ctx.getSource();
+                String text=KingdomRcMineTest.start(src.getServer(),src.getEntity()==null
+                    ? src.getServer().getSingleplayerProfile()==null
+                        ? java.util.UUID.randomUUID()
+                        : java.util.UUID.randomUUID()
+                    : src.getEntity().getUUID());
+                reply(src,text);
+                return 1;
+            }))
+            .then(Commands.literal("report").executes(ctx -> {
+                reply(ctx.getSource(),KingdomRcMineTest.report(ctx.getSource().getServer()));
+                return 1;
+            })));
         root.then(Commands.literal("schedule").executes(ctx -> {
             var server=ctx.getSource().getServer();
             var data=KingdomNpcData.get(server);
@@ -1100,7 +1117,11 @@ public final class KingdomNpcMod {
         // Vanilla villager goals otherwise re-start navigation immediately after STOP.
         controlLoadedResidents(server);
         arbitrateResidentNavigation(server);
+        // The release check of the mine watches the world while it runs.
+        KingdomRcMineTest.tick(server);
         if (server.getTickCount() % 10 == 0) KingdomNpcBuilder.tick(server);
+        // The builder is production: during the rest of the resident the
+        // construction of the enterprise waits for the working time.
         if (server.getTickCount() % 80 == 0) KingdomNpcNeedsBroadcast.tick(server);
         if (server.getTickCount() % 200 == 0)
             ru.projectkingdom.settlement.KingdomTavernImmigration.tick(server);
@@ -1124,6 +1145,9 @@ public final class KingdomNpcMod {
                     if(!level.dimension().location().toString().equals(w.dimension))continue;
                     var ent=level.getEntity(w.entityId);
                     if(ent instanceof Villager npc && npc.isAlive()) {
+                        // The transport of goods is production: it waits for
+                        // the working time of the resident.
+                        if(!KingdomResidentSchedule.working(server,w))continue;
                         ItemStack before=w.cargo.copy();long delivered=w.deliveredItems;long baked=w.bakedBread;
                         NpcLogistics.tick(level,npc,w);
                         if(!ItemStack.matches(before,w.cargo)||delivered!=w.deliveredItems||baked!=w.bakedBread)moved=true;
@@ -1135,8 +1159,12 @@ public final class KingdomNpcMod {
                 for(ServerLevel level:server.getAllLevels()) {
                     if(!level.dimension().location().toString().equals(w.dimension))continue;
                     var ent=level.getEntity(w.entityId);
-                    if(ent instanceof Villager npc && npc.isAlive())
+                    if(ent instanceof Villager npc && npc.isAlive()) {
+                        // The courier carries the orders of the town: it waits
+                        // for the working time of the resident.
+                        if(!KingdomResidentSchedule.working(server,w))continue;
                         moved |= KingdomCourierService.tick(level,npc,w);
+                    }
                 }
             }
             // Workers travel to the warehouse and request live quotes, without remote payments.
@@ -1146,8 +1174,15 @@ public final class KingdomNpcMod {
                 for(ServerLevel level:server.getAllLevels()) {
                     if(!w.dimension.equals(level.dimension().location().toString()))continue;
                     var entity=level.getEntity(w.entityId);
-                    if(entity instanceof Villager npc && npc.isAlive())
+                    if(entity instanceof Villager npc && npc.isAlive()) {
+                        // The supply of the smith is production and it touches
+                        // the belongings of the resident: the real container is
+                        // bound before the change and written back after it.
+                        if(!KingdomResidentSchedule.working(server,w))continue;
+                        boolean bound=KingdomResidentInventory.bind(w,npc);
                         moved |= KingdomNpcSupply.tick(level,npc,w);
+                        if(bound)KingdomResidentInventory.flush(level,npc,w);
+                    }
                 }
             }
             if(moved)current.setDirty();

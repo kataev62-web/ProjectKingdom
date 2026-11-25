@@ -35,13 +35,16 @@ public final class KingdomMineCentralShaftPlan {
     }
 
     /**
-     * The independent, walkable entry is one cell SOUTH of the surveyed
-     * rectangle, centered on its southern edge.
+     * The independent, walkable entry is one cell WEST of the surveyed
+     * rectangle, next to the western corner.
+     *
+     * <p>The entry stands outside of the footprint: inside of it every cell
+     * belongs either to the descent with its ladder, to the deck or to the
+     * columns of the support of TFC.
      */
     public static BlockPos entrance(KingdomMineSettings.Shaft area) {
         if(area==null)return null;
-        return new BlockPos((area.minX()+area.maxX())/2,
-            area.surfaceY(),area.maxZ()+1);
+        return new BlockPos(area.minX()-1,area.surfaceY(),area.maxZ());
     }
 
     /**
@@ -52,8 +55,7 @@ public final class KingdomMineCentralShaftPlan {
      */
     public static BlockPos descent(KingdomMineSettings.Shaft area,int layer) {
         if(area==null)return null;
-        return new BlockPos((area.minX()+area.maxX())/2,
-            area.surfaceY()-layer,area.maxZ());
+        return new BlockPos(area.minX(),area.surfaceY()-layer,area.maxZ());
     }
 
     /** The depth of a layer. */
@@ -71,22 +73,49 @@ public final class KingdomMineCentralShaftPlan {
      */
     public static List<KingdomMineGalleryPlan.Cell> layer(
             KingdomMineSettings.Shaft area,int layer) {
-        if(area==null||layer<1)return List.of();
+        // The layer zero is the surface of the footprint: the cap is cleared
+        // before the excavation goes deeper.
+        if(area==null||layer<0)return List.of();
         int y=area.surfaceY()-layer;
         List<KingdomMineGalleryPlan.Cell> cells=new ArrayList<>();
-        BlockPos previous=null;
-        boolean westToEast=true;
-        int width=area.maxX()-area.minX()+1;
-        for(int z=area.minZ();z<=area.maxZ();z++){
-            for(int i=0;i<width;i++){
-                int x=westToEast?area.minX()+i:area.maxX()-i;
-                BlockPos target=new BlockPos(x,y,z);
-                // The first cell of a layer is dug from the layer above.
-                BlockPos approach=previous!=null?previous:target.above();
-                cells.add(new KingdomMineGalleryPlan.Cell(target,approach));
-                previous=target;
+        BlockPos descent=descent(area,layer);
+        if(layer==0){
+            // The first layer is the surface of the footprint. The miner
+            // walks in through the entrance and opens the shaft of the mine.
+            // The surface is cleared first, so that no block of the cap is
+            // left hanging over the excavation.
+            // The entry stands west of the western corner: inside of the
+            // footprint every cell belongs to the descent with its ladder, to
+            // the deck or to the columns of the support of TFC.
+            BlockPos shaft=new BlockPos(area.minX()-1,y,area.maxZ());
+            cells.add(new KingdomMineGalleryPlan.Cell(shaft,shaft.above()));
+            cells.add(new KingdomMineGalleryPlan.Cell(descent,shaft));
+        }else{
+            // The descent cell is dug from the layer above, where the ladder
+            // of the previous layer stands.
+            cells.add(new KingdomMineGalleryPlan.Cell(descent,descent.above()));
+        }
+        // The rest of the layer is a serpentine that starts next to the
+        // descent, so that the miner always stands on the cell it dug before.
+        BlockPos previous=descent;
+        boolean eastward=true;
+        for(int z=area.maxZ();z>=area.minZ();z--){
+            if(eastward){
+                for(int x=area.minX();x<=area.maxX();x++){
+                    BlockPos target=new BlockPos(x,y,z);
+                    if(target.equals(descent))continue;
+                    cells.add(new KingdomMineGalleryPlan.Cell(target,previous));
+                    previous=target;
+                }
+            }else{
+                for(int x=area.maxX();x>=area.minX();x--){
+                    BlockPos target=new BlockPos(x,y,z);
+                    if(target.equals(descent))continue;
+                    cells.add(new KingdomMineGalleryPlan.Cell(target,previous));
+                    previous=target;
+                }
             }
-            westToEast=!westToEast;
+            eastward=!eastward;
         }
         return List.copyOf(cells);
     }
@@ -104,7 +133,8 @@ public final class KingdomMineCentralShaftPlan {
             ||heading==null)return List.of();
         int depth=levels*KingdomMineSettings.LEVEL_INTERVAL;
         List<KingdomMineGalleryPlan.Cell> result=new ArrayList<>();
-        for(int layer=1;layer<=depth;layer++)
+        // The surface is the first layer, the shaft under the entrance with it.
+        for(int layer=0;layer<=depth;layer++)
             result.addAll(layer(area,layer));
         return List.copyOf(result);
     }
