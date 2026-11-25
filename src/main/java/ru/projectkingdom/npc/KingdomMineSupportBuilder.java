@@ -138,7 +138,12 @@ public final class KingdomMineSupportBuilder {
             npc.getNavigation().moveTo(expected.getX()+0.5,expected.getY(),expected.getZ()+0.5,0.75);
             return Result.WALKING;
         }
-        var fake=FakePlayerFactory.getMinecraft(level);
+        // The support is placed as the employer of the resident: TFC knows
+        // the protection of the land and lets the owner of the claim work.
+        var fake=worker.employer==null
+            ?FakePlayerFactory.getMinecraft(level)
+            :FakePlayerFactory.get(level,new com.mojang.authlib.GameProfile(
+                worker.employer,"KingdomWorker"));
         if(fake.isCreative())return Result.FAILED_NATIVE_PLACEMENT;
         fake.setPos(npc.getX(),npc.getY(),npc.getZ());
         fake.setShiftKeyDown(false); // TFC places a complete three-block column when not sneaking.

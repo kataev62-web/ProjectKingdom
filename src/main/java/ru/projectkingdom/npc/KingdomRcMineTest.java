@@ -348,7 +348,16 @@ public final class KingdomRcMineTest {
         long day = level.getDayTime() % 24000L;
         if (day >= 2000L && day < 6000L) return;
         if (day >= 7000L && day < 12000L) return;
-        level.setDayTime(((level.getDayTime() / 24000L) * 24000L) + 2000L);
+        // The time only moves forward: TFC keeps a calendar of the world and
+        // a jump backwards puts it out of sync.
+        long base = (level.getDayTime() / 24000L) * 24000L;
+        if (day < 2000L) {
+            level.setDayTime(base + 2000L);
+        } else if (day < 7000L) {
+            level.setDayTime(base + 7000L);
+        } else {
+            level.setDayTime(base + 24000L + 2000L);
+        }
     }
 
     /** Whether the ladder and the deck of the descent stand. */
@@ -358,7 +367,7 @@ public final class KingdomRcMineTest {
                 new KingdomMineSettings.Shaft(state.originX, state.originX + 6,
                         state.originZ, state.originZ + 6, state.surfaceY, state.dimension), 0);
         return level.getBlockState(descent).is(Blocks.LADDER)
-            && KingdomMineStructureWork.isDeckBlock(level.getBlockState(descent.north()));
+            && KingdomMineStructureWork.isDeckBlock(level.getBlockState(descent.east()));
     }
 
     /** The number of the blocks of the surface layer that are gone. */

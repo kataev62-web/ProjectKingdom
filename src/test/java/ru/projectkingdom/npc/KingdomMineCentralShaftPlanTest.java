@@ -151,11 +151,13 @@ class KingdomMineCentralShaftPlanTest {
         BlockPos descent = KingdomMineCentralShaftPlan.descent(shaft, layer);
         assertTrue(KingdomMineLayerWork.completedStructure(shaft, layer, descent,
             net.minecraft.world.level.block.Blocks.LADDER.defaultBlockState()));
-        assertTrue(KingdomMineLayerWork.completedStructure(shaft, layer, descent.north(),
+        // The deck of the descent lies east of the descent: the north cell
+        // belongs to the northern post of the support of TFC.
+        assertTrue(KingdomMineLayerWork.completedStructure(shaft, layer, descent.east(),
             net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState()));
-        assertFalse(KingdomMineLayerWork.completedStructure(shaft, layer, descent.north(),
-            net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState()));
         assertFalse(KingdomMineLayerWork.completedStructure(shaft, layer, descent.east(),
+            net.minecraft.world.level.block.Blocks.DIRT.defaultBlockState()));
+        assertFalse(KingdomMineLayerWork.completedStructure(shaft, layer, descent.north(),
             net.minecraft.world.level.block.Blocks.OAK_PLANKS.defaultBlockState()));
     }
 }

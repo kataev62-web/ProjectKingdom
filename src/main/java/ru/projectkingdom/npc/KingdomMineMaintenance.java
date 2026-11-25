@@ -29,8 +29,17 @@ public final class KingdomMineMaintenance {
                 && north%6==0 && westEast==0;
     }
 
+    /**
+     * Whether the miner may stand on the cell.
+     *
+     * <p>The columns of the support of TFC are a part of the mine: the miner
+     * walks over them and digs around them.
+     */
     public static boolean passable(BlockState state) {
-        return state.isAir() || state.is(Blocks.TORCH) || state.is(Blocks.LADDER);
+        if (state.isAir() || state.is(Blocks.TORCH) || state.is(Blocks.LADDER)) return true;
+        String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(state.getBlock()).toString();
+        return id.startsWith("tfc:wood/vertical_support/");
     }
 
     public static Result light(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,

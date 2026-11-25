@@ -144,7 +144,7 @@ public final class KingdomMineLayerWork {
                     return false;
                 }
                 // The deck of planks gives the miner a solid floor at the descent.
-                BlockPos deck = descent.north();
+                BlockPos deck = descent.east();
                 if (level.hasChunkAt(deck)) {
                     var plank = KingdomMineStructureWork.plankAt(level, npc, worker, area, deck);
                     if (plank == KingdomMineStructureWork.Result.BUILT) {
@@ -238,9 +238,15 @@ public final class KingdomMineLayerWork {
                                       BlockPos target, BlockState state) {
         if (area == null || target == null || state == null) return false;
         BlockPos descent = KingdomMineCentralShaftPlan.descent(area, layer);
+        // The supports of TFC are the finished structures of the mine: the
+        // plan never digs them out again.
+        String id = net.minecraft.core.registries.BuiltInRegistries.BLOCK
+                .getKey(state.getBlock()).toString();
+        if (id.startsWith("tfc:wood/vertical_support/")
+                || id.startsWith("tfc:wood/horizontal_support/")) return true;
         return (target.equals(descent)
                 && state.is(net.minecraft.world.level.block.Blocks.LADDER))
-            || (target.equals(descent.north())
+            || (target.equals(descent.east())
                 && KingdomMineStructureWork.isDeckBlock(state));
     }
 
