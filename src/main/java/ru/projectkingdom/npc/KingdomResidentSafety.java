@@ -166,7 +166,7 @@ public final class KingdomResidentSafety {
      */
     private static boolean hasCarriedItems(KingdomNpcData.Worker worker){
         return worker!=null&&(!worker.cargo.isEmpty()||!worker.fieldTool.isEmpty()
-                ||!worker.fieldInventory.isEmpty()||!worker.wagePurse.isEmpty());
+                ||!worker.fieldInventory.isEmpty()||!worker.wagePurse.isEmpty()||!worker.pendingMigration.isEmpty());
     }
     public static boolean retire(ServerLevel level,Villager npc){
         return npc!=null&&retire(level,npc.getUUID(),npc);
@@ -183,16 +183,117 @@ public final class KingdomResidentSafety {
         for(var w:db.all())if(uuid.equals(w.entityId)){worker=w;break;}
         if(worker==null)return false;
         if(npc==null&&hasCarriedItems(worker))return false;
+        // The inheritance: the real belongings of the dead resident go to the
+        // heir that was recorded for it. Without an heir they stay in the
+        // world as real items, and never in a virtual balance.
+        boolean inherited=false;
         if(npc!=null){
-            if(!worker.cargo.isEmpty())npc.spawnAtLocation(worker.cargo.copy());
-            if(!worker.fieldTool.isEmpty())npc.spawnAtLocation(worker.fieldTool.copy());
-            for(var stack:worker.fieldInventory)if(!stack.isEmpty())npc.spawnAtLocation(stack.copy());
-            for(var stack:worker.wagePurse)if(!stack.isEmpty())npc.spawnAtLocation(stack.copy());
+            var development=KingdomResidentDevelopment.get(server);
+            var claim=development.claimOf("heir",uuid.toString());
+            if(claim!=null){
+                if(development.inheritedAssets(uuid,claim.owner()).contains("belongings")){
+                    var physical=worker.physicalBag?KingdomResidentInventory.personal(npc):null;
+                    if(hasCarriedItems(worker)||(physical!=null&&!physical.isEmpty())){
+                        // A receipt alongside remaining donor assets is a split-save ambiguity.
+                        // Never drop/retransfer them or delete the only recoverable ownership record.
+                        worker.inventoryRecoveryRequired=true;
+                        db.setDirty();
+                        KingdomEnterprisePayrollData.get(server).retireDeceasedNpc(server,uuid);
+                        return false;
+                    }
+                    inherited=true;
+                }
+                var heirEntity=entityOf(server,worker,claim.owner());
+                if(!inherited&&heirEntity!=null){
+                    inherited=inheritTo(server,level,heirEntity,npc,worker,development,uuid,claim.owner());
+                }
+            }
+        }
+        if(npc!=null&&!inherited){
+            // Checkpoint every owned extra before spawning; the MCA bag owns its own
+            // death drops, and its transient work mirror must never be dropped again.
+            if(!worker.cargo.isEmpty())worker.pendingMigration.add(worker.cargo.copy());
+            worker.cargo=net.minecraft.world.item.ItemStack.EMPTY;
+            if(!worker.physicalBag){
+                if(!worker.fieldTool.isEmpty())worker.pendingMigration.add(worker.fieldTool.copy());
+                for(var stack:worker.fieldInventory)if(!stack.isEmpty())worker.pendingMigration.add(stack.copy());
+            }
+            worker.fieldTool=net.minecraft.world.item.ItemStack.EMPTY;
+            worker.fieldInventory.clear();
+            for(var stack:worker.wagePurse)if(!stack.isEmpty())worker.pendingMigration.add(stack.copy());
+            worker.wagePurse.clear();
+            boolean released=ResidentOwnedDrops.release(worker.pendingMigration,stack -> {
+                var drop=new net.minecraft.world.entity.item.ItemEntity(level,npc.getX(),npc.getY(),npc.getZ(),stack);
+                drop.setDefaultPickUpDelay();
+                try {return level.addFreshEntity(drop);}
+                catch(RuntimeException failure) {
+                    return level.getEntity(drop.getUUID())==drop&&!drop.isRemoved();
+                }
+            });
+            db.setDirty();
+            if(!released){
+                worker.inventoryRecoveryRequired=true;
+                KingdomEnterprisePayrollData.get(server).retireDeceasedNpc(server,uuid);
+                KingdomCivicsData.get(server).removeDeceasedNpc(uuid);
+                ru.projectkingdom.administration.KingdomAdministrationData.get(server).removeDeceasedNpcRoles(uuid);
+                return false; // Retain dead worker and rejected stacks for operator recovery.
+            }
         }
         db.removeByEntity(uuid);
         KingdomEnterprisePayrollData.get(server).retireDeceasedNpc(server,uuid);
         KingdomCivicsData.get(server).removeDeceasedNpc(uuid);
         ru.projectkingdom.administration.KingdomAdministrationData.get(server).removeDeceasedNpcRoles(uuid);
+        return true;
+    }
+
+    /** The entity of a resident, in its own dimension. */
+    private static Villager entityOf(net.minecraft.server.MinecraftServer server,
+            KingdomNpcData.Worker worker,UUID id){
+        if(server==null||worker==null)return null;
+        for(var level:server.getAllLevels()){
+            if(!worker.dimension.equals(level.dimension().location().toString()))continue;
+            var entity=level.getEntity(id);
+            if(entity instanceof Villager villager&&villager.isAlive())return villager;
+        }
+        return null;
+    }
+
+    /**
+     * Moves the real belongings of the dead resident into the real bag of the
+     * heir.
+     *
+     * <p>A repeated event uses the completed receipt. This is a server-thread
+     * transfer; independently saved entity and SavedData files are not crash-atomic.
+     */
+    private static boolean inheritTo(net.minecraft.server.MinecraftServer server,
+            ServerLevel level,Villager heir,Villager dead,KingdomNpcData.Worker worker,
+            KingdomResidentDevelopment development,UUID deadId,UUID heirId){
+        // A receipt describes a completed transfer, never an intention to inherit.
+        if(development.inheritedAssets(deadId,heirId).contains("belongings"))return true;
+        var personal=KingdomResidentInventory.personal(heir);
+        var donor=worker.physicalBag?KingdomResidentInventory.personal(dead):new net.minecraft.world.SimpleContainer(0);
+        if(!KingdomResidentLife.knownPersonalBag(personal)
+                ||!KingdomResidentLife.knownPersonalBag(donor)||personal==donor)return false;
+        var assets=new java.util.ArrayList<net.minecraft.world.item.ItemStack>();
+        if(!worker.physicalBag){
+            if(!worker.fieldTool.isEmpty())assets.add(worker.fieldTool.copy());
+            for(var stack:worker.fieldInventory)if(!stack.isEmpty())assets.add(stack.copy());
+        }
+        if(!worker.cargo.isEmpty())assets.add(worker.cargo.copy());
+        for(var stack:worker.pendingMigration)if(!stack.isEmpty())assets.add(stack.copy());
+        for(var stack:worker.wagePurse)if(!stack.isEmpty())assets.add(stack.copy());
+        boolean hasAssets=!assets.isEmpty()||!donor.isEmpty();
+        if(!hasAssets)return false;
+        var plan=ResidentPhysicalPurchase.inheritance(assets,donor,personal);
+        if(plan==null)return false; // Full heir bag: ownership is not falsely recorded.
+        if(!plan.commit())return false;
+        worker.cargo=net.minecraft.world.item.ItemStack.EMPTY;
+        worker.fieldTool=net.minecraft.world.item.ItemStack.EMPTY;
+        worker.fieldInventory.clear();
+        worker.pendingMigration.clear();
+        worker.wagePurse.clear();
+        development.inherit(deadId,heirId,"belongings",level.getGameTime());
+        KingdomNpcData.get(server).setDirty();
         return true;
     }
 

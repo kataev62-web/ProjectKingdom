@@ -5,14 +5,9 @@ import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.Container;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.npc.Villager;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.context.UseOnContext;
-import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.level.block.state.BlockState;
-import net.minecraftforge.common.util.FakePlayerFactory;
 
 /**
  * First native TFC support placement adapter. It never writes fake support
@@ -49,9 +44,11 @@ public final class KingdomMineSupportBuilder {
             for(int y=0;y<3;y++)
                 if(!vertical(level.getBlockState(post.above(y))))return false;
         // Presence of the visual beam is insufficient; the authoritative TFC
-        // support registry must recognize protection over the tunnel roof.
+        // support registry must recognize the protection. The frame protects
+        // the rock of the walkway when the miner digs straight down and the
+        // roof above the walkway when the corridor goes forward.
         return KingdomMineSupportSafety.hasHorizontalSupport(
-            level,frame.walkway().above());
+            level,frame.protectedCell());
     }
 
     private static String type(ItemStack stack) {
@@ -128,26 +125,19 @@ public final class KingdomMineSupportBuilder {
     }
 
     private static Result nativePlace(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
-                                      BlockPos clicked,Direction face,
-                                      BlockPos expected,boolean bridge) {
+                                      BlockPos expected,Direction face,
+                                      boolean bridge,BlockPos access) {
         ItemStack support=carried(worker,bridge?2:3);
         if(support.isEmpty())return Result.NO_STOCK;
-        if(npc.distanceToSqr(expected.getX()+0.5,expected.getY()+0.5,expected.getZ()+0.5)>6.25) {
-            npc.getNavigation().moveTo(expected.getX()+0.5,expected.getY(),expected.getZ()+0.5,0.75);
+        if(!KingdomActionEngine.inReach(npc,expected)) {
+            npc.getNavigation().moveTo(access.getX()+0.5,access.getY(),access.getZ()+0.5,0.75);
             return Result.WALKING;
         }
-        var fake=FakePlayerFactory.getMinecraft(level);
-        if(fake.isCreative())return Result.FAILED_NATIVE_PLACEMENT;
-        fake.setPos(npc.getX(),npc.getY(),npc.getZ());
-        fake.setShiftKeyDown(false); // TFC places a complete three-block column when not sneaking.
         int before=support.getCount();
-        fake.setItemInHand(InteractionHand.MAIN_HAND,support);
-        try {
-            var hit=new BlockHitResult(Vec3.atCenterOf(clicked),face,clicked,false);
-            support.useOn(new UseOnContext(fake,InteractionHand.MAIN_HAND,hit));
-        } finally {
-            fake.setItemInHand(InteractionHand.MAIN_HAND,ItemStack.EMPTY);
-        }
+        var outcome=KingdomActionEngine.placeBlock(level,npc,worker,expected,support,
+            face.getOpposite());
+        if(!outcome.done())return outcome.status()==KingdomActionEngine.Status.MOVING
+            ?Result.WALKING:Result.FAILED_NATIVE_PLACEMENT;
         boolean placed=bridge?horizontal(level.getBlockState(expected))
             :vertical(level.getBlockState(expected))
                 &&vertical(level.getBlockState(expected.above()))
@@ -160,8 +150,80 @@ public final class KingdomMineSupportBuilder {
         return placed && consumed>0 ? Result.PLACED : Result.FAILED_NATIVE_PLACEMENT;
     }
 
+    /** Use the same orientation for preparation, placement and completion checks. */
+    static KingdomMineSupportPlan.Frame resolveFrame(ServerLevel level,
+            KingdomMineSupportPlan.Frame frame,KingdomNpcData.Worker worker) {
+        if(frame==null||!KingdomMineSupportPlan.valid(frame))return frame;
+        if(frame.depth()==0) {
+            // Preparing the default side alcoves can require breaking the very
+            // unsupported rock this beam is meant to protect. Use an already
+            // open pose behind the frontier instead; excavation stays fail-closed.
+            for(var candidate:KingdomMineSupportPlan.nearbyFrames(frame)) {
+                if(!accessible(level,candidate,worker)
+                    ||!clearForPost(level,candidate.leftPost())
+                    ||!clearForPost(level,candidate.rightPost())
+                    ||!KingdomMineSupportSafety.plannedBeamCanSupport(
+                        candidate.crossbeam(),candidate.protectedCell()))continue;
+                BlockState beam=level.getBlockState(candidate.crossbeam());
+                if(!beam.isAir()&&!frameComplete(level,candidate))continue;
+                BlockPos access=safeAccess(level,candidate,worker);
+                if(access!=null)return new KingdomMineSupportPlan.Frame(
+                    candidate.leftPost(),candidate.rightPost(),candidate.crossbeam(),
+                    candidate.walkway(),access,candidate.protectedCell(),candidate.depth());
+            }
+        }
+        if(!obstructedByStructure(level,frame))return frame;
+        boolean eastWest=frame.leftPost().getX()!=frame.rightPost().getX();
+        BlockPos center=frame.walkway();
+        var rotated=new KingdomMineSupportPlan.Frame(
+            eastWest?center.north():center.west(),
+            eastWest?center.south():center.east(),frame.crossbeam(),center,
+            frame.access(),frame.protectedCell(),frame.depth());
+        return obstructedByStructure(level,rotated)?frame:rotated;
+    }
+
+    private static BlockPos safeAccess(ServerLevel level,KingdomMineSupportPlan.Frame frame,
+            KingdomNpcData.Worker worker) {
+        var land=KingdomTerritories.get(level.getServer());
+        java.util.List<BlockPos> candidates=new java.util.ArrayList<>();
+        candidates.add(frame.access());
+        candidates.add(frame.walkway());
+        for(Direction direction:Direction.Plane.HORIZONTAL)
+            candidates.add(frame.walkway().relative(direction));
+        for(BlockPos pos:candidates) {
+            if(pos.equals(frame.leftPost())||pos.equals(frame.rightPost())
+                ||pos.equals(frame.crossbeam())||pos.above().equals(frame.crossbeam())
+                ||pos.distSqr(frame.walkway())>4)continue;
+            boolean safe=true;
+            for(int dy=-1;dy<=1;dy++) {
+                BlockPos cell=pos.above(dy);
+                if(!level.hasChunkAt(cell)||!land.canUse(level,cell,worker.employer)) {
+                    safe=false;
+                    break;
+                }
+            }
+            if(safe && level.getBlockState(pos.below()).isFaceSturdy(level,pos.below(),Direction.UP)
+                &&KingdomMineMaintenance.passable(level.getBlockState(pos))
+                &&KingdomMineMaintenance.passable(level.getBlockState(pos.above()))
+                &&level.getFluidState(pos).isEmpty()&&level.getFluidState(pos.above()).isEmpty())return pos;
+        }
+        return null;
+    }
+
+    private static boolean obstructedByStructure(ServerLevel level,
+            KingdomMineSupportPlan.Frame frame) {
+        for(BlockPos post:new BlockPos[]{frame.leftPost(),frame.rightPost()})
+            for(int y=0;y<3;y++) {
+                BlockState state=level.getBlockState(post.above(y));
+                if(state.is(net.minecraft.world.level.block.Blocks.LADDER)
+                    ||KingdomMineStructureWork.isDeckBlock(state))return true;
+            }
+        return false;
+    }
+
     public static Result tick(ServerLevel level,Villager npc,KingdomNpcData.Worker worker,
                               KingdomMineSupportPlan.Frame frame) {
+        frame=resolveFrame(level,frame,worker);
         if(!accessible(level,frame,worker))return Result.INACCESSIBLE;
         BlockPos left=frame.leftPost(),right=frame.rightPost(),middle=frame.crossbeam();
         if(frameComplete(level,frame))return Result.COMPLETE;
@@ -181,14 +243,45 @@ public final class KingdomMineSupportBuilder {
         boolean needPole=!vertical(level.getBlockState(left))
             ||!vertical(level.getBlockState(right));
         if(carried(worker,needPole?3:2).isEmpty())return supply(level,npc,worker);
+        // An alternate cleared pose may put a future post on the miner's
+        // previous staging cell. Leave both post columns before native use.
+        for(BlockPos post:new BlockPos[]{left,right}) {
+            if(npc.getBoundingBox().intersects(
+                    new net.minecraft.world.phys.AABB(post).expandTowards(0,2,0))) {
+                npc.getNavigation().moveTo(frame.access().getX()+.5,frame.access().getY(),
+                    frame.access().getZ()+.5,.75);
+                return Result.WALKING;
+            }
+        }
         // TFC places three vertical supports at once if enough real items are held.
         if(!vertical(level.getBlockState(left)))
-            return nativePlace(level,npc,worker,left.below(),Direction.UP,left,false);
+            return nativePlace(level,npc,worker,left,Direction.UP,false,frame.access());
         if(!vertical(level.getBlockState(right)))
-            return nativePlace(level,npc,worker,right.below(),Direction.UP,right,false);
-        // Side-click on the left top support, allowing TFC's horizontal rule
-        // to link the right support via its real block-item implementation.
+            return nativePlace(level,npc,worker,right,Direction.UP,false,frame.access());
+        // A low emergency beam may overlap the miner's head. Native placement
+        // must succeed from a separate safe square, never through the resident.
+        if(frame.beamHeight()==1 && npc.getBoundingBox().intersects(
+                new net.minecraft.world.phys.AABB(middle))) {
+            BlockPos stand=null;
+            for(Direction direction:Direction.Plane.HORIZONTAL) {
+                BlockPos candidate=frame.walkway().relative(direction);
+                if(!level.hasChunkAt(candidate) || !level.hasChunkAt(candidate.below())
+                    || !level.hasChunkAt(candidate.above())
+                    || !KingdomMineMaintenance.passable(level.getBlockState(candidate))
+                    || !KingdomMineMaintenance.passable(level.getBlockState(candidate.above()))
+                    || !level.getFluidState(candidate).isEmpty()
+                    || !level.getFluidState(candidate.above()).isEmpty()
+                    || !level.getBlockState(candidate.below()).isFaceSturdy(level,candidate.below(),Direction.UP))
+                    continue;
+                if(stand==null || npc.distanceToSqr(candidate.getX()+.5,candidate.getY(),candidate.getZ()+.5)
+                        <npc.distanceToSqr(stand.getX()+.5,stand.getY(),stand.getZ()+.5))stand=candidate;
+            }
+            if(stand==null)return Result.INACCESSIBLE;
+            npc.getNavigation().moveTo(stand.getX()+.5,stand.getY(),stand.getZ()+.5,.75);
+            return Result.WALKING;
+        }
+        // Side-click a real post at the planned height. TFC owns the link.
         Direction span=left.getX()!=right.getX()?Direction.EAST:Direction.SOUTH;
-        return nativePlace(level,npc,worker,left.above(2),span,middle,true);
+        return nativePlace(level,npc,worker,middle,span,true,frame.access());
     }
 }

@@ -31,6 +31,11 @@ final class KingdomEnterprisePayrollArrearsTest {
         assertTrue(mod.contains("level.hasChunkAt(dest)"));
         assertTrue(mod.contains("firm.cash()<=0"));
         String enterprise=source("KingdomEnterpriseData.java");
-        assertTrue(enterprise.contains("KingdomPhysicalCash.takeForNpc"));
+        assertTrue(enterprise.contains("ResidentPhysicalPurchase.cashWage(worker.wagePurse,cash.container(),amount,KingdomCurrency::value)"));
+        assertTrue(enterprise.contains("cash.status()!=EnterpriseAccessService.Status.BOUND_AVAILABLE"));
+        assertTrue(enterprise.contains("npc.distanceToSqr(cash.position()"));
+        assertTrue(enterprise.contains("if(!payment.commit())return false"));
+        assertFalse(source("KingdomEnterprisePayrollData.java").contains("coinsWithExisting("),
+                "salary must move actual source denominations rather than reconstruct coins from value");
     }
 }

@@ -37,6 +37,7 @@ public final class KingdomNpcBuilder {
                 if (!site.owner().equals(worker.employer)
                         || !site.dimension().equals(worker.dimension)
                         || !"builder".equals(worker.job)
+                        || !KingdomResidentSchedule.mayProduce(server,worker)
                         || !KingdomNpcDuty.mayExecute(worker.job, worker.order,
                             worker.autonomousIntent, KingdomNpcWorkday.employed(server, worker)))
                     continue;

@@ -159,7 +159,7 @@ public final class KingdomNpcMenu extends ChestMenu {
             + KingdomNpcNutrition.summary(w));
         long wagesOwed=KingdomEnterprisePayrollData.get(viewer.getServer()).totalDue(viewer.getServer(),w.entityId);
         long purse=w.wagePurse.stream().mapToLong(stack->KingdomCurrency.value(stack)*stack.getCount()).sum();
-        icon(13, KingdomCurrency.COPPER.get(), "Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse);
+        icon(13, KingdomCurrency.COPPER.get(), "ВЫПЛАТИТЬ ЗАРПЛАТУ (ЛКМ, из личных медных монет, до 64 за нажатие) | Зарплата: " + w.dailyWage + " мед./сутки | долг: " + wagesOwed + " | у NPC: " + purse);
         icon(14, Items.PAPER, "Приказ: " + order(w.order));
         icon(15, Items.CHEST, "План: " + NpcAutonomyPlanner.description(
             safeIntent(w.autonomousIntent)) + (plan==null?"":" | ПКМ: остатки "+plan.low()+"–"+plan.high()));
@@ -181,7 +181,7 @@ public final class KingdomNpcMenu extends ChestMenu {
                 +" | Ствол: "+areaLabel
                 +" | Настройки в блоке предприятия | "+w.mineStatus);
         }
-        icon(17, Items.BARREL, "Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
+        icon(17, Items.CHEST, "ОТКРЫТЬ ИНВЕНТАРЬ NPC: положить лопату, кирку и другие настоящие предметы | Добыто: " + w.fieldHarvested + " | Сумка: " + w.fieldInventory.stream().mapToInt(ItemStack::getCount).sum() + " | Доставлено: " + w.deliveredItems + " | Испечено: " + w.bakedBread + " | Груз: " + (w.cargo.isEmpty() ? "пусто" : w.cargo.getHoverName().getString()+" x"+w.cargo.getCount()));
         if(!"miner".equals(w.job)) icon(16, Items.GOLD_INGOT, "Старый фонд зарплат: " + KingdomNpcData.get(viewer.getServer()).balance(viewer.getUUID())
             + " (возврат /knpc refund_legacy <сумма> у банковской стойки)");
         if (w.employer == null && w.ageYears >= 18) icon(19, Items.LIME_DYE, "НАНЯТЬ И НАСТРОИТЬ ПРОФЕССИЮ: один клик");
@@ -191,12 +191,39 @@ public final class KingdomNpcMenu extends ChestMenu {
             icon(21, Items.BARRIER, "СТОЯТЬ на месте");
             icon(22, Items.IRON_PICKAXE, "РАБОТАТЬ: автоматически настроить и начать; при ошибке покажет причину");
             icon(23, Items.OAK_DOOR, "ВЕРНУТЬСЯ ДОМОЙ");
-            icon(24, Items.SUNFLOWER, "СВОБОДНАЯ ЖИЗНЬ");
+            icon(24, Items.SUNFLOWER, scheduleText(viewer.getServer(), w));
             icon(25, Items.GOLD_NUGGET, "+1 к дневной зарплате");
         }
         icon(18, Items.BREAD, "ЛКМ: дать свежую еду TFC из руки | ПКМ работодателя: "
             + (w.rationsEnabled?"отключить":"включить")+" питание со склада");
         icon(26, KingdomCurrency.COPPER.get(), "ВНЕСТИ 1 медную из кошелька на зарплатный счёт");
+    }
+
+    /**
+     * The schedule of the day, the skills and the career of the resident.
+     *
+     * <p>The operator sees at once who owns the resident at this moment and
+     * what it has achieved so far.
+     */
+    private String scheduleText(net.minecraft.server.MinecraftServer server,
+            KingdomNpcData.Worker w) {
+        var mode=KingdomResidentSchedule.modeOf(server,w.entityId,w);
+        var development=KingdomResidentDevelopment.get(server);
+        StringBuilder skills=new StringBuilder();
+        development.skillsOf(w.entityId).forEach((name,skill)->
+            skills.append(name).append(" ").append(skill.level()).append("ур. "));
+        StringBuilder career=new StringBuilder();
+        for(var step:development.careerOf(w.entityId))
+            career.append(step.job()).append(" ");
+        StringBuilder goals=new StringBuilder();
+        for(var goal:development.goalsOf(w.entityId))
+            goals.append(goal.kind()).append(":").append(goal.target()).append(" ");
+        return "СВОБОДНАЯ ЖИЗНЬ (ЛКМ) | Расписание: "+KingdomResidentSchedule.describe(mode)
+            +" | 06:00-08:00 MCA, 08:00-12:00 работа, 12:00-13:00 отдых,"
+            +" 13:00-18:00 работа, 18:00-06:00 MCA"
+            +" | Навыки: "+(skills.length()==0?"нет":skills)
+            +" | Карьера: "+(career.length()==0?"нет":career)
+            +" | Цели: "+(goals.length()==0?"нет":goals);
     }
 
     /** All 26 trades on one page; the last slot returns to management. */
@@ -305,6 +332,25 @@ public final class KingdomNpcMenu extends ChestMenu {
         boolean owner = controls(w);
         boolean changed = false;
         switch (slotId) {
+            case 17 -> {
+                if(!owner || w.employer==null) {
+                    info("Открыть инвентарь может работодатель NPC.");
+                    break;
+                }
+                if(!KingdomNpcBagMenu.open(viewer,w))
+                    info("Инвентарь NPC занят, недоступен или NPC слишком далеко.");
+                else return;
+            }
+            case 13 -> {
+                if(!owner || w.employer==null || !viewer.getUUID().equals(w.employer)) {
+                    info("Выплатить зарплату может только настоящий работодатель.");
+                    break;
+                }
+                var payment=KingdomEnterprisePayrollData.get(viewer.getServer())
+                    .payNpcLooseCopper(viewer,w);
+                info(payment.message());
+                changed=payment.paid()>0;
+            }
             case 16 -> info("Шахта: начало, уровни, направление и выделение ствола настраиваются через блок предприятия «Шахта».");
             case 11 -> {
                 if (!viewer.hasPermissions(2)) {
@@ -394,11 +440,9 @@ public final class KingdomNpcMenu extends ChestMenu {
             }
             case 0 -> {
                 if (!owner) { info("Назначить дом может работодатель."); break; }
-                var pos = viewer.blockPosition();
-                w.homeX = pos.getX(); w.homeY = pos.getY(); w.homeZ = pos.getZ();
-                w.hasHome = true;
-                info("Дом назначен: " + pos.toShortString());
-                changed = true;
+                var result = KingdomResidentHome.assign(viewer, w);
+                info(result.message());
+                changed = result.assigned();
             }
             case 1 -> {
                 if(w.employer!=null&&!owner){

@@ -56,7 +56,9 @@ final class KingdomMunicipalLandCashTest {
         String cash=Files.readString(Path.of("src/main/java/ru/projectkingdom/npc/KingdomPhysicalCash.java"));
         assertTrue(bank.contains("KingdomPhysicalCash.deposit("));
         assertTrue(bank.contains("KingdomPhysicalCash.withdraw("));
-        assertTrue(enterprise.contains("KingdomPhysicalCash.takeForNpc("));
+        assertTrue(enterprise.contains("ResidentPhysicalPurchase.cashWage(worker.wagePurse,cash.container(),amount,KingdomCurrency::value)"));
+        assertTrue(enterprise.contains("EnterpriseBindingRole.CASHBOX"));
+        assertTrue(enterprise.contains("KingdomPhysicalCash.value(cash.container())<firm.cash()"));
         assertTrue(enterprise.contains("KingdomPhysicalCash.deposit("));
         String taxes=Files.readString(Path.of("src/main/java/ru/projectkingdom/npc/KingdomTaxData.java"));
         assertTrue(admin.contains("pay_taxes") == false); // payments use the validated text packet

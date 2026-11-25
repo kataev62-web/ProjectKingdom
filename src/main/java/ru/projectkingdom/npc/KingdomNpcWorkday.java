@@ -28,6 +28,12 @@ public final class KingdomNpcWorkday {
         return false;
     }
 
+    /** A standing work order survives sleep; only an actual work goal spends
+     * daily energy. This lets resting and exhausted workers recover normally. */
+    public static boolean expendsEnergy(String order, KingdomNpcGoalSelector.Goal goal) {
+        return KingdomNpcDuty.autonomousOrder(order) && goal == KingdomNpcGoalSelector.Goal.WORK;
+    }
+
     /** Does an existing site allow this profession to join the common shift? */
     public static boolean hasAssignment(MinecraftServer server, ServerLevel level,
                                         KingdomNpcData.Worker worker) {

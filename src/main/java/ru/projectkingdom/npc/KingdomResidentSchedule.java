@@ -1,0 +1,166 @@
+package ru.projectkingdom.npc;
+
+import java.util.UUID;
+
+/** Individual MCA schedules govern MCA residents; the legacy clock is a vanilla fallback. */
+public final class KingdomResidentSchedule {
+    private KingdomResidentSchedule() {}
+
+    /** Who owns the resident at this moment. */
+    public enum Mode {
+        /** The ordinary life of MCA: the schedule, the family, the bed. */
+        MCA_LIFE,
+        /** The work of the Kingdom: the contract, the tools, the goods. */
+        KINGDOM_WORK,
+        /** The rest of the Kingdom: the tavern, the meal, the bed. */
+        KINGDOM_REST,
+        /** Bounded safe exit before native rest; never permits production. */
+        EVACUATING,
+        /** A complex order of the planner. */
+        PLAYER2_TASK,
+        /** Danger: the resident may run away and must not be held. */
+        EMERGENCY
+    }
+
+    /** The hour of the day in the ticks of Minecraft. */
+    public static int tickOfHour(int hour) {
+        int wrapped = ((hour - 6) % 24 + 24) % 24;
+        return wrapped * 1000;
+    }
+
+    /** The hour of the day of a tick of Minecraft. */
+    public static int hourOfTick(long dayTime) {
+        int tick = (int) Math.floorMod(dayTime, 24000L);
+        return (tick / 1000 + 6) % 24;
+    }
+
+    /**
+     * The mode of a resident at the given time of the day.
+     *
+     * @param dayTime the time of the day in the ticks of Minecraft.
+     * @param employed whether the resident has a contract of the Kingdom.
+     * @param task whether a complex order of the planner is waiting.
+     * @param emergency whether the resident is in danger.
+     */
+    public static Mode modeOf(long dayTime, boolean employed, boolean task, boolean emergency) {
+        if (emergency) return Mode.EMERGENCY;
+        int tick = (int) Math.floorMod(dayTime, 24000L);
+        // 06:00-08:00: the ordinary life of MCA.
+        if (tick < tickOfHour(8)) return Mode.MCA_LIFE;
+        // 08:00-12:00: the work of the Kingdom.
+        if (tick < tickOfHour(12)) return employed ? (task ? Mode.PLAYER2_TASK : Mode.KINGDOM_WORK) : Mode.MCA_LIFE;
+        // 12:00-13:00: the rest.
+        if (tick < tickOfHour(13)) return employed ? Mode.KINGDOM_REST : Mode.MCA_LIFE;
+        // 13:00-18:00: the work of the Kingdom.
+        if (tick < tickOfHour(18)) return employed ? (task ? Mode.PLAYER2_TASK : Mode.KINGDOM_WORK) : Mode.MCA_LIFE;
+        // 18:00-06:00: the ordinary life of MCA, the sleep included.
+        return Mode.MCA_LIFE;
+    }
+
+    /** Whether the Kingdom owns the navigation of the resident in this mode. */
+    public static boolean kingdomOwns(Mode mode) {
+        return mode == Mode.KINGDOM_WORK || mode == Mode.EVACUATING || mode == Mode.PLAYER2_TASK;
+    }
+
+    /** Whether the resident must work in this mode. */
+    public static boolean working(Mode mode) {
+        return mode == Mode.KINGDOM_WORK || mode == Mode.PLAYER2_TASK;
+    }
+
+    /**
+     * Whether the resident may work right now.
+     *
+     * <p>Every production executor asks this question first: during the rest
+     * of the Kingdom the resident only lives its ordinary life.
+     */
+    public static boolean working(net.minecraft.server.MinecraftServer server,
+                                  KingdomNpcData.Worker worker) {
+        if (server == null || worker == null) return false;
+        return working(modeOf(server, worker.entityId, worker));
+    }
+
+    /** Whether the resident may do its ordinary life of MCA in this mode. */
+    public static boolean mcaLife(Mode mode) {
+        return mode == Mode.MCA_LIFE || mode == Mode.KINGDOM_REST || mode == Mode.EMERGENCY;
+    }
+
+    /**
+     * The mode of a resident.
+     *
+     * <p>The contract of the Kingdom decides whether the resident works at
+     * all, the planner decides whether a complex order waits and the danger
+     * decides whether the resident may run away.
+     */
+    public static Mode modeOf(net.minecraft.server.MinecraftServer server, UUID resident,
+                              KingdomNpcData.Worker worker) {
+        if (server == null || worker == null) return Mode.MCA_LIFE;
+        boolean employed = participatesInShift(worker.employer == null,
+                "farmer".equals(worker.job) && KingdomNpcDuty.autonomousOrder(worker.order),
+                !worker.contractPaused && worker.ageYears >= 18,
+                KingdomNpcWorkday.employed(server, worker));
+        // A complex order of the planner is a real task of the planner, not
+        // the ordinary intention of looking for work.
+        boolean task = worker != null && "PLAYER2_TASK".equals(worker.autonomousIntent);
+        boolean emergency = worker.safety < 25;
+        for (var level : server.getAllLevels()) {
+            if (!level.dimension().location().toString().equals(worker.dimension)) continue;
+            if (level.getEntity(resident) instanceof net.minecraft.world.entity.npc.Villager npc) {
+                emergency |= threatened(npc);
+                if (KingdomMcaAdapter.isResident(npc)) {
+                    var nativeState = KingdomMcaSchedule.inspect(npc, npc.getBrain().getSchedule());
+                    return mcaMode(nativeState, employed, task, emergency, npc.isSleeping(),
+                        KingdomResidentRestController.requiresRest(worker),
+                        KingdomResidentRestController.evacuating(resident));
+                }
+            }
+            break;
+        }
+        return modeOf(server.overworld().getDayTime(), employed, task, emergency);
+    }
+
+    static Mode mcaMode(KingdomMcaSchedule.Snapshot state, boolean employed, boolean task,
+                        boolean emergency, boolean sleeping, boolean tired, boolean evacuating) {
+        if (emergency) return Mode.EMERGENCY;
+        if (!state.controlsAvailable() || state.manualOverride()) return Mode.MCA_LIFE;
+        if (evacuating && !sleeping) return Mode.EVACUATING;
+        if (sleeping || tired) return Mode.KINGDOM_REST;
+        if (!state.workAllowed()) return Mode.MCA_LIFE;
+        return employed ? (task ? Mode.PLAYER2_TASK : Mode.KINGDOM_WORK) : Mode.MCA_LIFE;
+    }
+
+    /** Keep the existing independent crop worker without inventing an employment contract. */
+    public static boolean participatesInShift(boolean independent, boolean independentCropOrder,
+                                               boolean eligible, boolean contracted) {
+        return eligible && (contracted || independent && independentCropOrder);
+    }
+
+    public static boolean threatened(net.minecraft.world.entity.npc.Villager npc) {
+        return ru.projectkingdom.npc.compat.TownsteadNpcCompatibility.mustRest(npc)
+            || npc.isOnFire() || npc.isInWaterOrBubble() || npc.getLastHurtByMob() != null
+            && npc.tickCount - npc.getLastHurtByMobTimestamp() < 100
+            || npc.getBrain().isActive(net.minecraft.world.entity.schedule.Activity.PANIC)
+            || npc.getBrain().isActive(net.minecraft.world.entity.schedule.Activity.HIDE)
+            || npc.getBrain().isActive(net.minecraft.world.entity.schedule.Activity.RAID);
+    }
+
+    /** The same authority gate is used by every profession, builder and courier. */
+    public static boolean mayProduce(net.minecraft.server.MinecraftServer server,
+                                     KingdomNpcData.Worker worker) {
+        return worker != null && !worker.inventoryRecoveryRequired
+            && !KingdomNpcBagMenu.isOpen(worker.entityId)
+            && working(modeOf(server, worker.entityId, worker));
+    }
+
+    /** The name of a mode for the operator. */
+    public static String describe(Mode mode) {
+        if (mode == null) return "—";
+        return switch (mode) {
+            case MCA_LIFE -> "жизнь MCA";
+            case KINGDOM_WORK -> "работа Kingdom";
+            case KINGDOM_REST -> "отдых MCA";
+            case EVACUATING -> "выход из шахты к отдыху";
+            case PLAYER2_TASK -> "поручение Player2";
+            case EMERGENCY -> "опасность";
+        };
+    }
+}

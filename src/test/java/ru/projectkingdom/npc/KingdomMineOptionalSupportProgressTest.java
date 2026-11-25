@@ -28,7 +28,10 @@ final class KingdomMineOptionalSupportProgressTest {
         String code=work();
         int dangerous=code.indexOf(
             "if(supportSafety==KingdomMineSupportSafety.Result.NEEDS_HORIZONTAL_BEAM)");
-        int mining=code.indexOf("level.setBlock(target,Blocks.AIR.defaultBlockState(),3)");
+        // The block is no longer replaced with air: the break goes through the
+        // executor, so that the Forge break event may refuse it. The guard of
+        // the dangerous rock must still come first.
+        int mining=code.indexOf("KingdomActionEngine.breakBlock(level,npc,worker,target,realTool)");
         assertTrue(dangerous>0 && mining>dangerous);
         String guard=code.substring(dangerous,mining);
         assertTrue(guard.contains("KingdomMineSupportPlan.emergency(previous,floorCell)"));

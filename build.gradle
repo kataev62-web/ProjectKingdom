@@ -1,7 +1,7 @@
 plugins {
     id 'eclipse'
     id 'idea'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'net.minecraftforge.gradle' version '6.0.54'
 }
 version = '0.1.0-stage0-voice3.3'
 group = 'ru.projectkingdom'
@@ -21,7 +21,7 @@ configurations {
 }
 
 dependencies {
-    minecraft 'net.minecraftforge:forge:1.20.1-47.3.0'
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.10'
     compileOnly 'com.alphacephei:vosk:0.3.45'
     // Forge runClient uses the source-set classpath rather than the shaded mod JAR.
     runtimeOnly('com.alphacephei:vosk:0.3.45') { transitive = false }
@@ -91,5 +91,14 @@ jar {
         }
     }
     exclude 'META-INF/*.SF', 'META-INF/*.RSA', 'META-INF/*.DSA'
-    manifest { attributes(['Specification-Title':'Kingdom NPC', 'Implementation-Version':project.version]) }
+    manifest { attributes(['Specification-Title':'Kingdom NPC', 'Implementation-Version':project.version, 'MixinConfigs':'kingdomnpc.compat.mixins.json']) }
+}
+
+// Separate, opt-in production-mapped probes; never bundled in the gameplay JAR.
+apply from: 'gradle/npc-runtime-validation.gradle'
+
+// Stable archive metadata makes exact-source artifacts easier to compare across CI/local builds.
+tasks.withType(AbstractArchiveTask).configureEach {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
 }

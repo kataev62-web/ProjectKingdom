@@ -47,7 +47,7 @@ public final class KingdomMineWork {
 
     static boolean safeToBreak(ServerLevel level, BlockPos pos,
                                        KingdomNpcData.Worker worker) {
-        if (!level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
+        if (worker == null || worker.employer == null || !level.hasChunkAt(pos) || pos.getY() <= level.getMinBuildHeight() + 1
             || pos.getY() >= level.getMaxBuildHeight() - 3
             || !worker.employer.equals(KingdomTerritories.get(level.getServer()).owner(level,pos)))
             return false;
@@ -58,7 +58,8 @@ public final class KingdomMineWork {
             || !state.getFluidState().isEmpty() || level.getBlockEntity(pos)!=null
             || state.getDestroySpeed(level,pos)<0) return false;
         if (!KingdomMineTools.matches(worker.fieldTool,needed)
-            || !worker.fieldTool.isCorrectToolForDrops(state)) return false;
+            || state.requiresCorrectToolForDrops()
+                && !worker.fieldTool.isCorrectToolForDrops(state)) return false;
         // Never deliberately open a liquid pocket or let loose gravel/sand fall.
         for (var direction : net.minecraft.core.Direction.values()) {
             BlockPos neighbor=pos.relative(direction);
@@ -93,6 +94,7 @@ public final class KingdomMineWork {
             || !binding.dimension().equals(worker.dimension)) {status(level,worker,"Нет действующей шахты");return false;}
         BlockPos core=BlockPos.of(binding.packedPos());
         if (!level.hasChunkAt(core)) return false;
+        KingdomActionEngine.pickup(level,npc,worker,2.5);
         int carried=KingdomMineCargo.minedCount(worker);
         // Construction stock is not finished ore. Deposit on cargo threshold,
         // and let the shared physical route bring the miner back to the depot.
@@ -129,12 +131,22 @@ public final class KingdomMineWork {
             status(level,worker,"Выдели ствол 7×7–12×12 через блок предприятия «Шахта»");
             return false;
         }
-        var anchors=central?java.util.List.<BlockPos>of()
-            :KingdomMineLevelPlan.anchors(core,start);
         int requestedLevels=settings.levels(id);
         var heading=settings.heading(id);
-        var excavation=central?KingdomMineCentralShaftPlan.cells(
-            core,area,requestedLevels,heading):KingdomMineLevelPlan.cells(core,start);
+        // The central shaft is dug layer by layer: the whole horizontal layer
+        // of the surveyed footprint is cleared before the next one starts.
+        if (central) {
+            boolean changed = KingdomMineLayerWork.tick(level,npc,worker,area,requestedLevels,heading);
+            if (changed) settings.markStarted(id);
+            if (!changed && "Все слои шахты пройдены".equals(worker.mineStatus)
+                    && KingdomMineCargo.minedCount(worker) > 0) {
+                status(level, worker, "Возвращает последнюю добычу на склад");
+                return NpcFieldWork.deposit(level,npc,worker);
+            }
+            return changed;
+        }
+        var anchors=KingdomMineLevelPlan.anchors(core,start);
+        var excavation=KingdomMineLevelPlan.cells(core,start);
         for (var cell : excavation) {
             BlockPos floorCell=cell.target();
             BlockPos previous=cell.approach();
@@ -268,21 +280,25 @@ public final class KingdomMineWork {
                     else status(level,worker,"Идёт к месту добычи");
                     return false;
                 }
-                BlockState state=level.getBlockState(target);
-                var drops=Block.getDrops(state,level,target,level.getBlockEntity(target),
-                    npc,worker.fieldTool);
-                if (!NpcFieldWork.canFit(worker,drops)) {status(level,worker,"Сумка переполнена");return false;}
-                if (!level.setBlock(target,Blocks.AIR.defaultBlockState(),3)) return false;
+                // The break goes through the executor: the Forge break event
+                // comes first, so that TFC and every other mod may refuse the
+                // block. A direct replacement with air would skip the
+                // collapse rules and the protection of the world.
+                ItemStack realTool=KingdomActionEngine.toolOf(npc,worker,needed);
+                if(realTool.isEmpty()){
+                    status(level,worker,"Нет исправного инструмента в сумке жителя");
+                    return false;
+                }
+                var outcome=KingdomActionEngine.breakBlock(level,npc,worker,target,realTool);
+                if(!outcome.done()){
+                    status(level,worker,outcome.message());
+                    return false;
+                }
                 settings.markStarted(id);
-                for (ItemStack stack:drops) NpcFieldWork.put(worker,stack);
-                worker.fieldTool.hurt(1,level.random,null);
-                if (worker.fieldTool.isEmpty() || worker.fieldTool.getDamageValue()
-                    >=worker.fieldTool.getMaxDamage()) worker.fieldTool=ItemStack.EMPTY;
+                // The confirmed work raises the skill of the resident.
+                KingdomResidentDevelopment.get(level.getServer())
+                    .award(worker.entityId,"mining",1);
                 status(level,worker,"Добывает породу на глубине Y="+target.getY());
-                worker.fieldHarvested+=drops.stream().mapToInt(ItemStack::getCount).sum();
-                worker.skillXp++;
-                worker.energy=Math.max(0,worker.energy-1);
-                KingdomNpcData.get(level.getServer()).setDirty();
                 return true;
             }
             // At each two-block descent checkpoint build a real ladder, then
